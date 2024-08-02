@@ -1,0 +1,1285 @@
+{
+    "timestamp": 1722315308,
+    "sodOnly": false,
+    "chainId": "1",
+    "solverAddress": "0x2C26808b567BA224652f4eB20D45df4bccC29470",
+    "poolAddress": "0x49C4719EaCc746b87703F964F09C22751F397BA0",
+    "destinationOut": "0x772C047f317381c8F2DBd7B43E13B704EfFdDD45",
+    "tokenOut": "0xe080027Bd47353b5D1639772b4a75E9Ed3658A0d",
+    "amountOut": "34789300355926847071",
+    "amountOutETH": "35662153486626607104",
+    "destinationIn": "0x2E5A8C3aE475734Ece6443B5E68F7fA63133AF3D",
+    "tokenIn": "0x59Ab5a5b5d617E478a2479B0cAD80DA7e2831492",
+    "minAmountIn": "34753970139591839744",
+    "minAmountInETH": "35557459095475277824",
+    "steps": [
+        {
+            "stepType": "removeLiquidity",
+            "poolType": "curveV1",
+            "poolAddress": "0xe080027Bd47353b5D1639772b4a75E9Ed3658A0d",
+            "lpTokenAddress": "0xe080027Bd47353b5D1639772b4a75E9Ed3658A0d",
+            "lpAmountOut": "34789300355926847071",
+            "tokens": [
+                "0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38",
+                "0xae78736Cd615f374D3085123A210448E74Fc6393"
+            ],
+            "minTokenAmounts": [
+                "20365968974446309376",
+                "13223861411693584384"
+            ]
+        },
+        {
+            "stepType": "swap",
+            "dex": "lifi",
+            "tokenOut": "0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38",
+            "amountOut": "20365968974446309376",
+            "tokenIn": "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b",
+            "minAmountIn": "0",
+            "payload": {
+                "type": "lifi",
+                "id": "72c928ee-904d-49ec-921e-368a1d56da59:0",
+                "tool": "1inch",
+                "toolDetails": {
+                    "key": "1inch",
+                    "name": "1inch",
+                    "logoURI": "https://raw.githubusercontent.com/lifinance/types/main/src/assets/icons/exchanges/oneinch.png"
+                },
+                "action": {
+                    "fromToken": {
+                        "address": "0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38",
+                        "chainId": 1,
+                        "symbol": "osETH",
+                        "decimals": 18,
+                        "name": "Staked ETH",
+                        "coinKey": "osETH",
+                        "logoURI": "https://static.debank.com/image/eth_token/logo_url/0xf1c9acdc66974dfb6decb12aa385b9cd01190e38/4b9f533a91f012c8b142dd3b0755adae.png",
+                        "priceUSD": "3391.664303578211"
+                    },
+                    "fromAmount": "20365968974446309376",
+                    "toToken": {
+                        "address": "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b",
+                        "chainId": 1,
+                        "symbol": "ETHx",
+                        "decimals": 18,
+                        "name": "ETHx",
+                        "coinKey": "ETHx",
+                        "logoURI": "https://static.debank.com/image/eth_token/logo_url/0xa35b1b31ce002fbf2058d22f30f95d405200a15b/8858b381b2f2cd6336d5dfc9d9bc1e51.png",
+                        "priceUSD": "3433.5212176499485"
+                    },
+                    "fromChainId": 1,
+                    "toChainId": 1,
+                    "slippage": 0.003,
+                    "fromAddress": "0x2C26808b567BA224652f4eB20D45df4bccC29470",
+                    "toAddress": "0x2C26808b567BA224652f4eB20D45df4bccC29470"
+                },
+                "estimate": {
+                    "tool": "1inch",
+                    "approvalAddress": "0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE",
+                    "toAmountMin": "20086909173293941416",
+                    "toAmount": "20147351226974866014",
+                    "fromAmount": "20365968974446309376",
+                    "feeCosts": [],
+                    "gasCosts": [
+                        {
+                            "type": "SEND",
+                            "price": "1607246322",
+                            "estimate": "882374",
+                            "limit": "1147086",
+                            "amount": "1418192366128428",
+                            "amountUSD": "4.70",
+                            "token": {
+                                "address": "0x0000000000000000000000000000000000000000",
+                                "chainId": 1,
+                                "symbol": "ETH",
+                                "decimals": 18,
+                                "name": "ETH",
+                                "coinKey": "ETH",
+                                "logoURI": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png",
+                                "priceUSD": "3313.78"
+                            }
+                        }
+                    ],
+                    "executionDuration": 30,
+                    "fromAmountUSD": "69074.53",
+                    "toAmountUSD": "69176.36"
+                },
+                "includedSteps": [
+                    {
+                        "id": "18b0844d-d361-4d31-9044-b0f664b3011b",
+                        "type": "swap",
+                        "action": {
+                            "fromChainId": 1,
+                            "fromAmount": "20365968974446309376",
+                            "fromToken": {
+                                "address": "0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38",
+                                "chainId": 1,
+                                "symbol": "osETH",
+                                "decimals": 18,
+                                "name": "Staked ETH",
+                                "coinKey": "osETH",
+                                "logoURI": "https://static.debank.com/image/eth_token/logo_url/0xf1c9acdc66974dfb6decb12aa385b9cd01190e38/4b9f533a91f012c8b142dd3b0755adae.png",
+                                "priceUSD": "3391.664303578211"
+                            },
+                            "toChainId": 1,
+                            "toToken": {
+                                "address": "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b",
+                                "chainId": 1,
+                                "symbol": "ETHx",
+                                "decimals": 18,
+                                "name": "ETHx",
+                                "coinKey": "ETHx",
+                                "logoURI": "https://static.debank.com/image/eth_token/logo_url/0xa35b1b31ce002fbf2058d22f30f95d405200a15b/8858b381b2f2cd6336d5dfc9d9bc1e51.png",
+                                "priceUSD": "3433.5212176499485"
+                            },
+                            "slippage": 0.003,
+                            "fromAddress": "0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE",
+                            "toAddress": "0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE"
+                        },
+                        "estimate": {
+                            "tool": "1inch",
+                            "fromAmount": "20365968974446309376",
+                            "toAmount": "20147351226974866014",
+                            "toAmountMin": "20086909173293941416",
+                            "approvalAddress": "0x111111125421ca6dc452d289314280a0f8842a65",
+                            "executionDuration": 30,
+                            "feeCosts": [],
+                            "gasCosts": [
+                                {
+                                    "type": "SEND",
+                                    "price": "1607246322",
+                                    "estimate": "300000",
+                                    "limit": "390000",
+                                    "amount": "482173896600000",
+                                    "amountUSD": "1.60",
+                                    "token": {
+                                        "address": "0x0000000000000000000000000000000000000000",
+                                        "chainId": 1,
+                                        "symbol": "ETH",
+                                        "decimals": 18,
+                                        "name": "ETH",
+                                        "coinKey": "ETH",
+                                        "logoURI": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png",
+                                        "priceUSD": "3313.78"
+                                    }
+                                }
+                            ]
+                        },
+                        "tool": "1inch",
+                        "toolDetails": {
+                            "key": "1inch",
+                            "name": "1inch",
+                            "logoURI": "https://raw.githubusercontent.com/lifinance/types/main/src/assets/icons/exchanges/oneinch.png"
+                        }
+                    }
+                ],
+                "integrator": "lifi-api",
+                "transactionRequest": {
+                    "data": "0x4666fc808ec9d5ef87f6f144373edfe3a8882cc00b963565149dee33d0bb968cc34df67f00000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001000000000000000000000000002c26808b567ba224652f4eb20d45df4bccc2947000000000000000000000000000000000000000000000000116c30977d5b882a8000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000086c6966692d617069000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a30783030303030303030303030303030303030303030303030303030303030303030303030303030303000000000000000000000000000000000000000000000000000000000000000000000111111125421ca6dc452d289314280a0f8842a65000000000000000000000000111111125421ca6dc452d289314280a0f8842a65000000000000000000000000f1c9acdc66974dfb6decb12aa385b9cd01190e38000000000000000000000000a35b1b31ce002fbf2058d22f30f95d405200a15b0000000000000000000000000000000000000000000000011aa274e0f47fb00000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000004a807ed2379000000000000000000000000e37e799d5077682fa0a244d46e5649f71457bd09000000000000000000000000f1c9acdc66974dfb6decb12aa385b9cd01190e38000000000000000000000000a35b1b31ce002fbf2058d22f30f95d405200a15b000000000000000000000000e37e799d5077682fa0a244d46e5649f71457bd090000000000000000000000001231deb6f5749ef6ce6943a275a1d3e7486f4eae0000000000000000000000000000000000000000000000011aa274e0f47fb00000000000000000000000000000000000000000000000000116c30977d5b882a70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000003600000000000000000000000000000000000000000000003420003140002ca00a007e5c0d20000000000000000000000000000000000000002a60001f60001dc00004f00a0fbb7cd0600dacf5fa19b1f720111609043ac67a9818262850c000000000000000000000635f1c9acdc66974dfb6decb12aa385b9cd01190e38c02aaa39b223fe8d0a0e5c4f27ead9083c756cc200a0c9e75c480000000000000000240e00000000000000000000000000000000000000000000000000015f00004f02a0000000000000000000000000000000000000000000000000445c90f9b00c6a1fee63c1e5003a1b97fc25fa45832f588ed3bfb2a0f74ddbd4f8c02aaa39b223fe8d0a0e5c4f27ead9083c756cc25120d17b3c9784510e33cd5b87b490e79253bcd81e2ec02aaa39b223fe8d0a0e5c4f27ead9083c756cc2004458d30ac9000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000007f39c581f595b53c5cb19bd0b3f8da6c935e2ca00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000afcb7f2779e50f140000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e37e799d5077682fa0a244d46e5649f71457bd090000000000000000000000000000000000000000000000000000000066af0a250020d6bdbf787f39c581f595b53c5cb19bd0b3f8da6c935e2ca0512014756a5ed229265f86990e749285bdd39fe0334f7f39c581f595b53c5cb19bd0b3f8da6c935e2ca000445b41b90800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000114cdfe1a8e60f0a900a0f2fa6b66a35b1b31ce002fbf2058d22f30f95d405200a15b0000000000000000000000000000000000000000000000011799c53218de0a5e000000000000000000052e8a116b630f80a06c4eca27a35b1b31ce002fbf2058d22f30f95d405200a15b111111125421ca6dc452d289314280a0f8842a652a94d114000000000000000000000000000000000000000000000000",
+                    "to": "0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE",
+                    "value": "0x0",
+                    "gasPrice": "0x5fcca1f2",
+                    "gasLimit": "0x1180ce",
+                    "from": "0x2C26808b567BA224652f4eB20D45df4bccC29470",
+                    "chainId": 1
+                }
+            }
+        },
+        {
+            "stepType": "swap",
+            "dex": "0x",
+            "tokenOut": "0xae78736Cd615f374D3085123A210448E74Fc6393",
+            "amountOut": "10717975681128161280",
+            "tokenIn": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "minAmountIn": "0",
+            "payload": {
+                "chainId": 1,
+                "price": "1.116742049882683056",
+                "grossPrice": "1.11841136272239844",
+                "estimatedPriceImpact": "0.0213",
+                "value": "0",
+                "gasPrice": "1141510000",
+                "gas": "285830",
+                "estimatedGas": "285830",
+                "protocolFee": "0",
+                "minimumProtocolFee": "0",
+                "buyTokenAddress": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "buyAmount": "11969214132735808997",
+                "grossBuyAmount": "11987105787156073473",
+                "sellTokenAddress": "0xae78736cd615f374d3085123a210448e74fc6393",
+                "sellAmount": "10717975681128161280",
+                "grossSellAmount": "10717975681128161280",
+                "sources": [
+                    {
+                        "name": "0x",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Uniswap",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Uniswap_V2",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Curve",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Balancer",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Balancer_V2",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "BancorV3",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "SushiSwap",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "DODO",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "DODO_V2",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "CryptoCom",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Lido",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "MakerPsm",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "KyberDMM",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Uniswap_V3",
+                        "proportion": "1"
+                    },
+                    {
+                        "name": "Curve_V2",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "ShibaSwap",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Synapse",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Synthetix",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Aave_V2",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Compound",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "KyberElastic",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Maverick_V1",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "PancakeSwap_V3",
+                        "proportion": "0"
+                    }
+                ],
+                "allowanceTarget": "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+                "sellTokenToEthRate": "0.89393538901194355",
+                "buyTokenToEthRate": "1",
+                "to": "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+                "data": "0x415565b0000000000000000000000000ae78736cd615f374d3085123a210448e74fc6393000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000a54862e70dc6f3c100000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000420000000000000000000000000000000000000000000000000000000000000052000000000000000000000000000000000000000000000000000000000000000210000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000036000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ae78736cd615f374d3085123a210448e74fc6393000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc200000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000320000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000000000000000000000002e0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000012556e697377617056330000000000000000000000000000000000000000000000000000000000000094bde61880eb6000000000000000000000000000000000000000000000000000a587f34477f0e9dd000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000e592427a0aece92de3edee1f18e0157c0586156400000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002bae78736cd615f374d3085123a210448e74fc6393000064c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001b000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000000000000000000000000000003f905d6a29f61c000000000000000000000000ad01c20d5886137e056775af56915de824c8fce5000000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000002000000000000000000000000ae78736cd615f374d3085123a210448e74fc6393000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000000000000000000000000000000000000000000000000000000000000000869584cd00000000000000000000000010000000000000000000000000000000000000110000000000000000000000000000000000000000417b3fbd5dfc896c1f6d1a52",
+                "decodedUniqueId": "0x417b3fbd5dfc896c1f6d1a52",
+                "guaranteedPrice": "1.111205913637207184",
+                "orders": [
+                    {
+                        "type": 0,
+                        "source": "Uniswap_V3",
+                        "makerToken": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                        "takerToken": "0xae78736cd615f374d3085123a210448e74fc6393",
+                        "makerAmount": "11987105787156073473",
+                        "takerAmount": "10717975681128161280",
+                        "fillData": {
+                            "router": "0xe592427a0aece92de3edee1f18e0157c05861564",
+                            "path": "0xae78736cd615f374d3085123a210448e74fc6393000064c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                            "gasUsed": 10415,
+                            "routerVersion": 1
+                        },
+                        "fill": {
+                            "input": "10717975681128161280",
+                            "output": "11987105787156073473",
+                            "adjustedOutput": "11986967860785794000",
+                            "gas": 120828
+                        }
+                    }
+                ],
+                "fees": {
+                    "zeroExFee": {
+                        "feeType": "volume",
+                        "feeToken": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                        "feeAmount": "17891654420264476",
+                        "billingType": "on-chain"
+                    }
+                },
+                "auxiliaryChainData": {}
+            }
+        },
+        {
+            "stepType": "unwrap",
+            "amountIn": "11968615672029173760",
+            "amountOut": "11968615672029173760"
+        },
+        {
+            "stepType": "swap",
+            "dex": "0x",
+            "tokenOut": "0xae78736Cd615f374D3085123A210448E74Fc6393",
+            "amountOut": "2505885730565422080",
+            "tokenIn": "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b",
+            "minAmountIn": "0",
+            "payload": {
+                "chainId": 1,
+                "price": "1.078178069561636556",
+                "grossPrice": "1.079789736727933251",
+                "estimatedPriceImpact": "0.0244",
+                "value": "0",
+                "gasPrice": "3070760000",
+                "gas": "304932",
+                "estimatedGas": "304932",
+                "protocolFee": "0",
+                "minimumProtocolFee": "0",
+                "buyTokenAddress": "0xa35b1b31ce002fbf2058d22f30f95d405200a15b",
+                "buyAmount": "2701791039523078090",
+                "grossBuyAmount": "2705829693277521787",
+                "sellTokenAddress": "0xae78736cd615f374d3085123a210448e74fc6393",
+                "sellAmount": "2505885730565422080",
+                "grossSellAmount": "2505885730565422080",
+                "sources": [
+                    {
+                        "name": "0x",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Uniswap",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Uniswap_V2",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Curve",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Balancer",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Balancer_V2",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "BancorV3",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "SushiSwap",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "DODO",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "DODO_V2",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "CryptoCom",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Lido",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "MakerPsm",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "KyberDMM",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Uniswap_V3",
+                        "proportion": "1"
+                    },
+                    {
+                        "name": "Curve_V2",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "ShibaSwap",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Synapse",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Synthetix",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Aave_V2",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Compound",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "KyberElastic",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "Maverick_V1",
+                        "proportion": "0"
+                    },
+                    {
+                        "name": "PancakeSwap_V3",
+                        "proportion": "0"
+                    }
+                ],
+                "allowanceTarget": "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+                "sellTokenToEthRate": "0.89393538901194355",
+                "buyTokenToEthRate": "0.96549691134915542",
+                "to": "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+                "data": "0x415565b0000000000000000000000000ae78736cd615f374d3085123a210448e74fc6393000000000000000000000000a35b1b31ce002fbf2058d22f30f95d405200a15bffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000254f1afe6889d57500000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000440000000000000000000000000000000000000000000000000000000000000054000000000000000000000000000000000000000000000000000000000000000210000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000038000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ae78736cd615f374d3085123a210448e74fc6393000000000000000000000000a35b1b31ce002fbf2058d22f30f95d405200a15b0000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000034000000000000000000000000000000000000000000000000000000000000003400000000000000000000000000000000000000000000000000000000000000300ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003400000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000012556e697377617056330000000000000000000000000000000000000000000000000000000000000022c6b1cb92127c00000000000000000000000000000000000000000000000000255d7420c2f15d26000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000e592427a0aece92de3edee1f18e0157c05861564000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000042ae78736cd615f374d3085123a210448e74fc6393000064c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a35b1b31ce002fbf2058d22f30f95d405200a15b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001b000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000a35b1b31ce002fbf2058d22f30f95d405200a15b000000000000000000000000000000000000000000000000000e59225a6787b1000000000000000000000000ad01c20d5886137e056775af56915de824c8fce5000000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000002000000000000000000000000ae78736cd615f374d3085123a210448e74fc6393000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000000000000000000000000000000000000000000000000000000000000000869584cd00000000000000000000000010000000000000000000000000000000000000110000000000000000000000000000000000000000323e177a50f6aea39b6ed9e2",
+                "decodedUniqueId": "0x323e177a50f6aea39b6ed9e2",
+                "guaranteedPrice": "1.072833110364833287",
+                "orders": [
+                    {
+                        "type": 0,
+                        "source": "Uniswap_V3",
+                        "makerToken": "0xa35b1b31ce002fbf2058d22f30f95d405200a15b",
+                        "takerToken": "0xae78736cd615f374d3085123a210448e74fc6393",
+                        "makerAmount": "2705829693277521787",
+                        "takerAmount": "2505885730565422080",
+                        "fillData": {
+                            "router": "0xe592427a0aece92de3edee1f18e0157c05861564",
+                            "path": "0xae78736cd615f374d3085123a210448e74fc6393000064c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a35b1b31ce002fbf2058d22f30f95d405200a15b",
+                            "gasUsed": 19966,
+                            "routerVersion": 1
+                        },
+                        "fill": {
+                            "input": "2505885730565422080",
+                            "output": "2705829693277521787",
+                            "adjustedOutput": "2705420490298557845",
+                            "gas": 138020
+                        }
+                    }
+                ],
+                "fees": {
+                    "zeroExFee": {
+                        "feeType": "volume",
+                        "feeToken": "0xa35b1b31ce002fbf2058d22f30f95d405200a15b",
+                        "feeAmount": "4038653754443697",
+                        "billingType": "on-chain"
+                    }
+                },
+                "auxiliaryChainData": {}
+            }
+        },
+        {
+            "stepType": "addLiquidity",
+            "poolType": "curveV1",
+            "poolAddress": "0x59Ab5a5b5d617E478a2479B0cAD80DA7e2831492",
+            "lpTokenAddress": "0x59Ab5a5b5d617E478a2479B0cAD80DA7e2831492",
+            "tokens": [
+                "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b",
+                "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+            ],
+            "amounts": [
+                "20085904827835277312",
+                "14670271622000275968"
+            ],
+            "minLpAmountOut": "0"
+        }
+    ],
+    "sod": {
+        "currentTimestamp": 1722315308,
+        "destStates": [
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Curve.fi ETH/stETH",
+                "address": "0x75FD0d0247fA088852417CD0F1bfa21D1d78aa14",
+                "poolType": "curveV1",
+                "pool": "0xDC24316b9AE028F1497c275EB9192a3Ea0f67022",
+                "underlying": "0x06325440D014e39736583c165C2963BA99fAf14E",
+                "underlyingTokens": [
+                    "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+                    "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+                ],
+                "underlyingReserves": [
+                    33617070272438364672610,
+                    34449875713585701308324
+                ],
+                "totalAprIn": 0.017355573137768712,
+                "totalAprOut": 0.017403100326348776,
+                "incentiveAPR": 0.0,
+                "destLPValue": 4.064252766414284e+22,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.0984271313814724,
+                "spotPrice": 1.09842716903404,
+                "tokenSpotPrice": [
+                    1.0,
+                    0.9998776055566277
+                ],
+                "tokenSafePrice": [
+                    1.0,
+                    0.999874792752816
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Curve.fi Factory Pool: stETH-ng",
+                "address": "0xD43e6d2a8B983DDEf52eC50eF0E3159542fEF8ed",
+                "poolType": "curveV1",
+                "pool": "0x21E27a5E5513D6e65C4f830167390997aA84843a",
+                "underlying": "0x21E27a5E5513D6e65C4f830167390997aA84843a",
+                "underlyingTokens": [
+                    "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+                    "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+                ],
+                "underlyingReserves": [
+                    8456899330871342970889,
+                    14251808342402196821613
+                ],
+                "totalAprIn": 0.020625458774700466,
+                "totalAprOut": 0.021961148223277292,
+                "incentiveAPR": 0.0,
+                "destLPValue": 2.1704858146834523e+22,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.032606822198699,
+                "spotPrice": 1.0325373265259146,
+                "tokenSpotPrice": [
+                    1.0,
+                    0.9996109889363735
+                ],
+                "tokenSafePrice": [
+                    1.0,
+                    0.999874792752816
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Curve.fi Factory Crypto Pool: cbETH/ETH",
+                "address": "0x1A73e18B2a677940Cf5d5eb8bC244854Dc07d551",
+                "poolType": "curveV2",
+                "pool": "0x5FAE7E604FC3e24fd43A72867ceBaC94c65b404A",
+                "underlying": "0x5b6C539b224014A09B3388e51CaAA8e354c959C8",
+                "underlyingTokens": [
+                    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                    "0xBe9895146f7AF43049ca1c1AE358B0541Ea49704"
+                ],
+                "underlyingReserves": [
+                    326383411636668963620,
+                    383521774824389527522
+                ],
+                "totalAprIn": 0.050672277526980974,
+                "totalAprOut": 0.06143322695727998,
+                "incentiveAPR": 0.0,
+                "destLPValue": 6.511904698358226e+20,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 2.1086146843159552,
+                "spotPrice": 2.10864885636822,
+                "tokenSpotPrice": [
+                    1.0,
+                    1.0778012664696568
+                ],
+                "tokenSafePrice": [
+                    1.0,
+                    1.0775839912899863
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-osETH/rETH",
+                "address": "0x772C047f317381c8F2DBd7B43E13B704EfFdDD45",
+                "poolType": "curveNG",
+                "pool": "0xe080027Bd47353b5D1639772b4a75E9Ed3658A0d",
+                "underlying": "0xe080027Bd47353b5D1639772b4a75E9Ed3658A0d",
+                "underlyingTokens": [
+                    "0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38",
+                    "0xae78736Cd615f374D3085123A210448E74Fc6393"
+                ],
+                "underlyingReserves": [
+                    3272861360886773137828,
+                    2319399954561382559420
+                ],
+                "totalAprIn": 0.0538225595531618,
+                "totalAprOut": 0.06801832604408006,
+                "incentiveAPR": 0.0,
+                "destLPValue": 1.0268078773750842e+21,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 34789300355926847071,
+                "totSupply": 0,
+                "safePrice": 1.025089700619721,
+                "spotPrice": 1.0251304107827917,
+                "tokenSpotPrice": [
+                    1.0247977679147697,
+                    1.1184922905132504
+                ],
+                "tokenSafePrice": [
+                    1.02455923,
+                    1.1187527080123365
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Curve.fi Factory Plain Pool: rETH/wstETH",
+                "address": "0x8bf50aA240564bC079ffB2a94265e471509c7163",
+                "poolType": "curveV1",
+                "pool": "0x447Ddd4960d9fdBF6af9a790560d0AF76795CB08",
+                "underlying": "0x447Ddd4960d9fdBF6af9a790560d0AF76795CB08",
+                "underlyingTokens": [
+                    "0xae78736Cd615f374D3085123A210448E74Fc6393",
+                    "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
+                ],
+                "underlyingReserves": [
+                    222201595854197060613,
+                    63536048937386567868
+                ],
+                "totalAprIn": 0.02785490695029136,
+                "totalAprOut": 0.027875787574343017,
+                "incentiveAPR": 0.0,
+                "destLPValue": 8.291870301195859e+19,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.1406127109529463,
+                "spotPrice": 1.140930339288598,
+                "tokenSpotPrice": [
+                    1.119314466600101,
+                    1.1734082917206543
+                ],
+                "tokenSafePrice": [
+                    1.1187527080123365,
+                    1.1739996537707886
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Balancer stETH Stable Pool",
+                "address": "0x38e73E98d2038FafdC847F13dd9100732383B6F2",
+                "poolType": "balMetaStable",
+                "pool": "0x32296969Ef14EB0c6d29669C550D4a0449130230",
+                "underlying": "0x32296969Ef14EB0c6d29669C550D4a0449130230",
+                "underlyingTokens": [
+                    "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+                    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+                ],
+                "underlyingReserves": [
+                    394483942255263445721,
+                    388001326380565063056
+                ],
+                "totalAprIn": 0.010059206309859332,
+                "totalAprOut": 0.010059206309859332,
+                "incentiveAPR": 0.0,
+                "destLPValue": 0,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.0474403210577674,
+                "spotPrice": 1.0474385309804373,
+                "tokenSpotPrice": [
+                    1.1737622585984973,
+                    1.0
+                ],
+                "tokenSafePrice": [
+                    1.1739996537707886,
+                    1.0
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Balancer rETH Stable Pool",
+                "address": "0xfb1f48a461cCC70081226d8353e45CfBd410dD8F",
+                "poolType": "balMetaStable",
+                "pool": "0x1E19CF2D73a72Ef1332C882F20534B6519Be0276",
+                "underlying": "0x1E19CF2D73a72Ef1332C882F20534B6519Be0276",
+                "underlyingTokens": [
+                    "0xae78736Cd615f374D3085123A210448E74Fc6393",
+                    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+                ],
+                "underlyingReserves": [
+                    6981347485136466677826,
+                    9237628840859606952270
+                ],
+                "totalAprIn": 0.03524122465694445,
+                "totalAprOut": 0.05228748948993889,
+                "incentiveAPR": 0.031443850900720514,
+                "destLPValue": 1.5226333578890842e+22,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.0374101891179905,
+                "spotPrice": 1.03740977931902,
+                "tokenSpotPrice": [
+                    1.118755858489577,
+                    1.0
+                ],
+                "tokenSafePrice": [
+                    1.1187527080123365,
+                    1.0
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Curve.fi Factory Pool: ETHx-ETH",
+                "address": "0x2E5A8C3aE475734Ece6443B5E68F7fA63133AF3D",
+                "poolType": "curveV1",
+                "pool": "0x59Ab5a5b5d617E478a2479B0cAD80DA7e2831492",
+                "underlying": "0x59Ab5a5b5d617E478a2479B0cAD80DA7e2831492",
+                "underlyingTokens": [
+                    "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b",
+                    "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+                ],
+                "underlyingReserves": [
+                    1138920452738226762964,
+                    576727863350662539369
+                ],
+                "totalAprIn": 0.1181411833897294,
+                "totalAprOut": 0.11860784841800903,
+                "incentiveAPR": 0.08392685300343626,
+                "destLPValue": 7.258022634665012e+20,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.0225449701199418,
+                "spotPrice": 1.0225834530557096,
+                "tokenSpotPrice": [
+                    1.0352820385980992,
+                    1.0
+                ],
+                "tokenSafePrice": [
+                    1.03516316,
+                    1.0
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-weETH/WETH-ng",
+                "address": "0x1568528A93393B8dfc708f3FD0537C549290AC73",
+                "poolType": "curveV1",
+                "pool": "0xDB74dfDD3BB46bE8Ce6C33dC9D82777BCFc3dEd5",
+                "underlying": "0xDB74dfDD3BB46bE8Ce6C33dC9D82777BCFc3dEd5",
+                "underlyingTokens": [
+                    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                    "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee"
+                ],
+                "underlyingReserves": [
+                    576727863350662539369,
+                    1138920452738226762964
+                ],
+                "totalAprIn": 0.04260701568663675,
+                "totalAprOut": 0.043073680714916386,
+                "incentiveAPR": 0.0,
+                "destLPValue": 5.718489269373396e+19,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.0180995879658612,
+                "spotPrice": 1.0180959780917154,
+                "tokenSpotPrice": [
+                    1.0,
+                    1.043829999508732
+                ],
+                "tokenSafePrice": [
+                    1.0,
+                    1.04383344
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Balancer rsETH / ETHx",
+                "address": "0x37e565f997c2b16d2542E906672E9c6281e77954",
+                "poolType": "balCompStable",
+                "pool": "0x7761b6E0Daa04E70637D81f1Da7d186C205C2aDE",
+                "underlying": "0x7761b6E0Daa04E70637D81f1Da7d186C205C2aDE",
+                "underlyingTokens": [
+                    "0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7",
+                    "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b"
+                ],
+                "underlyingReserves": [
+                    1021124860036380793465,
+                    712964377826291636685
+                ],
+                "totalAprIn": 0.10009722033141825,
+                "totalAprOut": 0.12344693045143691,
+                "incentiveAPR": 0.08157425538637221,
+                "destLPValue": 3.010235739925594e+20,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 59200803640976237641,
+                "totSupply": 0,
+                "safePrice": 1.0135209937230407,
+                "spotPrice": 1.0135197481457028,
+                "tokenSpotPrice": [
+                    1.0181643852989515,
+                    1.0351703091961657
+                ],
+                "tokenSafePrice": [
+                    1.01817142,
+                    1.03516316
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Balancer rsETH-WETH Stable Pool",
+                "address": "0x0b08E02644745e26963c95935A1da19d8D927b97",
+                "poolType": "balCompStable",
+                "pool": "0x58AAdFB1Afac0ad7fca1148f3cdE6aEDF5236B6D",
+                "underlying": "0x58AAdFB1Afac0ad7fca1148f3cdE6aEDF5236B6D",
+                "underlyingTokens": [
+                    "0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7",
+                    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+                ],
+                "underlyingReserves": [
+                    4070778701724294058982,
+                    2215930473148789269172
+                ],
+                "totalAprIn": 0.025916644856341275,
+                "totalAprOut": 0.025916644856341275,
+                "incentiveAPR": 0.0,
+                "destLPValue": 0,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.0098646562747926,
+                "spotPrice": 1.0100438500757016,
+                "tokenSpotPrice": [
+                    1.0187833265535484,
+                    1.0
+                ],
+                "tokenSafePrice": [
+                    1.01817142,
+                    1.0
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Balancer osETH/wETH StablePool",
+                "address": "0xA6B62bFdc664Af24DDdfF335A167b867f1d590aF",
+                "poolType": "balCompStable",
+                "pool": "0xDACf5Fa19b1f720111609043ac67A9818262850c",
+                "underlying": "0xDACf5Fa19b1f720111609043ac67A9818262850c",
+                "underlyingTokens": [
+                    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                    "0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38"
+                ],
+                "underlyingReserves": [
+                    11515330123953839300968,
+                    7922923045062872340634
+                ],
+                "totalAprIn": 0.011104628252746735,
+                "totalAprOut": 0.03928264798417325,
+                "incentiveAPR": 0.0,
+                "destLPValue": 6.268725178032132e+21,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.0105651059979253,
+                "spotPrice": 1.0105596790372529,
+                "tokenSpotPrice": [
+                    1.0,
+                    1.0245890001331912
+                ],
+                "tokenSafePrice": [
+                    1.0,
+                    1.02455923
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Balancer wstETH-WETH Stable Pool",
+                "address": "0xF35fbb601e7de870029691f1872D67A8fC866B15",
+                "poolType": "balCompStable",
+                "pool": "0x93d199263632a4EF4Bb438F1feB99e57b4b5f0BD",
+                "underlying": "0x93d199263632a4EF4Bb438F1feB99e57b4b5f0BD",
+                "underlyingTokens": [
+                    "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+                    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+                ],
+                "underlyingReserves": [
+                    2942333013159869455841,
+                    1729764179567806502427
+                ],
+                "totalAprIn": 0.04133273162355789,
+                "totalAprOut": 0.045534779936070066,
+                "incentiveAPR": 0.015819234036733,
+                "destLPValue": 3.7743227757531643e+21,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.0264842620465549,
+                "spotPrice": 1.0264858230463498,
+                "tokenSpotPrice": [
+                    1.1740065331563856,
+                    1.0
+                ],
+                "tokenSafePrice": [
+                    1.1739996537707886,
+                    1.0
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Balancer ETHx/wstETH",
+                "address": "0xa3956D49106288E5c04E6FBbBad5b68593f0bE3b",
+                "poolType": "balCompStable",
+                "pool": "0xB91159aa527D4769CB9FAf3e4ADB760c7E8C8Ea7",
+                "underlying": "0xB91159aa527D4769CB9FAf3e4ADB760c7E8C8Ea7",
+                "underlyingTokens": [
+                    "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+                    "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b"
+                ],
+                "underlyingReserves": [
+                    77404402514665938428,
+                    110259433174434050545
+                ],
+                "totalAprIn": 0.11019495395021044,
+                "totalAprOut": 0.16130878596843065,
+                "incentiveAPR": 0.09860087484594839,
+                "destLPValue": 1.1608192309041044e+20,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.0077479148655708,
+                "spotPrice": 1.0077597119612882,
+                "tokenSpotPrice": [
+                    1.1739209495391478,
+                    1.0352325030669682
+                ],
+                "tokenSafePrice": [
+                    1.1739996537707886,
+                    1.03516316
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Balancer swETH-WETH Stable Pool",
+                "address": "0xE9D758002676EecCfAc6106c1E31fE04e419c01D",
+                "poolType": "balCompStable",
+                "pool": "0xE7e2c68d3b13d905BBb636709cF4DfD21076b9D2",
+                "underlying": "0xE7e2c68d3b13d905BBb636709cF4DfD21076b9D2",
+                "underlyingTokens": [
+                    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                    "0xf951E335afb289353dc249e82926178EaC7DEd78"
+                ],
+                "underlyingReserves": [
+                    19315011810264168125,
+                    89252021711165845220
+                ],
+                "totalAprIn": 0.03040007413898402,
+                "totalAprOut": 0.03174234770803098,
+                "incentiveAPR": 0.0,
+                "destLPValue": 0,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.0210580806355616,
+                "spotPrice": 1.0208389503975486,
+                "tokenSpotPrice": [
+                    1.0,
+                    1.0636194055434944
+                ],
+                "tokenSafePrice": [
+                    1.0,
+                    1.06397382
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-Curve.fi Factory Crypto Pool: ETHx-wstETH",
+                "address": "0x9F4d181F42c06949E4A256EEB4AeFa841371F624",
+                "poolType": "curveV2",
+                "pool": "0x14756A5eD229265F86990e749285bDD39Fe0334F",
+                "underlying": "0xfffAE954601cFF1195a8E20342db7EE66d56436B",
+                "underlyingTokens": [
+                    "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+                    "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b"
+                ],
+                "underlyingReserves": [
+                    752139922964752145444,
+                    784111775526344146678
+                ],
+                "totalAprIn": 0.0346952366629857,
+                "totalAprOut": 0.03505403938773532,
+                "incentiveAPR": 0.0,
+                "destLPValue": 0,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 2.207522071951533,
+                "spotPrice": 2.2075288290942043,
+                "tokenSpotPrice": [
+                    1.1738275774906137,
+                    1.0353149080411708
+                ],
+                "tokenSafePrice": [
+                    1.1739996537707886,
+                    1.03516316
+                ]
+            },
+            {
+                "snapshotTimestamp": 0,
+                "name": "Tokemak-Wrapped Ether-wETH/rETH",
+                "address": "0xb2f0d11Ce7D12CdA959775A1D9a608eA21123c9A",
+                "poolType": "curveNG",
+                "pool": "0x9EfE1A1Cbd6Ca51Ee8319AFc4573d253C3B732af",
+                "underlying": "0x9EfE1A1Cbd6Ca51Ee8319AFc4573d253C3B732af",
+                "underlyingTokens": [
+                    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                    "0xae78736Cd615f374D3085123A210448E74Fc6393"
+                ],
+                "underlyingReserves": [
+                    74925602519819661656,
+                    31727959722321719169
+                ],
+                "totalAprIn": 0.06447111619508648,
+                "totalAprOut": 0.06447111619508648,
+                "incentiveAPR": 0.05387016410034042,
+                "destLPValue": 1.0665355221248283e+20,
+                "discountViolationAddFlag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim1Flag": [
+                    false,
+                    false
+                ],
+                "discountViolationTrim2Flag": [
+                    false,
+                    false
+                ],
+                "ownedShares": 0,
+                "totSupply": 0,
+                "safePrice": 1.0111215049095617,
+                "spotPrice": 1.0110973388057345,
+                "tokenSpotPrice": [
+                    1.0,
+                    1.1187583049655465
+                ],
+                "tokenSafePrice": [
+                    1.0,
+                    1.1187527080123365
+                ]
+            }
+        ]
+    }
+}
