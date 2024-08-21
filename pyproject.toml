@@ -14,6 +14,9 @@ plotly = "^5.23.0"
 black = {extras = ["jupyter"], version = "^24.8.0"}
 multicall = "^0.9.0"
 
+[tool.black]
+# not working properly
+line-length = 120
 
 [build-system]
 requires = ["poetry-core"]
