@@ -1,5 +1,5 @@
 what is "flipFlag" in state of destinations
 
 Can you include Idle as a destination as well in the state of the destinations
-Cam you inclue autopool address as a field, in the rebalance plan
-I need the totalSupply of LP tokens for the each destination
+Can you inclue autopool address as a field, in the rebalance plan
+could you add the lpToken.totalSupply() for each of the pools
