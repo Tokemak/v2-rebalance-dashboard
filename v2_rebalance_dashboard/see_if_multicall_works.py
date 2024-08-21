@@ -7,17 +7,6 @@ def SAFE_NORMALIZE_UINT256_WITH_BOOL_SUCCESS(success: int, value: int):
         return int(value) / 1e18
     return None
 
-
-# def build_balance_of_call(name: str, contract_address: str, wallet_address: str, attempt_fetch: bool = False) -> Call:
-#     """Get a wallet balance of an ERC20 token"""
-#     cleaning_function = cast_to_string_with_bool_success if attempt_fetch else cast_to_string
-#     return Call(
-#         contract_address,
-#         ["balanceOf(address)(uint256)", wallet_address],
-#         [(name, cleaning_function)],
-#     )
-
-
 def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
     return Call(
         autopool_vault_address,
