@@ -1,0 +1,5 @@
+fetched_data/*
+data/*
+*.pyc
+
+__pycache__/
