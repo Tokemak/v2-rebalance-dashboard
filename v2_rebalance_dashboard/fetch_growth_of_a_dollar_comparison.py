@@ -8,4 +8,4 @@
 # 1 ETH in DestinationA between July 1 and Aug 31 would have turned into 1.005 ETH
 # 1 ETH in DestinationB between July 1 and Aug 31 would have turned into 1.002 ETH
 # ...
-# 1 ETH in balETH between July 1 and Aug 31 would have turned into 1.008 ET
+# 1 ETH in balETH between July 1 and Aug 31 would have turned into 1.008 ETH

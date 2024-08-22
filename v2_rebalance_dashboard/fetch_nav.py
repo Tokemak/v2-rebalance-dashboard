@@ -44,7 +44,7 @@ def fetch_daily_nav_to_plot():
 
     nav_df = sync_safe_get_raw_state_by_block(calls, blocks)
 
-    fig = px.scatter(nav_df[["balETH", "autoETH"]])
+    fig = px.scatter(nav_df[["balETH"]])
     fig.update_layout(
         # not attached to these settings
         title="NAV",
