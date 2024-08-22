@@ -11,30 +11,9 @@ import plotly.express as px
 
 # today I am working more on the rebalance dashboard
 
-destination_vaults_and_stats_df = pd.read_csv("vaults.csv", index_col=0)[['vaultAddress','name','stats']]
-
-
-def getAssetBreakdown_call(name: str, incentive_stats: str) -> Call:
-    return Call(
-        incentive_stats,
-        ["lastSnapshotTotalApr()(uint256)"],
-        [(name, safe_normalize_with_bool_success)],
-    )
-
-
-
-# how much 
-
-# (lp Token value at start and lp token value at end, eth value at the end of reward tokens accumlated)
-# ingnore gas costs for now. swap costs, slippage, timeing, competence, routing, all of that jazz
-
-
-# incentiveStats.lastSnapshotTotalApr() -> prior incnetive APR, good approx, less all the period finish issues
-
-
-# function getDestinationInfo(address destVault) external view returns (AutopoolDebt.DestinationInfo memory) {
-#     return _destinationInfo[destVault];
-
+destination_df = pd.read_csv(
+    "/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vaults.csv", index_col=0
+)[["vaultAddress", "name", "stats"]]
 
 # struct DestinationInfo {
 #     /// @notice Current underlying value at the destination vault
@@ -52,59 +31,45 @@ def getAssetBreakdown_call(name: str, incentive_stats: str) -> Call:
 #     uint256 ownedShares;
 # }
 
-# path, get all valid destinations_vaults, 
-# for d in destinations:
-# build call getDestinationInfo(d) // cachedDebtValue (what we think its worth in ETH) is the value that matters.
-# Maybe combine them
 
+def getDestinationInfo_call(name: str, autopool_vault_address: str, destination_vault: str):
 
-# incentive_stats_contracts = [destination_vault.getStats() for destination_vault in vaults]
+    def handle_DestinationInfo(success, DestinationInfo):
+        if success:
+            cachedDebtValue, cachedMinDebtValue, cachedMaxDebtValue, lastReport, ownedShares = DestinationInfo
+            return {"cachedDebtValue": cachedDebtValue / 1e18}
 
-# for stats in incentive_stats_contracts:
-# handle_current_stats = stats.current(for block in blocks)
-
-# f((getDestinationSummaryStats(dest).compositeAprOut).DropIfOver100% * eth precent value) composite APR 
-
-def handle_getAssetBreakdown(success, AssetBreakdown):
-    # struct AssetBreakdown {
-    #     uint256 totalIdle;
-    #     uint256 totalDebt;
-    #     uint256 totalDebtMin;
-    #     uint256 totalDebtMax;
-    # }
-    if success:
-        totalIdle, totalDebt, totalDebtMin, totalDebtMin = AssetBreakdown
-        return int(totalIdle + totalDebt) / 1e18
-    return None
-
-
-def getAssetBreakdown_call(name: str, autopool_vault_address: str) -> Call:
     return Call(
         autopool_vault_address,
-        ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
-        [(name, handle_getAssetBreakdown)],
+        ["getDestinationInfo(address)((uint256,uint256,uint256,uint256,uint256))", destination_vault],
+        [(name, handle_DestinationInfo)],
     )
 
 
-def fetch_daily_nav_to_plot():
+def fetch_lp_tokens_and_eth_value_per_destination():
     blocks = build_blocks_to_use()
-
     balETH_auto_pool_vault = "0x72cf6d7C85FfD73F18a83989E7BA8C1c30211b73"
-    main_auto_pool_vault = "0x49C4719EaCc746b87703F964F09C22751F397BA0"
 
     calls = [
-        getAssetBreakdown_call("balETH", balETH_auto_pool_vault),
-        getAssetBreakdown_call("autoETH", main_auto_pool_vault),
+        getDestinationInfo_call(name, balETH_auto_pool_vault, vault)
+        for (name, vault) in zip(destination_df["name"], destination_df["vaultAddress"])
     ]
+    df = sync_safe_get_raw_state_by_block(calls, blocks)
 
-    nav_df = sync_safe_get_raw_state_by_block(calls, blocks)
+    # only look at destinatios we have touched,
+    # eg where at least one of the values in eth_value_in_destination is not 0
+    # this is just to make the legend cleaner
+    cachedDebtValue_df = df.map(
+        lambda cell: cell["cachedDebtValue"] if isinstance(cell, dict) and "cachedDebtValue" in cell else 0
+    )
+    cachedDebtValue_df = cachedDebtValue_df.loc[:, (cachedDebtValue_df != 0).any(axis=0)]
 
-    fig = px.scatter(nav_df[["balETH", "autoETH"]])
+    fig = px.bar(cachedDebtValue_df)
     fig.update_layout(
         # not attached to these settings
-        title="NAV",
+        title="ETH Value By Destination",
         xaxis_title="Date",
-        yaxis_title="Idle + Debt (ETH)",
+        yaxis_title="ETH value",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
         height=500,

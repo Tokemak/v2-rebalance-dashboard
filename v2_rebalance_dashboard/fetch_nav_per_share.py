@@ -29,7 +29,7 @@ def fetch_daily_nav_per_share_to_plot():
     ]
     nav_per_share_df = sync_safe_get_raw_state_by_block(calls, blocks)
 
-    fig = px.scatter(nav_per_share_df[["balETH", "autoETH"]])
+    fig = px.scatter(nav_per_share_df[["balETH"]])
     fig.update_layout(
         # not attached to these settings
         title="navPerShare",

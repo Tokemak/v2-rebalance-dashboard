@@ -57,13 +57,19 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
 
 
 def sync_safe_get_raw_state_by_block(
-    calls: list[Call], blocks: list[int], semaphore_limits: int = (300, 100, 30, 10, 1)
+    calls: list[Call],
+    blocks: list[int],
+    semaphore_limits: int = (300, 100, 30, 10, 1),
+    include_block_number: bool = False,
 ) -> pd.DataFrame:
-    return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, semaphore_limits))
+    return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, semaphore_limits, include_block_number))
 
 
 async def async_safe_get_raw_state_by_block(
-    calls: list[Call], blocks: list[int], semaphore_limits: int = (300, 100, 30, 10, 1)
+    calls: list[Call],
+    blocks: list[int],
+    semaphore_limits: int = (300, 100, 30, 10, 1),
+    include_block_number: bool = False,
 ) -> pd.DataFrame:
     """
     Fetch a DataFame of each call in calls for each block in blocks fast
@@ -104,6 +110,8 @@ async def async_safe_get_raw_state_by_block(
     df.set_index("timestamp", inplace=True)
     df.sort_index(inplace=True)
     df.index = pd.to_datetime(df.index, unit="s")
+    if not include_block_number:
+        df.drop(columns="block", inplace=True)
     return df
 
 
