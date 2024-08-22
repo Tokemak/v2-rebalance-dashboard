@@ -35,11 +35,11 @@ def fetch_daily_nav_to_plot():
     blocks = build_blocks_to_use()
 
     balETH_auto_pool_vault = "0x72cf6d7C85FfD73F18a83989E7BA8C1c30211b73"
-    main_auto_pool_vault = "0x49C4719EaCc746b87703F964F09C22751F397BA0"
+    # main_auto_pool_vault = "0x49C4719EaCc746b87703F964F09C22751F397BA0"
 
     calls = [
         getAssetBreakdown_call("balETH", balETH_auto_pool_vault),
-        getAssetBreakdown_call("autoETH", main_auto_pool_vault),
+        # getAssetBreakdown_call("autoETH", main_auto_pool_vault),
     ]
 
     nav_df = sync_safe_get_raw_state_by_block(calls, blocks)
