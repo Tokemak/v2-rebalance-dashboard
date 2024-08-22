@@ -25,7 +25,7 @@ def fetch_daily_nav_per_share_to_plot():
 
     calls = [
         nav_per_share_call("balETH", balETH_auto_pool_vault),
-        nav_per_share_call("autoETH", main_auto_pool_vault),
+        # nav_per_share_call("autoETH", main_auto_pool_vault),
     ]
     nav_per_share_df = sync_safe_get_raw_state_by_block(calls, blocks)
 
