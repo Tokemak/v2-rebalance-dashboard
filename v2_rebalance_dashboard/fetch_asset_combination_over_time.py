@@ -134,6 +134,7 @@ def fetch_asset_composition_over_time_to_plot():
     full_df = pd.concat([price_df, get_pool_tokens_df, cachedDebtValue_df], axis=1)
     full_df["timestamp"] = full_df.index
     destination_names_touched = cachedDebtValue_df.columns
+    our_names_set = set()
 
     def _compute_asset_value_held(row: dict):
         # for k, v in row.items():
@@ -170,6 +171,7 @@ def fetch_asset_composition_over_time_to_plot():
                 / assets_in_destination_value[f"total_value_in_{destination_name}"]
             )
             for token_name in token_names:
+                our_names_set.add(f"our_{token_name}")
                 assets_in_destination_value[f"our_{token_name}"] = (
                     assets_in_destination_value[f"our_approx_portion_of_{destination_name}"]
                     * assets_in_destination_value[f"{token_name}_value_in_{destination_name}"]
@@ -185,13 +187,7 @@ def fetch_asset_composition_over_time_to_plot():
     df = pd.DataFrame.from_records(flattened_list)
     df.set_index("timestamp", inplace=True)
 
-    asset_df = df[
-        [
-            "our_Wrapped Ether",
-            "our_rsETH",
-            "our_ETHx",
-        ]
-    ]
+    asset_df = df[list(our_names_set)]
     fig = px.bar(asset_df)
     fig.update_layout(
         # not attached to these settings
@@ -200,7 +196,7 @@ def fetch_asset_composition_over_time_to_plot():
         yaxis_title="ETH value",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
-        height=500,
-        width=800,
+        height=600,
+        width=600 * 3,
     )
     return fig

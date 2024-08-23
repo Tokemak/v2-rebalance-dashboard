@@ -52,7 +52,7 @@ def fetch_daily_nav_to_plot():
         yaxis_title="Idle + Debt (ETH)",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
-        height=500,
-        width=800,
+        height=600,
+        width=600*2,
     )
     return fig
