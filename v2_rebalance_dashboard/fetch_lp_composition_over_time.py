@@ -56,11 +56,10 @@ def fetch_lp_tokens_and_eth_value_per_destination():
     ]
     df = sync_safe_get_raw_state_by_block(calls, blocks)
 
-
     cachedDebtValue_df = df.map(
         lambda cell: cell["cachedDebtValue"] if isinstance(cell, dict) and "cachedDebtValue" in cell else 0
     )
-    
+
     # only look at destinatios we have touched,
     # eg where at least one of the values in eth_value_in_destination is not 0
     # this is just to make the legend cleaner
