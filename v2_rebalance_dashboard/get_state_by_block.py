@@ -126,13 +126,14 @@ def identity_with_bool_success(success, value):
         return value
     return None
 
+
 def identity_function(value):
     return value
 
 
 def build_blocks_to_use():
     current_block = eth_client.eth.block_number
-    start_block = 20162439  # TODO, get a better method for this. blocks are not perfectly line dup
+    start_block = 20262439  # TODO, get a better method for this. blocks are not perfectly lined up
     approx_blocks_per_day = 7100
     blocks = [b for b in range(start_block, current_block, approx_blocks_per_day)]
     # good enough for now, fix later use etherscan

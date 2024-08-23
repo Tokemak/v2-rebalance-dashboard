@@ -11,7 +11,7 @@
 # #     def calculate_reserve_in_eth_by_index(self, index):
 # #         """
 # #         Offchain calculation of reserve in ETH by index, mimicking the Solidity internal function.
-        
+
 # #         :param pricer: Address of the IRootPriceOracle contract.
 # #         :param index: The index of the token in the reserveTokens array.
 # #         :return: The calculated reserve in ETH.
@@ -73,7 +73,7 @@
 #     def calculate_reserve_in_eth_by_index(self, index):
 #         """
 #         Offchain calculation of reserve in ETH by index, mimicking the Solidity internal function.
-        
+
 #         :param index: The index of the token in the reserveTokens array.
 #         :return: The calculated reserve in ETH.
 #         """
@@ -85,7 +85,7 @@
 #             ],
 #             _w3=self.eth_client
 #         )
-        
+
 #         # Execute the first multicall
 #         token_result = token_call()
 
