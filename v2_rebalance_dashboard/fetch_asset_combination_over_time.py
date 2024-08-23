@@ -184,28 +184,23 @@ def fetch_asset_composition_over_time_to_plot():
 
     df = pd.DataFrame.from_records(flattened_list)
     df.set_index("timestamp", inplace=True)
-    return df
 
-
-fetch_asset_composition_over_time_to_plot()
-
-
-# #
-
-# # only look at destinatios we have touched,
-# # eg where at least one of the values in eth_value_in_destination is not 0
-# # this is just to make the legend cleaner
-# cachedDebtValue_df = cachedDebtValue_df.loc[:, (cachedDebtValue_df != 0).any(axis=0)]
-
-# fig = px.bar(cachedDebtValue_df)
-# fig.update_layout(
-#     # not attached to these settings
-#     title="ETH Value By Destination",
-#     xaxis_title="Date",
-#     yaxis_title="ETH value",
-#     title_x=0.5,
-#     margin=dict(l=40, r=40, t=40, b=40),
-#     height=500,
-#     width=800,
-# )
-# return fig
+    asset_df = df[
+        [
+            "our_Wrapped Ether",
+            "our_rsETH",
+            "our_ETHx",
+        ]
+    ]
+    fig = px.bar(asset_df)
+    fig.update_layout(
+        # not attached to these settings
+        title="ETH Value By Asset",
+        xaxis_title="Date",
+        yaxis_title="ETH value",
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=40),
+        height=500,
+        width=800,
+    )
+    return fig
