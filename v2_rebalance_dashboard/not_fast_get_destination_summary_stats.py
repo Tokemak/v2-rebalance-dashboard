@@ -24,7 +24,10 @@ from v2_rebalance_dashboard.get_state_by_block import (
 )
 import numpy as np
 
+import warnings
 
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 with open("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vault_abi.json", "r") as fin:
     vault_abi = json.load(fin)
 
@@ -115,7 +118,7 @@ def _make_blocks_df(blocks: list[int]):
 def build_destination_df(blocks, vaults):
     block_df = _make_blocks_df(blocks)
     records = []
-    with ThreadPoolExecutor(max_workers=25) as executor:
+    with ThreadPoolExecutor(max_workers=20) as executor:
         future_to_record = {
             executor.submit(makeDestinationRecordWithoutWeights, block, timestamp, vault, name): (
                 block,
@@ -136,12 +139,13 @@ def build_destination_df(blocks, vaults):
     return destination_df
 
 
-def make_destination_composite_apr_plots():
+def make_destination_composite_apr_plots(refetch:bool =False):
 
     blocks = build_blocks_to_use()
     vaults_df = pd.read_csv("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vaults.csv")
-    destination_df = build_destination_df(blocks, vaults_df)
-    destination_df.to_csv("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/destination_df.csv")
+    if refetch:
+        destination_df = build_destination_df(blocks, vaults_df)
+        destination_df.to_csv("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/destination_df.csv")
 
     destination_df = pd.read_csv("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/destination_df.csv")
     # composite_apr_in_df = (100 * destination_df.pivot_table(
@@ -179,10 +183,72 @@ def make_destination_composite_apr_plots():
         # not attached to these settings
         title="CRM out balETH destinations",
         xaxis_title="Date",
-        yaxis_title="Composite Return out",
+        yaxis_title="Composite Return Out",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
-        height=500,
-        width=800,
+        height=600,
+        width=600 * 3,
     )
     return fig
+
+
+from v2_rebalance_dashboard.fetch_lp_composition_over_time import build_cachedDebtValue_df
+
+
+def make_bal_eth_composite_return_out_plots():
+
+    blocks = build_blocks_to_use()
+    vaults_df = pd.read_csv("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vaults.csv")
+    destination_df = pd.read_csv("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/destination_df.csv")
+
+    pass
+    # destination_df = build_destination_df(blocks, vaults_df)
+
+    # destination_df = #pd.read_csv("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/destination_df.csv")
+    # composite_apr_in_df = (100 * destination_df.pivot_table(
+    #     values="NoWeights_in_composite_return", index="block_timestamp", columns="name")).clip(upper=100).replace(100, np.nan)
+    composite_apr_out_df = (
+        (
+            100
+            * destination_df.pivot_table(
+                values="NoWeights_out_composite_return", index="block_timestamp", columns="name"
+            )
+        )
+        .clip(upper=100)
+        .replace(100, np.nan)
+    )
+
+    cachedDebtValue_df = build_cachedDebtValue_df()
+    cachedDebtValue_df = cachedDebtValue_df[cachedDebtValue_df.index.isin(composite_apr_out_df.index)]
+
+    composite_apr_out_df.sort_index(inplace=True)
+    cachedDebtValue_df.sort_index(inplace=True)
+
+    cols = cachedDebtValue_df.columns
+    cachedDebtValue_df["totalNav"] = cachedDebtValue_df.sum(axis=1)
+    weighted_return = pd.DataFrame(index=composite_apr_out_df.index)
+
+
+
+    for col in cols:
+        weighted_return[col] = (
+            cachedDebtValue_df[col].values / cachedDebtValue_df["totalNav"].values
+        ) * composite_apr_out_df[col].values
+
+    weighted_return["balETH Weighted Composite Return Out"] = weighted_return.sum(axis=1)
+
+    fig = px.line(weighted_return["balETH Weighted Composite Return Out"])
+    fig.update_layout(
+        # not attached to these settings
+        title="balETH Weighted Composite Return Out",
+        xaxis_title="Date",
+        yaxis_title="Composite Return Out",
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=40),
+        height=600,
+        width=600 * 3,
+    )
+    return fig
+
+
+make_bal_eth_composite_return_out_plots()

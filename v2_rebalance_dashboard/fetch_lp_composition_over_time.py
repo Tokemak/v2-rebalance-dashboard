@@ -9,8 +9,6 @@ from v2_rebalance_dashboard.get_state_by_block import (
 )
 import plotly.express as px
 
-# today I am working more on the rebalance dashboard
-
 destination_df = pd.read_csv(
     "/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vaults.csv", index_col=0
 )[["vaultAddress", "name", "stats"]]
@@ -32,21 +30,7 @@ destination_df = pd.read_csv(
 # }
 
 
-def getDestinationInfo_call(name: str, autopool_vault_address: str, destination_vault: str):
-
-    def handle_DestinationInfo(success, DestinationInfo):
-        if success:
-            cachedDebtValue, cachedMinDebtValue, cachedMaxDebtValue, lastReport, ownedShares = DestinationInfo
-            return {"cachedDebtValue": cachedDebtValue / 1e18, "ownedShares": ownedShares / 1e18}
-
-    return Call(
-        autopool_vault_address,
-        ["getDestinationInfo(address)((uint256,uint256,uint256,uint256,uint256))", destination_vault],
-        [(name, handle_DestinationInfo)],
-    )
-
-
-def fetch_lp_tokens_and_eth_value_per_destination():
+def build_cachedDebtValue_df():
     blocks = build_blocks_to_use()
     balETH_auto_pool_vault = "0x72cf6d7C85FfD73F18a83989E7BA8C1c30211b73"
 
@@ -64,6 +48,25 @@ def fetch_lp_tokens_and_eth_value_per_destination():
     # eg where at least one of the values in eth_value_in_destination is not 0
     # this is just to make the legend cleaner
     cachedDebtValue_df = cachedDebtValue_df.loc[:, (cachedDebtValue_df != 0).any(axis=0)]
+    return cachedDebtValue_df
+
+
+def getDestinationInfo_call(name: str, autopool_vault_address: str, destination_vault: str):
+
+    def handle_DestinationInfo(success, DestinationInfo):
+        if success:
+            cachedDebtValue, cachedMinDebtValue, cachedMaxDebtValue, lastReport, ownedShares = DestinationInfo
+            return {"cachedDebtValue": cachedDebtValue / 1e18, "ownedShares": ownedShares / 1e18}
+
+    return Call(
+        autopool_vault_address,
+        ["getDestinationInfo(address)((uint256,uint256,uint256,uint256,uint256))", destination_vault],
+        [(name, handle_DestinationInfo)],
+    )
+
+
+def fetch_lp_tokens_and_eth_value_per_destination():
+    cachedDebtValue_df = build_cachedDebtValue_df()
 
     fig = px.bar(cachedDebtValue_df)
     fig.update_layout(
@@ -73,7 +76,7 @@ def fetch_lp_tokens_and_eth_value_per_destination():
         yaxis_title="ETH value",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
-        height=500,
-        width=800,
+        height=600,
+        width=600*3,
     )
     return fig
