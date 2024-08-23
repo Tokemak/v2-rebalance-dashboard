@@ -126,6 +126,9 @@ def identity_with_bool_success(success, value):
         return value
     return None
 
+def identity_function(value):
+    return value
+
 
 def build_blocks_to_use():
     current_block = eth_client.eth.block_number
