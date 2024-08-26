@@ -53,6 +53,6 @@ def fetch_daily_nav_to_plot():
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
         height=600,
-        width=600*2,
+        width=600 * 3,
     )
     return fig

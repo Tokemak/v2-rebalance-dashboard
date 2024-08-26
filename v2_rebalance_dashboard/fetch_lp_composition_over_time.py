@@ -77,6 +77,6 @@ def fetch_lp_tokens_and_eth_value_per_destination():
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
         height=600,
-        width=600*3,
+        width=600 * 3,
     )
     return fig
