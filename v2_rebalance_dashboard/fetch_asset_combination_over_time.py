@@ -7,15 +7,12 @@ from v2_rebalance_dashboard.get_state_by_block import (
     build_blocks_to_use,
     safe_normalize_with_bool_success,
     identity_with_bool_success,
-    eth_client,
     identity_function,
 )
 import plotly.express as px
+from v2_rebalance_dashboard.constants import eth_client, BALANCER_VAULT_ADDRESS, ROOT_PRICE_ORACLE, balETH_AUTOPOOL_ETH_ADDRESS
 
 
-ROOT_PRICE_ORACLE = "0x28B7773089C56Ca506d4051F0Bc66D247c6bdb3a"
-BALANCER_VAULT_ADDRESS = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
-balETH_auto_pool_vault = "0x72cf6d7C85FfD73F18a83989E7BA8C1c30211b73"
 
 # { # for balancer
 #         address token = reserveTokens[index];
@@ -78,7 +75,7 @@ def build_balancer_autopool_asset_combination_calls(blocks) -> pd.DataFrame:
         "/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vaults.parquet"
     )
     destinations = Call(
-        balETH_auto_pool_vault, ["getDestinations()(address[])"], [("destinations", identity_function)]
+        balETH_AUTOPOOL_ETH_ADDRESS, ["getDestinations()(address[])"], [("destinations", identity_function)]
     ).__call__(_w3=eth_client)["destinations"]
 
     destination_df = destination_df[destination_df["vaultAddress"].str.lower().isin(destinations)].copy()
@@ -109,7 +106,7 @@ def build_balancer_autopool_asset_combination_calls(blocks) -> pd.DataFrame:
     # {'tokens': ('0x58aadfb1afac0ad7fca1148f3cde6aedf5236b6d', '0xa1290d69c65a6fe4df752f95823fae25cb99e5a7', '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'), 'balances': (2596148429267437984416884399779299, 4192537420423622999208, 2534823097520260013367)}
 
     calls = [
-        getDestinationInfo_call(name, balETH_auto_pool_vault, vault)
+        getDestinationInfo_call(name, balETH_AUTOPOOL_ETH_ADDRESS, vault)
         for (name, vault) in zip(destination_df["name"], destination_df["vaultAddress"])
     ]
     raw_ownedShares_df = sync_safe_get_raw_state_by_block(calls, blocks)
