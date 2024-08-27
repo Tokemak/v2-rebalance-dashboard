@@ -6,14 +6,19 @@ authors = ["parkerburchett <parkerburchett@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.11"
 jupyter = "^1.0.0"
-numpy = "^2.0.1"
 matplotlib = "^3.9.1"
 pandas = "^2.2.2"
 plotly = "^5.23.0"
 black = {extras = ["jupyter"], version = "^24.8.0"}
+multicall = "^0.9.0"
+kaleido = "0.2.1"
+fastparquet = "^2024.5.0"
 
+[tool.black]
+# not working properly
+line-length = 120
 
 [build-system]
 requires = ["poetry-core"]
