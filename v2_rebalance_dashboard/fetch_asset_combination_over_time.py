@@ -188,8 +188,24 @@ def fetch_asset_composition_over_time_to_plot():
     df.set_index("timestamp", inplace=True)
 
     asset_df = df[list(our_names_set)]
-    fig = px.bar(asset_df)
-    fig.update_layout(
+
+    pie_df = asset_df.copy()
+    pie_df["date"] = asset_df.index
+    pie_data = pie_df.groupby("date").max().tail(1).T.reset_index()
+    pie_data.columns = ["Asset", "ETH Value"]
+    pie_data = pie_data[pie_data["ETH Value"] > 0]
+
+    asset_allocation_pie_fig = px.pie(pie_data, names="Asset", values="ETH Value", title="Current ETH Calue by Asset")
+
+    asset_allocation_pie_fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=40),
+        height=600,
+        width=600 * 3,
+    )
+
+    asset_allocation_bar_fig = px.bar(asset_df)
+    asset_allocation_bar_fig.update_layout(
         # not attached to these settings
         title="ETH Value By Asset",
         xaxis_title="Date",
@@ -199,4 +215,5 @@ def fetch_asset_composition_over_time_to_plot():
         height=600,
         width=600 * 3,
     )
-    return fig
+
+    return asset_allocation_bar_fig, asset_allocation_pie_fig

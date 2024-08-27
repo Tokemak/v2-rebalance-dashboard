@@ -69,6 +69,8 @@ def build_summary_stats_call(
     direction: str = "out",
     amount: int = 0,
 ) -> Call:
+
+    # hasn't been an error so far
     # /// @notice Gets the safe price of the underlying LP token
     # /// @dev Price validated to be inside our tolerance against spot price. Will revert if outside.
     # /// @return price Value of 1 unit of the underlying LP token in terms of the base asset
@@ -109,10 +111,27 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     # clean up spikes up
     compositeReturn_df = 100 * (compositeReturn_df.clip(upper=1).replace(1, np.nan).astype(float))
     allocation_df = pricePerShare_df * ownedShares_df
+    # LIMIT BY Destintion where value >0
+    pie_df = allocation_df.copy()
+    pie_df["date"] = allocation_df.index
+    pie_data = pie_df.groupby("date").max().tail(1).T.reset_index()
+    pie_data.columns = ["Destination", "ETH Value"]
 
-    eth_allocation_bar_chart_fig = px.bar(allocation_df)
+    pie_data = pie_data[pie_data["ETH Value"] > 0]
+    lp_allocation_pie_fig = px.pie(
+        pie_data, names="Destination", values="ETH Value", title="Current ETH Value by Destination"
+    )
 
-    eth_allocation_bar_chart_fig.update_layout(
+    lp_allocation_pie_fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=40),
+        height=600,
+        width=600 * 3,
+    )
+
+    lp_allocation_bar_fig = px.bar(allocation_df)
+
+    lp_allocation_bar_fig.update_layout(
         # not attached to these settings
         title="ETH In Each Destination",
         xaxis_title="Date",
@@ -142,16 +161,16 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
         height=600,
         width=600 * 3,
     )
-    
-    cr_out_fig.update_traces(
-    line=dict(width=2),  # Default line width
-    selector=dict(name="balETH_weighted_return"),  # Apply emphasis to this specific line
-    line_color="red",  # Change to a distinct color
-    line_dash="dashdot",  # Optionally change the line style to dashed
-    line_width=4  # Make this line thicker
-)
 
-    return eth_allocation_bar_chart_fig, cr_out_fig
+    cr_out_fig.update_traces(
+        line=dict(width=2),
+        selector=dict(name="balETH_weighted_return"),
+        line_color="red",
+        line_dash="dash",
+        line_width=4,
+    )
+
+    return lp_allocation_bar_fig, cr_out_fig, lp_allocation_pie_fig
 
 
 def fetch_summary_stats_figures():
@@ -177,5 +196,5 @@ def fetch_summary_stats_figures():
     blocks = build_blocks_to_use()
     summary_stats_df = sync_safe_get_raw_state_by_block(calls, blocks)
 
-    eth_allocation_bar_chart_fig, cr_out_fig = _summary_stats_df_to_figures(summary_stats_df)
-    return eth_allocation_bar_chart_fig, cr_out_fig
+    lp_allocation_bar_fig, cr_out_fig, lp_allocation_pie_fig = _summary_stats_df_to_figures(summary_stats_df)
+    return lp_allocation_bar_fig, cr_out_fig, lp_allocation_pie_fig
