@@ -36,11 +36,11 @@ def _flatten_events(just_found_events: list[dict]) -> None:
 
 
 def _recursive_helper_get_all_events_within_range(
-    event: web3.contract.ContractEvent, start_block: int, end_block: int, found_events: list
+    event: "web3.contract.ContractEvent", start_block: int, end_block: int, found_events: list
 ):
     """Recursively fetch all the `event` events between start_block and end_block"""
     try:
-        event_filter = event.createFilter(fromBlock=start_block, toBlock=end_block)
+        event_filter = event.create_filter(fromBlock=start_block, toBlock=end_block)
         just_found_events = event_filter.get_all_entries()
         _flatten_events(just_found_events)
         found_events.extend(just_found_events)
@@ -74,14 +74,14 @@ def events_to_df(found_events: list[web3.datastructures.AttributeDict]) -> pd.Da
 
 
 def fetch_events(
-    event: web3.contract.ContractEvent,
-    start_block: int = 10091387,
+    event: "web3.contract.ContractEvent",
+    start_block: int = 15091387,
     end_block: int = None,
 ) -> pd.DataFrame:
     """
     Collect every `event` between start_block and end_block into a DataFrame.
 
-    start_block: defaults to 10091387, the earliest block with a timestamp in block collector. May 18, 2020
+    start_block:  15091387 July 22, defaults to 10091387, the earliest block with a timestamp in block collector. May 18, 2020 
 
     include_timestamp: bool if you want to include the column timestamp
     """
