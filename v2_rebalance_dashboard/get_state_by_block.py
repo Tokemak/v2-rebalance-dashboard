@@ -11,6 +11,7 @@ nest_asyncio.apply()
 
 MULTICALL2_DEPLOYMENT_BLOCK = 12336033
 
+
 def sync_get_raw_state_by_block_one_block(calls: list[Call], block: int):
     return asyncio.run(safe_get_raw_state_by_block_one_block(calls, block))
 

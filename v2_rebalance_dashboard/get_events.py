@@ -1,4 +1,3 @@
-
 import pandas as pd
 import web3
 from v2_rebalance_dashboard.get_state_by_block import eth_client
@@ -94,7 +93,7 @@ def fetch_events(
     return event_df
 
 
-def get_each_event_in_contract(contract, end_block: int, include_timestamp:bool=False) -> dict[str, pd.DataFrame]:
+def get_each_event_in_contract(contract, end_block: int, include_timestamp: bool = False) -> dict[str, pd.DataFrame]:
     events_dict = dict()
     for e in contract.events:
         # add http fail retries?

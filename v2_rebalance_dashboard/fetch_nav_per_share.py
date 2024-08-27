@@ -20,7 +20,6 @@ def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
 
 def fetch_daily_nav_per_share_to_plot():
     blocks = build_blocks_to_use()
-    
 
     calls = [
         nav_per_share_call("balETH", balETH_AUTOPOOL_ETH_ADDRESS),

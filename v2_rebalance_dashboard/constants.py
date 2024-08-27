@@ -2,7 +2,6 @@ from os import environ
 from web3 import Web3
 
 
-
 ALCHEMY_URL = environ["ALCHEMY_URL"]
 eth_client = Web3(Web3.HTTPProvider(ALCHEMY_URL))
 

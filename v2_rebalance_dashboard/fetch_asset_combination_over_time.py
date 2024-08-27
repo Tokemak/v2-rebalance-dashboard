@@ -10,8 +10,12 @@ from v2_rebalance_dashboard.get_state_by_block import (
     identity_function,
 )
 import plotly.express as px
-from v2_rebalance_dashboard.constants import eth_client, BALANCER_VAULT_ADDRESS, ROOT_PRICE_ORACLE, balETH_AUTOPOOL_ETH_ADDRESS
-
+from v2_rebalance_dashboard.constants import (
+    eth_client,
+    BALANCER_VAULT_ADDRESS,
+    ROOT_PRICE_ORACLE,
+    balETH_AUTOPOOL_ETH_ADDRESS,
+)
 
 
 # { # for balancer
