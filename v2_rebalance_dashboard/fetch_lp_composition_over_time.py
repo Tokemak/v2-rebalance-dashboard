@@ -3,11 +3,10 @@ import pandas as pd
 from multicall import Call
 from v2_rebalance_dashboard.get_state_by_block import (
     sync_safe_get_raw_state_by_block,
-    sync_get_raw_state_by_block_one_block,
     build_blocks_to_use,
-    safe_normalize_with_bool_success,
 )
 import plotly.express as px
+from v2_rebalance_dashboard.constants import balETH_AUTOPOOL_ETH_ADDRESS
 
 destination_df = pd.read_csv(
     "/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vaults.csv", index_col=0
@@ -32,10 +31,9 @@ destination_df = pd.read_csv(
 
 def build_cachedDebtValue_df():
     blocks = build_blocks_to_use()
-    balETH_auto_pool_vault = "0x72cf6d7C85FfD73F18a83989E7BA8C1c30211b73"
 
     calls = [
-        getDestinationInfo_call(name, balETH_auto_pool_vault, vault)
+        getDestinationInfo_call(name, balETH_AUTOPOOL_ETH_ADDRESS, vault)
         for (name, vault) in zip(destination_df["name"], destination_df["vaultAddress"])
     ]
     df = sync_safe_get_raw_state_by_block(calls, blocks)

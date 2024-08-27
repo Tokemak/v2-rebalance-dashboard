@@ -19,6 +19,3 @@ def get_autopool_diagnostics_charts(autopool_name="balETH"):
         "asset_allocation_bar_fig": asset_allocation_bar_fig,
         "asset_allocation_pie_fig": asset_allocation_pie_fig,
     }
-
-
-get_autopool_diagnostics_charts()

@@ -3,25 +3,13 @@ import pandas as pd
 from multicall import Call
 from v2_rebalance_dashboard.get_state_by_block import (
     sync_safe_get_raw_state_by_block,
-    sync_get_raw_state_by_block_one_block,
     build_blocks_to_use,
-    safe_normalize_with_bool_success,
-    identity_with_bool_success,
-    eth_client,
-    identity_function,
 )
-from concurrent.futures import ThreadPoolExecutor
-import concurrent
 
+from v2_rebalance_dashboard.constants import eth_client, balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS
 import plotly.express as px
 import json
 
-from v2_rebalance_dashboard.get_state_by_block import (
-    sync_safe_get_raw_state_by_block,
-    sync_get_raw_state_by_block_one_block,
-    build_blocks_to_use,
-    safe_normalize_with_bool_success,
-)
 import numpy as np
 
 import warnings
@@ -37,8 +25,8 @@ with open("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_da
 
 balETH_autopool_vault = "0x72cf6d7C85FfD73F18a83989E7BA8C1c30211b73"
 vault_contract = eth_client.eth.contract(balETH_autopool_vault, abi=vault_abi)
-BALANCER_AUTO_POOL = "0xB86723da7d02C91b5E421Ed7883C35f732556F13"  # AUTOPOOL ETH STRATEGY
-autoPool = eth_client.eth.contract(BALANCER_AUTO_POOL, abi=strategy_abi)
+
+autoPool = eth_client.eth.contract(balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS, abi=strategy_abi)
 
 
 def _clean_summary_stats_info(success, summary_stats):
@@ -178,7 +166,7 @@ def fetch_summary_stats_figures():
     calls = [
         build_summary_stats_call(
             "idle",
-            BALANCER_AUTO_POOL,
+            balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS,
             balETH_autopool_vault,
             direction="out",
             amount=0,
@@ -187,7 +175,7 @@ def fetch_summary_stats_figures():
     for i, (destination_vault_address, vault_name) in enumerate(zip(vaults_df["vaultAddress"], vaults_df["name"])):
         call = build_summary_stats_call(
             name=f"{vault_name}_ {i}",  # some duplicate names here
-            autopool_eth_strategy_address=BALANCER_AUTO_POOL,
+            autopool_eth_strategy_address=balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS,
             destination_vault_address=destination_vault_address,
             direction="out",
             amount=0,

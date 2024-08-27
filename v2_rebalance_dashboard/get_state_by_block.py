@@ -1,18 +1,14 @@
-import asyncio
 import pandas as pd
 from multicall import Multicall, Call
-import numpy as np
-
-from os import environ
-from web3 import Web3
 
 import nest_asyncio
 import asyncio
 
+from v2_rebalance_dashboard.constants import eth_client
+
 nest_asyncio.apply()
 
-ALCHEMY_URL = environ["ALCHEMY_URL"]
-eth_client = Web3(Web3.HTTPProvider(ALCHEMY_URL))
+
 MULTICALL2_DEPLOYMENT_BLOCK = 12336033
 
 
