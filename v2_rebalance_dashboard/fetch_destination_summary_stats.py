@@ -142,7 +142,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     cr_out_fig = px.line(compositeReturn_df)
     cr_out_fig.update_layout(
         # not attached to these settings
-        title="balETH Weighted Composite Return Out vs other Destinations",
+        title="balETH Weighted Composite Return Out vs Other Destinations",
         xaxis_title="Date",
         yaxis_title="Composite Return Percent",
         title_x=0.5,

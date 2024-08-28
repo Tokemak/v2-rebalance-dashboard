@@ -196,7 +196,7 @@ def fetch_asset_composition_over_time_to_plot():
     pie_data.columns = ["Asset", "ETH Value"]
     pie_data = pie_data[pie_data["ETH Value"] > 0]
 
-    asset_allocation_pie_fig = px.pie(pie_data, names="Asset", values="ETH Value", title="Current ETH Calue by Asset")
+    asset_allocation_pie_fig = px.pie(pie_data, names="Asset", values="ETH Value", title="Current ETH Value by Asset")
 
     asset_allocation_pie_fig.update_layout(
         title_x=0.5,
