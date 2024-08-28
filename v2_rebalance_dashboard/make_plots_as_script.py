@@ -1,6 +1,7 @@
 from v2_rebalance_dashboard.fetch_destination_summary_stats import fetch_summary_stats_figures
 from v2_rebalance_dashboard.fetch_asset_combination_over_time import fetch_asset_composition_over_time_to_plot
 from v2_rebalance_dashboard.fetch_nav_per_share import fetch_daily_nav_per_share_to_plot
+from v2_rebalance_dashboard.constants import eth_client
 
 
 def get_autopool_diagnostics_charts(autopool_name="balETH"):
