@@ -4,6 +4,7 @@ from multicall import Call
 from v2_rebalance_dashboard.get_state_by_block import (
     sync_safe_get_raw_state_by_block,
     build_blocks_to_use,
+    sync_get_raw_state_by_block_one_block,
 )
 
 from v2_rebalance_dashboard.constants import eth_client, balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS

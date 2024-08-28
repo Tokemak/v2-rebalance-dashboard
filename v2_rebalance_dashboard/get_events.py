@@ -81,7 +81,7 @@ def fetch_events(
     """
     Collect every `event` between start_block and end_block into a DataFrame.
 
-    start_block:  15091387 July 22, defaults to 10091387, the earliest block with a timestamp in block collector. May 18, 2020 
+    start_block:  15091387 July 22, defaults to 10091387, the earliest block with a timestamp in block collector. May 18, 2020
 
     include_timestamp: bool if you want to include the column timestamp
     """
