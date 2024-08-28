@@ -1,16 +1,16 @@
 from v2_rebalance_dashboard.get_events import fetch_events
-from v2_rebalance_dashboard.constants import balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS, eth_client
+from v2_rebalance_dashboard.constants import balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS, eth_client, ROOT_DIR
 import pandas as pd
 import json
 
-with open("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vault_abi.json", "r") as fin:
+with open(ROOT_DIR / "vault_abi.json", "r") as fin:
     autopool_eth_vault_abi = json.load(fin)
 
-with open("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/strategy_abi.json", "r") as fin:
+with open(ROOT_DIR / "strategy_abi.json", "r") as fin:
     eth_strategy_abi = json.load(fin)
 
 destination_df = pd.read_csv(
-    "/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vaults.csv", index_col=0
+    ROOT_DIR / "vaults.csv", index_col=0
 )
 destination_vault_to_name = {
     str(vault_address).lower(): name[22:]

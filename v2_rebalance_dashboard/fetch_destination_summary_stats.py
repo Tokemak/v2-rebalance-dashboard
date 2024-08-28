@@ -7,7 +7,7 @@ from v2_rebalance_dashboard.get_state_by_block import (
     sync_get_raw_state_by_block_one_block,
 )
 
-from v2_rebalance_dashboard.constants import eth_client, balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS
+from v2_rebalance_dashboard.constants import eth_client, balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS, ROOT_DIR
 import plotly.express as px
 import json
 
@@ -18,10 +18,10 @@ import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-with open("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vault_abi.json", "r") as fin:
+with open(ROOT_DIR / "vault_abi.json", "r") as fin:
     vault_abi = json.load(fin)
 
-with open("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/strategy_abi.json", "r") as fin:
+with open(ROOT_DIR / "strategy_abi.json", "r") as fin:
     strategy_abi = json.load(fin)
 
 balETH_autopool_vault = "0x72cf6d7C85FfD73F18a83989E7BA8C1c30211b73"
@@ -163,7 +163,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
 
 
 def fetch_summary_stats_figures():
-    vaults_df = pd.read_csv("/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vaults.csv")
+    vaults_df = pd.read_csv(ROOT_DIR / "vaults.csv")
     calls = [
         build_summary_stats_call(
             "idle",

@@ -15,7 +15,9 @@ from v2_rebalance_dashboard.constants import (
     BALANCER_VAULT_ADDRESS,
     ROOT_PRICE_ORACLE,
     balETH_AUTOPOOL_ETH_ADDRESS,
+    ROOT_DIR
 )
+
 
 
 # { # for balancer
@@ -76,7 +78,7 @@ def getPriceInEth_call(name: str, token_address: str) -> Call:
 
 def build_balancer_autopool_asset_combination_calls(blocks) -> pd.DataFrame:
     destination_df = pd.read_parquet(
-        "/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vaults.parquet"
+        ROOT_DIR / "vaults.parquet"
     )
     destinations = Call(
         balETH_AUTOPOOL_ETH_ADDRESS, ["getDestinations()(address[])"], [("destinations", identity_function)]
