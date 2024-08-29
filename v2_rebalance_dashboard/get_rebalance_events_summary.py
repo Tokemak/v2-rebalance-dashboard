@@ -107,7 +107,11 @@ def calculate_total_eth_spent(address: str, block: int):
     return total_eth_spent
 
 
+<<<<<<< HEAD
 def fetch_plot_clean_rebalance_events(autopool_name="balETH"):
+=======
+def fetch_clean_rebalance_events(autopool_name="balETH"):
+>>>>>>> 45d3d7c (wip)
     if autopool_name != "balETH":
         raise ValueError("only for balETH")
 
