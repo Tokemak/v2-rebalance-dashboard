@@ -4,7 +4,7 @@ from v2_rebalance_dashboard.fetch_destination_summary_stats import fetch_summary
 from v2_rebalance_dashboard.fetch_asset_combination_over_time import fetch_asset_composition_over_time_to_plot
 from v2_rebalance_dashboard.fetch_nav_per_share import fetch_daily_nav_per_share_to_plot
 from v2_rebalance_dashboard.fetch_nav import fetch_daily_nav_to_plot
-from v2_rebalance_dashboard.get_rebalance_events_summary import fetch_plot_clean_rebalance_events
+from v2_rebalance_dashboard.get_rebalance_events_summary import fetch_clean_rebalance_events
 
 def get_autopool_diagnostics_charts(autopool_name:str):
     if autopool_name != "balETH":
@@ -14,7 +14,7 @@ def get_autopool_diagnostics_charts(autopool_name:str):
     nav_per_share_fig, return_fig = fetch_daily_nav_per_share_to_plot()
     nav_fig = fetch_daily_nav_to_plot()
     asset_allocation_bar_fig, asset_allocation_pie_fig = fetch_asset_composition_over_time_to_plot()
-    rebalance_fig = fetch_plot_clean_rebalance_events()
+    rebalance_fig = fetch_clean_rebalance_events()
 
     return {
         "eth_allocation_bar_chart_fig": eth_allocation_bar_chart_fig,
