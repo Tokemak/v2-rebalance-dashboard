@@ -93,9 +93,10 @@ def fetch_events(
     return event_df
 
 
-def get_each_event_in_contract(contract, end_block: int, include_timestamp: bool = False) -> dict[str, pd.DataFrame]:
+def get_each_event_in_contract(contract, end_block: int = None) -> dict[str, pd.DataFrame]:
+    end_block = eth_client.eth.block_number if end_block is None else end_block
     events_dict = dict()
     for e in contract.events:
         # add http fail retries?
-        events_dict[e.event_name] = fetch_events(e, end_block=end_block, include_timestamp=include_timestamp)
+        events_dict[e.event_name] = fetch_events(e, end_block=end_block)
     return events_dict
