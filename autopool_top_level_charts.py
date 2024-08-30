@@ -73,16 +73,30 @@ def main():
         st.plotly_chart(charts["nav_fig"], use_container_width=True)
     st.markdown("---")
 
-    st.markdown(
-        """
-        <h3 style='text-align: center;'>
-            Current Allocation Breakdown
-        </h3>
-        """, 
-        unsafe_allow_html=True
-    )
-    st.plotly_chart(charts["current_allocation_pie_fig"], use_container_width=True)
-    st.markdown("---")
+
+    # Display charts with center-aligned headings
+    col1, col2 = st.columns(2)  # Use columns for side-by-side charts
+    with col1:
+        st.markdown(
+            """
+            <h3 style='text-align: center;'>
+                Autopool Destination Exposure
+            </h3>
+            """, 
+            unsafe_allow_html=True
+        )
+        st.plotly_chart(charts["current_allocation_pie_fig"], use_container_width=True)
+    with col2:
+        st.markdown(
+            """
+            <h3 style='text-align: center;'>
+                Autopool Token Exposure
+            </h3>
+            """, 
+            unsafe_allow_html=True
+        )
+        st.plotly_chart(charts["asset_allocation_pie_fig"], use_container_width=True)
+    st.markdown("---")  
 
     st.markdown(
         """
@@ -116,16 +130,6 @@ def main():
     )
     st.plotly_chart(charts["composite_return_out_fig2"], use_container_width=True)
     st.markdown("---")
-
-    st.markdown(
-        """
-        <h3 style='text-align: center;'>
-            Autopool Token Exposure
-        </h3>
-        """, 
-        unsafe_allow_html=True
-    )
-    st.plotly_chart(charts["asset_allocation_pie_fig"], use_container_width=True)
 
 if __name__ == "__main__":
     main()
