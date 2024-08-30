@@ -9,9 +9,7 @@ with open(ROOT_DIR / "vault_abi.json", "r") as fin:
 with open(ROOT_DIR / "strategy_abi.json", "r") as fin:
     eth_strategy_abi = json.load(fin)
 
-destination_df = pd.read_csv(
-    ROOT_DIR / "vaults.csv", index_col=0
-)
+destination_df = pd.read_csv(ROOT_DIR / "vaults.csv", index_col=0)
 destination_vault_to_name = {
     str(vault_address).lower(): name[22:]
     for vault_address, name in zip(destination_df["vaultAddress"], destination_df["name"])
@@ -67,7 +65,7 @@ def make_rebalance_human_readable(row: dict):
     outEthValue = row["valueStats"][3] / 1e18
 
     predicted_increase_after_swap_cost = predicted_gain_during_swap_cost_off_set_period - swapCost
-    date = pd.to_datetime(eth_client.eth.get_block(row["block"]).timestamp, unit="s").date()
+    date = pd.to_datetime(eth_client.eth.get_block(row["block"]).timestamp, unit="s")
 
     break_even_days = None  # add later
 
@@ -76,6 +74,7 @@ def make_rebalance_human_readable(row: dict):
 
     return {
         "date": date,
+        "block": row["block"],
         "break_even_days": break_even_days,
         "swapCost": swapCost,
         "apr_delta": apr_delta,
@@ -90,13 +89,31 @@ def make_rebalance_human_readable(row: dict):
     }
 
 
-def fetch_clean_rebalance_events():
+def calculate_total_eth_spent(address: str, block: int):
+    total_eth_spent = 0
+    block = eth_client.eth.get_block(int(block), full_transactions=True)
+    for tx in block.transactions:
+        if tx["from"].lower() == address.lower():
+            # Calculate the total spent for this transaction
+            tx_cost = eth_client.fromWei(tx["value"], "ether") + eth_client.fromWei(tx["gasPrice"] * tx["gas"], "ether")
+            total_eth_spent += tx_cost
+
+    return total_eth_spent
+
+
+def fetch_clean_rebalance_events(autopool_name="balETH") -> pd.DataFrame:
+    if autopool_name != "balETH":
+        raise ValueError("only for balETH")
+
+    balETH_solver = "0xad92a528A627F59a12e3EE56246C6F733051f6ca"
+
     strategy_contract = eth_client.eth.contract(balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS, abi=eth_strategy_abi)
     rebalance_events = fetch_events(strategy_contract.events.RebalanceBetweenDestinations)
     clean_rebalance_df = pd.DataFrame.from_records(
         rebalance_events.apply(lambda row: make_rebalance_human_readable(row), axis=1)
     )
+    clean_rebalance_df["gasCostInETH"] = clean_rebalance_df.apply(
+        lambda row: calculate_total_eth_spent(balETH_solver, row["block"]), axis=1
+    )
+    clean_rebalance_df.set_index("date", inplace=True)
     return clean_rebalance_df
-
-
-fetch_clean_rebalance_events()
