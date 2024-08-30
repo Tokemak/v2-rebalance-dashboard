@@ -6,11 +6,9 @@ from v2_rebalance_dashboard.get_state_by_block import (
     build_blocks_to_use,
 )
 import plotly.express as px
-from v2_rebalance_dashboard.constants import balETH_AUTOPOOL_ETH_ADDRESS
+from v2_rebalance_dashboard.constants import balETH_AUTOPOOL_ETH_ADDRESS, ROOT_DIR
 
-destination_df = pd.read_csv(
-    "/home/parker/Documents/Tokemak/v2-rebalance-dashboard/v2_rebalance_dashboard/vaults.csv", index_col=0
-)[["vaultAddress", "name", "stats"]]
+destination_df = pd.read_csv(ROOT_DIR / "vaults.csv", index_col=0)[["vaultAddress", "name", "stats"]]
 
 # struct DestinationInfo {
 #     /// @notice Current underlying value at the destination vault
