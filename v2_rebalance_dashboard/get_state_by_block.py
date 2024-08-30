@@ -128,10 +128,14 @@ def identity_function(value):
 
 
 def build_blocks_to_use():
-    # current_block = 20593231  # eth_client.eth.block_number
     current_block = eth_client.eth.block_number
-    start_block = 20262439  # TODO, get a better method for this. blocks are not perfectly lined up
-    approx_blocks_per_day = 7100 // 4
-    blocks = [b for b in range(start_block, current_block, approx_blocks_per_day)]
-    # good enough for now, fix later use etherscan
+    start_block = 20262439  # Start block number
+
+    # Average block time in seconds
+    block_time_seconds = 13.15
+    # Calculate blocks per day
+    blocks_per_day = int(86400 / block_time_seconds)
+
+    # Generate blocks with an interval of 1 block per day
+    blocks = [b for b in range(start_block, current_block, blocks_per_day)]
     return blocks
