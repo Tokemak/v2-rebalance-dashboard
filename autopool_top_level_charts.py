@@ -10,7 +10,7 @@ def get_autopool_diagnostics_charts(autopool_name:str):
         raise ValueError("only works for balETH autopool")
 
     eth_allocation_bar_chart_fig, composite_return_out_fig1, composite_return_out_fig2, current_allocation_pie_fig = fetch_summary_stats_figures()
-    nav_per_share_fig = fetch_daily_nav_per_share_to_plot()
+    nav_per_share_fig, return_fig = fetch_daily_nav_per_share_to_plot()
     nav_fig = fetch_daily_nav_to_plot()
     asset_allocation_bar_fig, asset_allocation_pie_fig = fetch_asset_composition_over_time_to_plot()
 
@@ -20,6 +20,7 @@ def get_autopool_diagnostics_charts(autopool_name:str):
         "composite_return_out_fig2": composite_return_out_fig2,
         "current_allocation_pie_fig": current_allocation_pie_fig,
         "nav_per_share_fig": nav_per_share_fig,
+        "return_fig": return_fig,
         "nav_fig": nav_fig,
         "asset_allocation_bar_fig": asset_allocation_bar_fig,
         "asset_allocation_pie_fig": asset_allocation_pie_fig,
@@ -50,7 +51,7 @@ def main():
     charts = get_autopool_diagnostics_charts(autopool_name)
 
     # Display charts with center-aligned headings
-    col1, col2 = st.columns(2)  # Use columns for side-by-side charts
+    col1, col2, col3 = st.columns(3)  # Use columns for side-by-side charts
     with col1:
         st.markdown(
             """
@@ -62,6 +63,16 @@ def main():
         )
         st.plotly_chart(charts["nav_per_share_fig"], use_container_width=True)
     with col2:
+        st.markdown(
+            """
+            <h3 style='text-align: center;'>
+                30-day Annualized Return (%)
+            </h3>
+            """, 
+            unsafe_allow_html=True
+        )
+        st.plotly_chart(charts["return_fig"], use_container_width=True)
+    with col3:
         st.markdown(
             """
             <h3 style='text-align: center;'>
