@@ -1,5 +1,5 @@
 import pandas as pd
-
+from datetime import timedelta
 from multicall import Call
 from v2_rebalance_dashboard.get_state_by_block import (
     sync_safe_get_raw_state_by_block,
@@ -86,80 +86,144 @@ def build_summary_stats_call(
         [(name, _clean_summary_stats_info)],
     )
 
-
 def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
-    pricePerShare_df = summary_stats_df.map(lambda row: row["pricePerShare"] if isinstance(row, dict) else None).astype(
-        float
-    )
-    ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else None).astype(
-        float
-    )
-    compositeReturn_df = summary_stats_df.map(
-        lambda row: row["compositeReturn"] if isinstance(row, dict) else None
-    ).astype(float)
-    # clean up spikes up
+    # Extract and process data
+    pricePerShare_df = summary_stats_df.map(lambda row: row["pricePerShare"] if isinstance(row, dict) else None).astype(float)
+    ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else None).astype(float)
+    compositeReturn_df = summary_stats_df.map(lambda row: row["compositeReturn"] if isinstance(row, dict) else None).astype(float)
     compositeReturn_df = 100 * (compositeReturn_df.clip(upper=1).replace(1, np.nan).astype(float))
     allocation_df = pricePerShare_df * ownedShares_df
-    # LIMIT BY Destintion where value >0
+
+    # Limit to the last 90 days
+    end_date = allocation_df.index[-1]
+    start_date = end_date - timedelta(days=90)
+    filtered_allocation_df = allocation_df[(allocation_df.index >= start_date) & (allocation_df.index <= end_date)]
+
+    # Calculate portions for the area chart
+    portion_filtered_df = filtered_allocation_df.div(filtered_allocation_df.sum(axis=1), axis=0).fillna(0)
+
+    # Filter out columns with all zero allocations
+    portion_filtered_df = portion_filtered_df.loc[:, (portion_filtered_df != 0).any(axis=0)]
+
+    # Create a stacked area chart for allocation over time
+    allocation_area_fig = px.area(
+        portion_filtered_df,
+        labels={"index": "", "value": "Allocation Proportion"},
+        color_discrete_sequence=px.colors.qualitative.Set1
+    )
+    allocation_area_fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=80),
+        height=600,
+        width=800,
+        xaxis_title="",
+        font=dict(size=16),
+        legend=dict(font=dict(size=18), orientation='h', x=0.5, xanchor='center', y=-0.2),
+        legend_title_text='',
+        plot_bgcolor='white',  # Set plot background to white
+        paper_bgcolor='white',  # Set paper background to white
+        xaxis=dict(showgrid=True, gridcolor='lightgray'),  # Set x-axis grid lines to gray
+        yaxis=dict(showgrid=True, gridcolor='lightgray')   # Set y-axis grid lines to gray
+    )
+
+    # Calculate weighted return
+    summary_stats_df["balETH_weighted_return"] = (compositeReturn_df * portion_filtered_df).sum(axis=1)
+    compositeReturn_df["balETH_weighted_return"] = (compositeReturn_df * portion_filtered_df).sum(axis=1)
+
+    # Create a line chart for weighted return
+    weighted_return_fig = px.line(
+        summary_stats_df,
+        x=summary_stats_df.index,
+        y="balETH_weighted_return",
+        line_shape="linear",
+        markers=True
+    )
+
+    weighted_return_fig.update_traces(
+        line=dict(width=8),
+        line_color="blue",
+        line_width=6,
+        line_dash = "dash",
+        marker=dict(size=10, symbol='circle', color='blue') 
+    )
+
+    weighted_return_fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=80),
+        height=600,
+        width=800,
+        font=dict(size=16),
+        yaxis_title="Weighted Return (%)",
+        xaxis_title="",
+        legend=dict(font=dict(size=18), orientation='h', x=0.5, xanchor='center', y=-0.2),
+        legend_title_text='',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        xaxis=dict(showgrid=True, gridcolor='lightgray'),
+        yaxis=dict(showgrid=True, gridcolor='lightgray')
+    )
+
+    # Create a combined line chart for weighted return and composite return
+    columns_to_plot = compositeReturn_df.columns[:]
+
+    combined_return_fig = px.line(
+        compositeReturn_df,
+        x=compositeReturn_df.index,
+        y=columns_to_plot,
+        markers=False
+    )
+    combined_return_fig.update_traces(
+        line=dict(width=8),
+        selector=dict(name="balETH_weighted_return"),
+        line_color="blue",
+        line_dash="dash",
+        line_width=6,
+        marker=dict(size=10, symbol='circle', color='blue') 
+    )
+    combined_return_fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=80),
+        height=600,
+        width=800,
+        font=dict(size=16),
+        yaxis_title="Return (%)",
+        xaxis_title="",
+        legend=dict(font=dict(size=18), orientation='h', x=0.5, xanchor='auto', y=-0.2),
+        legend_title_text='',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        xaxis=dict(showgrid=True, gridcolor='lightgray'),
+        yaxis=dict(showgrid=True, gridcolor='lightgray')
+    )
+
+    # Prepare data for pie chart
     pie_df = allocation_df.copy()
     pie_df["date"] = allocation_df.index
     pie_data = pie_df.groupby("date").max().tail(1).T.reset_index()
     pie_data.columns = ["Destination", "ETH Value"]
-
     pie_data = pie_data[pie_data["ETH Value"] > 0]
-    lp_allocation_pie_fig = px.pie(
-        pie_data, names="Destination", values="ETH Value", title="Current ETH Value by Destination"
-    )
 
+    # Create the pie chart
+    lp_allocation_pie_fig = px.pie(
+        pie_data,
+        names="Destination",
+        values="ETH Value",
+        color_discrete_sequence=px.colors.qualitative.Pastel
+    )
     lp_allocation_pie_fig.update_layout(
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
         height=600,
-        width=600 * 3,
+        width=800,
+        font=dict(size=16),
+        legend=dict(font=dict(size=18), orientation="h", x=0.5, xanchor="center"),
+        legend_title_text='',
+        plot_bgcolor='white',
+        paper_bgcolor='white'
     )
+    lp_allocation_pie_fig.update_traces(textinfo='percent+label', hoverinfo='label+value+percent')
 
-    lp_allocation_bar_fig = px.bar(allocation_df)
-
-    lp_allocation_bar_fig.update_layout(
-        # not attached to these settings
-        title="ETH In Each Destination",
-        xaxis_title="Date",
-        yaxis_title="ETH Per Destination",
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=40),
-        height=600,
-        width=600 * 3,
-    )
-
-    portion_df = allocation_df.copy()
-    eth_nav = allocation_df.sum(axis=1)
-    for col in allocation_df.columns:
-        portion_df[col] = allocation_df[col] / eth_nav
-
-    portion_df["balETH_weighted_return"] = 0.0  # to make the shapes match
-    compositeReturn_df["balETH_weighted_return"] = (compositeReturn_df * portion_df).sum(axis=1)
-
-    cr_out_fig = px.line(compositeReturn_df)
-    cr_out_fig.update_layout(
-        # not attached to these settings
-        title="balETH Weighted Composite Return Out vs Other Destinations",
-        xaxis_title="Date",
-        yaxis_title="Composite Return Percent",
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=40),
-        height=600,
-        width=600 * 3,
-    )
-
-    cr_out_fig.update_traces(
-        line=dict(width=2),
-        selector=dict(name="balETH_weighted_return"),
-        line_color="red",
-        line_dash="dash",
-        line_width=4,
-    )
-
-    return lp_allocation_bar_fig, cr_out_fig, lp_allocation_pie_fig
+    return allocation_area_fig, weighted_return_fig, combined_return_fig, lp_allocation_pie_fig
 
 
 def fetch_summary_stats_figures():
@@ -185,5 +249,5 @@ def fetch_summary_stats_figures():
     blocks = build_blocks_to_use()
     summary_stats_df = sync_safe_get_raw_state_by_block(calls, blocks)
 
-    lp_allocation_bar_fig, cr_out_fig, lp_allocation_pie_fig = _summary_stats_df_to_figures(summary_stats_df)
-    return lp_allocation_bar_fig, cr_out_fig, lp_allocation_pie_fig
+    lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig = _summary_stats_df_to_figures(summary_stats_df)
+    return lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig
