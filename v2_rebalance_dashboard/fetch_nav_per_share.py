@@ -8,6 +8,7 @@ from v2_rebalance_dashboard.get_state_by_block import (
 )
 from v2_rebalance_dashboard.constants import balETH_AUTOPOOL_ETH_ADDRESS
 import plotly.express as px
+import numpy as np
 
 
 def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
@@ -17,33 +18,51 @@ def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
         [(name, safe_normalize_with_bool_success)],
     )
 
-
 def fetch_daily_nav_per_share_to_plot():
     blocks = build_blocks_to_use()
-
     calls = [
         nav_per_share_call("balETH", balETH_AUTOPOOL_ETH_ADDRESS),
-        # nav_per_share_call("autoETH", main_auto_pool_vault),
     ]
     nav_per_share_df = sync_safe_get_raw_state_by_block(calls, blocks)
 
-    fig = px.line(nav_per_share_df[["balETH"]])
-    fig.update_traces(line=dict(width=4))
-    fig.update_layout(
-        # not attached to these settings
-        title="",
-        xaxis_title="",
-        yaxis_title="NAV Per Share",
+    # Calculate the 30-day difference and annualized return
+    nav_per_share_df['30_day_difference'] = nav_per_share_df['balETH'].diff(periods=30)
+    nav_per_share_df['30_day_annualized_return'] = (nav_per_share_df['30_day_difference'] * (365 / 30) * 100).dropna()
+
+    # Plot NAV Per Share
+    nav_fig = px.line(nav_per_share_df, y='balETH', title='')
+    nav_fig.update_traces(line=dict(width=4))
+    nav_fig.update_layout(
         title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=40),
+        margin=dict(l=40, r=40, t=40, b=80),
         height=600,
-        width=600 * 3,
+        width=800,
         font=dict(size=16),
-        legend=dict(font=dict(size=18), orientation='h', x=0.5, xanchor='center', y=-0.2),
-        legend_title_text='',
+        yaxis_title='NAV Per Share',
+        xaxis_title='',
         plot_bgcolor='white',
         paper_bgcolor='white',
         xaxis=dict(showgrid=True, gridcolor='lightgray'),
         yaxis=dict(showgrid=True, gridcolor='lightgray')
     )
-    return fig
+
+    # Plot 30-day Annualized Return
+    annualized_return_fig = px.line(nav_per_share_df, y='30_day_annualized_return', title='')
+    annualized_return_fig.update_traces(line=dict(width=4))
+    annualized_return_fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=80),
+        height=600,
+        width=800,
+        font=dict(size=16),
+        yaxis_title='30-day Annualized Return (%)',
+        xaxis_title='',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        xaxis=dict(showgrid=True, gridcolor='lightgray'),
+        yaxis=dict(showgrid=True, gridcolor='lightgray')
+    )
+
+    return nav_fig, annualized_return_fig
+
+
