@@ -3,6 +3,10 @@ from web3 import Web3
 from pathlib import Path
 import json
 
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
+
 ALCHEMY_URL = environ["ALCHEMY_URL"]
 eth_client = Web3(Web3.HTTPProvider(ALCHEMY_URL))
 

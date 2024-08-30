@@ -44,15 +44,23 @@ def fetch_daily_nav_to_plot():
 
     nav_df = sync_safe_get_raw_state_by_block(calls, blocks)
 
-    fig = px.scatter(nav_df[["balETH"]])
+    fig = px.line(nav_df[["balETH"]])
+    fig.update_traces(line=dict(width=4))
     fig.update_layout(
         # not attached to these settings
-        title="NAV",
-        xaxis_title="Date",
-        yaxis_title="Idle + Debt (ETH)",
+        title="",
+        xaxis_title="",
+        yaxis_title="NAV (ETH)",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
         height=600,
         width=600 * 3,
+        font=dict(size=16),
+        legend=dict(font=dict(size=18), orientation='h', x=0.5, xanchor='center', y=-0.2),
+        legend_title_text='',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        xaxis=dict(showgrid=True, gridcolor='lightgray'),
+        yaxis=dict(showgrid=True, gridcolor='lightgray')
     )
     return fig
