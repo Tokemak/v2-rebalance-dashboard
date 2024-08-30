@@ -1,12 +1,21 @@
 import json
+import os
 import xml.etree.ElementTree as ET
 import requests
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-from v2_rebalance_dashboard.constants import ROOT_DIR
+from v2_rebalance_dashboard.constants import (
+    ROOT_DIR,
+    eth_client,
+    AUTOPOOL_ETH_STRATEGY_ABI,
+    AUTOPOOL_VAULT_ABI,
+    balETH_AUTOPOOL_ETH_ADDRESS,
+    balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS,
+)
+
 from v2_rebalance_dashboard.get_rebalance_events_summary import fetch_clean_rebalance_events
-import os
+from v2_rebalance_dashboard.get_events import get_each_event_in_contract
 
 
 GET_REBALANCE_PLAN_FILE_NAMES_URL = "https://ctrrwpvz5c.execute-api.us-east-1.amazonaws.com/GuardedLaunch/files"
@@ -84,6 +93,17 @@ def load_solver_df() -> pd.DataFrame:
             # print(p, e)
     solver_df = pd.DataFrame.from_records(all_data)
     return solver_df
+
+
+def _get_all_events_df():
+
+    vault_events = get_each_event_in_contract(
+        eth_client.eth.contract(balETH_AUTOPOOL_ETH_ADDRESS, abi=AUTOPOOL_VAULT_ABI),
+    )
+    strategy_events = get_each_event_in_contract(
+        eth_client.eth.contract(balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS, abi=AUTOPOOL_ETH_STRATEGY_ABI),
+    )
+    return vault_events, strategy_events
 
 
 def load_balETH_solver_df():
@@ -187,7 +207,29 @@ def get_proposed_vs_actual_rebalances(
     return actual_vs_proposed_rebalance_bar_fig
 
 
-def fetch_rebalance_plans_plots(autopool_name: str = "balETH") -> dict:
+def block_to_date(block: int):
+    return pd.to_datetime(eth_client.eth.getBlock(block).timestamp, unit="s")
+
+
+def make_hours_since_last_nav_event_plot(nav_df: pd.DataFrame):
+    nav_df["date"] = nav_df["block"].apply(block_to_date)
+    time_diff_hours = nav_df["date"].diff().dt.total_seconds()[2:] / 3600
+    time_diff_hours.index = nav_df["date"][2:]
+    hours_since_last_nav_event_fig = px.scatter(
+        time_diff_hours,
+        labels={"value": "Hours", "index": "Date"},
+        title="Hours Since Last Nav Event",
+        height=600,
+        width=600 * 3,
+    )
+    hours_since_last_nav_event_fig.add_hline(
+        y=24, line_dash="dash", line_color="red", annotation_text="24-hour threshold", annotation_position="top right"
+    )
+    hours_since_last_nav_event_fig.update_yaxes(range=[20, 25])
+    return hours_since_last_nav_event_fig
+
+
+def fetch_solver_diagnostics_charts(autopool_name: str = "balETH") -> dict:
     if autopool_name != "balETH":
         raise ValueError("only works for balETH")
     _ensure_all_rebalance_plans_are_loaded()
@@ -200,7 +242,11 @@ def fetch_rebalance_plans_plots(autopool_name: str = "balETH") -> dict:
         balETH_solver_df, rebalance_event_df, start_date="8-01-2024"
     )
 
+    vault_events, strategy_events = _get_all_events_df()
+    hours_since_last_nav_event_fig = make_hours_since_last_nav_event_plot(vault_events["Nav"])
+
     return {
         "proposed_vs_actual_rebalance_scatter_plot_fig": proposed_vs_actual_rebalance_scatter_plot_fig,
         "actual_vs_proposed_rebalance_bar_fig": actual_vs_proposed_rebalance_bar_fig,
+        "hours_since_last_nav_event_fig": hours_since_last_nav_event_fig,  # might want to move
     }
