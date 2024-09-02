@@ -122,7 +122,6 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
     clean_rebalance_df["gasCostInETH"] = clean_rebalance_df.apply(
         lambda row: calculate_total_eth_spent(balETH_solver, row["block"]), axis=1
     )
-    clean_rebalance_df.set_index("date", inplace=True)
 
     # Sort the dataframe by date
     clean_rebalance_df = clean_rebalance_df.sort_values('date')
