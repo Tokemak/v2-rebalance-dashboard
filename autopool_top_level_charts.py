@@ -4,6 +4,7 @@ from v2_rebalance_dashboard.fetch_destination_summary_stats import fetch_summary
 from v2_rebalance_dashboard.fetch_asset_combination_over_time import fetch_asset_composition_over_time_to_plot
 from v2_rebalance_dashboard.fetch_nav_per_share import fetch_daily_nav_per_share_to_plot
 from v2_rebalance_dashboard.fetch_nav import fetch_daily_nav_to_plot
+from v2_rebalance_dashboard.get_rebalance_events_summary import fetch_plot_clean_rebalance_events
 
 def get_autopool_diagnostics_charts(autopool_name:str):
     if autopool_name != "balETH":
@@ -13,6 +14,7 @@ def get_autopool_diagnostics_charts(autopool_name:str):
     nav_per_share_fig, return_fig = fetch_daily_nav_per_share_to_plot()
     nav_fig = fetch_daily_nav_to_plot()
     asset_allocation_bar_fig, asset_allocation_pie_fig = fetch_asset_composition_over_time_to_plot()
+    rebalance_fig = fetch_plot_clean_rebalance_events()
 
     return {
         "eth_allocation_bar_chart_fig": eth_allocation_bar_chart_fig,
@@ -24,17 +26,16 @@ def get_autopool_diagnostics_charts(autopool_name:str):
         "nav_fig": nav_fig,
         "asset_allocation_bar_fig": asset_allocation_bar_fig,
         "asset_allocation_pie_fig": asset_allocation_pie_fig,
+        "rebalance_fig": rebalance_fig
     }
 
 def main():
-    # Set the page configuration
     st.set_page_config(
         page_title="Autopool Diagnostics Dashboard",
-        layout="wide",  # Use a wide layout for better use of screen space
+        layout="wide",
         initial_sidebar_state="expanded",
     )
 
-    # Center-align the main title
     st.markdown(
         """
         <h1 style='text-align: center;'>
@@ -44,103 +45,58 @@ def main():
         unsafe_allow_html=True
     )
 
-    # Get autopool_name from environment variable
-    autopool_name = os.getenv('AUTOPOOL_NAME', 'balETH')
+    # Add index
+    st.markdown("""
+    ## Index
+    - [Key Metrics](#key-metrics)
+    - [Autopool Exposure](#autopool-exposure)
+    - [Allocation Over Time](#allocation-over-time)
+    - [Weighted CRM](#weighted-crm)
+    - [Weighted CRM with Destinations](#weighted-crm-with-destinations)
+    - [Rebalance Events](#rebalance-events)
+    """)
 
-    # Call the function with the autopool_name argument
+    autopool_name = os.getenv('AUTOPOOL_NAME', 'balETH')
     charts = get_autopool_diagnostics_charts(autopool_name)
 
-    # Display charts with center-aligned headings
-    col1, col2, col3 = st.columns(3)  # Use columns for side-by-side charts
+    st.markdown("<a name='key-metrics'></a>", unsafe_allow_html=True)
+    st.markdown("## Key Metrics")
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown(
-            """
-            <h3 style='text-align: center;'>
-                NAV per share
-            </h3>
-            """, 
-            unsafe_allow_html=True
-        )
+        st.markdown("### NAV per share")
         st.plotly_chart(charts["nav_per_share_fig"], use_container_width=True)
     with col2:
-        st.markdown(
-            """
-            <h3 style='text-align: center;'>
-                30-day Annualized Return (%)
-            </h3>
-            """, 
-            unsafe_allow_html=True
-        )
+        st.markdown("### 30-day Annualized Return (%)")
         st.plotly_chart(charts["return_fig"], use_container_width=True)
     with col3:
-        st.markdown(
-            """
-            <h3 style='text-align: center;'>
-                NAV
-            </h3>
-            """, 
-            unsafe_allow_html=True
-        )
+        st.markdown("### NAV")
         st.plotly_chart(charts["nav_fig"], use_container_width=True)
-    st.markdown("---")
 
-
-    # Display charts with center-aligned headings
-    col1, col2 = st.columns(2)  # Use columns for side-by-side charts
+    st.markdown("<a name='autopool-exposure'></a>", unsafe_allow_html=True)
+    st.markdown("## Autopool Exposure")
+    col1, col2 = st.columns(2)
     with col1:
-        st.markdown(
-            """
-            <h3 style='text-align: center;'>
-                Autopool Destination Exposure
-            </h3>
-            """, 
-            unsafe_allow_html=True
-        )
+        st.markdown("### Autopool Destination Exposure")
         st.plotly_chart(charts["current_allocation_pie_fig"], use_container_width=True)
     with col2:
-        st.markdown(
-            """
-            <h3 style='text-align: center;'>
-                Autopool Token Exposure
-            </h3>
-            """, 
-            unsafe_allow_html=True
-        )
+        st.markdown("### Autopool Token Exposure")
         st.plotly_chart(charts["asset_allocation_pie_fig"], use_container_width=True)
-    st.markdown("---")  
 
-    st.markdown(
-        """
-        <h3 style='text-align: center;'>
-            Autopool Allocation Over Time
-        </h3>
-        """, 
-        unsafe_allow_html=True
-    )
+    st.markdown("<a name='allocation-over-time'></a>", unsafe_allow_html=True)
+    st.markdown("## Allocation Over Time")
     st.plotly_chart(charts["eth_allocation_bar_chart_fig"], use_container_width=True)
-    st.markdown("---")
 
-    st.markdown(
-        """
-        <h3 style='text-align: center;'>
-            Autopool Weighted CRM
-        </h3>
-        """, 
-        unsafe_allow_html=True
-    )
+    st.markdown("<a name='weighted-crm'></a>", unsafe_allow_html=True)
+    st.markdown("## Weighted CRM")
     st.plotly_chart(charts["composite_return_out_fig1"], use_container_width=True)
-    st.markdown("---")
 
-    st.markdown(
-        """
-        <h3 style='text-align: center;'>
-            Autopool Weighted CRM w/ Destinations
-        </h3>
-        """, 
-        unsafe_allow_html=True
-    )
+    st.markdown("<a name='weighted-crm-with-destinations'></a>", unsafe_allow_html=True)
+    st.markdown("## Weighted CRM with Destinations")
     st.plotly_chart(charts["composite_return_out_fig2"], use_container_width=True)
-    st.markdown("---")
+
+    st.markdown("<a name='rebalance-events'></a>", unsafe_allow_html=True)
+    st.markdown("## Rebalance Events")
+    st.plotly_chart(charts["rebalance_fig"], use_container_width=True)
 
 if __name__ == "__main__":
     main()
