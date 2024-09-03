@@ -31,11 +31,11 @@ def fetch_daily_nav_per_share_to_plot():
 
     # Plot NAV Per Share
     nav_fig = px.line(nav_per_share_df, y='balETH', title='')
-    nav_fig.update_traces(line=dict(width=4))
+    nav_fig.update_traces(line=dict(width=3))
     nav_fig.update_layout(
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=80),
-        height=600,
+        height=400,
         width=800,
         font=dict(size=16),
         yaxis_title='NAV Per Share',
@@ -48,11 +48,11 @@ def fetch_daily_nav_per_share_to_plot():
 
     # Plot 30-day Annualized Return
     annualized_return_fig = px.line(nav_per_share_df, y='30_day_annualized_return', title='')
-    annualized_return_fig.update_traces(line=dict(width=4))
+    annualized_return_fig.update_traces(line=dict(width=3))
     annualized_return_fig.update_layout(
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=80),
-        height=600,
+        height=400,
         width=800,
         font=dict(size=16),
         yaxis_title='30-day Annualized Return (%)',

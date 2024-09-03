@@ -36,6 +36,20 @@ def main():
         initial_sidebar_state="expanded",
     )
 
+    # Custom CSS for centering and width
+    st.markdown(
+        """
+        <style>
+        .main {
+            max-width: 75%;
+            margin: 0 auto;
+            padding-top: 40px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
     st.markdown(
         """
         <h1 style='text-align: center;'>
@@ -91,7 +105,7 @@ def main():
     st.plotly_chart(charts["composite_return_out_fig1"], use_container_width=True)
 
     st.markdown("<a name='weighted-crm-with-destinations'></a>", unsafe_allow_html=True)
-    st.markdown("## Weighted CRM with Destinations")
+    st.markdown("## Weighted (out)CRM with Destinations")
     st.plotly_chart(charts["composite_return_out_fig2"], use_container_width=True)
 
     st.markdown("<a name='rebalance-events'></a>", unsafe_allow_html=True)

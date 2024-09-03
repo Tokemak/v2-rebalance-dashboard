@@ -45,7 +45,7 @@ def fetch_daily_nav_to_plot():
     nav_df = sync_safe_get_raw_state_by_block(calls, blocks)
 
     fig = px.line(nav_df[["balETH"]])
-    fig.update_traces(line=dict(width=4))
+    fig.update_traces(line=dict(width=3))
     fig.update_layout(
         # not attached to these settings
         title="",
@@ -53,8 +53,8 @@ def fetch_daily_nav_to_plot():
         yaxis_title="NAV (ETH)",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
-        height=600,
-        width=600 * 3,
+        height=400,
+        width=600,
         legend_title_text='',
         font=dict(size=16),
         plot_bgcolor='white',

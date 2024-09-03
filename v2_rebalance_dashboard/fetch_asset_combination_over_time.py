@@ -200,7 +200,7 @@ def fetch_asset_composition_over_time_to_plot():
     asset_allocation_pie_fig.update_layout(
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
-        height=600,
+        height=400,
         width=800,
         font=dict(size=16),
         legend=dict(font=dict(size=18), orientation='h', x=0.5, xanchor='center'),
@@ -224,7 +224,7 @@ def fetch_asset_composition_over_time_to_plot():
     asset_allocation_area_fig.update_layout(
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
-        height=600,
+        height=400,
         width=800,
         font=dict(size=16),
         xaxis_title='',
