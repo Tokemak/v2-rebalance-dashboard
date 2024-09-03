@@ -118,6 +118,12 @@ def safe_normalize_with_bool_success(success: int, value: int):
     return None
 
 
+def safe_normalize_6_with_bool_success(success: int, value: int):
+    if success:
+        return int(value) / 1e18
+    return None
+
+
 def identity_with_bool_success(success, value):
     if success:
         return value
