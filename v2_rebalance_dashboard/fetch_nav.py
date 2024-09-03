@@ -56,11 +56,11 @@ def fetch_daily_nav_to_plot():
         height=600,
         width=600 * 3,
         font=dict(size=16),
-        legend=dict(font=dict(size=18), orientation='h', x=0.5, xanchor='center', y=-0.2),
-        legend_title_text='',
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        xaxis=dict(showgrid=True, gridcolor='lightgray'),
-        yaxis=dict(showgrid=True, gridcolor='lightgray')
+        legend=dict(font=dict(size=18), orientation="h", x=0.5, xanchor="center", y=-0.2),
+        legend_title_text="",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        xaxis=dict(showgrid=True, gridcolor="lightgray"),
+        yaxis=dict(showgrid=True, gridcolor="lightgray"),
     )
     return fig

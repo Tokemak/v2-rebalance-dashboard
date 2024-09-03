@@ -146,7 +146,7 @@ def fetch_asset_composition_over_time_to_plot():
             for token_address, token_balance in zip(
                 row[f"{destination_name}_tokens"], row[f"{destination_name}_balances"]
             ):
-                token_address = eth_client.to_checksum_address(token_address)
+                token_address = eth_client.toChecksumAddress(token_address)
                 if token_address in token_address_to_name:
                     token_name = token_address_to_name[token_address]
                     token_names.append(token_name)
@@ -155,7 +155,9 @@ def fetch_asset_composition_over_time_to_plot():
                     token_quantity_normalized = token_balance / 1e18
 
                     token_value_in_eth_in_destination = token_quantity_normalized * token_price_in_eth
-                    assets_in_destination_value[f"{token_name}_value_in_{destination_name}"] = token_value_in_eth_in_destination
+                    assets_in_destination_value[f"{token_name}_value_in_{destination_name}"] = (
+                        token_value_in_eth_in_destination
+                    )
 
                     total_value_in_destination += token_value_in_eth_in_destination
 
@@ -191,11 +193,7 @@ def fetch_asset_composition_over_time_to_plot():
 
     # pie chart
     asset_allocation_pie_fig = px.pie(
-        pie_data,
-        names='Asset',
-        values='ETH Value',
-        title='',
-        color_discrete_sequence=px.colors.qualitative.Pastel
+        pie_data, names="Asset", values="ETH Value", title="", color_discrete_sequence=px.colors.qualitative.Pastel
     )
     asset_allocation_pie_fig.update_layout(
         title_x=0.5,
@@ -203,12 +201,12 @@ def fetch_asset_composition_over_time_to_plot():
         height=600,
         width=800,
         font=dict(size=16),
-        legend=dict(font=dict(size=18), orientation='h', x=0.5, xanchor='center'),
-        legend_title_text='',
-        plot_bgcolor='white',
-        paper_bgcolor='white'
+        legend=dict(font=dict(size=18), orientation="h", x=0.5, xanchor="center"),
+        legend_title_text="",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
     )
-    asset_allocation_pie_fig.update_traces(textinfo='percent+label', hoverinfo='label+value+percent')
+    asset_allocation_pie_fig.update_traces(textinfo="percent+label", hoverinfo="label+value+percent")
 
     # Normalize data for area chart
     asset_df = asset_df.div(asset_df.sum(axis=1), axis=0).fillna(0)
@@ -216,9 +214,9 @@ def fetch_asset_composition_over_time_to_plot():
     #  area chart for token exposure over time
     asset_allocation_area_fig = px.bar(
         asset_df,
-        title='',
-        labels={'timestamp': '', 'value': 'Exposure Proportion'},
-        color_discrete_sequence=px.colors.qualitative.Set1
+        title="",
+        labels={"timestamp": "", "value": "Exposure Proportion"},
+        color_discrete_sequence=px.colors.qualitative.Set1,
     )
 
     asset_allocation_area_fig.update_layout(
@@ -227,11 +225,11 @@ def fetch_asset_composition_over_time_to_plot():
         height=600,
         width=800,
         font=dict(size=16),
-        xaxis_title='',
-        yaxis_title='Proportion of Total Exposure',
-        yaxis=dict(showgrid=True, gridcolor='lightgray'),
-        plot_bgcolor='white',
-        paper_bgcolor='white'
+        xaxis_title="",
+        yaxis_title="Proportion of Total Exposure",
+        yaxis=dict(showgrid=True, gridcolor="lightgray"),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
     )
 
     return asset_allocation_area_fig, asset_allocation_pie_fig
