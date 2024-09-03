@@ -31,3 +31,15 @@ with open(ROOT_DIR / "strategy_abi.json", "r") as fin:
 
 with open(ROOT_DIR / "Tokemak_BalancerAuraDestinationVault_abi.json", "r") as fin:
     BALANCER_AURA_DESTINATION_VAULT_ABI = json.load(fin)
+    
+with open(ROOT_DIR / "convex_base_reward_pool_abi.json", "r") as fin:
+    BASE_REWARD_POOL_ABI = json.load(fin)
+    
+with open(ROOT_DIR / "convex_virtual_balance_reward_pool_abi.json", "r") as fin:
+    EXTRA_REWARD_POOL_ABI = json.load(fin)
+    
+with open(ROOT_DIR / "ERC_20_abi.json", "r") as fin:
+    ERC_20_ABI = json.load(fin)
+    
+with open(ROOT_DIR / "aura_stash_token_abi.json", "r") as fin:
+    AURA_STASH_TOKEN_ABI = json.load(fin)
