@@ -142,7 +142,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     weighted_return_fig.update_traces(
         line=dict(width=8),
         line_color="blue",
-        line_width=6,
+        line_width=4,
         line_dash = "dash",
         marker=dict(size=10, symbol='circle', color='blue') 
     )
@@ -177,7 +177,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
         selector=dict(name="balETH_weighted_return"),
         line_color="blue",
         line_dash="dash",
-        line_width=6,
+        line_width=4,
         marker=dict(size=10, symbol='circle', color='blue') 
     )
     combined_return_fig.update_layout(
@@ -213,7 +213,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     lp_allocation_pie_fig.update_layout(
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
-        height=600,
+        height=400,
         width=800,
         font=dict(size=16),
         legend=dict(font=dict(size=18), orientation="h", x=0.5, xanchor="center"),
