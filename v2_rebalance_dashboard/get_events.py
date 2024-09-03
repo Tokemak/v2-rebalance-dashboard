@@ -40,7 +40,10 @@ def _recursive_helper_get_all_events_within_range(
 ):
     """Recursively fetch all the `event` events between start_block and end_block"""
     try:
-        event_filter = event.create_filter(fromBlock=start_block, toBlock=end_block)
+        try:
+            event_filter = event.create_filter(fromBlock=start_block, toBlock=end_block)
+        except AttributeError:
+            event_filter = event.createFilter(fromBlock=start_block, toBlock=end_block)
         just_found_events = event_filter.get_all_entries()
         _flatten_events(just_found_events)
         found_events.extend(just_found_events)
