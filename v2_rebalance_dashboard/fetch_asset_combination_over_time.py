@@ -189,49 +189,7 @@ def fetch_asset_composition_over_time_to_plot():
     pie_data.columns = ["Asset", "ETH Value"]
     pie_data = pie_data[pie_data["ETH Value"] > 0]
 
-    # pie chart
-    asset_allocation_pie_fig = px.pie(
-        pie_data,
-        names='Asset',
-        values='ETH Value',
-        title='',
-        color_discrete_sequence=px.colors.qualitative.Pastel
-    )
-    asset_allocation_pie_fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=40),
-        height=400,
-        width=800,
-        font=dict(size=16),
-        legend=dict(font=dict(size=18), orientation='h', x=0.5, xanchor='center'),
-        legend_title_text='',
-        plot_bgcolor='white',
-        paper_bgcolor='white'
-    )
-    asset_allocation_pie_fig.update_traces(textinfo='percent+label', hoverinfo='label+value+percent')
-
     # Normalize data for area chart
     asset_df = asset_df.div(asset_df.sum(axis=1), axis=0).fillna(0)
 
-    #  area chart for token exposure over time
-    asset_allocation_area_fig = px.bar(
-        asset_df,
-        title='',
-        labels={'timestamp': '', 'value': 'Exposure Proportion'},
-        color_discrete_sequence=px.colors.qualitative.Set1
-    )
-
-    asset_allocation_area_fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=40),
-        height=400,
-        width=800,
-        font=dict(size=16),
-        xaxis_title='',
-        yaxis_title='Proportion of Total Exposure',
-        yaxis=dict(showgrid=True, gridcolor='lightgray'),
-        plot_bgcolor='white',
-        paper_bgcolor='white'
-    )
-
-    return asset_allocation_area_fig, asset_allocation_pie_fig
+    return pie_data, asset_df

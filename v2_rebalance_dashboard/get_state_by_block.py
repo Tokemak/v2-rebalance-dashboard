@@ -52,63 +52,56 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
     return _fetch_data
 
 
-def sync_safe_get_raw_state_by_block(
-    calls: list[Call],
-    blocks: list[int],
-    semaphore_limits: int = (300, 100, 30, 10, 1),
-    include_block_number: bool = False,
-) -> pd.DataFrame:
-    return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, semaphore_limits, include_block_number))
+import pandas as pd
+from multicall import Multicall, Call
+import asyncio
+from v2_rebalance_dashboard.constants import eth_client
 
+MULTICALL2_DEPLOYMENT_BLOCK = 12336033
 
 async def async_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
-    semaphore_limits: int = (300, 100, 30, 10, 1),
+    semaphore_limit: int = 100,
     include_block_number: bool = False,
 ) -> pd.DataFrame:
-    """
-    Fetch a DataFame of each call in calls for each block in blocks fast
-    """
-
     if any(block <= MULTICALL2_DEPLOYMENT_BLOCK for block in blocks):
-        raise TypeError("all blocks must > 12336033")
+        raise ValueError(f"All blocks must be > {MULTICALL2_DEPLOYMENT_BLOCK}")
 
     get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls()
-    pending_multicalls = [
-        Multicall(
-            calls=[*calls, get_block_call, get_timestamp_call],
-            block_id=b,
-            _w3=eth_client,
-            require_success=False,
-        )
-        for b in blocks
-    ]
+    semaphore = asyncio.Semaphore(semaphore_limit)
 
-    responses = []
-    failed_multicalls = []
-    calls_remaining = [m for m in pending_multicalls]
-    for semaphore_limit in semaphore_limits:
-        # print(f"{len(calls_remaining)=} {semaphore_limit=}")
-        # make a lot of calls very fast, then slowly back off and remake the calls that failed
-        semaphore = asyncio.Semaphore(semaphore_limit)
-        failed_multicalls = []
-        _ratelimited_async_data_fetcher = _data_fetch_builder(semaphore, responses, failed_multicalls)
-        await asyncio.gather(*[_ratelimited_async_data_fetcher(m) for m in calls_remaining])
+    async def fetch_data(block):
+        async with semaphore:
+            multicall = Multicall(
+                calls=[*calls, get_block_call, get_timestamp_call],
+                block_id=block,
+                _w3=eth_client,
+                require_success=False,
+            )
+            return await multicall.coroutine()
 
-        calls_remaining = [f for f in failed_multicalls]
-        if len(calls_remaining) == 0:
-            break
+    responses = await asyncio.gather(*[fetch_data(block) for block in blocks], return_exceptions=True)
+    valid_responses = [r for r in responses if not isinstance(r, Exception)]
 
-    df = pd.DataFrame.from_records(responses)
-    if len(df) == 0:
-        raise ValueError("failed to fetch any data, df is empty")
+    if not valid_responses:
+        raise ValueError("Failed to fetch any data, all requests failed")
+
+    df = pd.DataFrame.from_records(valid_responses)
     df.set_index("timestamp", inplace=True)
     df.sort_index(inplace=True)
     df.index = pd.to_datetime(df.index, unit="s")
     if not include_block_number:
         df.drop(columns="block", inplace=True)
     return df
+
+def sync_safe_get_raw_state_by_block(
+    calls: list[Call],
+    blocks: list[int],
+    semaphore_limit: int = 100,
+    include_block_number: bool = False,
+) -> pd.DataFrame:
+    return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, semaphore_limit, include_block_number))
 
 
 def safe_normalize_with_bool_success(success: int, value: int):
