@@ -7,8 +7,6 @@ from v2_rebalance_dashboard.get_state_by_block import (
     safe_normalize_with_bool_success,
 )
 from v2_rebalance_dashboard.constants import balETH_AUTOPOOL_ETH_ADDRESS
-import plotly.express as px
-import numpy as np
 
 
 def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
@@ -29,40 +27,6 @@ def fetch_daily_nav_per_share_to_plot():
     nav_per_share_df['30_day_difference'] = nav_per_share_df['balETH'].diff(periods=30)
     nav_per_share_df['30_day_annualized_return'] = (nav_per_share_df['30_day_difference'] * (365 / 30) * 100).dropna()
 
-    # Plot NAV Per Share
-    nav_fig = px.line(nav_per_share_df, y='balETH', title='')
-    nav_fig.update_traces(line=dict(width=3))
-    nav_fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=80),
-        height=400,
-        width=800,
-        font=dict(size=16),
-        yaxis_title='NAV Per Share',
-        xaxis_title='',
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        xaxis=dict(showgrid=True, gridcolor='lightgray'),
-        yaxis=dict(showgrid=True, gridcolor='lightgray')
-    )
-
-    # Plot 30-day Annualized Return
-    annualized_return_fig = px.line(nav_per_share_df, y='30_day_annualized_return', title='')
-    annualized_return_fig.update_traces(line=dict(width=3))
-    annualized_return_fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=80),
-        height=400,
-        width=800,
-        font=dict(size=16),
-        yaxis_title='30-day Annualized Return (%)',
-        xaxis_title='',
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        xaxis=dict(showgrid=True, gridcolor='lightgray'),
-        yaxis=dict(showgrid=True, gridcolor='lightgray')
-    )
-
-    return nav_fig, annualized_return_fig
+    return nav_per_share_df
 
 
