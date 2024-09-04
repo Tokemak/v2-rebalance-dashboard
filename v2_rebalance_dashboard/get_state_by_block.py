@@ -120,7 +120,7 @@ def safe_normalize_with_bool_success(success: int, value: int):
 
 def safe_normalize_6_with_bool_success(success: int, value: int):
     if success:
-        return int(value) / 1e18
+        return int(value) / 1e6
     return None
 
 
@@ -137,7 +137,7 @@ def identity_function(value):
 def build_blocks_to_use():
     # current_block = 20593231  # eth_client.eth.block_number
     current_block = eth_client.eth.block_number
-    start_block = 20262439  # TODO, get a better method for this. blocks are not perfectly lined up
+    start_block = 20162439  # TODO, get a better method for this. blocks are not perfectly lined up
     approx_blocks_per_day = 7100 // 4
     blocks = [b for b in range(start_block, current_block, approx_blocks_per_day)]
     # good enough for now, fix later use etherscan
