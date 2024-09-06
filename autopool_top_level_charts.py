@@ -10,8 +10,8 @@ def get_autopool_diagnostics_charts(autopool_name:str):
     if autopool_name != "balETH":
         raise ValueError("only works for balETH autopool")
 
-    eth_allocation_bar_chart_fig, composite_return_out_fig1, composite_return_out_fig2, current_allocation_pie_fig = fetch_summary_stats_figures()
-    nav_per_share_fig, return_fig = fetch_daily_nav_per_share_to_plot()
+    eth_allocation_bar_chart_fig, composite_return_out_fig1, composite_return_out_fig2, current_allocation_pie_fig, uw_cr_return_fig = fetch_summary_stats_figures()
+    nav_per_share_fig, return30d_fig, return7d_fig = fetch_daily_nav_per_share_to_plot()
     nav_fig = fetch_daily_nav_to_plot()
     asset_allocation_bar_fig, asset_allocation_pie_fig = fetch_asset_composition_over_time_to_plot()
     rebalance_fig = fetch_clean_rebalance_events()
@@ -22,11 +22,13 @@ def get_autopool_diagnostics_charts(autopool_name:str):
         "composite_return_out_fig2": composite_return_out_fig2,
         "current_allocation_pie_fig": current_allocation_pie_fig,
         "nav_per_share_fig": nav_per_share_fig,
-        "return_fig": return_fig,
+        "return_fig": return30d_fig,
+        "return7d_fig": return7d_fig,
         "nav_fig": nav_fig,
         "asset_allocation_bar_fig": asset_allocation_bar_fig,
         "asset_allocation_pie_fig": asset_allocation_pie_fig,
-        "rebalance_fig": rebalance_fig
+        "rebalance_fig": rebalance_fig,
+        "uw_cr_return_fig": uw_cr_return_fig
     }
 
 def main():
@@ -41,7 +43,7 @@ def main():
         """
         <style>
         .main {
-            max-width: 75%;
+            max-width: 85%;
             margin: 0 auto;
             padding-top: 40px;
         }
@@ -75,7 +77,7 @@ def main():
 
     st.markdown("<a name='key-metrics'></a>", unsafe_allow_html=True)
     st.markdown("## Key Metrics")
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.markdown("### NAV per share")
         st.plotly_chart(charts["nav_per_share_fig"], use_container_width=True)
@@ -83,6 +85,12 @@ def main():
         st.markdown("### 30-day Annualized Return (%)")
         st.plotly_chart(charts["return_fig"], use_container_width=True)
     with col3:
+        st.markdown("### 7-day Annualized Return (%)")
+        st.plotly_chart(charts["return7d_fig"], use_container_width=True)
+    with col4:
+        st.markdown("### Expected Annualized Return (%)")
+        st.plotly_chart(charts["uw_cr_return_fig"], use_container_width=True)
+    with col5:
         st.markdown("### NAV")
         st.plotly_chart(charts["nav_fig"], use_container_width=True)
 
