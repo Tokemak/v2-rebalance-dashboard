@@ -1,5 +1,5 @@
 import pandas as pd
-
+import streamlit as st
 from multicall import Call
 from v2_rebalance_dashboard.get_state_by_block import (
     sync_safe_get_raw_state_by_block,
@@ -31,6 +31,7 @@ def getAssetBreakdown_call(name: str, autopool_vault_address: str) -> Call:
     )
 
 
+@st.cache_data(ttl=12*3600)
 def fetch_daily_nav_to_plot():
     blocks = build_blocks_to_use()
 
@@ -48,7 +49,7 @@ def fetch_daily_nav_to_plot():
     fig.update_traces(line=dict(width=3))
     fig.update_layout(
         # not attached to these settings
-        title="",
+        title=" ",
         xaxis_title="",
         yaxis_title="NAV (ETH)",
         title_x=0.5,

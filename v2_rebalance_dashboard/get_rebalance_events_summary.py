@@ -4,6 +4,7 @@ import pandas as pd
 import json
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import streamlit as st
 
 with open(ROOT_DIR / "vault_abi.json", "r") as fin:
     autopool_eth_vault_abi = json.load(fin)
@@ -106,7 +107,7 @@ def calculate_total_eth_spent(address: str, block: int):
 
     return total_eth_spent
 
-
+@st.cache_data(ttl=12*3600)
 def fetch_clean_rebalance_events(autopool_name="balETH"):
     if autopool_name != "balETH":
         raise ValueError("only for balETH")
