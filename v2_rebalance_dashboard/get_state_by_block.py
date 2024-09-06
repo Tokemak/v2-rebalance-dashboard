@@ -1,5 +1,6 @@
 import pandas as pd
 from multicall import Multicall, Call
+import streamlit as st
 
 import nest_asyncio
 import asyncio
@@ -55,16 +56,15 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
 def sync_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
-    semaphore_limits: int = (300, 100, 30, 10, 1),
+    semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
     include_block_number: bool = False,
 ) -> pd.DataFrame:
     return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, semaphore_limits, include_block_number))
 
-
 async def async_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
-    semaphore_limits: int = (300, 100, 30, 10, 1),
+    semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
     include_block_number: bool = False,
 ) -> pd.DataFrame:
     """

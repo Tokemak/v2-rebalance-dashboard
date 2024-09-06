@@ -1,4 +1,5 @@
 import pandas as pd
+import streamlit as st
 from datetime import timedelta
 from multicall import Call
 from v2_rebalance_dashboard.get_state_by_block import (
@@ -92,6 +93,11 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else None).astype(float)
     compositeReturn_df = summary_stats_df.map(lambda row: row["compositeReturn"] if isinstance(row, dict) else None).astype(float)
     compositeReturn_df = 100 * (compositeReturn_df.clip(upper=1).replace(1, np.nan).astype(float))
+    base = summary_stats_df.map(lambda row: row["baseApr"] if isinstance(row, dict) else None).astype(float)
+    fee = summary_stats_df.map(lambda row: row["feeApr"] if isinstance(row, dict) else None).astype(float)
+    incentive = summary_stats_df.map(lambda row: row["incentiveApr"] if isinstance(row, dict) else None).astype(float)
+    pR = summary_stats_df.map(lambda row: row["priceReturn"] if isinstance(row, dict) else None).astype(float)
+    uwcr_df = 100 * (base + fee + incentive + pR)
     allocation_df = pricePerShare_df * ownedShares_df
 
     # Limit to the last 90 days
@@ -112,6 +118,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
         color_discrete_sequence=px.colors.qualitative.Set1
     )
     allocation_area_fig.update_layout(
+        title = ' ',
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=80),
         height=600,
@@ -129,7 +136,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     # Calculate weighted return
     summary_stats_df["balETH_weighted_return"] = (compositeReturn_df * portion_filtered_df).sum(axis=1)
     compositeReturn_df["balETH_weighted_return"] = (compositeReturn_df * portion_filtered_df).sum(axis=1)
-
+    uwcr_df["Expected_Return"] = (uwcr_df * portion_filtered_df).sum(axis=1)
     # Create a line chart for weighted return
     weighted_return_fig = px.line(
         summary_stats_df,
@@ -148,6 +155,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     )
 
     weighted_return_fig.update_layout(
+        title = ' ',
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=80),
         height=600,
@@ -181,6 +189,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
         marker=dict(size=10, symbol='circle', color='blue') 
     )
     combined_return_fig.update_layout(
+        title = ' ',
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=80),
         height=600,
@@ -211,6 +220,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
         color_discrete_sequence=px.colors.qualitative.Pastel
     )
     lp_allocation_pie_fig.update_layout(
+        title = ' ',
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
         height=400,
@@ -223,9 +233,26 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     )
     lp_allocation_pie_fig.update_traces(textinfo='percent+label', hoverinfo='label+value+percent')
 
-    return allocation_area_fig, weighted_return_fig, combined_return_fig, lp_allocation_pie_fig
+    # Plot unweighted CR
+    uwcr_return_fig = px.line(uwcr_df, y='Expected_Return', title=' ')
+    uwcr_return_fig.update_traces(line=dict(width=3))
+    uwcr_return_fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=80),
+        height=400,
+        width=800,
+        font=dict(size=16),
+        yaxis_title='Expected Annualized Return (%)',
+        xaxis_title='',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        xaxis=dict(showgrid=True, gridcolor='lightgray'),
+        yaxis=dict(showgrid=True, gridcolor='lightgray')
+    )
 
+    return allocation_area_fig, weighted_return_fig, combined_return_fig, lp_allocation_pie_fig, uwcr_return_fig
 
+@st.cache_data(ttl=12*3600)
 def fetch_summary_stats_figures():
     vaults_df = pd.read_csv(ROOT_DIR / "vaults.csv")
     calls = [
@@ -249,5 +276,5 @@ def fetch_summary_stats_figures():
     blocks = build_blocks_to_use()
     summary_stats_df = sync_safe_get_raw_state_by_block(calls, blocks)
 
-    lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig = _summary_stats_df_to_figures(summary_stats_df)
-    return lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig
+    lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig, uwcr_return_fig = _summary_stats_df_to_figures(summary_stats_df)
+    return lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig, uwcr_return_fig

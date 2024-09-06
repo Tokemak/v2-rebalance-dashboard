@@ -1,4 +1,5 @@
 import pandas as pd
+import streamlit as st
 
 from multicall import Call
 from v2_rebalance_dashboard.get_state_by_block import (
@@ -74,7 +75,7 @@ def getPriceInEth_call(name: str, token_address: str) -> Call:
         [(name, safe_normalize_with_bool_success)],
     )
 
-
+@st.cache_data(ttl=12*3600)
 def build_balancer_autopool_asset_combination_calls(blocks) -> pd.DataFrame:
     destination_df = pd.read_parquet(ROOT_DIR / "vaults.parquet")
     destinations = Call(
@@ -146,7 +147,7 @@ def fetch_asset_composition_over_time_to_plot():
             for token_address, token_balance in zip(
                 row[f"{destination_name}_tokens"], row[f"{destination_name}_balances"]
             ):
-                token_address = eth_client.to_checksum_address(token_address)
+                token_address = eth_client.toChecksumAddress(token_address)
                 if token_address in token_address_to_name:
                     token_name = token_address_to_name[token_address]
                     token_names.append(token_name)
@@ -194,7 +195,7 @@ def fetch_asset_composition_over_time_to_plot():
         pie_data,
         names='Asset',
         values='ETH Value',
-        title='',
+        title=' ',
         color_discrete_sequence=px.colors.qualitative.Pastel
     )
     asset_allocation_pie_fig.update_layout(
@@ -227,7 +228,7 @@ def fetch_asset_composition_over_time_to_plot():
         height=400,
         width=800,
         font=dict(size=16),
-        xaxis_title='',
+        xaxis_title=' ',
         yaxis_title='Proportion of Total Exposure',
         yaxis=dict(showgrid=True, gridcolor='lightgray'),
         plot_bgcolor='white',
