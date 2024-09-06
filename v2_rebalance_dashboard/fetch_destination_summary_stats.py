@@ -113,8 +113,8 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
 
     # Create a stacked area chart for allocation over time
     allocation_area_fig = px.area(
-        portion_filtered_df,
-        labels={"index": "", "value": "Allocation Proportion"},
+        portion_filtered_df * 100,
+        labels={"index": "", "value": "Percent Allocation"},
         color_discrete_sequence=px.colors.qualitative.Set1
     )
     allocation_area_fig.update_layout(
