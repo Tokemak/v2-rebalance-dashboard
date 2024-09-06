@@ -38,7 +38,7 @@ def show_key_metrics(charts):
     col2.metric("7-day Return", "10.23%", "2.52%")
     col3.metric("Expected Annual Return", "11.36%", "1.94%")
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.subheader("NAV per share")
         st.plotly_chart(charts["nav_per_share_fig"], use_container_width=True)
@@ -96,13 +96,13 @@ def show_weighted_crm(charts):
     st.header("Weighted CRM")
     st.plotly_chart(charts["composite_return_out_fig1"], use_container_width=True)
     
-    st.header("Weighted (out)CRM with Destinations")
+    st.header("Weighted CRM with Destinations")
     st.plotly_chart(charts["composite_return_out_fig2"], use_container_width=True)
     with st.expander("See explanation for Weighted CRM"):
         st.write("""
         Weighted Composite Return Model (CRM) charts:
-        - The first chart shows the overall weighted CRM for the Autopool.
-        - The second chart breaks down the CRM by individual destinations along with the weighted CRM for the Autopool.
+        - The first chart shows the overall weighted out-CRM for the Autopool.
+        - The second chart breaks down the out-CRM by individual destinations along with that for the Autopool.
         """)
 
 def show_rebalance_events(charts):
@@ -136,6 +136,21 @@ def main():
         max-width: 85%;
         margin: 0 auto;
         padding-top: 40px;
+    }
+    .stPlotlyChart {
+        width: 100%;
+        height: auto;
+        min-height: 300px;
+        max-height: 600px;
+        background-color: #f0f2f6;
+        border-radius: 5px;
+        padding: 20px;
+    }
+    @media (max-width: 768px) {
+        .stPlotlyChart {
+            min-height: 250px;
+            max-height: 450px;
+        }
     }
     .stPlotlyChart {
         background-color: #f0f2f6;
