@@ -232,25 +232,8 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
         paper_bgcolor='white'
     )
     lp_allocation_pie_fig.update_traces(textinfo='percent+label', hoverinfo='label+value+percent')
-
-    # Plot unweighted CR
-    uwcr_return_fig = px.line(uwcr_df, y='Expected_Return', title=' ')
-    uwcr_return_fig.update_traces(line=dict(width=3))
-    uwcr_return_fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=80),
-        height=400,
-        width=800,
-        font=dict(size=16),
-        yaxis_title='Expected Annualized Return (%)',
-        xaxis_title='',
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        xaxis=dict(showgrid=True, gridcolor='lightgray'),
-        yaxis=dict(showgrid=True, gridcolor='lightgray')
-    )
-
-    return allocation_area_fig, weighted_return_fig, combined_return_fig, lp_allocation_pie_fig, uwcr_return_fig
+    
+    return allocation_area_fig, weighted_return_fig, combined_return_fig, lp_allocation_pie_fig, uwcr_df
 
 @st.cache_data(ttl=12*3600)
 def fetch_summary_stats_figures():
