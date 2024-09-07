@@ -37,57 +37,5 @@ def fetch_daily_nav_per_share_to_plot():
     # Normalized to starting NAV per share for 7-day return
     nav_per_share_df['7_day_annualized_return'] = (nav_per_share_df['7_day_difference'] / nav_per_share_df['balETH'].shift(7)) * (365 / 7) * 100
 
-    # Plot NAV Per Share
-    nav_fig = px.line(nav_per_share_df, y='balETH', title=' ')
-    nav_fig.update_traces(line=dict(width=3))
-    nav_fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=80),
-        height=400,
-        width=800,
-        font=dict(size=16),
-        yaxis_title='NAV Per Share',
-        xaxis_title='',
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        xaxis=dict(showgrid=True, gridcolor='lightgray'),
-        yaxis=dict(showgrid=True, gridcolor='lightgray')
-    )
-
-    # Plot 30-day Annualized Return
-    annualized_return_fig = px.line(nav_per_share_df, y='30_day_annualized_return', title=' ')
-    annualized_return_fig.update_traces(line=dict(width=3))
-    annualized_return_fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=80),
-        height=400,
-        width=800,
-        font=dict(size=16),
-        yaxis_title='30-day Annualized Return (%)',
-        xaxis_title='',
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        xaxis=dict(showgrid=True, gridcolor='lightgray'),
-        yaxis=dict(showgrid=True, gridcolor='lightgray')
-    )
-
-    # Plot 7-day Annualized Return
-    annualized_7dreturn_fig = px.line(nav_per_share_df, y='7_day_annualized_return', title=' ')
-    annualized_7dreturn_fig.update_traces(line=dict(width=3))
-    annualized_7dreturn_fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=80),
-        height=400,
-        width=800,
-        font=dict(size=16),
-        yaxis_title='7-day Annualized Return (%)',
-        xaxis_title='',
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        xaxis=dict(showgrid=True, gridcolor='lightgray'),
-        yaxis=dict(showgrid=True, gridcolor='lightgray')
-    )
-
-    return nav_fig, annualized_return_fig, annualized_7dreturn_fig
-
+    return nav_per_share_df
 

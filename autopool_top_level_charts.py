@@ -1,17 +1,18 @@
 import streamlit as st
 import os
+import plotly.express as px
 from v2_rebalance_dashboard.fetch_destination_summary_stats import fetch_summary_stats_figures
 from v2_rebalance_dashboard.fetch_asset_combination_over_time import fetch_asset_composition_over_time_to_plot
 from v2_rebalance_dashboard.fetch_nav_per_share import fetch_daily_nav_per_share_to_plot
 from v2_rebalance_dashboard.fetch_nav import fetch_daily_nav_to_plot
 from v2_rebalance_dashboard.get_rebalance_events_summary import fetch_clean_rebalance_events
 
-def get_autopool_diagnostics_charts(autopool_name:str):
+def get_autopool_diagnostics_plotData(autopool_name:str):
     if autopool_name != "balETH":
         raise ValueError("only works for balETH autopool")
 
-    eth_allocation_bar_chart_fig, composite_return_out_fig1, composite_return_out_fig2, current_allocation_pie_fig, uw_cr_return_fig = fetch_summary_stats_figures()
-    nav_per_share_fig, return30d_fig, return7d_fig = fetch_daily_nav_per_share_to_plot()
+    eth_allocation_bar_chart_fig, composite_return_out_fig1, composite_return_out_fig2, current_allocation_pie_fig, uwcr_df = fetch_summary_stats_figures()
+    nav_per_share_df = fetch_daily_nav_per_share_to_plot()
     nav_fig = fetch_daily_nav_to_plot()
     asset_allocation_bar_fig, asset_allocation_pie_fig = fetch_asset_composition_over_time_to_plot()
     rebalance_fig = fetch_clean_rebalance_events()
@@ -21,41 +22,118 @@ def get_autopool_diagnostics_charts(autopool_name:str):
         "composite_return_out_fig1": composite_return_out_fig1,
         "composite_return_out_fig2": composite_return_out_fig2,
         "current_allocation_pie_fig": current_allocation_pie_fig,
-        "nav_per_share_fig": nav_per_share_fig,
-        "return_fig": return30d_fig,
-        "return7d_fig": return7d_fig,
+        "nav_per_share_df": nav_per_share_df,
         "nav_fig": nav_fig,
         "asset_allocation_bar_fig": asset_allocation_bar_fig,
         "asset_allocation_pie_fig": asset_allocation_pie_fig,
         "rebalance_fig": rebalance_fig,
-        "uw_cr_return_fig": uw_cr_return_fig
+        "uwcr_df": uwcr_df
     }
 
-def show_key_metrics(charts):
+def diffReturn(x: list):
+    if len(x) < 2:
+        return None  # Not enough elements to calculate difference
+    return x[-1] - x[-2]
+
+def show_key_metrics(plotData):
     st.header("Key Metrics")
+    nav_per_share_df = plotData["nav_per_share_df"]
+    uwcr_df = plotData["uwcr_df"]
     col1, col2, col3 = st.columns(3)
-    col1.metric("30-day Return", "9.97%", "0.37%")
-    col2.metric("7-day Return", "10.23%", "2.52%")
-    col3.metric("Expected Annual Return", "11.36%", "1.94%")
+    col1.metric("30-day Return", nav_per_share_df["30_day_annualized_return"][-1], diffReturn(nav_per_share_df["30_day_annualized_return"]))
+    col2.metric("7-day Return", nav_per_share_df["7_day_annualized_return"][-1], diffReturn(nav_per_share_df["7_day_annualized_return"]))
+    col3.metric("Expected Annual Return", uwcr_df["Expected_Return"][-1], diffReturn(uwcr_df["Expected_Return"]))
+
+    # Plot NAV Per Share
+    nav_fig = px.line(nav_per_share_df, y='balETH', title=' ')
+    nav_fig.update_traces(line=dict(width=3))
+    nav_fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=80),
+        height=400,
+        width=800,
+        font=dict(size=16),
+        yaxis_title='NAV Per Share',
+        xaxis_title='',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        xaxis=dict(showgrid=True, gridcolor='lightgray'),
+        yaxis=dict(showgrid=True, gridcolor='lightgray')
+    )
+
+    # Plot 30-day Annualized Return
+    annualized_return_fig = px.line(nav_per_share_df, y='30_day_annualized_return', title=' ')
+    annualized_return_fig.update_traces(line=dict(width=3))
+    annualized_return_fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=80),
+        height=400,
+        width=800,
+        font=dict(size=16),
+        yaxis_title='30-day Annualized Return (%)',
+        xaxis_title='',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        xaxis=dict(showgrid=True, gridcolor='lightgray'),
+        yaxis=dict(showgrid=True, gridcolor='lightgray')
+    )
+
+    # Plot 7-day Annualized Return
+    annualized_7dreturn_fig = px.line(nav_per_share_df, y='7_day_annualized_return', title=' ')
+    annualized_7dreturn_fig.update_traces(line=dict(width=3))
+    annualized_7dreturn_fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=80),
+        height=400,
+        width=800,
+        font=dict(size=16),
+        yaxis_title='7-day Annualized Return (%)',
+        xaxis_title='',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        xaxis=dict(showgrid=True, gridcolor='lightgray'),
+        yaxis=dict(showgrid=True, gridcolor='lightgray')
+    )
+
+     # Plot unweighted CR
+    uwcr_return_fig = px.line(uwcr_df, y='Expected_Return', title=' ')
+    uwcr_return_fig.update_traces(line=dict(width=3))
+    uwcr_return_fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=80),
+        height=400,
+        width=800,
+        font=dict(size=16),
+        yaxis_title='Expected Annualized Return (%)',
+        xaxis_title='',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        xaxis=dict(showgrid=True, gridcolor='lightgray'),
+        yaxis=dict(showgrid=True, gridcolor='lightgray')
+    )
+
+    # Insert gap
+    st.markdown("<div style='margin: 7em 0;'></div>", unsafe_allow_html=True)
+
 
     col1, col2, col3 = st.columns(3)
     with col1:
         st.subheader("NAV per share")
-        st.plotly_chart(charts["nav_per_share_fig"], use_container_width=True)
+        st.plotly_chart(plotData["nav_fig"], use_container_width=True)
     with col2:
         st.subheader("NAV")
-        st.plotly_chart(charts["nav_fig"], use_container_width=True)
+        st.plotly_chart(plotData["nav_fig"], use_container_width=True)
 
     col1, col2, col3 = st.columns(3)
     with col1:
         st.subheader("30-day Annualized Return (%)")
-        st.plotly_chart(charts["return_fig"], use_container_width=True)
+        st.plotly_chart(annualized_return_fig, use_container_width=True)
     with col2:
         st.subheader("7-day Annualized Return (%)")
-        st.plotly_chart(charts["return7d_fig"], use_container_width=True)
+        st.plotly_chart(annualized_7dreturn_fig, use_container_width=True)
     with col3:
         st.subheader("Expected Annualized Return (%)")
-        st.plotly_chart(charts["uw_cr_return_fig"], use_container_width=True)
+        st.plotly_chart(uwcr_return_fig, use_container_width=True)
     
     with st.expander("See explanation for Key Metrics"):
         st.write("""
@@ -66,24 +144,24 @@ def show_key_metrics(charts):
         - Expected Annualized Return: Projected percent annual return based on current allocations of the Autopool.
         """)
 
-def show_autopool_exposure(charts):
+def show_autopool_exposure(plotData):
     st.header("Autopool Exposure")
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Autopool Destination Exposure")
-        st.plotly_chart(charts["current_allocation_pie_fig"], use_container_width=True)
+        st.plotly_chart(plotData["current_allocation_pie_fig"], use_container_width=True)
     with col2:
         st.subheader("Autopool Token Exposure")
-        st.plotly_chart(charts["asset_allocation_pie_fig"], use_container_width=True)
+        st.plotly_chart(plotData["asset_allocation_pie_fig"], use_container_width=True)
     with st.expander("See explanation for Autopool Exposure"):
         st.write("""
         This section shows the current allocation of the Autopool:
         - Autopool Destination Exposure: Breakdown of allocations to different destinations.
         - Autopool Token Exposure: Distribution of underlying tokens in various destinations the Autopool is allocated to.
         """)
-def show_allocation_over_time(charts):
+def show_allocation_over_time(plotData):
     st.header("Allocation Over Time")
-    st.plotly_chart(charts["eth_allocation_bar_chart_fig"], use_container_width=True)
+    st.plotly_chart(plotData["eth_allocation_bar_chart_fig"], use_container_width=True)
     with st.expander("See explanation for Allocation Over Time"):
         st.write("""
         This chart displays how the Autopool's allocation has changed over time:
@@ -92,22 +170,22 @@ def show_allocation_over_time(charts):
         - Colors represent different destination or yield sources.
         """)
 
-def show_weighted_crm(charts):
+def show_weighted_crm(plotData):
     st.header("Weighted CRM")
-    st.plotly_chart(charts["composite_return_out_fig1"], use_container_width=True)
+    st.plotly_chart(plotData["composite_return_out_fig1"], use_container_width=True)
     
     st.header("Weighted CRM with Destinations")
-    st.plotly_chart(charts["composite_return_out_fig2"], use_container_width=True)
+    st.plotly_chart(plotData["composite_return_out_fig2"], use_container_width=True)
     with st.expander("See explanation for Weighted CRM"):
         st.write("""
-        Weighted Composite Return Model (CRM) charts:
+        Weighted Composite Return Model (CRM) plotData:
         - The first chart shows the overall weighted out-CRM for the Autopool.
         - The second chart breaks down the out-CRM by individual destinations along with that for the Autopool.
         """)
 
-def show_rebalance_events(charts):
+def show_rebalance_events(plotData):
     st.header("Rebalance Events")
-    st.plotly_chart(charts["rebalance_fig"], use_container_width=True)
+    st.plotly_chart(plotData["rebalance_fig"], use_container_width=True)
     with st.expander("See explanation for Rebalance Events"):
         st.write("""
         This chart shows the history of rebalancing events:
@@ -175,20 +253,20 @@ def main():
 
     # Load data with progress bar
     with st.spinner("Loading data..."):
-        charts = get_autopool_diagnostics_charts(autopool_name)
+        plotData = get_autopool_diagnostics_plotData(autopool_name)
     st.success("Data loaded successfully!")
 
     # Main content
     if page == "Key Metrics":
-        show_key_metrics(charts)
+        show_key_metrics(plotData)
     elif page == "Autopool Exposure":
-        show_autopool_exposure(charts)
+        show_autopool_exposure(plotData)
     elif page == "Allocation Over Time":
-        show_allocation_over_time(charts)
+        show_allocation_over_time(plotData)
     elif page == "Weighted CRM":
-        show_weighted_crm(charts)
+        show_weighted_crm(plotData)
     elif page == "Rebalance Events":
-        show_rebalance_events(charts)
+        show_rebalance_events(plotData)
 
 
 if __name__ == "__main__":
