@@ -39,7 +39,7 @@ def show_key_metrics(plotData):
     st.header("Key Metrics")
     nav_per_share_df = plotData["nav_per_share_df"]
     uwcr_df = plotData["uwcr_df"]
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("30-day Return", nav_per_share_df["30_day_annualized_return"][-1], diffReturn(nav_per_share_df["30_day_annualized_return"]))
     col2.metric("7-day Return", nav_per_share_df["7_day_annualized_return"][-1], diffReturn(nav_per_share_df["7_day_annualized_return"]))
     col3.metric("Expected Annual Return", uwcr_df["Expected_Return"][-1], diffReturn(uwcr_df["Expected_Return"]))
@@ -116,7 +116,7 @@ def show_key_metrics(plotData):
     st.markdown("<div style='margin: 7em 0;'></div>", unsafe_allow_html=True)
 
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.subheader("NAV per share")
         st.plotly_chart(plotData["nav_fig"], use_container_width=True)
@@ -124,7 +124,7 @@ def show_key_metrics(plotData):
         st.subheader("NAV")
         st.plotly_chart(plotData["nav_fig"], use_container_width=True)
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.subheader("30-day Annualized Return (%)")
         st.plotly_chart(annualized_return_fig, use_container_width=True)
