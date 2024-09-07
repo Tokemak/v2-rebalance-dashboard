@@ -40,9 +40,9 @@ def show_key_metrics(plotData):
     nav_per_share_df = plotData["nav_per_share_df"]
     uwcr_df = plotData["uwcr_df"]
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("30-day Return", nav_per_share_df["30_day_annualized_return"][-1], diffReturn(nav_per_share_df["30_day_annualized_return"]))
-    col2.metric("7-day Return", nav_per_share_df["7_day_annualized_return"][-1], diffReturn(nav_per_share_df["7_day_annualized_return"]))
-    col3.metric("Expected Annual Return", uwcr_df["Expected_Return"][-1], diffReturn(uwcr_df["Expected_Return"]))
+    col1.metric("30-day Return (%)", nav_per_share_df["30_day_annualized_return"][-1], diffReturn(nav_per_share_df["30_day_annualized_return"]))
+    col2.metric("7-day Return (%)", nav_per_share_df["7_day_annualized_return"][-1], diffReturn(nav_per_share_df["7_day_annualized_return"]))
+    col3.metric("Expected Annual Return (%)", uwcr_df["Expected_Return"][-1], diffReturn(uwcr_df["Expected_Return"]))
 
     # Plot NAV Per Share
     nav_fig = px.line(nav_per_share_df, y='balETH', title=' ')
