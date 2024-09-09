@@ -221,7 +221,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     return allocation_area_fig, weighted_return_fig, combined_return_fig, lp_allocation_pie_fig
 
 
-def fetch_summary_stats_figures():
+def fetch_summary_stats_df(blocks) -> pd.DataFrame:    
     vaults_df = pd.read_csv(ROOT_DIR / "vaults.csv")
     calls = [
         build_summary_stats_call(
@@ -241,8 +241,12 @@ def fetch_summary_stats_figures():
             amount=0,
         )
         calls.append(call)
-    blocks = build_blocks_to_use()
     summary_stats_df = sync_safe_get_raw_state_by_block(calls, blocks)
+    return summary_stats_df
+
+def fetch_summary_stats_figures():
+    blocks = build_blocks_to_use()
+    summary_stats_df = fetch_summary_stats_df(blocks)
 
     lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig = _summary_stats_df_to_figures(
         summary_stats_df
