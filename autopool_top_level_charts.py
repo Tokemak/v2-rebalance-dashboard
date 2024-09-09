@@ -119,7 +119,7 @@ def show_key_metrics(plotData):
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.subheader("NAV per share")
-        st.plotly_chart(plotData["nav_fig"], use_container_width=True)
+        st.plotly_chart(nav_fig, use_container_width=True)
     with col2:
         st.subheader("NAV")
         st.plotly_chart(plotData["nav_fig"], use_container_width=True)

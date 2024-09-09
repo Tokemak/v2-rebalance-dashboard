@@ -137,5 +137,6 @@ def build_blocks_to_use():
     blocks_per_day = int(86400 / block_time_seconds)
 
     # Generate blocks with an interval of 1 block per day
-    blocks = [b for b in range(start_block, current_block, blocks_per_day)]
+    blocks = [b for b in range(current_block, start_block, -blocks_per_day)]
+    blocks.reverse()
     return blocks
