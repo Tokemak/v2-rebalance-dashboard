@@ -235,7 +235,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     
     return allocation_area_fig, weighted_return_fig, combined_return_fig, lp_allocation_pie_fig, uwcr_df
 
-@st.cache_data(ttl=12*3600)
+@st.cache_data(ttl=3*3600)
 def fetch_summary_stats_figures():
     vaults_df = pd.read_csv(ROOT_DIR / "vaults.csv")
     calls = [
