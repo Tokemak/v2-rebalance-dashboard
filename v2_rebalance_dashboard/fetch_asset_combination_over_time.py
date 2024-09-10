@@ -75,7 +75,8 @@ def getPriceInEth_call(name: str, token_address: str) -> Call:
         [(name, safe_normalize_with_bool_success)],
     )
 
-@st.cache_data(ttl=12*3600)
+
+@st.cache_data(ttl=12 * 3600)
 def build_balancer_autopool_asset_combination_calls(blocks) -> pd.DataFrame:
     destination_df = pd.read_parquet(ROOT_DIR / "vaults.parquet")
     destinations = Call(
@@ -194,11 +195,7 @@ def fetch_asset_composition_over_time_to_plot():
 
     # pie chart
     asset_allocation_pie_fig = px.pie(
-        pie_data,
-        names='Asset',
-        values='ETH Value',
-        title=' ',
-        color_discrete_sequence=px.colors.qualitative.Pastel
+        pie_data, names="Asset", values="ETH Value", title=" ", color_discrete_sequence=px.colors.qualitative.Pastel
     )
     asset_allocation_pie_fig.update_layout(
         title_x=0.5,
@@ -230,11 +227,11 @@ def fetch_asset_composition_over_time_to_plot():
         height=400,
         width=800,
         font=dict(size=16),
-        xaxis_title=' ',
-        yaxis_title='Proportion of Total Exposure',
-        yaxis=dict(showgrid=True, gridcolor='lightgray'),
-        plot_bgcolor='white',
-        paper_bgcolor='white'
+        xaxis_title=" ",
+        yaxis_title="Proportion of Total Exposure",
+        yaxis=dict(showgrid=True, gridcolor="lightgray"),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
     )
 
     return asset_allocation_area_fig, asset_allocation_pie_fig

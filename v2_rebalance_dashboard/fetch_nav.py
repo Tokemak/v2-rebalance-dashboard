@@ -31,7 +31,7 @@ def getAssetBreakdown_call(name: str, autopool_vault_address: str) -> Call:
     )
 
 
-@st.cache_data(ttl=12*3600)
+@st.cache_data(ttl=12 * 3600)
 def fetch_daily_nav_to_plot():
     blocks = build_blocks_to_use()
 
@@ -56,11 +56,11 @@ def fetch_daily_nav_to_plot():
         margin=dict(l=40, r=40, t=40, b=40),
         height=400,
         width=600,
-        legend_title_text='',
+        legend_title_text="",
         font=dict(size=16),
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        xaxis=dict(showgrid=True, gridcolor='lightgray'),
-        yaxis=dict(showgrid=True, gridcolor='lightgray')
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        xaxis=dict(showgrid=True, gridcolor="lightgray"),
+        yaxis=dict(showgrid=True, gridcolor="lightgray"),
     )
     return fig

@@ -122,10 +122,10 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     allocation_area_fig = px.area(
         portion_filtered_df * 100,
         labels={"index": "", "value": "Percent Allocation"},
-        color_discrete_sequence=px.colors.qualitative.Set1
+        color_discrete_sequence=px.colors.qualitative.Set1,
     )
     allocation_area_fig.update_layout(
-        title = ' ',
+        title=" ",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=80),
         height=600,
@@ -153,12 +153,12 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
         line=dict(width=8),
         line_color="blue",
         line_width=3,
-        line_dash = "dash",
-        marker=dict(size=10, symbol='circle', color='blue') 
+        line_dash="dash",
+        marker=dict(size=10, symbol="circle", color="blue"),
     )
 
     weighted_return_fig.update_layout(
-        title = ' ',
+        title=" ",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=80),
         height=600,
@@ -184,10 +184,10 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
         line_color="blue",
         line_dash="dash",
         line_width=3,
-        marker=dict(size=10, symbol='circle', color='blue') 
+        marker=dict(size=10, symbol="circle", color="blue"),
     )
     combined_return_fig.update_layout(
-        title = ' ',
+        title=" ",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=80),
         height=600,
@@ -215,7 +215,7 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
         pie_data, names="Destination", values="ETH Value", color_discrete_sequence=px.colors.qualitative.Pastel
     )
     lp_allocation_pie_fig.update_layout(
-        title = ' ',
+        title=" ",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
         height=400,
@@ -226,12 +226,12 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
         plot_bgcolor="white",
         paper_bgcolor="white",
     )
-    lp_allocation_pie_fig.update_traces(textinfo='percent+label', hoverinfo='label+value+percent')
-    
+    lp_allocation_pie_fig.update_traces(textinfo="percent+label", hoverinfo="label+value+percent")
+
     return allocation_area_fig, weighted_return_fig, combined_return_fig, lp_allocation_pie_fig, uwcr_df
 
 
-@st.cache_data(ttl=3*3600)
+@st.cache_data(ttl=3 * 3600)
 def fetch_summary_stats_figures():
     vaults_df = pd.read_csv(ROOT_DIR / "vaults.csv")
     calls = [
@@ -254,6 +254,7 @@ def fetch_summary_stats_figures():
         calls.append(call)
     summary_stats_df = sync_safe_get_raw_state_by_block(calls, blocks)
     return summary_stats_df
+
 
 def fetch_summary_stats_figures():
     blocks = build_blocks_to_use()
