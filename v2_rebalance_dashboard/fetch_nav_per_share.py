@@ -1,4 +1,5 @@
 import pandas as pd
+import streamlit as st
 
 from multicall import Call
 from v2_rebalance_dashboard.get_state_by_block import (
@@ -8,6 +9,7 @@ from v2_rebalance_dashboard.get_state_by_block import (
 )
 from v2_rebalance_dashboard.constants import balETH_AUTOPOOL_ETH_ADDRESS
 import plotly.express as px
+import numpy as np
 
 
 def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
@@ -17,33 +19,23 @@ def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
         [(name, safe_normalize_with_bool_success)],
     )
 
-
+@st.cache_data(ttl=12*3600)
 def fetch_daily_nav_per_share_to_plot():
     blocks = build_blocks_to_use()
-
     calls = [
         nav_per_share_call("balETH", balETH_AUTOPOOL_ETH_ADDRESS),
-        # nav_per_share_call("autoETH", main_auto_pool_vault),
     ]
     nav_per_share_df = sync_safe_get_raw_state_by_block(calls, blocks)
 
-    fig = px.line(nav_per_share_df[["balETH"]])
-    fig.update_traces(line=dict(width=4))
-    fig.update_layout(
-        # not attached to these settings
-        title="",
-        xaxis_title="",
-        yaxis_title="NAV Per Share",
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=40),
-        height=600,
-        width=600 * 3,
-        font=dict(size=16),
-        legend=dict(font=dict(size=18), orientation="h", x=0.5, xanchor="center", y=-0.2),
-        legend_title_text="",
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        xaxis=dict(showgrid=True, gridcolor="lightgray"),
-        yaxis=dict(showgrid=True, gridcolor="lightgray"),
-    )
-    return fig
+   # Calculate the 30-day difference and annualized return
+    nav_per_share_df['30_day_difference'] = nav_per_share_df['balETH'].diff(periods=30)
+    # Normalized to starting NAV per share for 30-day return
+    nav_per_share_df['30_day_annualized_return'] = (nav_per_share_df['30_day_difference'] / nav_per_share_df['balETH'].shift(30)) * (365 / 30) * 100
+    
+    # Calculate the 7-day difference and annualized return
+    nav_per_share_df['7_day_difference'] = nav_per_share_df['balETH'].diff(periods=7)
+    # Normalized to starting NAV per share for 7-day return
+    nav_per_share_df['7_day_annualized_return'] = (nav_per_share_df['7_day_difference'] / nav_per_share_df['balETH'].shift(7)) * (365 / 7) * 100
+
+    return nav_per_share_df
+

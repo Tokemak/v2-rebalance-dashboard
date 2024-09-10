@@ -1,5 +1,6 @@
 import pandas as pd
 from multicall import Multicall, Call
+import streamlit as st
 
 import nest_asyncio
 import asyncio
@@ -56,16 +57,15 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
 def sync_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
-    semaphore_limits: int = (300, 100, 30, 10, 1),
+    semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
     include_block_number: bool = False,
 ) -> pd.DataFrame:
     return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, semaphore_limits, include_block_number))
 
-
 async def async_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
-    semaphore_limits: int = (300, 100, 30, 10, 1),
+    semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
     include_block_number: bool = False,
 ) -> pd.DataFrame:
     """
@@ -135,10 +135,15 @@ def identity_function(value):
 
 
 def build_blocks_to_use():
-    # current_block = 20593231  # eth_client.eth.block_number
     current_block = eth_client.eth.block_number
-    start_block = 20162439  # TODO, get a better method for this. blocks are not perfectly lined up
-    approx_blocks_per_day = 7100 // 4
-    blocks = [b for b in range(start_block, current_block, approx_blocks_per_day)]
-    # good enough for now, fix later use etherscan
+    start_block = 20262439  # Start block number
+
+    # Average block time in seconds
+    block_time_seconds = 13.15
+    # Calculate blocks per day
+    blocks_per_day = int(86400 / block_time_seconds)
+
+    # Generate blocks with an interval of 1 block per day
+    blocks = [b for b in range(current_block, start_block, -blocks_per_day)]
+    blocks.reverse()
     return blocks
