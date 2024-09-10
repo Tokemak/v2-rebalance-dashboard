@@ -6,6 +6,7 @@ from v2_rebalance_dashboard.fetch_asset_combination_over_time import fetch_asset
 from v2_rebalance_dashboard.fetch_nav_per_share import fetch_daily_nav_per_share_to_plot
 from v2_rebalance_dashboard.fetch_nav import fetch_daily_nav_to_plot
 from v2_rebalance_dashboard.get_rebalance_events_summary import fetch_clean_rebalance_events
+from v2_rebalance_dashboard.fetch_growth_of_a_dollar import fetch_growth_of_a_dollar_figure
 
 
 def get_autopool_diagnostics_plotData(autopool_name: str):
@@ -23,6 +24,7 @@ def get_autopool_diagnostics_plotData(autopool_name: str):
     nav_fig = fetch_daily_nav_to_plot()
     asset_allocation_bar_fig, asset_allocation_pie_fig = fetch_asset_composition_over_time_to_plot()
     rebalance_fig = fetch_clean_rebalance_events()
+    growth_of_a_dollar_fig = fetch_growth_of_a_dollar_figure()
 
     return {
         "eth_allocation_bar_chart_fig": eth_allocation_bar_chart_fig,
@@ -35,6 +37,7 @@ def get_autopool_diagnostics_plotData(autopool_name: str):
         "asset_allocation_pie_fig": asset_allocation_pie_fig,
         "rebalance_fig": rebalance_fig,
         "uwcr_df": uwcr_df,
+        "growth_of_a_dollar_fig": growth_of_a_dollar_fig,
     }
 
 
@@ -232,6 +235,23 @@ def show_rebalance_events(plotData):
         )
 
 
+def show_growth_of_a_dollar(plotData):
+    st.header("Growth of an ETH Over Time")
+    st.plotly_chart(plotData["growth_of_a_dollar_fig"], use_container_width=True)
+
+    with st.expander("See explanation for Growth of a Dollar"):
+        st.write(
+            """
+            This chart displays the growth of 1 ETH invested in the balETH Autopool and other Balancer Destinations.
+            
+            - balETH is from navPerShare(). It is actual performace with real dollars
+            
+            - Other Destinations do not account for gas, slippage, swap fees, or cost to enter / exit the pools. So they are overestimates   
+            
+            """
+        )
+
+
 def main():
     st.set_page_config(
         page_title="Autopool Diagnostics Dashboard",
@@ -283,7 +303,15 @@ def main():
     # Sidebar
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
-        "Go to", ["Key Metrics", "Autopool Exposure", "Allocation Over Time", "Weighted CRM", "Rebalance Events"]
+        "Go to",
+        [
+            "Key Metrics",
+            "Autopool Exposure",
+            "Allocation Over Time",
+            "Weighted CRM",
+            "Rebalance Events",
+            "Growth of a Dollar",
+        ],
     )
 
     autopool_name = os.getenv("AUTOPOOL_NAME", "balETH")
@@ -304,6 +332,8 @@ def main():
         show_weighted_crm(plotData)
     elif page == "Rebalance Events":
         show_rebalance_events(plotData)
+    elif page == "Growth of a Dollar":
+        show_growth_of_a_dollar(plotData)
 
 
 if __name__ == "__main__":

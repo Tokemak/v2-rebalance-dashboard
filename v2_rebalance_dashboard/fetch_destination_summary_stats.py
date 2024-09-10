@@ -254,11 +254,8 @@ def fetch_summary_stats_figures():
         calls.append(call)
     blocks = build_blocks_to_use()
     summary_stats_df = sync_safe_get_raw_state_by_block(calls, blocks)
-    
+
     lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig, uwcr_df = _summary_stats_df_to_figures(
         summary_stats_df
     )
     return lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig, uwcr_df
-
-
-
