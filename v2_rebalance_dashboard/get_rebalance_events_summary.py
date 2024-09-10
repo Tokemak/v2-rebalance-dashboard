@@ -71,7 +71,7 @@ def make_rebalance_human_readable(row: dict):
     predicted_increase_after_swap_cost = predicted_gain_during_swap_cost_off_set_period - swapCost
     date = pd.to_datetime(eth_client.eth.get_block(row["block"]).timestamp, unit="s")
 
-    break_even_days = swapCost / (predictedAnnualizedGain/365)
+    break_even_days = swapCost / (predictedAnnualizedGain / 365)
     offset_period = row["swapOffsetPeriod"]
 
     # first_line = slope ,out_compositeReturn, start point (days, eth value) (0, outEthValue)
@@ -92,7 +92,7 @@ def make_rebalance_human_readable(row: dict):
         "out_destination": out_destination,
         "in_destination": in_destination,
         "offset_period": offset_period,
-        "slippage": slippage
+        "slippage": slippage,
     }
 
 
@@ -107,7 +107,8 @@ def calculate_total_eth_spent(address: str, block: int):
 
     return total_eth_spent
 
-@st.cache_data(ttl=12*3600)
+
+@st.cache_data(ttl=12 * 3600)
 def fetch_clean_rebalance_events(autopool_name="balETH"):
     if autopool_name != "balETH":
         raise ValueError("only for balETH")
@@ -119,86 +120,114 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
     clean_rebalance_df = pd.DataFrame.from_records(
         rebalance_events.apply(lambda row: make_rebalance_human_readable(row), axis=1)
     )
-    
+
     clean_rebalance_df["gasCostInETH"] = clean_rebalance_df.apply(
         lambda row: calculate_total_eth_spent(balETH_solver, row["block"]), axis=1
     )
 
     # Sort the dataframe by date
-    clean_rebalance_df = clean_rebalance_df.sort_values('date')
-    
+    clean_rebalance_df = clean_rebalance_df.sort_values("date")
+
     # Create subplots
-    fig = make_subplots(rows=5, cols=1, shared_xaxes=True, vertical_spacing=0.08,
-                        subplot_titles=("Composite Returns", "in/out ETH Values",
-                                        "Swap Cost and Predicted Gain", 
-                                        "Swap Cost as Percentage of Out ETH Value", 
-                                        "Break Even Days and Offset Period"))
-    
+    fig = make_subplots(
+        rows=5,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.08,
+        subplot_titles=(
+            "Composite Returns",
+            "in/out ETH Values",
+            "Swap Cost and Predicted Gain",
+            "Swap Cost as Percentage of Out ETH Value",
+            "Break Even Days and Offset Period",
+        ),
+    )
+
     # Plot 1: out_compositeReturn & in_compositeReturn
-    fig.add_trace(go.Bar(x=clean_rebalance_df['date'], y=clean_rebalance_df['out_compositeReturn'],
-                         name='Out Composite Return'), row=1, col=1)
-    fig.add_trace(go.Bar(x=clean_rebalance_df['date'], y=clean_rebalance_df['in_compositeReturn'],
-                         name='In Composite Return'), row=1, col=1)
-    
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["out_compositeReturn"], name="Out Composite Return"),
+        row=1,
+        col=1,
+    )
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["in_compositeReturn"], name="In Composite Return"),
+        row=1,
+        col=1,
+    )
+
     # Plot 2: predicted_gain_during_swap_cost_offset_period, swapCost, outEthValue, inEthValue
-    fig.add_trace(go.Bar(x=clean_rebalance_df['date'], y=clean_rebalance_df['outEthValue'],
-                         name='Out ETH Value'), row=2, col=1)
-    fig.add_trace(go.Bar(x=clean_rebalance_df['date'], y=clean_rebalance_df['inEthValue'],
-                         name='In ETH Value'), row=2, col=1)
-    fig.add_trace(go.Bar(x=clean_rebalance_df['date'], y=clean_rebalance_df['predicted_gain_during_swap_cost_off_set_period'],
-                         name='Predicted Gain'), row=3, col=1)
-    fig.add_trace(go.Bar(x=clean_rebalance_df['date'], y=clean_rebalance_df['swapCost'],
-                         name='Swap Cost'), row=3, col=1)
- 
-    
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["outEthValue"], name="Out ETH Value"), row=2, col=1
+    )
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["inEthValue"], name="In ETH Value"), row=2, col=1
+    )
+    fig.add_trace(
+        go.Bar(
+            x=clean_rebalance_df["date"],
+            y=clean_rebalance_df["predicted_gain_during_swap_cost_off_set_period"],
+            name="Predicted Gain",
+        ),
+        row=3,
+        col=1,
+    )
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["swapCost"], name="Swap Cost"), row=3, col=1
+    )
+
     # Plot 3: swapCost / outETH * 100
-    swap_cost_percentage = (clean_rebalance_df['slippage']) * 100
-    fig.add_trace(go.Bar(x=clean_rebalance_df['date'], y=swap_cost_percentage,
-                         name='Swap Cost Percentage'), row=4, col=1)
-    
+    swap_cost_percentage = (clean_rebalance_df["slippage"]) * 100
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=swap_cost_percentage, name="Swap Cost Percentage"), row=4, col=1
+    )
+
     # Plot 4: break_even_days and offset_period
-    fig.add_trace(go.Bar(x=clean_rebalance_df['date'], y=clean_rebalance_df['break_even_days'],
-                         name='Break Even Days'), row=5, col=1)
-    fig.add_trace(go.Bar(x=clean_rebalance_df['date'], y=clean_rebalance_df['offset_period'],
-                         name='Offset Period'), row=5, col=1)
-    
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["break_even_days"], name="Break Even Days"),
+        row=5,
+        col=1,
+    )
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["offset_period"], name="Offset Period"), row=5, col=1
+    )
+
     # Update y-axis labels
     fig.update_yaxes(title_text="Return (%)", row=1, col=1)
     fig.update_yaxes(title_text="ETH", row=2, col=1)
     fig.update_yaxes(title_text="ETH", row=3, col=1)
     fig.update_yaxes(title_text="Swap Cost (%)", row=4, col=1)
     fig.update_yaxes(title_text="Days", row=5, col=1)
-    
+
     # Update layout
     fig.update_layout(
-        height=1600, 
-        width=1000, 
+        height=1600,
+        width=1000,
         title_text="",
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        font=dict(color='black'),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font=dict(color="black"),
     )
-    
+
     # Update x-axes
     fig.update_xaxes(
-        title_text="Date", 
-        row=5, 
+        title_text="Date",
+        row=5,
         col=1,
-        showgrid=True, 
-        gridwidth=1, 
-        gridcolor='lightgray',
+        showgrid=True,
+        gridwidth=1,
+        gridcolor="lightgray",
         zeroline=True,
         zerolinewidth=1,
-        zerolinecolor='black',
+        zerolinecolor="black",
     )
-    
+
     # Update y-axes
     fig.update_yaxes(
-        showgrid=True, 
-        gridwidth=1, 
-        gridcolor='lightgray',
+        showgrid=True,
+        gridwidth=1,
+        gridcolor="lightgray",
         zeroline=True,
         zerolinewidth=1,
-        zerolinecolor='black',
+        zerolinecolor="black",
     )
     return fig

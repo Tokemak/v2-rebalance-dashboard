@@ -62,6 +62,7 @@ def sync_safe_get_raw_state_by_block(
 ) -> pd.DataFrame:
     return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, semaphore_limits, include_block_number))
 
+
 async def async_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
