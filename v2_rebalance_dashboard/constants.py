@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
 
+import json
+
 ALCHEMY_URL = environ["ALCHEMY_URL"]
 eth_client = Web3(Web3.HTTPProvider(ALCHEMY_URL))
 
