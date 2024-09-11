@@ -1,10 +1,26 @@
 from v2_rebalance_dashboard.get_events import fetch_events
-from v2_rebalance_dashboard.constants import balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS, eth_client, ROOT_DIR
+from v2_rebalance_dashboard.constants import (
+    ROOT_PRICE_ORACLE_ABI,
+    ROOT_PRICE_ORACLE,
+    balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS,
+    eth_client,
+    ROOT_DIR,
+)
 import pandas as pd
 import json
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import streamlit as st
+from multicall import Call
+from v2_rebalance_dashboard.get_state_by_block import (
+    safe_normalize_with_bool_success,
+    identity_with_bool_success,
+    sync_get_raw_state_by_block_one_block,
+    to_str_with_bool_success,
+    sync_safe_get_raw_state_by_block,
+    build_get_address_eth_balance_call,
+)
+
 
 with open(ROOT_DIR / "vault_abi.json", "r") as fin:
     autopool_eth_vault_abi = json.load(fin)
@@ -19,6 +35,7 @@ destination_vault_to_name = {
 }
 destination_vault_to_name["0x72cf6d7c85ffd73f18a83989e7ba8c1c30211b73"] = "balETH idle"
 
+FLASH_BORROW_SOLVER = "0x2C26808b567BA224652f4eB20D45df4bccC29470"
 
 # struct RebalanceParams {
 #     address destinationIn; 0
@@ -74,9 +91,6 @@ def make_rebalance_human_readable(row: dict):
     break_even_days = swapCost / (predictedAnnualizedGain / 365)
     offset_period = row["swapOffsetPeriod"]
 
-    # first_line = slope ,out_compositeReturn, start point (days, eth value) (0, outEthValue)
-    # second line = slope ,in_compositeReturn, start point (days, eth value) (0, inEthValue)
-
     return {
         "date": date,
         "block": row["block"],
@@ -108,11 +122,59 @@ def calculate_total_eth_spent(address: str, block: int):
     return total_eth_spent
 
 
-@st.cache_data(ttl=12 * 3600)
-def fetch_clean_rebalance_events(autopool_name="balETH"):
-    if autopool_name != "balETH":
-        raise ValueError("only for balETH")
+def getPriceInEth_call(name: str, token_address: str) -> Call:
+    return Call(
+        ROOT_PRICE_ORACLE,
+        ["getPriceInEth(address)(uint256)", token_address],
+        [(name, safe_normalize_with_bool_success)],
+    )
 
+
+def _build_value_held_by_solver(balance_of_calls, price_calls, blocks):
+    blocks = [int(b) for b in blocks]
+    balance_of_df = sync_safe_get_raw_state_by_block(balance_of_calls, blocks)
+    price_df = sync_safe_get_raw_state_by_block(price_calls, blocks).fillna(0)  # just usdc is 0s
+    price_df["ETH"] = 1.0
+    price_df = price_df[balance_of_df.columns]
+    eth_value_held_by_flash_solver_df = price_df * balance_of_df
+    eth_value_held_by_flash_solver_df["total_eth_value"] = eth_value_held_by_flash_solver_df.sum(axis=1)
+    return eth_value_held_by_flash_solver_df
+
+
+def _add_solver_profit_cols(clean_rebalance_df: pd.DataFrame) -> list[Call]:
+
+    root_price_oracle_contract = eth_client.eth.contract(ROOT_PRICE_ORACLE, abi=ROOT_PRICE_ORACLE_ABI)
+    tokens = fetch_events(root_price_oracle_contract.events.TokenRegistered)["token"].values
+
+    symbol_calls = [Call(t, ["symbol()(string)"], [(t, to_str_with_bool_success)]) for t in tokens]
+    address_to_symbol = sync_get_raw_state_by_block_one_block(symbol_calls, 20651330)
+    balance_of_calls = [build_get_address_eth_balance_call("ETH", FLASH_BORROW_SOLVER)]
+
+    price_calls = []
+    for token_addr, symbol in address_to_symbol.items():
+        if symbol is not None:
+            balance_of_calls.append(
+                Call(
+                    token_addr,
+                    ["balanceOf(address)(uint256)", FLASH_BORROW_SOLVER],
+                    [(symbol, safe_normalize_with_bool_success)],
+                )
+            )
+            price_calls.append(getPriceInEth_call(symbol, token_addr))
+
+    value_before_df = _build_value_held_by_solver(balance_of_calls, price_calls, clean_rebalance_df["block"] - 1)
+    value_after_df = _build_value_held_by_solver(balance_of_calls, price_calls, clean_rebalance_df["block"])
+
+    clean_rebalance_df["before_rebalance_eth_value_of_solver"] = value_before_df["total_eth_value"].values
+    clean_rebalance_df["after_rebalance_eth_value_of_solver"] = value_after_df["total_eth_value"].values
+    clean_rebalance_df["solver_profit"] = (
+        clean_rebalance_df["after_rebalance_eth_value_of_solver"]
+        - clean_rebalance_df["before_rebalance_eth_value_of_solver"]
+    )
+    return clean_rebalance_df
+
+
+def _fetch_rebalance_events_df() -> pd.DataFrame:
     balETH_solver = "0xad92a528A627F59a12e3EE56246C6F733051f6ca"
 
     strategy_contract = eth_client.eth.contract(balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS, abi=eth_strategy_abi)
@@ -124,13 +186,20 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
     clean_rebalance_df["gasCostInETH"] = clean_rebalance_df.apply(
         lambda row: calculate_total_eth_spent(balETH_solver, row["block"]), axis=1
     )
+    clean_rebalance_df = _add_solver_profit_cols(clean_rebalance_df)
 
-    # Sort the dataframe by date
-    clean_rebalance_df = clean_rebalance_df.sort_values("date")
+    return clean_rebalance_df
 
+
+@st.cache_data(ttl=12 * 3600)
+def fetch_clean_rebalance_events(autopool_name="balETH"):
+    if autopool_name != "balETH":
+        raise ValueError("only for balETH")
+
+    clean_rebalance_df = _fetch_rebalance_events_df()
     # Create subplots
     fig = make_subplots(
-        rows=5,
+        rows=6,
         cols=1,
         shared_xaxes=True,
         vertical_spacing=0.08,
@@ -140,6 +209,7 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
             "Swap Cost and Predicted Gain",
             "Swap Cost as Percentage of Out ETH Value",
             "Break Even Days and Offset Period",
+            "Solver ETH Profit",
         ),
     )
 
@@ -191,12 +261,17 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
         go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["offset_period"], name="Offset Period"), row=5, col=1
     )
 
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["solver_profit"], name="Solver Profit"), row=6, col=1
+    )
+
     # Update y-axis labels
     fig.update_yaxes(title_text="Return (%)", row=1, col=1)
     fig.update_yaxes(title_text="ETH", row=2, col=1)
     fig.update_yaxes(title_text="ETH", row=3, col=1)
     fig.update_yaxes(title_text="Swap Cost (%)", row=4, col=1)
     fig.update_yaxes(title_text="Days", row=5, col=1)
+    fig.update_yaxes(title_text="ETH", row=6, col=1)
 
     # Update layout
     fig.update_layout(
