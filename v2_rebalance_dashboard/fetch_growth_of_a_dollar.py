@@ -340,6 +340,14 @@ def fetch_growth_of_a_dollar_df() -> pd.DataFrame:
 
 @st.cache_data(ttl=12 * 3600)
 def fetch_growth_of_a_dollar_figure():
+    # Features to add
+    # change start date
+    # add sliders for the fees to charge on the other destiantions, reduce amount they start with
+    # add toggle for (hold all incentive tokens), (periodicly sell all incentive tokens for ETH)
+    # add dilution
+    # add sliding factor for how much fees we collect on the autopool
+    # add curve and maverick growth of a dollar
+
     growth_of_a_dollar_df = fetch_growth_of_a_dollar_df()
     fig = go.Figure()
 

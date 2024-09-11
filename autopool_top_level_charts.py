@@ -310,7 +310,6 @@ def main():
             "Allocation Over Time",
             "Weighted CRM",
             "Rebalance Events",
-            "Growth of a Dollar",
         ],
     )
 
@@ -332,8 +331,6 @@ def main():
         show_weighted_crm(plotData)
     elif page == "Rebalance Events":
         show_rebalance_events(plotData)
-    elif page == "Growth of a Dollar":
-        show_growth_of_a_dollar(plotData)
 
 
 if __name__ == "__main__":
