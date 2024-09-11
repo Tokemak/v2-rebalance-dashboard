@@ -24,7 +24,7 @@ def get_autopool_diagnostics_plotData(autopool_name: str):
     nav_fig = fetch_daily_nav_to_plot()
     asset_allocation_bar_fig, asset_allocation_pie_fig = fetch_asset_composition_over_time_to_plot()
     rebalance_fig = fetch_clean_rebalance_events()
-    growth_of_a_dollar_fig = fetch_growth_of_a_dollar_figure()
+    # growth_of_a_dollar_fig = fetch_growth_of_a_dollar_figure()
 
     return {
         "eth_allocation_bar_chart_fig": eth_allocation_bar_chart_fig,
@@ -37,7 +37,7 @@ def get_autopool_diagnostics_plotData(autopool_name: str):
         "asset_allocation_pie_fig": asset_allocation_pie_fig,
         "rebalance_fig": rebalance_fig,
         "uwcr_df": uwcr_df,
-        "growth_of_a_dollar_fig": growth_of_a_dollar_fig,
+        # "growth_of_a_dollar_fig": growth_of_a_dollar_fig,
     }
 
 
