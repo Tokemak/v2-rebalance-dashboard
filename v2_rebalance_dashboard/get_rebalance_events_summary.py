@@ -6,6 +6,8 @@ from v2_rebalance_dashboard.constants import (
     eth_client,
     ROOT_DIR,
 )
+
+from dataclasses import dataclass
 import pandas as pd
 import json
 import plotly.graph_objects as go
@@ -107,19 +109,14 @@ def make_rebalance_human_readable(row: dict):
         "in_destination": in_destination,
         "offset_period": offset_period,
         "slippage": slippage,
+        "hash": row["hash"],
     }
 
 
-def calculate_total_eth_spent(address: str, block: int):
-    total_eth_spent = 0
-    block = eth_client.eth.get_block(int(block), full_transactions=True)
-    for tx in block.transactions:
-        if tx["from"].lower() == address.lower():
-            # Calculate the total spent for this transaction
-            tx_cost = eth_client.fromWei(tx["value"], "ether") + eth_client.fromWei(tx["gasPrice"] * tx["gas"], "ether")
-            total_eth_spent += tx_cost
-
-    return total_eth_spent
+def calc_gas_used_by_transaction_in_eth(tx_hash: str) -> float:
+    tx_receipt = eth_client.eth.get_transaction_receipt(tx_hash)
+    tx = eth_client.eth.get_transaction(tx_hash)
+    return eth_client.fromWei(tx["gasPrice"] * tx_receipt["gasUsed"], "ether")
 
 
 def getPriceInEth_call(name: str, token_address: str) -> Call:
@@ -175,8 +172,6 @@ def _add_solver_profit_cols(clean_rebalance_df: pd.DataFrame) -> list[Call]:
 
 
 def _fetch_rebalance_events_df() -> pd.DataFrame:
-    balETH_solver = "0xad92a528A627F59a12e3EE56246C6F733051f6ca"
-
     strategy_contract = eth_client.eth.contract(balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS, abi=eth_strategy_abi)
     rebalance_events = fetch_events(strategy_contract.events.RebalanceBetweenDestinations)
     clean_rebalance_df = pd.DataFrame.from_records(
@@ -184,11 +179,24 @@ def _fetch_rebalance_events_df() -> pd.DataFrame:
     )
 
     clean_rebalance_df["gasCostInETH"] = clean_rebalance_df.apply(
-        lambda row: calculate_total_eth_spent(balETH_solver, row["block"]), axis=1
+        lambda row: calc_gas_used_by_transaction_in_eth(row["hash"]), axis=1
     )
     clean_rebalance_df = _add_solver_profit_cols(clean_rebalance_df)
 
     return clean_rebalance_df
+
+
+@dataclass
+class RebalanceBarPlots:
+    title: str
+    x_column: str
+    y_column: str
+    name: str
+    col: int
+
+
+def _make_plots(clean_rebalance_df: pd.DataFrame) -> go.Figure:
+    pass
 
 
 @st.cache_data(ttl=12 * 3600)
@@ -197,9 +205,10 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
         raise ValueError("only for balETH")
 
     clean_rebalance_df = _fetch_rebalance_events_df()
+    pass
     # Create subplots
     fig = make_subplots(
-        rows=6,
+        rows=7,
         cols=1,
         shared_xaxes=True,
         vertical_spacing=0.08,
@@ -210,6 +219,7 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
             "Swap Cost as Percentage of Out ETH Value",
             "Break Even Days and Offset Period",
             "Solver ETH Profit",
+            "Solver gas Costs",
         ),
     )
 
@@ -265,6 +275,10 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
         go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["solver_profit"], name="Solver Profit"), row=6, col=1
     )
 
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["solver_profit"], name="Solver Profit"), row=6, col=1
+    )
+
     # Update y-axis labels
     fig.update_yaxes(title_text="Return (%)", row=1, col=1)
     fig.update_yaxes(title_text="ETH", row=2, col=1)
@@ -306,3 +320,8 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
         zerolinecolor="black",
     )
     return fig
+
+
+if __name__ == "__main__":
+    df = _fetch_rebalance_events_df()
+    pass
