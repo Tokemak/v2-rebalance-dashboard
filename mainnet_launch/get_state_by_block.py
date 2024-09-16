@@ -63,7 +63,7 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
     return _fetch_data
 
 
-def get_raw_state_by_block(
+def sync_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
     semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
@@ -113,7 +113,10 @@ async def async_safe_get_raw_state_by_block(
 
     df = pd.DataFrame.from_records(responses)
     if len(df) == 0:
-        raise ValueError("failed to fetch any data, df is empty")
+        print(f'failed to fetch any data. consider trying again if expected to get data, but with a smaller semaphore_limit')
+        print(f'{len(blocks)=} {blocks[0]=} {blocks[-1]=}')
+        print(f'{calls=}')
+        
     df.set_index("timestamp", inplace=True)
     df.index = pd.to_datetime(df.index, unit="s")
     df.sort_index(inplace=True)
@@ -150,7 +153,8 @@ def identity_function(value):
     return value
 
 
-def build_blocks_to_use(use_mainnet:bool=True):
+def build_blocks_to_use(use_mainnet:bool=True) -> list[int]:
+    """Returns daily blocks since deployement"""
     current_block = eth_client.eth.block_number
     
     start_block = 20722910 if use_mainnet else 20262439
