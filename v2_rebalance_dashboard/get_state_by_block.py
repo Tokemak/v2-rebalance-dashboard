@@ -12,6 +12,7 @@ nest_asyncio.apply()
 
 
 MULTICALL2_DEPLOYMENT_BLOCK = 12336033
+multicall_v3 = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696"
 
 
 def sync_get_raw_state_by_block_one_block(calls: list[Call], block: int):
@@ -25,8 +26,16 @@ async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int):
     return response
 
 
+def build_get_address_eth_balance_call(name: str, addr: str) -> Call:
+    """Use the multicallV3 contract to get the normalized eth balance of an address"""
+    return Call(
+        multicall_v3,
+        ["getEthBalance(address)(uint256)", addr],
+        [(name, safe_normalize_with_bool_success)],
+    )
+
+
 def _build_default_block_and_timestamp_calls():
-    multicall_v3 = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696"
     get_block_call = Call(
         multicall_v3,
         ["getBlockNumber()(uint256)"],
@@ -106,8 +115,8 @@ async def async_safe_get_raw_state_by_block(
     if len(df) == 0:
         raise ValueError("failed to fetch any data, df is empty")
     df.set_index("timestamp", inplace=True)
-    df.sort_index(inplace=True)
     df.index = pd.to_datetime(df.index, unit="s")
+    df.sort_index(inplace=True)
     if not include_block_number:
         df.drop(columns="block", inplace=True)
     return df
@@ -122,6 +131,12 @@ def safe_normalize_with_bool_success(success: int, value: int):
 def safe_normalize_6_with_bool_success(success: int, value: int):
     if success:
         return int(value) / 1e6
+    return None
+
+
+def to_str_with_bool_success(success, value):
+    if success:
+        return str(value)
     return None
 
 

@@ -45,3 +45,6 @@ with open(ROOT_DIR / "ERC_20_abi.json", "r") as fin:
 
 with open(ROOT_DIR / "aura_stash_token_abi.json", "r") as fin:
     AURA_STASH_TOKEN_ABI = json.load(fin)
+
+with open(ROOT_DIR / "root_price_oracle_abi.json", "r") as fin:
+    ROOT_PRICE_ORACLE_ABI = json.load(fin)
