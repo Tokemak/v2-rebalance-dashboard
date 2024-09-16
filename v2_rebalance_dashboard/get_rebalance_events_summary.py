@@ -182,48 +182,10 @@ def _fetch_rebalance_events_df() -> pd.DataFrame:
         lambda row: calc_gas_used_by_transaction_in_eth(row["hash"]), axis=1
     )
     clean_rebalance_df = _add_solver_profit_cols(clean_rebalance_df)
-
     return clean_rebalance_df
 
 
-@dataclass
-class RebalanceBarPlots:
-    title: str
-    x_column: str
-    y_column: str
-    name: str
-    col: int
-
-
-def _make_plots(clean_rebalance_df: pd.DataFrame) -> go.Figure:
-    pass
-
-
-@st.cache_data(ttl=12 * 3600)
-def fetch_clean_rebalance_events(autopool_name="balETH"):
-    if autopool_name != "balETH":
-        raise ValueError("only for balETH")
-
-    clean_rebalance_df = _fetch_rebalance_events_df()
-    pass
-    # Create subplots
-    fig = make_subplots(
-        rows=7,
-        cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.08,
-        subplot_titles=(
-            "Composite Returns",
-            "in/out ETH Values",
-            "Swap Cost and Predicted Gain",
-            "Swap Cost as Percentage of Out ETH Value",
-            "Break Even Days and Offset Period",
-            "Solver ETH Profit",
-            "Solver gas Costs",
-        ),
-    )
-
-    # Plot 1: out_compositeReturn & in_compositeReturn
+def _add_composite_return_figures(clean_rebalance_df: pd.DataFrame, fig: go.Figure):
     fig.add_trace(
         go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["out_compositeReturn"], name="Out Composite Return"),
         row=1,
@@ -234,14 +196,21 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
         row=1,
         col=1,
     )
+    fig.update_yaxes(title_text="Return (%)", row=1, col=1)
 
-    # Plot 2: predicted_gain_during_swap_cost_offset_period, swapCost, outEthValue, inEthValue
+
+def _add_in_out_eth_value(clean_rebalance_df: pd.DataFrame, fig: go.Figure):
     fig.add_trace(
         go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["outEthValue"], name="Out ETH Value"), row=2, col=1
     )
     fig.add_trace(
         go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["inEthValue"], name="In ETH Value"), row=2, col=1
     )
+
+    fig.update_yaxes(title_text="ETH", row=2, col=1)
+
+
+def _add_predicted_gain_and_swap_cost(clean_rebalance_df: pd.DataFrame, fig: go.Figure):
     fig.add_trace(
         go.Bar(
             x=clean_rebalance_df["date"],
@@ -255,13 +224,18 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
         go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["swapCost"], name="Swap Cost"), row=3, col=1
     )
 
-    # Plot 3: swapCost / outETH * 100
+    fig.update_yaxes(title_text="ETH", row=3, col=1)
+
+
+def _add_swap_cost_percent(clean_rebalance_df: pd.DataFrame, fig: go.Figure):
     swap_cost_percentage = (clean_rebalance_df["slippage"]) * 100
     fig.add_trace(
         go.Bar(x=clean_rebalance_df["date"], y=swap_cost_percentage, name="Swap Cost Percentage"), row=4, col=1
     )
+    fig.update_yaxes(title_text="Swap Cost (%)", row=4, col=1)
 
-    # Plot 4: break_even_days and offset_period
+
+def _add_break_even_days_and_offset_period(clean_rebalance_df: pd.DataFrame, fig: go.Figure):
     fig.add_trace(
         go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["break_even_days"], name="Break Even Days"),
         row=5,
@@ -270,26 +244,60 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
     fig.add_trace(
         go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["offset_period"], name="Offset Period"), row=5, col=1
     )
-
-    fig.add_trace(
-        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["solver_profit"], name="Solver Profit"), row=6, col=1
-    )
-
-    fig.add_trace(
-        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["solver_profit"], name="Solver Profit"), row=6, col=1
-    )
-
-    # Update y-axis labels
-    fig.update_yaxes(title_text="Return (%)", row=1, col=1)
-    fig.update_yaxes(title_text="ETH", row=2, col=1)
-    fig.update_yaxes(title_text="ETH", row=3, col=1)
-    fig.update_yaxes(title_text="Swap Cost (%)", row=4, col=1)
     fig.update_yaxes(title_text="Days", row=5, col=1)
+
+
+def _add_solver_profit(clean_rebalance_df: pd.DataFrame, fig: go.Figure):
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["solver_profit"], name="Solver Profit Before Gas"),
+        row=6,
+        col=1,
+    )
+
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["gasCostInETH"], name="Solver Gas Cost in ETH"),
+        row=6,
+        col=1,
+    )
+
+    solver_profit_after_gas_costs = clean_rebalance_df["solver_profit"].astype(float) - clean_rebalance_df[
+        "gasCostInETH"
+    ].astype(float)
+
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df["date"], y=solver_profit_after_gas_costs, name="Solver Profit After Gas"),
+        row=6,
+        col=1,
+    )
     fig.update_yaxes(title_text="ETH", row=6, col=1)
+
+
+def _make_plots(clean_rebalance_df: pd.DataFrame) -> go.Figure:
+    fig = make_subplots(
+        rows=6,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.08,
+        subplot_titles=(
+            "Composite Returns",
+            "in/out ETH Values",
+            "Swap Cost, Predicted Gain",
+            "Swap Cost as Percentage of Out ETH Value",
+            "Break Even Days and Offset Period",
+            "Solver Profit and Gas",
+        ),
+    )
+
+    _add_composite_return_figures(clean_rebalance_df, fig)
+    _add_in_out_eth_value(clean_rebalance_df, fig)
+    _add_predicted_gain_and_swap_cost(clean_rebalance_df, fig)
+    _add_swap_cost_percent(clean_rebalance_df, fig)
+    _add_break_even_days_and_offset_period(clean_rebalance_df, fig)
+    _add_solver_profit(clean_rebalance_df, fig)
 
     # Update layout
     fig.update_layout(
-        height=1600,
+        height=6 * 400,
         width=1000,
         title_text="",
         plot_bgcolor="white",
@@ -300,7 +308,7 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
     # Update x-axes
     fig.update_xaxes(
         title_text="Date",
-        row=5,
+        row=6,
         col=1,
         showgrid=True,
         gridwidth=1,
@@ -322,6 +330,16 @@ def fetch_clean_rebalance_events(autopool_name="balETH"):
     return fig
 
 
+@st.cache_data(ttl=12 * 3600)
+def fetch_clean_rebalance_events(autopool_name="balETH"):
+    if autopool_name != "balETH":
+        raise ValueError("only for balETH")
+
+    clean_rebalance_df = _fetch_rebalance_events_df()
+    fig = _make_plots(clean_rebalance_df)
+    return fig
+
+
 if __name__ == "__main__":
-    df = _fetch_rebalance_events_df()
-    pass
+    fig = fetch_clean_rebalance_events()
+    fig.show()
