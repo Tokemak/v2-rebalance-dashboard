@@ -63,7 +63,7 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
     return _fetch_data
 
 
-def get_raw_state_by_block(
+def sync_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
     semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
