@@ -252,6 +252,6 @@ def fetch_solver_diagnostics_charts(autopool_name: str = "balETH") -> dict:
     }
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     a = fetch_solver_diagnostics_charts()
     pass
