@@ -3,7 +3,6 @@ import streamlit as st
 from mainnet_launch.key_metrics import display_key_metrics
 
 
-
 def main():
     st.set_page_config(
         page_title="Mainnet Autopool Diagnostics Dashboard",
@@ -52,11 +51,8 @@ def main():
     st.title("Autopool Diagnostics Dashboard")
 
     st.sidebar.title("Navigation")
-    
-    selected_pool = st.sidebar.selectbox(
-        "Select Pool",
-        ("autoETH", "autoLRT", "balETH")
-    )
+
+    selected_pool = st.sidebar.selectbox("Select Pool", ("autoETH", "autoLRT", "balETH"))
 
     # Sidebar Pages
     page = st.sidebar.radio(
@@ -73,9 +69,10 @@ def main():
     # Display content based on selected pool and page
     display_pool(selected_pool, page)
 
+
 def display_pool(pool_name, page):
     st.subheader(f"{pool_name}")
-    
+
     content_functions = {
         "Key Metrics": display_key_metrics,
         "Autopool Exposure": display_autopool_exposure,
@@ -92,25 +89,31 @@ def display_pool(pool_name, page):
     else:
         st.write("Page not found.")
 
+
 # def display_key_metrics(pool_name):
 #     st.write(f"Displaying Key Metrics for {pool_name}...")
 #     # Add your charts, metrics, or tables here
+
 
 def display_autopool_exposure(pool_name):
     st.write(f"Displaying Autopool Exposure for {pool_name}...")
     # Add content here
 
+
 def display_allocation_over_time(pool_name):
     st.write(f"Displaying Allocation Over Time for {pool_name}...")
     # Add content here
+
 
 def display_weighted_crm(pool_name):
     st.write(f"Displaying Weighted CRM for {pool_name}...")
     # Add content here
 
+
 def display_rebalance_events(pool_name):
     st.write(f"Displaying Rebalance Events for {pool_name}...")
     # Add content here
+
 
 if __name__ == "__main__":
     main()

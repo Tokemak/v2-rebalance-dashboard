@@ -150,9 +150,9 @@ def identity_function(value):
     return value
 
 
-def build_blocks_to_use(use_mainnet:bool=True):
+def build_blocks_to_use(use_mainnet: bool = True):
     current_block = eth_client.eth.block_number
-    
+
     start_block = 20722910 if use_mainnet else 20262439
 
     # Average block time in seconds
