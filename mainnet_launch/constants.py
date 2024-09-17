@@ -48,3 +48,4 @@ AUTO_LRT = AutopoolConstants(
 )
 
 ALL_AUTOPOOLS = [BAL_ETH, AUTO_ETH, AUTO_LRT]
+AUTOPOOL_NAME_TO_CONSTANTS = {a.name: a for a in ALL_AUTOPOOLS}

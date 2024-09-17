@@ -1,6 +1,7 @@
 import streamlit as st
 
 from mainnet_launch.key_metrics import display_key_metrics
+from mainnet_launch.constants import ALL_AUTOPOOLS, AUTOPOOL_NAME_TO_CONSTANTS, AutopoolConstants
 
 
 def main():
@@ -51,8 +52,10 @@ def main():
     st.title("Autopool Diagnostics Dashboard")
 
     st.sidebar.title("Navigation")
+    names = [autopool.name for autopool in ALL_AUTOPOOLS]
 
-    selected_pool = st.sidebar.selectbox("Select Pool", ("autoETH", "autoLRT", "balETH"))
+    pool_name = st.sidebar.selectbox("Select Pool", names)
+    pool_constant = AUTOPOOL_NAME_TO_CONSTANTS[pool_name]
 
     # Sidebar Pages
     page = st.sidebar.radio(
@@ -66,12 +69,11 @@ def main():
         ],
     )
 
-    # Display content based on selected pool and page
-    display_pool(selected_pool, page)
+    display_autopool(pool_constant, page)
 
 
-def display_pool(pool_name, page):
-    st.subheader(f"{pool_name}")
+def display_autopool(pool_constant:AutopoolConstants, page: str):
+    st.subheader(f"{pool_constant}")
 
     content_functions = {
         "Key Metrics": display_key_metrics,
@@ -85,14 +87,9 @@ def display_pool(pool_name, page):
     content_function = content_functions.get(page)
     if content_function:
         # Call the function with the pool name
-        content_function(pool_name)
+        content_function(pool_constant)
     else:
         st.write("Page not found.")
-
-
-# def display_key_metrics(pool_name):
-#     st.write(f"Displaying Key Metrics for {pool_name}...")
-#     # Add your charts, metrics, or tables here
 
 
 def display_autopool_exposure(pool_name):

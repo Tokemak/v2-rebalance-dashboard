@@ -25,7 +25,8 @@ def _fetch_all_all_pool_nav_per_share(blocks):
 
 
 def fetch_nav_per_share(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
-    nav_per_share_df = _fetch_all_all_pool_nav_per_share(blocks)
+    nav_per_share_df = _fetch_all_all_pool_nav_per_share(blocks)[[autopool.name]]
+    nav_per_share_df = nav_per_share_df.resample("1D").last()
 
     # Calculate the 30-day difference and annualized return
     nav_per_share_df["30_day_difference"] = nav_per_share_df[autopool.name].diff(periods=30)
