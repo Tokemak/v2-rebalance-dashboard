@@ -22,14 +22,3 @@ def fetch_key_metric_data(autopool: AutopoolConstants) -> dict[str, pd.DataFrame
         "total_nav_df": total_nav_df,
     }
     return key_metric_data
-
-
-if __name__ == "__main__":
-
-    from mainnet_launch.constants import BAL_ETH, AUTO_ETH, AUTO_LRT
-
-    for a in [BAL_ETH, AUTO_ETH, AUTO_LRT]:
-
-        key_metric_data = fetch_key_metric_data(a)
-        for k, v in key_metric_data.items():
-            print(k, v.shape)

@@ -2,6 +2,10 @@ import pandas as pd
 import streamlit as st
 from datetime import timedelta
 from multicall import Call
+import plotly.express as px
+import numpy as np
+
+
 from mainnet_launch.get_state_by_block import (
     get_raw_state_by_blocks,
     get_state_by_one_block,
@@ -11,8 +15,8 @@ from mainnet_launch.get_state_by_block import (
 )
 
 from mainnet_launch.constants import AutopoolConstants, eth_client, ALL_AUTOPOOLS
-import plotly.express as px
-import numpy as np
+
+from mainnet_launch.destinations import get_current_destinations_to_symbol
 
 
 def _clean_summary_stats_info(success, summary_stats):
@@ -68,19 +72,14 @@ def _build_summary_stats_call(
     )
 
 
-def _build_all_summary_stats_calls() -> list[Call]:
-
-    # first we need the current destinations
-    # not only works with the current destinations, can edit later to include remove destinations.
-    # TODO add another tab, if needed of the removed destinations
-
+def _build_all_summary_stats_calls(blocks: list[int]) -> list[Call]:
     get_destinations_calls = [
         Call(a.autopool_eth_addr, "getDestinations()(address[])", [(a.name, identity_with_bool_success)])
         for a in ALL_AUTOPOOLS
     ]
-    block = eth_client.eth.get_block("latest").number
+    block = max(blocks)
     destinations = get_state_by_one_block(get_destinations_calls, block)
-    # add get destinations name
+    # dict of [autopool.name: [list of current destination vaults]]
 
     summary_stats_calls = []
     for autopool in ALL_AUTOPOOLS:
@@ -98,7 +97,7 @@ def _build_all_summary_stats_calls() -> list[Call]:
 
 @st.cache_data(ttl=12 * 3600)  # 12 hours
 def _fetch_summary_stats_data(blocks: list[int]) -> pd.DataFrame:
-    summary_stats_calls = _build_all_summary_stats_calls()
+    summary_stats_calls = _build_all_summary_stats_calls(blocks)
     summary_stats_df = get_raw_state_by_blocks(summary_stats_calls, blocks)
     return summary_stats_df
 
@@ -110,10 +109,10 @@ def fetch_destination_summary_stats(
     cols = [c for c in all_autopool_summary_stats_df if autopool.name in c[:10]]
     summary_stats_df = all_autopool_summary_stats_df[cols].copy()
     summary_stats_df.columns = [c.split("_")[1] for c in summary_stats_df]
-    uwcr_df, allocation_df, compositeReturn_df = clean_summary_stats_df(summary_stats_df)
+    uwcr_df, allocation_df, compositeReturn_out_df = clean_summary_stats_df(summary_stats_df)
     total_nav_df = allocation_df.sum(axis=1)
 
-    return uwcr_df, allocation_df, compositeReturn_df, total_nav_df
+    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df
 
 
 def clean_summary_stats_df(summary_stats_df: pd.DataFrame):
@@ -123,12 +122,12 @@ def clean_summary_stats_df(summary_stats_df: pd.DataFrame):
     portion_df = allocation_df.div(total_nav_df, axis=0)
     uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
 
-    compositeReturn_df = summary_stats_df.map(
+    compositeReturn_out_df = summary_stats_df.map(
         lambda row: row["compositeReturn"] if isinstance(row, dict) else None
     ).astype(float)
     # fix issue where composite return out can be massive
-    compositeReturn_df = 100 * (compositeReturn_df.clip(upper=1).replace(1, np.nan).astype(float))
-    return uwcr_df, allocation_df, compositeReturn_df
+    compositeReturn_out_df = 100 * (compositeReturn_out_df.clip(upper=1).replace(1, np.nan).astype(float))
+    return uwcr_df, allocation_df, compositeReturn_out_df
 
 
 def _extract_unweighted_composite_return_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:

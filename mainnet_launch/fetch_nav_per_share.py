@@ -1,8 +1,8 @@
 import pandas as pd
 import streamlit as st
 from multicall import Call
-from v2_rebalance_dashboard.get_state_by_block import (
-    get_raw_state_by_block,
+from mainnet_launch.get_state_by_block import (
+    get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
 )
 
@@ -20,7 +20,7 @@ def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
 @st.cache_data(ttl=12 * 3600)  # 12 hours
 def _fetch_all_all_pool_nav_per_share(blocks):
     calls = [nav_per_share_call(autopool.name, autopool.autopool_eth_addr) for autopool in ALL_AUTOPOOLS]
-    nav_per_share_df = get_raw_state_by_block(calls, blocks)
+    nav_per_share_df = get_raw_state_by_blocks(calls, blocks)
     return nav_per_share_df
 
 
