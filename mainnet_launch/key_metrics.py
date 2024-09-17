@@ -8,8 +8,7 @@ from mainnet_launch.constants import BAL_ETH_AUTOPOOL, AUTO_ETH_AUTOPOOL, AUTO_L
 from mainnet_launch.fetch_key_metrics_data import fetch_key_metric_data
 
 
-
-def _apply_default_style(fig:go.Figure) -> None:
+def _apply_default_style(fig: go.Figure) -> None:
     fig.update_traces(line=dict(width=3))
     fig.update_layout(
         title_x=0.5,
@@ -23,16 +22,14 @@ def _apply_default_style(fig:go.Figure) -> None:
         xaxis=dict(showgrid=True, gridcolor="lightgray"),
         yaxis=dict(showgrid=True, gridcolor="lightgray"),
     )
-    
 
 
-def display_key_metrics(autoPool:str) -> dict[str, pd.DataFrame]:
+def display_key_metrics(autoPool: str) -> dict[str, pd.DataFrame]:
     key_metric_data = fetch_key_metric_data(autoPool)
     _show_key_metrics(key_metric_data)
-    
 
-    
-def _show_key_metrics(key_metric_data:dict[str, pd.DataFrame]):
+
+def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame]):
     st.header("Key Metrics")
     nav_per_share_df = key_metric_data["nav_per_share_df"]
     uwcr_df = key_metric_data["uwcr_df"]
@@ -149,10 +146,6 @@ def _show_key_metrics(key_metric_data:dict[str, pd.DataFrame]):
         - Expected Annualized Return: Projected percent annual return based on current allocations of the Autopool.
         """
         )
-
-
-
-
 
 
 def diffReturn(x: list):
