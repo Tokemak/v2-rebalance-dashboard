@@ -170,3 +170,20 @@ def build_blocks_to_use(use_mainnet: bool = True) -> list[int]:
     blocks = [b for b in range(current_block, start_block, -blocks_per_day)]
     blocks.reverse()
     return blocks
+
+
+# def build_blocks_to_use(use_mainnet: bool = True) -> list[int]:
+#     """Returns daily blocks since deployement"""
+#     current_block = eth_client.eth.block_number
+
+#     start_block = 20722910 if use_mainnet else 20262439
+
+#     # Average block time in seconds
+#     block_time_seconds = 13.15
+#     # Calculate blocks per day
+#     blocks_per_day = int(86400 / block_time_seconds) // 6  # 24  # 1 hour resolution
+
+#     # Generate blocks with an interval of 1 block per day
+#     blocks = [b for b in range(current_block, start_block, -blocks_per_day)]
+#     blocks.reverse()
+#     return blocks

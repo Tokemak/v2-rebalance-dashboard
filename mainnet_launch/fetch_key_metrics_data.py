@@ -4,23 +4,32 @@ import pandas as pd
 import streamlit as st
 
 from mainnet_launch.constants import AutopoolConstants, time_decorator
-from mainnet_launch.fetch_nav_per_share import fetch_nav_per_share
 from mainnet_launch.get_state_by_block import build_blocks_to_use
+
+from mainnet_launch.fetch_nav_per_share import fetch_nav_per_share
 from mainnet_launch.fetch_destination_summary_stats import fetch_destination_summary_stats
 
 
-
-def fetch_key_metric_data(autopool:AutopoolConstants):
+def fetch_key_metric_data(autopool: AutopoolConstants) -> dict[str, pd.DataFrame]:
     blocks = build_blocks_to_use()
     nav_per_share_df = fetch_nav_per_share(blocks, autopool)
-    summary_stats_df = fetch_destination_summary_stats(blocks, autopool)
-    return nav_per_share_df, summary_stats_df
-    
+    uwcr_df, allocation_df, compositeReturn_df, total_nav_df = fetch_destination_summary_stats(blocks, autopool)
+    key_metric_data = {
+        "nav_per_share_df": nav_per_share_df,
+        "uwcr_df": uwcr_df,
+        "allocation_df": allocation_df,
+        "compositeReturn_df": compositeReturn_df,
+        "total_nav_df": total_nav_df,
+    }
+    return key_metric_data
 
-if __name__ == '__main__':
-    
+
+if __name__ == "__main__":
+
     from mainnet_launch.constants import BAL_ETH, AUTO_ETH, AUTO_LRT
+
     for a in [BAL_ETH, AUTO_ETH, AUTO_LRT]:
-        
-        data = fetch_key_metric_data(a)
-        pass
+
+        key_metric_data = fetch_key_metric_data(a)
+        for k, v in key_metric_data.items():
+            print(k, v.shape)
