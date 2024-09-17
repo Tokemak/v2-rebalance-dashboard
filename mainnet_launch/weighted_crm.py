@@ -22,8 +22,8 @@ def display_weighted_crm(autopool: AutopoolConstants):
     _apply_default_style(uwcr_fig)
     uwcr_fig.update_layout(yaxis_title="UWCR (%)")
 
-    allocation_fig = px.line(allocation_df, title="Allocation Data")
-    _apply_default_style(allocation_fig)
+    allocation_fig = px.bar(allocation_df, title="Allocation Data")
+    # _apply_default_style(allocation_fig)
     allocation_fig.update_layout(yaxis_title="Allocation Values")
 
     composite_return_fig = px.line(compositeReturn_out_df, title="Composite Return Data")
