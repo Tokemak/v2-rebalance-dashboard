@@ -55,7 +55,7 @@ def main():
     names = [autopool.name for autopool in ALL_AUTOPOOLS]
 
     pool_name = st.sidebar.selectbox("Select Pool", names)
-    pool_constant = AUTOPOOL_NAME_TO_CONSTANTS[pool_name]
+    autopool = AUTOPOOL_NAME_TO_CONSTANTS[pool_name]
 
     # Sidebar Pages
     page = st.sidebar.radio(
@@ -69,11 +69,11 @@ def main():
         ],
     )
 
-    display_autopool(pool_constant, page)
+    display_autopool(autopool, page)
 
 
-def display_autopool(pool_constant:AutopoolConstants, page: str):
-    st.subheader(f"{pool_constant}")
+def display_autopool(autopool: AutopoolConstants, page: str):
+    st.subheader(f"{autopool}")
 
     content_functions = {
         "Key Metrics": display_key_metrics,
@@ -87,7 +87,7 @@ def display_autopool(pool_constant:AutopoolConstants, page: str):
     content_function = content_functions.get(page)
     if content_function:
         # Call the function with the pool name
-        content_function(pool_constant)
+        content_function(autopool)
     else:
         st.write("Page not found.")
 
