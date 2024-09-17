@@ -164,7 +164,7 @@ def build_blocks_to_use(use_mainnet: bool = True) -> list[int]:
     # Average block time in seconds
     block_time_seconds = 13.15
     # Calculate blocks per day
-    blocks_per_day = int(86400 / block_time_seconds)
+    blocks_per_day = int(86400 / block_time_seconds) // 12
 
     # Generate blocks with an interval of 1 block per day
     blocks = [b for b in range(current_block, start_block, -blocks_per_day)]
