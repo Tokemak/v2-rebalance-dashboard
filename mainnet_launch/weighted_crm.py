@@ -18,7 +18,7 @@ def display_weighted_crm(autopool: AutopoolConstants):
     st.header("Weighted Composite Return Metric")
 
     # Create line plots for each DataFrame and apply the default style
-    composite_return_fig = px.line(compositeReturn_out_df, title = " ")
+    composite_return_fig = px.line(compositeReturn_out_df, title=" ")
     _apply_default_style(composite_return_fig)
     composite_return_fig.update_traces(
         line=dict(width=8),
