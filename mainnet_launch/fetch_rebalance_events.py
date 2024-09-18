@@ -17,16 +17,17 @@ from mainnet_launch.get_state_by_block import (
 )
 from mainnet_launch.destinations import get_current_destinations_to_symbol
 
-
-def fetch_rebalance_events(autopool: AutopoolConstants, blocks: list[int]) -> dict[str, pd.DataFrame]:
+@st.cache_data(ttl=3600)  # 1 hours
+def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
+    blocks = build_blocks_to_use()
     destination_to_symbol = get_current_destinations_to_symbol(max(blocks))
 
     strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
-    
+
     rebalance_between_destinations_df = fetch_events(
         strategy_contract.events.RebalanceBetweenDestinations, start_block=min(blocks)
     )
-    
+
     clean_rebalance_df = pd.DataFrame.from_records(
         rebalance_between_destinations_df.apply(
             lambda row: _make_rebalance_between_destination_human_readable(row, destination_to_symbol), axis=1
@@ -34,22 +35,26 @@ def fetch_rebalance_events(autopool: AutopoolConstants, blocks: list[int]) -> di
     )
 
     clean_rebalance_df["gasCostInETH"] = clean_rebalance_df.apply(
-        lambda row: calc_gas_used_by_transaction_in_eth(row["hash"]), axis=1
+        lambda row: _calc_gas_used_by_transaction_in_eth(row["hash"]), axis=1
     )
-    
+
     clean_rebalance_df["flash_borrower_address"] = clean_rebalance_df.apply(
-        lambda row: get_flash_borrower_address(row["hash"]), axis=1
+        lambda row: _get_flash_borrower_address(row["hash"]), axis=1
     )
-    
+
     if clean_rebalance_df["flash_borrower_address"].nunique() != 1:
-        
-        raise ValueError('expected only 1 flash borrower address, found more than one', clean_rebalance_df.unique())
-    
+
+        raise ValueError("expected only 1 flash borrower address, found more than one", clean_rebalance_df.unique())
+
     flash_borrower_address = clean_rebalance_df["flash_borrower_address"].iloc[0]
+
+    _add_solver_profit_cols(clean_rebalance_df, flash_borrower_address)
+
+    return clean_rebalance_df
 
 
 def _make_rebalance_between_destination_human_readable(row: dict, destination_to_symbol: dict) -> dict:
-    
+
     predictedAnnualizedGain = (row["predictedAnnualizedGain"]) / 1e18
     predicted_gain_during_swap_cost_off_set_period = predictedAnnualizedGain * (row["swapOffsetPeriod"] / 365)
 
@@ -88,10 +93,9 @@ def _make_rebalance_between_destination_human_readable(row: dict, destination_to
         "slippage": slippage,
         "hash": row["hash"],
     }
-    # from 0x3D1f51c23d1586c062B4bECa120bfCAf064e0cdC : EAO, that calls the flash borrow solver
 
 
-def calc_gas_used_by_transaction_in_eth(tx_hash: str) -> float:
+def _calc_gas_used_by_transaction_in_eth(tx_hash: str) -> float:
     tx_receipt = eth_client.eth.get_transaction_receipt(tx_hash)
     tx = eth_client.eth.get_transaction(tx_hash)
     return float(eth_client.fromWei(tx["gasPrice"] * tx_receipt["gasUsed"], "ether"))
@@ -105,82 +109,51 @@ def getPriceInEth_call(name: str, token_address: str) -> Call:
     )
 
 
-def get_flash_borrower_address(tx_hash:str) -> str:
-    # get the address of the flash borrower that did this rebalance. the value the accumulates here is the solver profit
-    return eth_client.eth.get_transaction(tx_hash)['to']
+def _get_flash_borrower_address(tx_hash: str) -> str:
+    # get the address of the flash borrower that did this rebalance
+    return eth_client.eth.get_transaction(tx_hash)["to"]
 
 
-def build_solver_profit_calls(clean_rebalance_df:pd.DataFrame, flash_borrower_address:str) -> list[Call]:
-    """To calc the solver profit we need to get the eth value of all tokens that the root price oracle can price"""
+def _add_solver_profit_cols(clean_rebalance_df: pd.DataFrame, flash_borrower_address: str) -> list[Call]:
+    """
+    Solver profit: ETH value held by the solver AFTER a rebalance - ETH value held by the solver BEFORE a rebalance
+    """
     root_price_oracle_contract = eth_client.eth.contract(ROOT_PRICE_ORACLE, abi=ROOT_PRICE_ORACLE_ABI)
-    tokens:list[str] = fetch_events(root_price_oracle_contract.events.TokenRegistered)["token"].values
+    tokens: list[str] = fetch_events(root_price_oracle_contract.events.TokenRegistered)["token"].values
 
-    symbol_calls = [Call(t, ["symbol()(string)"], [(f"{t}_syumbol", identity_with_bool_success)]) for t in tokens]
+    symbol_calls = [Call(t, ["symbol()(string)"], [(t, identity_with_bool_success)]) for t in tokens]
     block = int(clean_rebalance_df["block"].max())
     token_address_to_symbol = get_state_by_one_block(symbol_calls, block)
 
     price_calls = [getPriceInEth_call(token_address_to_symbol[t], t) for t in tokens]
-    # add balance of calls
-    
-    
-    
-    
+    balance_of_calls = [
+        Call(
+            t,
+            ["balanceOf(address)(uint256)", flash_borrower_address],
+            [(token_address_to_symbol[t], safe_normalize_with_bool_success)],
+        )
+        for t in tokens
+    ]
+
+    value_before_df = _build_value_held_by_solver(balance_of_calls, price_calls, clean_rebalance_df["block"] - 1)
+    value_after_df = _build_value_held_by_solver(balance_of_calls, price_calls, clean_rebalance_df["block"])
+
+    clean_rebalance_df["before_rebalance_eth_value_of_solver"] = value_before_df["total_eth_value"].values
+    clean_rebalance_df["after_rebalance_eth_value_of_solver"] = value_after_df["total_eth_value"].values
+    clean_rebalance_df["solver_profit"] = (
+        clean_rebalance_df["after_rebalance_eth_value_of_solver"]
+        - clean_rebalance_df["before_rebalance_eth_value_of_solver"]
+    )
+
+    return clean_rebalance_df
 
 
-def _add_solver_profit_cols(clean_rebalance_df: pd.DataFrame) -> list[Call]:
-    """
-
-    Solver profit is defined as
-
-    Solver Profit = ETH value of tokens held by the solver a block right BEFORE a rebalance - ETH value of tokens held by the solver a block right AFTER a rebalance
-
-    NOTE: assumes that there is no more than one rebalance per block
-
-    """
-
-
-
-    # price_calls =
-    # for token_address in tokens:
-    #     symbol = token_address_to_symbol[token_address]
-    #     deciamls = token_address_to_decimals[token_address]
-
-    # price_calls = []
-    # for token_addr, symbol in address_to_symbol.items():
-    #     if symbol is not None:
-    #         balance_of_calls.append(
-    #             Call(
-    #                 token_addr,
-    #                 ["balanceOf(address)(uint256)", FLASH_BORROW_SOLVER],
-    #                 [(symbol, safe_normalize_with_bool_success)],
-    #             )
-    #         )
-    #         price_calls.append(getPriceInEth_call(symbol, token_addr))
-
-    # value_before_df = _build_value_held_by_solver(balance_of_calls, price_calls, clean_rebalance_df["block"] - 1)
-    # value_after_df = _build_value_held_by_solver(balance_of_calls, price_calls, clean_rebalance_df["block"])
-
-    # clean_rebalance_df["before_rebalance_eth_value_of_solver"] = value_before_df["total_eth_value"].values
-    # clean_rebalance_df["after_rebalance_eth_value_of_solver"] = value_after_df["total_eth_value"].values
-    # clean_rebalance_df["solver_profit"] = (
-    #     clean_rebalance_df["after_rebalance_eth_value_of_solver"]
-    #     - clean_rebalance_df["before_rebalance_eth_value_of_solver"]
-    # )
-    # return clean_rebalance_df
-
-
-if __name__ == "__main__":
-    blocks = build_blocks_to_use()
-    fetch_rebalance_events(ALL_AUTOPOOLS[0], blocks)
-
-    pass
-# def _build_value_held_by_solver(balance_of_calls, price_calls, blocks):
-#     blocks = [int(b) for b in blocks]
-#     balance_of_df = get_raw_state_by_blocks(balance_of_calls, blocks)
-#     price_df = get_raw_state_by_blocks(price_calls, blocks)  # might want to fill na because of
-#     price_df["ETH"] = 1.0
-#     price_df = price_df[balance_of_df.columns]
-#     eth_value_held_by_flash_solver_df = price_df * balance_of_df
-#     eth_value_held_by_flash_solver_df["total_eth_value"] = eth_value_held_by_flash_solver_df.sum(axis=1)
-#     return eth_value_held_by_flash_solver_df
-
+def _build_value_held_by_solver(balance_of_calls, price_calls, blocks):
+    blocks = [int(b) for b in blocks]
+    balance_of_df = get_raw_state_by_blocks(balance_of_calls, blocks)
+    price_df = get_raw_state_by_blocks(price_calls, blocks)
+    price_df["ETH"] = 1.0
+    price_df = price_df[balance_of_df.columns]
+    eth_value_held_by_flash_solver_df = price_df * balance_of_df
+    eth_value_held_by_flash_solver_df["total_eth_value"] = eth_value_held_by_flash_solver_df.sum(axis=1)
+    return eth_value_held_by_flash_solver_df
