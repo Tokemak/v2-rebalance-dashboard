@@ -15,38 +15,44 @@ def display_weighted_crm(autopool: AutopoolConstants):
     allocation_df = key_metric_data["allocation_df"]
     compositeReturn_out_df = key_metric_data["compositeReturn_out_df"]
 
-    st.header("Autopool Composite Data Metrics")
+    st.header("Weighted Composite Return Metric")
 
     # Create line plots for each DataFrame and apply the default style
-    uwcr_fig = px.line(uwcr_df, title="Underlying Weighted Capital Return (UWCR)")
-    _apply_default_style(uwcr_fig)
-    uwcr_fig.update_layout(yaxis_title="UWCR (%)")
-
-    allocation_fig = px.bar(allocation_df, title="Allocation Data")
-    # _apply_default_style(allocation_fig)
-    allocation_fig.update_layout(yaxis_title="Allocation Values")
-
-    composite_return_fig = px.line(compositeReturn_out_df, title="Composite Return Data")
+    composite_return_fig = px.line(compositeReturn_out_df, title = " ")
     _apply_default_style(composite_return_fig)
+    composite_return_fig.update_traces(
+        line=dict(width=8),
+        selector=dict(name="balETH"),
+        line_color="blue",
+        line_dash="dash",
+        line_width=3,
+        marker=dict(size=10, symbol="circle", color="blue"),
+    )
+    composite_return_fig.update_traces(
+        line=dict(width=8),
+        selector=dict(name="autoETH"),
+        line_color="blue",
+        line_dash="dash",
+        line_width=3,
+        marker=dict(size=10, symbol="circle", color="blue"),
+    )
+    composite_return_fig.update_traces(
+        line=dict(width=8),
+        selector=dict(name="autoLRT"),
+        line_color="blue",
+        line_dash="dash",
+        line_width=3,
+        marker=dict(size=10, symbol="circle", color="blue"),
+    )
     composite_return_fig.update_layout(yaxis_title="Composite Return (%)")
 
     # Layout for displaying the charts in Streamlit - stacked vertically
-    st.subheader("UWCR (%)")
-    st.plotly_chart(uwcr_fig, use_container_width=True)
-
-    st.subheader("Allocation Data")
-    st.plotly_chart(allocation_fig, use_container_width=True)
-
-    st.subheader("Composite Return (%)")
     st.plotly_chart(composite_return_fig, use_container_width=True)
 
     with st.expander("See explanation for Composite Metrics"):
         st.write(
             """
-            This section provides insights into different metrics:
-            - UWCR: Represents the Underlying Weighted Capital Return, which indicates returns adjusted by weighting.
-            - Allocation Data: Shows the allocation values over time for different destinations.
-            - Composite Return: Displays the composite returns calculated based on multiple factors.
+              Composite Return: Displays the composite returns calculated based on multiple factors.
             """
         )
 
@@ -63,8 +69,8 @@ def _apply_default_style(fig: go.Figure) -> None:
         width=1200,  # Make the graph wider
         font=dict(size=16),
         xaxis_title="",  # No title for X-axis
-        plot_bgcolor="rgba(0, 0, 0, 0)",  # Transparent plot background
-        paper_bgcolor="rgba(0, 0, 0, 0)",  # Transparent paper background
+        plot_bgcolor="white",  # Transparent plot background
+        paper_bgcolor="white",  # Transparent paper background
         xaxis=dict(showgrid=True, gridcolor="lightgray"),  # X-axis grid style
         yaxis=dict(showgrid=True, gridcolor="lightgray"),  # Y-axis grid style
         colorway=px.colors.qualitative.Set2,  # Apply a colorful theme

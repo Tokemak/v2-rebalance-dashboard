@@ -63,6 +63,7 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
     nav_fig = px.line(total_nav_df, title=" ")
     _apply_default_style(nav_fig)
     nav_fig.update_layout(yaxis_title="Total Nav")
+    nav_fig.update_layout(showlegend=False)
 
     annualized_30d_return_fig = px.line(nav_per_share_df, y="30_day_annualized_return", title=" ")
     _apply_default_style(annualized_30d_return_fig)
@@ -105,6 +106,6 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
         - NAV per share: The Net Asset Value per share over time.
         - NAV: The total Net Asset Value of the Autopool.
         - 30-day and 7-day Annualized Returns: Percent annual return derived from NAV per share changes. 
-        - Expected Annualized Return: Projected percent annual return based on current allocations of the Autopool. Does not apply weights
+        - Expected Annualized Return: Projected percent annual return based on current allocations of the Autopool.
         """
         )
