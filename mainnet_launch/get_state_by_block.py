@@ -6,7 +6,7 @@ import nest_asyncio
 import asyncio
 
 
-from v2_rebalance_dashboard.constants import eth_client
+from mainnet_launch.constants import eth_client
 
 nest_asyncio.apply()
 
@@ -15,7 +15,7 @@ MULTICALL2_DEPLOYMENT_BLOCK = 12336033
 multicall_v3 = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696"
 
 
-def sync_get_raw_state_by_block_one_block(calls: list[Call], block: int):
+def get_state_by_one_block(calls: list[Call], block: int):
     return asyncio.run(safe_get_raw_state_by_block_one_block(calls, block))
 
 
@@ -63,7 +63,7 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
     return _fetch_data
 
 
-def sync_safe_get_raw_state_by_block(
+def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
     semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
@@ -113,7 +113,12 @@ async def async_safe_get_raw_state_by_block(
 
     df = pd.DataFrame.from_records(responses)
     if len(df) == 0:
-        raise ValueError("failed to fetch any data, df is empty")
+        print(
+            f"failed to fetch any data. consider trying again if expected to get data, but with a smaller semaphore_limit"
+        )
+        print(f"{len(blocks)=} {blocks[0]=} {blocks[-1]=}")
+        print(f"{calls=}")
+
     df.set_index("timestamp", inplace=True)
     df.index = pd.to_datetime(df.index, unit="s")
     df.sort_index(inplace=True)
@@ -150,17 +155,34 @@ def identity_function(value):
     return value
 
 
-def build_blocks_to_use(use_mainnet: bool = True):
+def build_blocks_to_use(use_mainnet: bool = True) -> list[int]:
+    """Returns daily blocks since deployement"""
     current_block = eth_client.eth.block_number
 
-    start_block = 20722910 if use_mainnet else 20262439
+    start_block = 20752910 if use_mainnet else 20262439
 
     # Average block time in seconds
     block_time_seconds = 13.15
-    # Calculate blocks per day
-    blocks_per_day = int(86400 / block_time_seconds)
+    # Calculate blocks per day to get blocks_hop
+    blocks_hop = int(86400 / block_time_seconds) // 6
 
     # Generate blocks with an interval of 1 block per day
-    blocks = [b for b in range(current_block, start_block, -blocks_per_day)]
-    blocks.reverse()
+    blocks = [b for b in range(start_block, current_block, blocks_hop)]
     return blocks
+
+
+# def build_blocks_to_use(use_mainnet: bool = True) -> list[int]:
+#     """Returns daily blocks since deployement"""
+#     current_block = eth_client.eth.block_number
+
+#     start_block = 20722910 if use_mainnet else 20262439
+
+#     # Average block time in seconds
+#     block_time_seconds = 13.15
+#     # Calculate blocks per day
+#     blocks_per_day = int(86400 / block_time_seconds) // 6  # 24  # 1 hour resolution
+
+#     # Generate blocks with an interval of 1 block per day
+#     blocks = [b for b in range(current_block, start_block, -blocks_per_day)]
+#     blocks.reverse()
+#     return blocks

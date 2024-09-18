@@ -19,7 +19,8 @@ def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
         [(name, safe_normalize_with_bool_success)],
     )
 
-@st.cache_data(ttl=12*3600)
+
+@st.cache_data(ttl=12 * 3600)
 def fetch_daily_nav_per_share_to_plot():
     blocks = build_blocks_to_use()
     calls = [
@@ -27,15 +28,18 @@ def fetch_daily_nav_per_share_to_plot():
     ]
     nav_per_share_df = sync_safe_get_raw_state_by_block(calls, blocks)
 
-   # Calculate the 30-day difference and annualized return
-    nav_per_share_df['30_day_difference'] = nav_per_share_df['balETH'].diff(periods=30)
+    # Calculate the 30-day difference and annualized return
+    nav_per_share_df["30_day_difference"] = nav_per_share_df["balETH"].diff(periods=30)
     # Normalized to starting NAV per share for 30-day return
-    nav_per_share_df['30_day_annualized_return'] = (nav_per_share_df['30_day_difference'] / nav_per_share_df['balETH'].shift(30)) * (365 / 30) * 100
-    
+    nav_per_share_df["30_day_annualized_return"] = (
+        (nav_per_share_df["30_day_difference"] / nav_per_share_df["balETH"].shift(30)) * (365 / 30) * 100
+    )
+
     # Calculate the 7-day difference and annualized return
-    nav_per_share_df['7_day_difference'] = nav_per_share_df['balETH'].diff(periods=7)
+    nav_per_share_df["7_day_difference"] = nav_per_share_df["balETH"].diff(periods=7)
     # Normalized to starting NAV per share for 7-day return
-    nav_per_share_df['7_day_annualized_return'] = (nav_per_share_df['7_day_difference'] / nav_per_share_df['balETH'].shift(7)) * (365 / 7) * 100
+    nav_per_share_df["7_day_annualized_return"] = (
+        (nav_per_share_df["7_day_difference"] / nav_per_share_df["balETH"].shift(7)) * (365 / 7) * 100
+    )
 
     return nav_per_share_df
-
