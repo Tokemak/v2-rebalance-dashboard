@@ -12,7 +12,6 @@ def main():
         page_title="Mainnet Autopool Diagnostics Dashboard",
         layout="wide",
         initial_sidebar_state="expanded",
-
     )
 
     st.markdown(

@@ -16,7 +16,7 @@ def display_allocation_time(autopool: AutopoolConstants):
     st.header("Autopool Allocation Over Time")
 
     # Create line plots for each DataFrame and apply the default style
-    
+
     allocation_fig = px.bar(allocation_df, title="Allocation Data")
     # _apply_default_style(allocation_fig)
     allocation_fig.update_layout(yaxis_title="Allocation Values")

@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from time import time
 from os import environ
-
+import json
+from pathlib import Path
 
 from dotenv import load_dotenv
 from web3 import Web3
@@ -30,10 +31,9 @@ class AutopoolConstants:
 
 
 # mainnet as of sep 16, 2024
-
-
-SYSTEM_REGISTRY = "0xB20193f43C9a7184F3cbeD9bAD59154da01488b4"
+SYSTEM_REGISTRY = "0x2218F90A98b0C070676f249EF44834686dAa4285 "
 AUTOPOOL_REGISTRY = "0x7E5828a3A6Ae75426d739E798140513A2E2964E4"
+ROOT_PRICE_ORACLE = "0x61F8BE7FD721e80C0249829eaE6f0DAf21bc2CaC"
 
 
 BAL_ETH = AutopoolConstants(
@@ -48,3 +48,5 @@ AUTO_LRT = AutopoolConstants(
 
 ALL_AUTOPOOLS = [BAL_ETH, AUTO_ETH, AUTO_LRT]
 AUTOPOOL_NAME_TO_CONSTANTS = {a.name: a for a in ALL_AUTOPOOLS}
+
+ROOT_DIR = Path(__file__).parent
