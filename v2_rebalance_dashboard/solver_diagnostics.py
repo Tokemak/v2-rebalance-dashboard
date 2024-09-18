@@ -250,3 +250,8 @@ def fetch_solver_diagnostics_charts(autopool_name: str = "balETH") -> dict:
         "actual_vs_proposed_rebalance_bar_fig": actual_vs_proposed_rebalance_bar_fig,
         "hours_since_last_nav_event_fig": hours_since_last_nav_event_fig,  # might want to move
     }
+
+
+if __name__ == "__main__":
+    a = fetch_solver_diagnostics_charts()
+    pass

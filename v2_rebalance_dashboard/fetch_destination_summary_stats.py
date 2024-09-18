@@ -87,11 +87,18 @@ def build_summary_stats_call(
         [(name, _clean_summary_stats_info)],
     )
 
+
 def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     # Extract and process data
-    pricePerShare_df = summary_stats_df.map(lambda row: row["pricePerShare"] if isinstance(row, dict) else None).astype(float)
-    ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else None).astype(float)
-    compositeReturn_df = summary_stats_df.map(lambda row: row["compositeReturn"] if isinstance(row, dict) else None).astype(float)
+    pricePerShare_df = summary_stats_df.map(lambda row: row["pricePerShare"] if isinstance(row, dict) else None).astype(
+        float
+    )
+    ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else None).astype(
+        float
+    )
+    compositeReturn_df = summary_stats_df.map(
+        lambda row: row["compositeReturn"] if isinstance(row, dict) else None
+    ).astype(float)
     compositeReturn_df = 100 * (compositeReturn_df.clip(upper=1).replace(1, np.nan).astype(float))
     base = summary_stats_df.map(lambda row: row["baseApr"] if isinstance(row, dict) else None).astype(float)
     fee = summary_stats_df.map(lambda row: row["feeApr"] if isinstance(row, dict) else None).astype(float)
@@ -115,22 +122,22 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     allocation_area_fig = px.area(
         portion_filtered_df * 100,
         labels={"index": "", "value": "Percent Allocation"},
-        color_discrete_sequence=px.colors.qualitative.Set1
+        color_discrete_sequence=px.colors.qualitative.Set1,
     )
     allocation_area_fig.update_layout(
-        title = ' ',
+        title=" ",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=80),
         height=600,
         width=800,
         xaxis_title="",
         font=dict(size=16),
-        legend=dict(font=dict(size=18), orientation='h', x=0.5, xanchor='center', y=-0.2),
-        legend_title_text='',
-        plot_bgcolor='white',  # Set plot background to white
-        paper_bgcolor='white',  # Set paper background to white
-        xaxis=dict(showgrid=True, gridcolor='lightgray'),  # Set x-axis grid lines to gray
-        yaxis=dict(showgrid=True, gridcolor='lightgray')   # Set y-axis grid lines to gray
+        legend=dict(font=dict(size=18), orientation="h", x=0.5, xanchor="center", y=-0.2),
+        legend_title_text="",
+        plot_bgcolor="white",  # Set plot background to white
+        paper_bgcolor="white",  # Set paper background to white
+        xaxis=dict(showgrid=True, gridcolor="lightgray"),  # Set x-axis grid lines to gray
+        yaxis=dict(showgrid=True, gridcolor="lightgray"),  # Set y-axis grid lines to gray
     )
 
     # Calculate weighted return
@@ -139,23 +146,19 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
     uwcr_df["Expected_Return"] = (uwcr_df * portion_filtered_df).sum(axis=1)
     # Create a line chart for weighted return
     weighted_return_fig = px.line(
-        summary_stats_df,
-        x=summary_stats_df.index,
-        y="balETH_weighted_return",
-        line_shape="linear",
-        markers=True
+        summary_stats_df, x=summary_stats_df.index, y="balETH_weighted_return", line_shape="linear", markers=True
     )
 
     weighted_return_fig.update_traces(
         line=dict(width=8),
         line_color="blue",
         line_width=3,
-        line_dash = "dash",
-        marker=dict(size=10, symbol='circle', color='blue') 
+        line_dash="dash",
+        marker=dict(size=10, symbol="circle", color="blue"),
     )
 
     weighted_return_fig.update_layout(
-        title = ' ',
+        title=" ",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=80),
         height=600,
@@ -163,33 +166,28 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
         font=dict(size=16),
         yaxis_title="Weighted Return (%)",
         xaxis_title="",
-        legend=dict(font=dict(size=18), orientation='h', x=0.5, xanchor='center', y=-0.2),
-        legend_title_text='',
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        xaxis=dict(showgrid=True, gridcolor='lightgray'),
-        yaxis=dict(showgrid=True, gridcolor='lightgray')
+        legend=dict(font=dict(size=18), orientation="h", x=0.5, xanchor="center", y=-0.2),
+        legend_title_text="",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        xaxis=dict(showgrid=True, gridcolor="lightgray"),
+        yaxis=dict(showgrid=True, gridcolor="lightgray"),
     )
 
     # Create a combined line chart for weighted return and composite return
     columns_to_plot = compositeReturn_df.columns[:]
 
-    combined_return_fig = px.line(
-        compositeReturn_df,
-        x=compositeReturn_df.index,
-        y=columns_to_plot,
-        markers=False
-    )
+    combined_return_fig = px.line(compositeReturn_df, x=compositeReturn_df.index, y=columns_to_plot, markers=False)
     combined_return_fig.update_traces(
         line=dict(width=8),
         selector=dict(name="balETH_weighted_return"),
         line_color="blue",
         line_dash="dash",
         line_width=3,
-        marker=dict(size=10, symbol='circle', color='blue') 
+        marker=dict(size=10, symbol="circle", color="blue"),
     )
     combined_return_fig.update_layout(
-        title = ' ',
+        title=" ",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=80),
         height=600,
@@ -197,12 +195,12 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
         font=dict(size=16),
         yaxis_title="Return (%)",
         xaxis_title="",
-        legend=dict(font=dict(size=18), orientation='h', x=0.5, xanchor='auto', y=-0.2),
-        legend_title_text='',
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        xaxis=dict(showgrid=True, gridcolor='lightgray'),
-        yaxis=dict(showgrid=True, gridcolor='lightgray')
+        legend=dict(font=dict(size=18), orientation="h", x=0.5, xanchor="auto", y=-0.2),
+        legend_title_text="",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        xaxis=dict(showgrid=True, gridcolor="lightgray"),
+        yaxis=dict(showgrid=True, gridcolor="lightgray"),
     )
 
     # Prepare data for pie chart
@@ -214,28 +212,26 @@ def _summary_stats_df_to_figures(summary_stats_df: pd.DataFrame):
 
     # Create the pie chart
     lp_allocation_pie_fig = px.pie(
-        pie_data,
-        names="Destination",
-        values="ETH Value",
-        color_discrete_sequence=px.colors.qualitative.Pastel
+        pie_data, names="Destination", values="ETH Value", color_discrete_sequence=px.colors.qualitative.Pastel
     )
     lp_allocation_pie_fig.update_layout(
-        title = ' ',
+        title=" ",
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=40),
         height=400,
         width=800,
         font=dict(size=16),
         legend=dict(font=dict(size=18), orientation="h", x=0.5, xanchor="center"),
-        legend_title_text='',
-        plot_bgcolor='white',
-        paper_bgcolor='white'
+        legend_title_text="",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
     )
-    lp_allocation_pie_fig.update_traces(textinfo='percent+label', hoverinfo='label+value+percent')
-    
+    lp_allocation_pie_fig.update_traces(textinfo="percent+label", hoverinfo="label+value+percent")
+
     return allocation_area_fig, weighted_return_fig, combined_return_fig, lp_allocation_pie_fig, uwcr_df
 
-@st.cache_data(ttl=3*3600)
+
+@st.cache_data(ttl=3 * 3600)
 def fetch_summary_stats_figures():
     vaults_df = pd.read_csv(ROOT_DIR / "vaults.csv")
     calls = [
@@ -259,5 +255,7 @@ def fetch_summary_stats_figures():
     blocks = build_blocks_to_use()
     summary_stats_df = sync_safe_get_raw_state_by_block(calls, blocks)
 
-    lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig, uwcr_return_fig = _summary_stats_df_to_figures(summary_stats_df)
-    return lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig, uwcr_return_fig
+    lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig, uwcr_df = _summary_stats_df_to_figures(
+        summary_stats_df
+    )
+    return lp_allocation_bar_fig, cr_out_fig1, cr_out_fig2, lp_allocation_pie_fig, uwcr_df
