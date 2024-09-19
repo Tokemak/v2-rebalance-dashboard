@@ -17,6 +17,7 @@ from mainnet_launch.get_state_by_block import (
 )
 from mainnet_launch.destinations import get_current_destinations_to_symbol
 
+
 @st.cache_data(ttl=3600)  # 1 hours
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     blocks = build_blocks_to_use()

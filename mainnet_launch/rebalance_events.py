@@ -12,7 +12,7 @@ from mainnet_launch.fetch_rebalance_events import fetch_rebalance_events_df
 def display_rebalance_events(autopool: AutopoolConstants) -> go.Figure:
     clean_rebalance_df = fetch_rebalance_events_df(autopool)
     fig = _make_plots(clean_rebalance_df)
-    st.title(f"Autopool {autopool.name} Rebalance Events Dashboard")
+    st.header(f"{autopool.name} Rebalance Events")
     st.plotly_chart(fig, use_container_width=True)
 
 
