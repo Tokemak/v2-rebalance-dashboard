@@ -1,6 +1,6 @@
 import pandas as pd
 import web3
-from v2_rebalance_dashboard.get_state_by_block import eth_client
+from mainnet_launch.constants import eth_client
 
 
 def _flatten_events(just_found_events: list[dict]) -> None:
