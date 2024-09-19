@@ -51,7 +51,7 @@ def _make_plots(clean_rebalance_df: pd.DataFrame) -> go.Figure:
 
     # Update x-axes
     fig.update_xaxes(
-        title_text="Date",
+        title_text=" ",
         row=6,
         col=1,
         showgrid=True,
@@ -134,7 +134,6 @@ def _add_break_even_days_and_offset_period(clean_rebalance_df: pd.DataFrame, fig
         go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["offset_period"], name="Offset Period"), row=5, col=1
     )
     fig.update_yaxes(title_text="Days", row=5, col=1)
-
 
 def _add_solver_profit(clean_rebalance_df: pd.DataFrame, fig: go.Figure):
     fig.add_trace(
