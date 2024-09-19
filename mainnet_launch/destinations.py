@@ -6,14 +6,14 @@ from mainnet_launch.get_state_by_block import (
     identity_with_bool_success,
 )
 
-from mainnet_launch.constants import ALL_AUTOPOOLS
+from mainnet_launch.constants import ALL_AUTOPOOLS, eth_client
 
 
 @st.cache_data(ttl=12 * 3600)
 def get_current_destinations_to_symbol(block: int) -> dict[str, str]:
     """Returns a dictionary of the current destinations: destination.symbol"""
     get_destinations_calls = [
-        Call(a.autopool_eth_addr, "getDestinations()(address[])", [(a.name, identity_with_bool_success)])
+        Call(a.autopool_eth_addr, "getDestinations()(address[])", [(f"{a.name} Idle", identity_with_bool_success)])
         for a in ALL_AUTOPOOLS
     ]
     destinations = get_state_by_one_block(get_destinations_calls, block)
@@ -24,7 +24,8 @@ def get_current_destinations_to_symbol(block: int) -> dict[str, str]:
             all_destinations.add(d)
 
     get_destination_symbols_calls = [
-        Call(d, "symbol()(string)", [(d, identity_with_bool_success)]) for d in all_destinations
+        Call(d, "symbol()(string)", [(eth_client.toChecksumAddress(d), identity_with_bool_success)])
+        for d in all_destinations
     ]
 
     destination_to_symbol = get_state_by_one_block(get_destination_symbols_calls, block)

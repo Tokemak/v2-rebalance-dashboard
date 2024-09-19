@@ -10,7 +10,7 @@ from mainnet_launch.fetch_destination_summary_stats import fetch_destination_sum
 from mainnet_launch.destinations import get_current_destinations_to_symbol
 
 
-@st.cache_data(ttl=12 * 3600)  # 12 hours
+@st.cache_data(ttl=3600)
 def fetch_weighted_crm_data(autopool: AutopoolConstants) -> dict[str, pd.DataFrame]:
     blocks = build_blocks_to_use()
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df = fetch_destination_summary_stats(blocks, autopool)
