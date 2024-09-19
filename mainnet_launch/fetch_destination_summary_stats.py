@@ -95,7 +95,7 @@ def _build_all_summary_stats_calls(blocks: list[int]) -> list[Call]:
     return summary_stats_calls
 
 
-@st.cache_data(ttl=12 * 3600)  # 12 hours
+@st.cache_data(ttl=3600)  # 12 hours
 def _fetch_summary_stats_data(blocks: list[int]) -> pd.DataFrame:
     summary_stats_calls = _build_all_summary_stats_calls(blocks)
     summary_stats_df = get_raw_state_by_blocks(summary_stats_calls, blocks)
