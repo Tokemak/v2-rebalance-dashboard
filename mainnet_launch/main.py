@@ -2,7 +2,7 @@ import streamlit as st
 
 from mainnet_launch.key_metrics import display_key_metrics
 from mainnet_launch.weighted_crm import display_weighted_crm
-from mainnet_launch.allocation_time import display_allocation_time
+from mainnet_launch.destination_allocation_over_time import display_allocation_time
 from mainnet_launch.rebalance_events import display_rebalance_events
 
 from mainnet_launch.constants import ALL_AUTOPOOLS, AUTOPOOL_NAME_TO_CONSTANTS, AutopoolConstants
