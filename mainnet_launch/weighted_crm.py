@@ -13,46 +13,27 @@ def display_weighted_crm(autopool: AutopoolConstants):
     key_metric_data = fetch_weighted_crm_data(autopool)
     uwcr_df = key_metric_data["uwcr_df"]
     allocation_df = key_metric_data["allocation_df"]
+    total_nav_df = key_metric_data["total_nav_df"]
     compositeReturn_out_df = key_metric_data["compositeReturn_out_df"]
-
+    portion_allocation_df = allocation_df.div(total_nav_df, axis=0)
+    autopool_weighted_expected_return = (compositeReturn_out_df * portion_allocation_df).sum(axis=1)
     st.header("Weighted Composite Return Metric")
-
-    # Create line plots for each DataFrame and apply the default style
-    composite_return_fig = px.line(compositeReturn_out_df, title=" ")
+    compositeReturn_out_df[f"{autopool.name} Weighted Expected Return"] = autopool_weighted_expected_return
+    composite_return_fig = px.line(compositeReturn_out_df, title=f"{autopool.name} Destinations and composite Return")
     _apply_default_style(composite_return_fig)
-    composite_return_fig.update_traces(
-        line=dict(width=8),
-        selector=dict(name="balETH"),
-        line_color="blue",
-        line_dash="dash",
-        line_width=3,
-        marker=dict(size=10, symbol="circle", color="blue"),
-    )
-    composite_return_fig.update_traces(
-        line=dict(width=8),
-        selector=dict(name="autoETH"),
-        line_color="blue",
-        line_dash="dash",
-        line_width=3,
-        marker=dict(size=10, symbol="circle", color="blue"),
-    )
-    composite_return_fig.update_traces(
-        line=dict(width=8),
-        selector=dict(name="autoLRT"),
-        line_color="blue",
-        line_dash="dash",
-        line_width=3,
-        marker=dict(size=10, symbol="circle", color="blue"),
-    )
     composite_return_fig.update_layout(yaxis_title="Composite Return (%)")
-
-    # Layout for displaying the charts in Streamlit - stacked vertically
+    
+    composite_return_fig.update_traces(
+        selector=dict(name=f"{autopool.name} Weighted Expected Return"),  # Select the last trace by name
+        line=dict(dash="dash", color="blue")  # Set line style to dashed and color to blue
+    )
+    
     st.plotly_chart(composite_return_fig, use_container_width=True)
-
     with st.expander("See explanation for Composite Metrics"):
         st.write(
-            """
-              Composite Return: Displays the composite returns calculated based on multiple factors.
+            f"""
+              Composite Return Out: CRM out of the various destinations
+              {autopool.name} Weighted Expected Return: sum(% of assets in Destination * Destination Composite Return).  Idle ETH has 0% return
             """
         )
 
@@ -75,3 +56,9 @@ def _apply_default_style(fig: go.Figure) -> None:
         yaxis=dict(showgrid=True, gridcolor="lightgray"),  # Y-axis grid style
         colorway=px.colors.qualitative.Set2,  # Apply a colorful theme
     )
+
+
+if __name__ == "__main__":
+    from mainnet_launch.constants import ALL_AUTOPOOLS
+
+    display_weighted_crm(ALL_AUTOPOOLS[0])

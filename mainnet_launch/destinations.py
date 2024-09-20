@@ -2,7 +2,6 @@ from dataclasses import dataclass
 
 from multicall import Call
 import streamlit as st
-import pandas as pd
 
 from mainnet_launch.get_state_by_block import (
     get_state_by_one_block,
@@ -20,6 +19,7 @@ class DestinationDetails:
 
 
 # this is so that the colors of each destination are consistent between plots
+# TODO: this feature is not added yet
 destination_colors = [
     "#1f77b4",
     "#ff7f0e",
