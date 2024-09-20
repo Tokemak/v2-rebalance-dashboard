@@ -158,3 +158,11 @@ def _build_value_held_by_solver(balance_of_calls, price_calls, blocks):
     eth_value_held_by_flash_solver_df = price_df * balance_of_df
     eth_value_held_by_flash_solver_df["total_eth_value"] = eth_value_held_by_flash_solver_df.sum(axis=1)
     return eth_value_held_by_flash_solver_df
+
+
+if __name__ == "__main__":
+    from mainnet_launch.constants import ALL_AUTOPOOLS, BAL_ETH
+
+    clean_rebalance_df = fetch_rebalance_events_df(BAL_ETH)
+
+    pass
