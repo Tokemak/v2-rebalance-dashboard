@@ -15,13 +15,12 @@ from mainnet_launch.get_state_by_block import (
     safe_normalize_6_with_bool_success,
     identity_with_bool_success,
 )
-from mainnet_launch.destinations import get_current_destinations_to_symbol
+from mainnet_launch.destinations import attempt_destination_address_to_symbol
 
 
 @st.cache_data(ttl=3600)  # 1 hours
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     blocks = build_blocks_to_use()
-    destination_to_symbol = get_current_destinations_to_symbol(max(blocks))
 
     strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
 
@@ -31,7 +30,7 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
     clean_rebalance_df = pd.DataFrame.from_records(
         rebalance_between_destinations_df.apply(
-            lambda row: _make_rebalance_between_destination_human_readable(row, destination_to_symbol), axis=1
+            lambda row: _make_rebalance_between_destination_human_readable(row), axis=1
         )
     )
 
@@ -54,15 +53,17 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     return clean_rebalance_df
 
 
-def _make_rebalance_between_destination_human_readable(row: dict, destination_to_symbol: dict) -> dict:
+def _make_rebalance_between_destination_human_readable(
+    row: dict,
+) -> dict:
 
     predictedAnnualizedGain = (row["predictedAnnualizedGain"]) / 1e18
     predicted_gain_during_swap_cost_off_set_period = predictedAnnualizedGain * (row["swapOffsetPeriod"] / 365)
 
     swapCost = row["valueStats"][4] / 1e18
     slippage = row["valueStats"][5] / 1e18
-    in_destination = destination_to_symbol[row["inSummaryStats"][0]]
-    out_destination = destination_to_symbol[row["outSummaryStats"][0]]
+    in_destination = attempt_destination_address_to_symbol(row["inSummaryStats"][0])
+    out_destination = attempt_destination_address_to_symbol(row["outSummaryStats"][0])
 
     out_compositeReturn = 100 * row["outSummaryStats"][9] / 1e18
     in_compositeReturn = 100 * row["inSummaryStats"][9] / 1e18
