@@ -22,12 +22,12 @@ def display_weighted_crm(autopool: AutopoolConstants):
     composite_return_fig = px.line(compositeReturn_out_df, title=f"{autopool.name} Destinations and composite Return")
     _apply_default_style(composite_return_fig)
     composite_return_fig.update_layout(yaxis_title="Composite Return (%)")
-    
+
     composite_return_fig.update_traces(
         selector=dict(name=f"{autopool.name} Weighted Expected Return"),  # Select the last trace by name
-        line=dict(dash="dash", color="blue")  # Set line style to dashed and color to blue
+        line=dict(dash="dash", color="blue"),  # Set line style to dashed and color to blue
     )
-    
+
     st.plotly_chart(composite_return_fig, use_container_width=True)
     with st.expander("See explanation for Composite Metrics"):
         st.write(

@@ -35,10 +35,26 @@ def _diffReturn(x: list):
     return round(x.iloc[-1] - x.iloc[-2], 4)
 
 
+def _get_percent_deployed(allocation_df: pd.DataFrame, autopool: AutopoolConstants) -> tuple[float, float]:
+
+    daily_allocation_df = allocation_df.resample("1D").last()
+
+    tvl_according_to_allocation_df = float(daily_allocation_df.iloc[-1].sum())
+    tvl_in_idle = float(daily_allocation_df[f"{autopool.name} idle"].iloc[-1])
+    percent_deployed_today = 100 * ((tvl_according_to_allocation_df - tvl_in_idle) / tvl_according_to_allocation_df)
+
+    tvl_according_to_allocation_df = float(daily_allocation_df.iloc[-2].sum())
+    tvl_in_idle = float(daily_allocation_df[f"{autopool.name} idle"].iloc[-2])
+    percent_deployed_yesterday = 100 * ((tvl_according_to_allocation_df - tvl_in_idle) / tvl_according_to_allocation_df)
+
+    return round(percent_deployed_yesterday, 2), round(percent_deployed_today, 2)
+
+
 def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: AutopoolConstants):
     st.header("Key Metrics")
     nav_per_share_df = key_metric_data["nav_per_share_df"]
     uwcr_df = key_metric_data["uwcr_df"]
+    allocation_df = key_metric_data["allocation_df"]
     col1, col2, col3, col4 = st.columns(4)
     col1.metric(
         "30-day Return (%)",
@@ -53,6 +69,10 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
     col3.metric(
         "Expected Annual Return (%)", uwcr_df["Expected_Return"].iloc[-1], _diffReturn(uwcr_df["Expected_Return"])
     )
+
+    percent_deployed_yesterday, percent_deployed_today = _get_percent_deployed(allocation_df, autopool)
+
+    col4.metric("Percent Deployed", percent_deployed_today, round(percent_deployed_today - percent_deployed_yesterday, 2))
 
     nav_per_share_fig = px.line(nav_per_share_df, y=autopool.name, title=" ")
     _apply_default_style(nav_per_share_fig)
