@@ -1,19 +1,24 @@
 import streamlit as st
 
+# this needs to be first because otherwise we get this error:
+# `StreamlitAPIException: set_page_config() can only be called once per app page,
+# and must be called as the first Streamlit command in your script.`
+st.set_page_config(
+    page_title="Mainnet Autopool Diagnostics Dashboard",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+
 from mainnet_launch.key_metrics import display_key_metrics
 from mainnet_launch.weighted_crm import display_weighted_crm
-from mainnet_launch.allocation_time import display_allocation_time
+from mainnet_launch.destination_allocation_over_time import display_destination_allocation_over_time
 from mainnet_launch.rebalance_events import display_rebalance_events
 
 from mainnet_launch.constants import ALL_AUTOPOOLS, AUTOPOOL_NAME_TO_CONSTANTS, AutopoolConstants
 
 
 def main():
-    st.set_page_config(
-        page_title="Mainnet Autopool Diagnostics Dashboard",
-        layout="wide",
-        initial_sidebar_state="expanded",
-    )
 
     st.markdown(
         """
@@ -81,7 +86,7 @@ def display_autopool(autopool: AutopoolConstants, page: str):
     content_functions = {
         "Key Metrics": display_key_metrics,
         "Autopool Exposure": display_autopool_exposure,
-        "Allocation Over Time": display_allocation_time,
+        "Allocation Over Time": display_destination_allocation_over_time,
         "Weighted CRM": display_weighted_crm,
         "Rebalance Events": display_rebalance_events,
     }

@@ -135,6 +135,7 @@ def _add_break_even_days_and_offset_period(clean_rebalance_df: pd.DataFrame, fig
     )
     fig.update_yaxes(title_text="Days", row=5, col=1)
 
+
 def _add_solver_profit(clean_rebalance_df: pd.DataFrame, fig: go.Figure):
     fig.add_trace(
         go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["solver_profit"], name="Solver Profit Before Gas"),
