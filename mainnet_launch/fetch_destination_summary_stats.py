@@ -16,7 +16,7 @@ from mainnet_launch.get_state_by_block import (
 
 from mainnet_launch.constants import AutopoolConstants, eth_client, ALL_AUTOPOOLS
 
-from mainnet_launch.destinations import get_current_destinations_to_symbol
+from mainnet_launch.destinations import attempt_destination_address_to_symbol
 
 
 def _clean_summary_stats_info(success, summary_stats):
@@ -84,12 +84,12 @@ def _build_all_summary_stats_calls(blocks: list[int]) -> list[Call]:
     summary_stats_calls = []
     for autopool in ALL_AUTOPOOLS:
         for destination in destinations[autopool.name]:
-            call = _build_summary_stats_call(autopool, destination)
+            call = _build_summary_stats_call(autopool, eth_client.toChecksumAddress(destination))
             summary_stats_calls.append(call)
 
     for autopool in ALL_AUTOPOOLS:
         # summary stats on idle ETH
-        call = _build_summary_stats_call(autopool, autopool.autopool_eth_addr)
+        call = _build_summary_stats_call(autopool, eth_client.toChecksumAddress(autopool.autopool_eth_addr))
         summary_stats_calls.append(call)
 
     return summary_stats_calls
@@ -106,12 +106,18 @@ def fetch_destination_summary_stats(
     blocks: list[int], autopool: AutopoolConstants
 ) -> list[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     all_autopool_summary_stats_df = _fetch_summary_stats_data(blocks)
+    # check if the autopool name prefix is in the columns
     cols = [c for c in all_autopool_summary_stats_df if autopool.name in c[:10]]
     summary_stats_df = all_autopool_summary_stats_df[cols].copy()
+    # columns look like "balETH_0x148Ca723BefeA7b021C399413b8b7426A4701500"
+    # extract out only the destination address
     summary_stats_df.columns = [c.split("_")[1] for c in summary_stats_df]
+
     uwcr_df, allocation_df, compositeReturn_out_df = clean_summary_stats_df(summary_stats_df)
     total_nav_df = allocation_df.sum(axis=1)
-
+    uwcr_df.columns = [attempt_destination_address_to_symbol(c) for c in uwcr_df.columns]
+    allocation_df.columns = [attempt_destination_address_to_symbol(c) for c in allocation_df.columns]
+    compositeReturn_out_df.columns = [attempt_destination_address_to_symbol(c) for c in compositeReturn_out_df.columns]
     return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df
 
 
