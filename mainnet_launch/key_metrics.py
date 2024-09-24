@@ -51,7 +51,7 @@ def _get_percent_deployed(allocation_df: pd.DataFrame, autopool: AutopoolConstan
 
 
 def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: AutopoolConstants):
-    st.header("Key Metrics")
+    st.header(f"{autopool.name} Key Metrics")
     nav_per_share_df = key_metric_data["nav_per_share_df"]
     uwcr_df = key_metric_data["uwcr_df"]
     allocation_df = key_metric_data["allocation_df"]
