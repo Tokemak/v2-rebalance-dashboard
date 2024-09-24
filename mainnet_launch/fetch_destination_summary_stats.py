@@ -95,7 +95,6 @@ def _build_all_summary_stats_calls(blocks: list[int]) -> list[Call]:
     return summary_stats_calls
 
 
-@st.cache_data(ttl=3600)  # 12 hours
 def _fetch_summary_stats_data(blocks: list[int]) -> pd.DataFrame:
     summary_stats_calls = _build_all_summary_stats_calls(blocks)
     summary_stats_df = get_raw_state_by_blocks(summary_stats_calls, blocks)
@@ -118,7 +117,7 @@ def fetch_destination_summary_stats(
     uwcr_df.columns = [attempt_destination_address_to_symbol(c) for c in uwcr_df.columns]
     allocation_df.columns = [attempt_destination_address_to_symbol(c) for c in allocation_df.columns]
     compositeReturn_out_df.columns = [attempt_destination_address_to_symbol(c) for c in compositeReturn_out_df.columns]
-    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df
+    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df
 
 
 def clean_summary_stats_df(summary_stats_df: pd.DataFrame):
