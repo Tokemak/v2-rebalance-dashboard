@@ -12,7 +12,6 @@ from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 start_block = 20759126  # Sep 15, 2024
 
 
-
 def display_autopool_lp_stats(autopool: AutopoolConstants):
     st.header("Autopool Allocation Over Time By Destination")
     deposit_df, withdraw_df = _fetch_raw_deposit_and_withdrawal_dfs(autopool)
@@ -32,18 +31,17 @@ def display_autopool_lp_stats(autopool: AutopoolConstants):
         )
 
 
-
-
-
 def _make_unique_wallets_figure(deposit_df, withdraw_df) -> go.Figure:
     # cumulative count of wallets that have touched any autopool
-    
+
     # group by day week etc
     pass
 
+
 def _make_current_unique_wallets():
-    # for each autopool get the cumulative current holders of each token. 
+    # for each autopool get the cumulative current holders of each token.
     pass
+
 
 @st.cache_data(ttl=3600)  # 1 hours
 def _fetch_raw_deposit_and_withdrawal_dfs(autopool: AutopoolConstants) -> tuple[pd.DataFrame, pd.DataFrame]:
