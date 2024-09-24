@@ -67,6 +67,8 @@ def _make_apr_components_fig(key_metric_data: dict) -> go.Figure:
 
     destination = st.selectbox("Select a destination", summary_stats_df.columns)
 
+    points_df = 100 * key_metric_data["points_df"]
+
     # Extract selected data from each table
     plot_data = pd.DataFrame(
         {
@@ -74,6 +76,7 @@ def _make_apr_components_fig(key_metric_data: dict) -> go.Figure:
             "Base APR": baseApr_df[destination],
             "Incentive APR": incentiveApr_df[destination],
             "Fee APR": feeApr_df[destination],
+            "Points APR": points_df[destination],
         },
         index=summary_stats_df.index,
     )

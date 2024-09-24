@@ -13,8 +13,8 @@ from mainnet_launch.destinations import get_destination_details, DestinationDeta
 @st.cache_data(ttl=3600)
 def fetch_weighted_crm_data(autopool: AutopoolConstants) -> dict[str, pd.DataFrame]:
     blocks = build_blocks_to_use()
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df = fetch_destination_summary_stats(
-        blocks, autopool
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df = (
+        fetch_destination_summary_stats(blocks, autopool)
     )
 
     key_metric_data = {
@@ -23,6 +23,7 @@ def fetch_weighted_crm_data(autopool: AutopoolConstants) -> dict[str, pd.DataFra
         "compositeReturn_out_df": compositeReturn_out_df,
         "total_nav_df": total_nav_df,
         "summary_stats_df": summary_stats_df,
+        "points_df": points_df,
     }
 
     return key_metric_data
