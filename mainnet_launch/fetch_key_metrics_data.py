@@ -10,6 +10,7 @@ from mainnet_launch.fetch_nav_per_share import fetch_nav_per_share
 from mainnet_launch.fetch_destination_summary_stats import fetch_destination_summary_stats
 
 
+@st.cache_data(ttl=3600)  # 1 hours
 def fetch_key_metric_data(autopool: AutopoolConstants) -> dict[str, pd.DataFrame]:
     blocks = build_blocks_to_use()
     nav_per_share_df = fetch_nav_per_share(blocks, autopool)

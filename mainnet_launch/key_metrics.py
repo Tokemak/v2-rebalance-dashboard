@@ -72,7 +72,9 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
 
     percent_deployed_yesterday, percent_deployed_today = _get_percent_deployed(allocation_df, autopool)
 
-    col4.metric("Percent Deployed", percent_deployed_today, round(percent_deployed_today - percent_deployed_yesterday, 2))
+    col4.metric(
+        "Percent Deployed", percent_deployed_today, round(percent_deployed_today - percent_deployed_yesterday, 2)
+    )
 
     nav_per_share_fig = px.line(nav_per_share_df, y=autopool.name, title=" ")
     _apply_default_style(nav_per_share_fig)

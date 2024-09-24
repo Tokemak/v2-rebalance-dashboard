@@ -81,8 +81,9 @@ async def async_safe_get_raw_state_by_block(
     """
     Fetch a DataFame of each call in calls for each block in blocks fast
     """
+    blocks_as_ints = [int(b) for b in blocks]
 
-    if any(block <= MULTICALL2_DEPLOYMENT_BLOCK for block in blocks):
+    if any(block <= MULTICALL2_DEPLOYMENT_BLOCK for block in blocks_as_ints):
         raise TypeError("all blocks must > 12336033")
 
     get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls()
@@ -93,7 +94,7 @@ async def async_safe_get_raw_state_by_block(
             _w3=eth_client,
             require_success=False,
         )
-        for b in blocks
+        for b in blocks_as_ints
     ]
 
     responses = []
@@ -116,7 +117,7 @@ async def async_safe_get_raw_state_by_block(
         print(
             f"failed to fetch any data. consider trying again if expected to get data, but with a smaller semaphore_limit"
         )
-        print(f"{len(blocks)=} {blocks[0]=} {blocks[-1]=}")
+        print(f"{len(blocks_as_ints)=} {blocks_as_ints[0]=} {blocks_as_ints[-1]=}")
         print(f"{calls=}")
 
     df.set_index("timestamp", inplace=True)
