@@ -17,10 +17,9 @@ def display_autopool_lp_stats(autopool: AutopoolConstants):
     deposit_df, withdraw_df = _fetch_raw_deposit_and_withdrawal_dfs(autopool)
     daily_change_fig = _make_deposit_and_withdraw_figure(autopool, deposit_df, withdraw_df)
     lp_deposit_and_withdraw_df = _make_scatter_plot_figure(autopool, deposit_df, withdraw_df)
-    
+
     fee_df = _fetch_autopool_fee_df(autopool)
     fee_figure = _build_fee_figure(autopool, fee_df)
-    
 
     st.header(f"{autopool.name} Our LP Stats")
     st.plotly_chart(daily_change_fig, use_container_width=True)
@@ -36,6 +35,7 @@ def display_autopool_lp_stats(autopool: AutopoolConstants):
             """
         )
 
+
 @st.cache_data(ttl=3600)  # 1 hours
 def _fetch_autopool_fee_df(autopool: AutopoolConstants) -> pd.DataFrame:
     contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
@@ -43,22 +43,21 @@ def _fetch_autopool_fee_df(autopool: AutopoolConstants) -> pd.DataFrame:
     periodic_fee_df = fetch_events(contract.events.PeriodicFeeCollected, start_block=start_block)
     streaming_fee_df = add_timestamp_to_df_with_block_column(streaming_fee_df)
     periodic_fee_df = add_timestamp_to_df_with_block_column(periodic_fee_df)
-    
-    periodic_fee_df['normalized_fees'] = periodic_fee_df['fees'].apply(lambda x: int(x) / 1e18)
+
+    periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
     if len(streaming_fee_df) > 0:
-        raise ValueError('there are streaming fees now, need to double check')
+        raise ValueError("there are streaming fees now, need to double check")
         # not tested, double check once we have some fees collected
         # streaming_fee_df['normalized_fees'] = streaming_fee_df['fees'].apply(lambda x: int(x) / 1e18)
-    
 
     # fee_df = pd.concat([streaming_fee_df[['normalized_fees']], periodic_fee_df[['normalized_fees']]])
-    fee_df = periodic_fee_df[['normalized_fees']].copy()
+    fee_df = periodic_fee_df[["normalized_fees"]].copy()
     return fee_df
 
 
-def _build_fee_figure(autopool: AutopoolConstants, fee_df:pd.DataFrame) -> go.Figure:
-    daily_fees_df = fee_df.resample('1D').sum()
-    
+def _build_fee_figure(autopool: AutopoolConstants, fee_df: pd.DataFrame) -> go.Figure:
+    daily_fees_df = fee_df.resample("1D").sum()
+
     fig = px.bar(daily_fees_df)
     fig.update_layout(
         title=f"{autopool.name} Total Daily Fees",
@@ -70,8 +69,8 @@ def _build_fee_figure(autopool: AutopoolConstants, fee_df:pd.DataFrame) -> go.Fi
         height=500,
     )
     return fig
-    
-    
+
+
 @st.cache_data(ttl=3600)  # 1 hours
 def _fetch_raw_deposit_and_withdrawal_dfs(autopool: AutopoolConstants) -> tuple[pd.DataFrame, pd.DataFrame]:
     contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
@@ -81,7 +80,7 @@ def _fetch_raw_deposit_and_withdrawal_dfs(autopool: AutopoolConstants) -> tuple[
 
     deposit_df = add_timestamp_to_df_with_block_column(deposit_df)
     withdraw_df = add_timestamp_to_df_with_block_column(withdraw_df)
-    
+
     deposit_df["normalized_assets"] = deposit_df["assets"].apply(lambda x: int(x) / 1e18)
     withdraw_df["normalized_assets"] = withdraw_df["assets"].apply(lambda x: int(x) / 1e18)
 
