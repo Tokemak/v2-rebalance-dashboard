@@ -14,6 +14,7 @@ from mainnet_launch.key_metrics import display_key_metrics
 from mainnet_launch.weighted_crm import display_weighted_crm
 from mainnet_launch.destination_allocation_over_time import display_destination_allocation_over_time
 from mainnet_launch.rebalance_events import display_rebalance_events
+from mainnet_launch.autopool_lp_stats import display_autopool_lp_stats
 
 from mainnet_launch.constants import ALL_AUTOPOOLS, AUTOPOOL_NAME_TO_CONSTANTS, AutopoolConstants
 
@@ -75,6 +76,7 @@ def main():
             "Allocation Over Time",
             "Weighted CRM",
             "Rebalance Events",
+            "Autopool Deposits and Withdrawals",
         ],
     )
 
@@ -89,6 +91,7 @@ def display_autopool(autopool: AutopoolConstants, page: str):
         "Allocation Over Time": display_destination_allocation_over_time,
         "Weighted CRM": display_weighted_crm,
         "Rebalance Events": display_rebalance_events,
+        "Autopool Deposits and Withdrawals": display_autopool_lp_stats,
     }
 
     # Get the function based on the page selected

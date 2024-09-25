@@ -10,16 +10,21 @@ from mainnet_launch.fetch_nav_per_share import fetch_nav_per_share
 from mainnet_launch.fetch_destination_summary_stats import fetch_destination_summary_stats
 
 
+@st.cache_data(ttl=3600)  # 1 hours
 def fetch_key_metric_data(autopool: AutopoolConstants) -> dict[str, pd.DataFrame]:
     blocks = build_blocks_to_use()
     nav_per_share_df = fetch_nav_per_share(blocks, autopool)
-    uwcr_df, allocation_df, compositeReturn_df, total_nav_df = fetch_destination_summary_stats(blocks, autopool)
+    uwcr_df, allocation_df, compositeReturn_df, total_nav_df, summary_stats_df, points_df = (
+        fetch_destination_summary_stats(blocks, autopool)
+    )
     key_metric_data = {
         "nav_per_share_df": nav_per_share_df,
         "uwcr_df": uwcr_df,
         "allocation_df": allocation_df,
         "compositeReturn_df": compositeReturn_df,
         "total_nav_df": total_nav_df,
+        "summary_stats_df": summary_stats_df,
+        "points_df": points_df,
     }
 
     return key_metric_data

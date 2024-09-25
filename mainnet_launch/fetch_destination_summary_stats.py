@@ -9,14 +9,14 @@ import numpy as np
 from mainnet_launch.get_state_by_block import (
     get_raw_state_by_blocks,
     get_state_by_one_block,
-    build_blocks_to_use,
     identity_with_bool_success,
-    build_blocks_to_use,
+    safe_normalize_with_bool_success,
 )
 
 from mainnet_launch.constants import AutopoolConstants, eth_client, ALL_AUTOPOOLS
+from mainnet_launch.destinations import attempt_destination_address_to_symbol, get_destination_details
 
-from mainnet_launch.destinations import attempt_destination_address_to_symbol
+POINTS_HOOK = "0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3"
 
 
 def _clean_summary_stats_info(success, summary_stats):
@@ -95,7 +95,20 @@ def _build_all_summary_stats_calls(blocks: list[int]) -> list[Call]:
     return summary_stats_calls
 
 
-@st.cache_data(ttl=3600)  # 12 hours
+def _build_destination_points_calls() -> list[Call]:
+    destination_details = get_destination_details(eth_client.eth.block_number)
+
+    destination_points_calls = [
+        Call(
+            POINTS_HOOK,
+            ["destinationBoosts(address)(uint256)", d.address],
+            [(d.symbol, safe_normalize_with_bool_success)],
+        )
+        for key, d in destination_details.items()
+    ]
+    return destination_points_calls
+
+
 def _fetch_summary_stats_data(blocks: list[int]) -> pd.DataFrame:
     summary_stats_calls = _build_all_summary_stats_calls(blocks)
     summary_stats_df = get_raw_state_by_blocks(summary_stats_calls, blocks)
@@ -118,7 +131,11 @@ def fetch_destination_summary_stats(
     uwcr_df.columns = [attempt_destination_address_to_symbol(c) for c in uwcr_df.columns]
     allocation_df.columns = [attempt_destination_address_to_symbol(c) for c in allocation_df.columns]
     compositeReturn_out_df.columns = [attempt_destination_address_to_symbol(c) for c in compositeReturn_out_df.columns]
-    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df
+
+    destination_points_calls = _build_destination_points_calls()
+    points_df = get_raw_state_by_blocks(destination_points_calls, blocks)
+
+    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df
 
 
 def clean_summary_stats_df(summary_stats_df: pd.DataFrame):
@@ -154,3 +171,7 @@ def _extract_allocation_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
     ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else 0).astype(float)
     allocation_df = pricePerShare_df * ownedShares_df
     return allocation_df
+
+
+if __name__ == "__main__":
+    _fetch_summary_stats_data()
