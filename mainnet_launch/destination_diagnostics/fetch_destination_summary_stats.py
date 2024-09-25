@@ -19,6 +19,7 @@ from mainnet_launch.destinations import attempt_destination_address_to_symbol, g
 POINTS_HOOK = "0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3"
 
 
+@st.cache_data(ttl=3600)
 def fetch_destination_summary_stats(
     blocks: list[int], autopool: AutopoolConstants
 ) -> list[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
