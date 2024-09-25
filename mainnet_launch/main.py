@@ -15,13 +15,16 @@ import time
 import datetime
 
 
+from mainnet_launch.autopool_diagnostics.fees import display_autopool_fees
+from mainnet_launch.autopool_diagnostics.deposits_and_withdrawals import display_autopool_deposit_withdraw_stats
 from mainnet_launch.top_level.key_metrics import display_key_metrics
 from mainnet_launch.destination_diagnostics.weighted_crm import display_weighted_crm
 from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import (
     display_destination_allocation_over_time,
 )
 from mainnet_launch.solver_diagnostics.rebalance_events import display_rebalance_events
-from mainnet_launch.autopool_diagnostics.autopool_lp_stats import display_autopool_lp_stats
+
+# from mainnet_launch.autopool_diagnostics.autopool_lp_stats import display_autopool_lp_stats
 
 from mainnet_launch.constants import (
     ALL_AUTOPOOLS,
@@ -30,18 +33,14 @@ from mainnet_launch.constants import (
 )
 
 
-def display_autopool_exposure(pool_name):
-    st.write(f"Displaying Autopool Exposure for {pool_name}...")
-    # Add content here what token per day
-
-
 CONTENT_FUNCTIONS = {
     "Key Metrics": display_key_metrics,
-    "Autopool Exposure": display_autopool_exposure,
+    "Autopool Fees": display_autopool_fees,
+    "Autopool Deposits and Withdrawls": display_autopool_deposit_withdraw_stats,
     "Allocation Over Time": display_destination_allocation_over_time,
     "Weighted CRM": display_weighted_crm,
     "Rebalance Events": display_rebalance_events,
-    "Autopool Deposits and Withdrawals": display_autopool_lp_stats,
+    # "Autopool Deposits and Withdrawals": display_autopool_lp_stats,
 }
 
 
