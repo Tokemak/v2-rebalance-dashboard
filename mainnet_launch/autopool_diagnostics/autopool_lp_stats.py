@@ -39,7 +39,7 @@ def display_autopool_lp_stats(autopool: AutopoolConstants):
         )
 
 
-@st.cache_data(ttl=3600)  # 1 hours
+@st.cache_data(ttl=3600)
 def _fetch_autopool_fee_df(autopool: AutopoolConstants) -> pd.DataFrame:
     contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
     streaming_fee_df = fetch_events(contract.events.FeeCollected, start_block=start_block)
