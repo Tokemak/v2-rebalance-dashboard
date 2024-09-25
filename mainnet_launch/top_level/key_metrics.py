@@ -5,7 +5,7 @@ import streamlit as st
 
 
 from mainnet_launch.constants import AutopoolConstants
-from mainnet_launch.fetch_key_metrics_data import fetch_key_metric_data
+from mainnet_launch.top_level.fetch_key_metrics_data import fetch_key_metric_data
 
 
 def display_key_metrics(autopool: AutopoolConstants):
