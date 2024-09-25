@@ -5,7 +5,7 @@ import streamlit as st
 
 
 from mainnet_launch.constants import AutopoolConstants
-from mainnet_launch.fetch_weighted_crm_data import fetch_weighted_crm_data
+from mainnet_launch.destination_diagnostics.fetch_weighted_crm_data import fetch_weighted_crm_data
 from mainnet_launch.destinations import attempt_destination_address_to_symbol
 
 

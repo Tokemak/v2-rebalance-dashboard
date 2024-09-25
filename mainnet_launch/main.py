@@ -10,8 +10,8 @@ st.set_page_config(
 )
 
 
-from mainnet_launch.key_metrics import display_key_metrics
-from mainnet_launch.weighted_crm import display_weighted_crm
+from mainnet_launch.top_level.key_metrics import display_key_metrics
+from mainnet_launch.destination_diagnostics.weighted_crm import display_weighted_crm
 from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import (
     display_destination_allocation_over_time,
 )

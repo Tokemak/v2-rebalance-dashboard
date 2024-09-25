@@ -5,7 +5,7 @@ import streamlit as st
 
 
 from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
-from mainnet_launch.fetch_weighted_crm_data import fetch_weighted_crm_data
+from mainnet_launch.destination_diagnostics.fetch_weighted_crm_data import fetch_weighted_crm_data
 
 
 def display_destination_allocation_over_time(autopool: AutopoolConstants):
