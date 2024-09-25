@@ -18,6 +18,7 @@ import datetime
 from mainnet_launch.autopool_diagnostics.fees import display_autopool_fees
 from mainnet_launch.autopool_diagnostics.deposits_and_withdrawals import display_autopool_deposit_withdraw_stats
 from mainnet_launch.autopool_diagnostics.count_of_destinations import display_autopool_destination_counts
+from mainnet_launch.autopool_diagnostics.turnover import display_autopool_turnover
 
 
 from mainnet_launch.top_level.key_metrics import display_key_metrics
@@ -27,7 +28,6 @@ from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import
 )
 from mainnet_launch.solver_diagnostics.rebalance_events import display_rebalance_events
 
-# from mainnet_launch.autopool_diagnostics.autopool_lp_stats import display_autopool_lp_stats
 
 from mainnet_launch.constants import (
     ALL_AUTOPOOLS,
@@ -41,6 +41,7 @@ CONTENT_FUNCTIONS = {
     "Autopool Fees": display_autopool_fees,
     "Autopool Deposits and Withdrawls": display_autopool_deposit_withdraw_stats,
     "Autopool Destination Counts": display_autopool_destination_counts,
+    "Autopool Turnover": display_autopool_turnover,
     "Allocation Over Time": display_destination_allocation_over_time,
     "Weighted CRM": display_weighted_crm,
     "Rebalance Events": display_rebalance_events,
