@@ -4,9 +4,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from mainnet_launch.constants import eth_client, AutopoolConstants, ALL_AUTOPOOLS
-from mainnet_launch.get_events import fetch_events
-from mainnet_launch.get_state_by_block import get_raw_state_by_blocks, add_timestamp_to_df_with_block_column
-from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
+from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.data_fetching.get_state_by_block import (
+    get_raw_state_by_blocks,
+    add_timestamp_to_df_with_block_column,
+)
+from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 
 
 start_block = 20759126  # Sep 15, 2024

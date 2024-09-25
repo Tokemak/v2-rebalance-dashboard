@@ -6,7 +6,7 @@ import plotly.express as px
 import numpy as np
 
 
-from mainnet_launch.get_state_by_block import (
+from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     get_state_by_one_block,
     identity_with_bool_success,

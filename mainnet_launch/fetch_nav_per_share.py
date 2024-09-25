@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 from multicall import Call
-from mainnet_launch.get_state_by_block import (
+from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
 )
