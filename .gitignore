@@ -4,3 +4,4 @@ data/*
 
 __pycache__/
 .env
+mainnet_launch/solver_diagnostics/fetched_data
