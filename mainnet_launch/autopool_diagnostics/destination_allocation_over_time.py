@@ -29,7 +29,7 @@ def display_destination_allocation_over_time(autopool: AutopoolConstants):
     with st.expander("See explanation for Autopool Allocation Over Time"):
         st.write(
             """
-            -Total ETH Value of TVL by Destination: Shows the ETH value of capital deployed to each destination
+            - Total ETH Value of TVL by Destination: Shows the ETH value of capital deployed to each destination
             - Percent of TVL by Destination: Shows the percent of capital deployed to each destination
             """
         )

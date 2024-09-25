@@ -6,7 +6,7 @@ import streamlit as st
 
 
 from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
-from mainnet_launch.fetch_rebalance_events import fetch_rebalance_events_df
+from mainnet_launch.solver_diagnostics.fetch_rebalance_events import fetch_rebalance_events_df
 
 
 def display_rebalance_events(autopool: AutopoolConstants) -> go.Figure:
