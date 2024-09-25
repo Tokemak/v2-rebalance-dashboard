@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from mainnet_launch.constants import AutopoolConstants, eth_client
-from mainnet_launch.get_state_by_block import build_blocks_to_use
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 from mainnet_launch.fetch_destination_summary_stats import fetch_destination_summary_stats
 from mainnet_launch.destinations import get_destination_details, DestinationDetails

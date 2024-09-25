@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from multicall import Call
 import streamlit as st
 
-from mainnet_launch.get_state_by_block import (
+from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,
 )
