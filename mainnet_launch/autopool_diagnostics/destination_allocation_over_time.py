@@ -6,12 +6,15 @@ import streamlit as st
 
 from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.destination_diagnostics.weighted_crm import fetch_weighted_crm_data
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
+from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
 
 def display_destination_allocation_over_time(autopool: AutopoolConstants):
-    key_metric_data = fetch_weighted_crm_data(autopool)
-    allocation_df = key_metric_data["allocation_df"]
-    total_nav_df = key_metric_data["total_nav_df"]
+    blocks = build_blocks_to_use()
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df = (
+        fetch_destination_summary_stats(blocks, autopool)
+    )
 
     percent_allocation_df = 100 * allocation_df.div(total_nav_df, axis=0)
 
