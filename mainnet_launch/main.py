@@ -32,7 +32,7 @@ from mainnet_launch.constants import (
 
 def display_autopool_exposure(pool_name):
     st.write(f"Displaying Autopool Exposure for {pool_name}...")
-    # Add content here
+    # Add content here what token per day
 
 
 CONTENT_FUNCTIONS = {

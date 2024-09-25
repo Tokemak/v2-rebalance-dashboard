@@ -22,21 +22,30 @@ def display_autopool_lp_stats(autopool: AutopoolConstants):
     lp_deposit_and_withdraw_df = _make_scatter_plot_figure(autopool, deposit_df, withdraw_df)
 
     fee_df = _fetch_autopool_fee_df(autopool)
-    fee_figure = _build_fee_figure(autopool, fee_df)
+    daily_fee_fig, cumulative_fee_fig, weekly_fee_fig = _build_fee_figures(autopool, fee_df)
 
     st.header(f"{autopool.name} Our LP Stats")
     st.plotly_chart(daily_change_fig, use_container_width=True)
     st.plotly_chart(lp_deposit_and_withdraw_df, use_container_width=True)
-    st.plotly_chart(fee_figure, use_container_width=True)
+    st.plotly_chart(daily_fee_fig, use_container_width=True)
+    st.plotly_chart(weekly_fee_fig, use_container_width=True)
+    st.plotly_chart(cumulative_fee_fig, use_container_width=True)
 
-    with st.expander(f"See explanation for Deposits and Withdrawals"):
+    with st.expander(f"See explanation"):
         st.write(
             """
             - Total Deposits and Withdrawals per Day: Daily total Deposit and Withdrawals in ETH per day
             - Individual Deposits and Withdrawals per Day: Each point is scaled by the size of the deposit or withdrawal
-            - Daily Total ETH Fees Only: PeriodicFeeCollected Until the autopool is in a profit
             """
         )
+
+
+def _fetch_number_of_destinations_over_time() -> pd.DataFrame:
+    return pd.DataFrame()
+
+
+def display_number_of_destinations(df: pd.DataFrame):
+    pass
 
 
 @st.cache_data(ttl=3600)
@@ -49,7 +58,7 @@ def _fetch_autopool_fee_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
     periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
     if len(streaming_fee_df) > 0:
-        raise ValueError("there are streaming fees now, need to double check")
+        raise ValueError("there are streaming fees now, need to double check _fetch_autopool_fee_df function")
         # not tested, double check once we have some fees collected
         # streaming_fee_df['normalized_fees'] = streaming_fee_df['fees'].apply(lambda x: int(x) / 1e18)
 
@@ -58,11 +67,14 @@ def _fetch_autopool_fee_df(autopool: AutopoolConstants) -> pd.DataFrame:
     return fee_df
 
 
-def _build_fee_figure(autopool: AutopoolConstants, fee_df: pd.DataFrame) -> go.Figure:
-    daily_fees_df = fee_df.resample("1D").sum()
+def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
+    # Ensure the 'fee_df' is indexed by datetime
+    fee_df.index = pd.to_datetime(fee_df.index)
 
-    fig = px.bar(daily_fees_df)
-    fig.update_layout(
+    # 1. Daily Fees
+    daily_fees_df = fee_df.resample("1D").sum()
+    daily_fee_fig = px.bar(daily_fees_df)
+    daily_fee_fig.update_layout(
         title=f"{autopool.name} Total Daily Fees",
         xaxis_tickformat="%Y-%m-%d",
         xaxis_title="Date",
@@ -71,7 +83,51 @@ def _build_fee_figure(autopool: AutopoolConstants, fee_df: pd.DataFrame) -> go.F
         width=900,
         height=500,
     )
-    return fig
+
+    # 2. Cumulative Lifetime Fees
+    cumulative_fees_df = daily_fees_df.cumsum()
+    cumulative_fee_fig = px.line(cumulative_fees_df)
+    cumulative_fee_fig.update_layout(
+        title=f"{autopool.name} Cumulative Lifetime Fees",
+        xaxis_tickformat="%Y-%m-%d",
+        xaxis_title="Date",
+        yaxis_title="Cumulative ETH",
+        xaxis_tickangle=-45,
+        width=900,
+        height=500,
+    )
+
+    # 3. Weekly Fees
+    weekly_fees_df = fee_df.resample("1W").sum()
+    weekly_fee_fig = px.bar(weekly_fees_df)
+    weekly_fee_fig.update_layout(
+        title=f"{autopool.name} Total Weekly Fees",
+        xaxis_tickformat="%Y-%m-%d",
+        xaxis_title="Date",
+        yaxis_title="ETH",
+        xaxis_tickangle=-45,
+        width=900,
+        height=500,
+    )
+
+    # Return all three figures
+    return daily_fee_fig, cumulative_fee_fig, weekly_fee_fig
+
+
+# def _build_fee_figure(autopool: AutopoolConstants, fee_df: pd.DataFrame) -> go.Figure:
+#     daily_fees_df = fee_df.resample("1D").sum()
+
+#     fig = px.bar(daily_fees_df)
+#     fig.update_layout(
+#         title=f"{autopool.name} Total Daily Fees",
+#         xaxis_tickformat="%Y-%m-%d",
+#         xaxis_title="Date",
+#         yaxis_title="ETH",
+#         xaxis_tickangle=-45,
+#         width=900,
+#         height=500,
+#     )
+#     return fig
 
 
 @st.cache_data(ttl=3600)  # 1 hours
