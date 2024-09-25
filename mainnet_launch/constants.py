@@ -50,3 +50,38 @@ ALL_AUTOPOOLS = [BAL_ETH, AUTO_ETH, AUTO_LRT]
 AUTOPOOL_NAME_TO_CONSTANTS = {a.name: a for a in ALL_AUTOPOOLS}
 
 ROOT_DIR = Path(__file__).parent
+
+STREAMLIT_MARKDOWN_HTML = """
+        <style>
+        .main {
+            max-width: 85%;
+            margin: 0 auto;
+            padding-top: 40px;
+        }
+        .stPlotlyChart {
+            width: 100%;
+            height: auto;
+            min-height: 300px;
+            max-height: 600px;
+            background-color: #f0f2f6;
+            border-radius: 5px;
+            padding: 20px;
+        }
+        @media (max-width: 768px) {
+            .stPlotlyChart {
+                min-height: 250px;
+                max-height: 450px;
+            }
+        }
+        .stPlotlyChart {
+            background-color: #f0f2f6;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        .stExpander {
+            background-color: #e6e9ef;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        </style>
+        """
