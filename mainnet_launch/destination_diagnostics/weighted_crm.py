@@ -5,8 +5,9 @@ import streamlit as st
 
 
 from mainnet_launch.constants import AutopoolConstants
-from mainnet_launch.destination_diagnostics.fetch_weighted_crm_data import fetch_weighted_crm_data
 from mainnet_launch.destinations import attempt_destination_address_to_symbol
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
+from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
 
 def display_weighted_crm(autopool: AutopoolConstants):
@@ -25,10 +26,29 @@ def display_weighted_crm(autopool: AutopoolConstants):
         st.write(
             f"""
               Composite Return Out: Composite Return out of the various destinations
-              {autopool.name} Weighted Expected Return: sum(% of assets in Destination * Destination Composite Return). Idle ETH has 0% return
+              {autopool.name} Weighted Expected Return: sum(% of TVL in Destination * Destination Composite Return)
               APR Components: Show Fee, Incentive, Base and Price Return of the destination. Does not include points 
             """
         )
+
+
+@st.cache_data(ttl=3600)
+def fetch_weighted_crm_data(autopool: AutopoolConstants) -> dict[str, pd.DataFrame]:
+    blocks = build_blocks_to_use()
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df = (
+        fetch_destination_summary_stats(blocks, autopool)
+    )
+
+    key_metric_data = {
+        "uwcr_df": uwcr_df,
+        "allocation_df": allocation_df,
+        "compositeReturn_out_df": compositeReturn_out_df,
+        "total_nav_df": total_nav_df,
+        "summary_stats_df": summary_stats_df,
+        "points_df": points_df,
+    }
+
+    return key_metric_data
 
 
 def _make_all_destination_composite_return_df(autopool: AutopoolConstants, key_metric_data: dict) -> go.Figure:
