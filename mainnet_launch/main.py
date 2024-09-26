@@ -58,7 +58,7 @@ def display_autopool_exposure(autopool: AutopoolConstants):
 
 def display_solver_diagnostics(autopool: AutopoolConstants):
     st.text(
-    """
+        """
     - Up time
     - rebalance plans generated over 7 days, over 30 days, YTD
     - rebalance plans successfully executed (% execution)
