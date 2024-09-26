@@ -74,6 +74,10 @@ def _make_plots(clean_rebalance_df: pd.DataFrame) -> go.Figure:
     return fig
 
 
+def add_solver_cumulative_gas_price(clean_rebalance_df: pd.DataFrame, fig: go.Figure):
+    
+
+
 def _add_composite_return_figures(clean_rebalance_df: pd.DataFrame, fig: go.Figure):
     fig.add_trace(
         go.Bar(x=clean_rebalance_df["date"], y=clean_rebalance_df["out_compositeReturn"], name="Out Composite Return"),

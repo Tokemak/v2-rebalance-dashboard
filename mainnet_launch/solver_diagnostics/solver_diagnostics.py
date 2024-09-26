@@ -6,10 +6,14 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
-from mainnet_launch.solver_diagnostics.ensure_solver_plans_are_loaded import ensure_all_rebalance_plans_are_loaded, SOLVER_PLAN_DATA_PATH
+from mainnet_launch.solver_diagnostics.ensure_solver_plans_are_loaded import (
+    ensure_all_rebalance_plans_are_loaded,
+    SOLVER_PLAN_DATA_PATH,
+)
 from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, eth_client
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.solver_diagnostics.rebalance_events import fetch_rebalance_events_df
 
 
 def load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
@@ -18,51 +22,7 @@ def load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
 
 def _fetch_rebalance_between_destination(autopool: AutopoolConstants) -> pd.DataFrame:
-    contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    rebalance_between_destination_df = fetch_events(contract.events.re)
-    
-    
-
-
-
-
-
-# def load_solver_df() -> pd.DataFrame:
-#     fetched_data_path = ROOT_DIR.parent / "fetched_data"
-#     existing_jsons = [str(path) for path in fetched_data_path.glob("*.json")]
-
-#     all_data = []
-#     for p in existing_jsons:
-#         try:
-#             with open(p, "r") as fin:
-#                 json_file_file_name = p.split("/")[-1]
-#                 solver_data = json.load(fin)
-#                 solver_data["json_file_file_name"] = json_file_file_name
-#                 solver_data["date"] = pd.to_datetime(solver_data["timestamp"], unit="s")
-
-#                 if autoETH.lower() in json_file_file_name.lower():
-#                     solver_data["poolAddress"] = autoETH
-
-#                 if balETH.lower() in json_file_file_name.lower():
-#                     solver_data["poolAddress"] = balETH
-
-#                 all_data.append(solver_data)
-#         except Exception as e:
-#             pass
-#             # print(p, e)
-#     solver_df = pd.DataFrame.from_records(all_data)
-#     return solver_df
-
-
-# def _get_all_events_df():
-
-#     vault_events = get_each_event_in_contract(
-#         eth_client.eth.contract(balETH_AUTOPOOL_ETH_ADDRESS, abi=AUTOPOOL_VAULT_ABI),
-#     )
-#     strategy_events = get_each_event_in_contract(
-#         eth_client.eth.contract(balETH_AUTOPOOL_ETH_STRATEGY_ADDRESS, abi=AUTOPOOL_ETH_STRATEGY_ABI),
-#     )
-#     return vault_events, strategy_events
+    rebalance_df = fetch_rebalance_events_df(autopool)
 
 
 def load_balETH_solver_df():

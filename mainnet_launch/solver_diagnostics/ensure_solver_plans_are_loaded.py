@@ -16,7 +16,7 @@ SOLVER_PLAN_DATA_PATH = Path(__file__).parent / "solver_data_plans"
 
 def ensure_all_rebalance_plans_are_loaded():
     if not os.path.exists(SOLVER_PLAN_DATA_PATH):
-        os.mkdir(SOLVER_PLAN_DATA_PATH) 
+        os.mkdir(SOLVER_PLAN_DATA_PATH)
 
     df = _fetch_s3_contents_to_dataframe(SOLVER_REBALANCE_PLAN_FILES_URL)
     existing_jsons = [str(path).split("/")[-1] for path in SOLVER_PLAN_DATA_PATH.glob("*.json")]
@@ -54,6 +54,3 @@ def _fetch_s3_contents_to_dataframe(url: str) -> pd.DataFrame:
         }
         contents_list.append(item)
     return pd.DataFrame(contents_list)
-
-
-
