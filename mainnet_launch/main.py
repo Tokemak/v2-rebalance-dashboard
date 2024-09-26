@@ -33,17 +33,70 @@ from mainnet_launch.constants import (
     ALL_AUTOPOOLS,
     AUTOPOOL_NAME_TO_CONSTANTS,
     STREAMLIT_MARKDOWN_HTML,
+    AutopoolConstants,
 )
+
+
+def display_autopool_diagnostics(autopool: AutopoolConstants):
+    display_autopool_fees(autopool)
+    display_autopool_deposit_withdraw_stats(autopool)
+    display_autopool_destination_counts(autopool)
+    display_autopool_turnover(autopool)
+
+
+def display_autopool_exposure(autopool: AutopoolConstants):
+    display_destination_allocation_over_time(autopool)
+
+    st.text(
+        """ 
+
+        - Token Exposure pie chart
+        
+        """
+    )
+
+
+def display_solver_diagnostics(autopool: AutopoolConstants):
+    st.text(
+    """
+    - Up time
+    - rebalance plans generated over 7 days, over 30 days, YTD
+    - rebalance plans successfully executed (% execution)
+    - Solver Gas Costs
+    - Solver Earnings
+    - Aggregator Win Distribution (% 0x, prop, lifi wins)
+    - Swap costs distribution (absolute & normalized by ETH)
+    - Predicted gain distribution (absolute & normalized by ETH)
+    - Rebalance size distribution
+    - Rank of the destination chosen for “add” in the list of destinations sorted by in-CRM
+    - Size of the candidate set that qualified for “add”
+    """
+    )
+
+
+def display_destination_diagnostics(autopool: AutopoolConstants):
+    st.text(
+        """
+    - unweighted price return (discounts/premiums) over time
+    - fee apr
+    - base apr
+    - incentive apr (in / out)
+    - points hook output → autoLRT
+    - Growth of a dollar per destination, (don’t auto compound rewards tokens, just let the rewards pile up and price at eth value)
+    - Time between Incentive APR snapshots
+    - LP safe price
+    - LP spot price
+
+    """
+    )
 
 
 CONTENT_FUNCTIONS = {
     "Key Metrics": display_key_metrics,
-    "Autopool Fees": display_autopool_fees,
-    "Autopool Deposits and Withdrawls": display_autopool_deposit_withdraw_stats,
-    "Autopool Destination Counts": display_autopool_destination_counts,
-    "Autopool Turnover": display_autopool_turnover,
-    "Allocation Over Time": display_destination_allocation_over_time,
-    "Weighted CRM": display_weighted_crm,
+    "Autopool Diagnostics": display_autopool_diagnostics,
+    "Autopool Exposure": display_autopool_exposure,
+    "Autopool APRs": display_weighted_crm,
+    "Destination Diagnostics": display_destination_diagnostics,
     "Rebalance Events": display_rebalance_events,
 }
 
