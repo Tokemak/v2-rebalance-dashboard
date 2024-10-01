@@ -171,6 +171,7 @@ def identity_function(value):
     return value
 
 
+@st.cache_data(ttl=3600)
 def build_blocks_to_use(use_mainnet: bool = True) -> list[int]:
     """Returns daily blocks since deployement"""
     current_block = eth_client.eth.block_number

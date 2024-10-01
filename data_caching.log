@@ -1,10 +1,13 @@
-2024-10-01 10:36:12,438 - Started cache_data_loop()
-2024-10-01 10:36:15,754 - 3.32 seconds: Cached fetch_solver_diagnostics_data(autoETH) 
-2024-10-01 10:36:15,754 - 3.32 seconds: Cached autoETH
-2024-10-01 10:36:18,431 - 2.68 seconds: Cached fetch_solver_diagnostics_data(balETH) 
-2024-10-01 10:36:18,432 - 2.68 seconds: Cached balETH
-2024-10-01 10:36:21,561 - 3.13 seconds: Cached fetch_solver_diagnostics_data(autoLRT) 
-2024-10-01 10:36:21,561 - 3.13 seconds: Cached autoLRT
-2024-10-01 10:36:21,561 - 9.12 seconds: All Autopools Cached
-2024-10-01 10:36:21,561 - Finished Caching
-2024-10-01 10:36:21,561 - Start Sleeping
+2024-10-01 11:34:07,157 - Started cache_data_loop()
+2024-10-01 11:34:11,188 - 4.03 seconds: Cached fetch_solver_diagnostics_data(autoETH) 
+2024-10-01 11:34:25,789 - 14.60 seconds: Cached fetch_key_metrics_data(autoETH) 
+2024-10-01 11:34:25,790 - 18.63 seconds: Cached autoETH
+2024-10-01 11:34:29,630 - 3.84 seconds: Cached fetch_solver_diagnostics_data(balETH) 
+2024-10-01 11:34:36,393 - 6.76 seconds: Cached fetch_key_metrics_data(balETH) 
+2024-10-01 11:34:36,393 - 10.60 seconds: Cached balETH
+2024-10-01 11:34:40,468 - 4.08 seconds: Cached fetch_solver_diagnostics_data(autoLRT) 
+2024-10-01 11:34:47,347 - 6.88 seconds: Cached fetch_key_metrics_data(autoLRT) 
+2024-10-01 11:34:47,347 - 10.95 seconds: Cached autoLRT
+2024-10-01 11:34:47,347 - 40.19 seconds: All Autopools Cached
+2024-10-01 11:34:47,347 - Finished Caching
+2024-10-01 11:34:47,348 - Start Sleeping

@@ -21,7 +21,6 @@ from mainnet_launch.autopool_diagnostics.count_of_destinations import display_au
 from mainnet_launch.autopool_diagnostics.turnover import display_autopool_turnover
 
 
-from mainnet_launch.top_level.key_metrics import display_key_metrics
 from mainnet_launch.destination_diagnostics.weighted_crm import display_weighted_crm
 from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import (
     display_destination_allocation_over_time,
@@ -33,7 +32,7 @@ from mainnet_launch.solver_diagnostics.solver_diagnostics import (
     fetch_solver_diagnostics_data,
 )
 
-cache_thread_started = False
+from mainnet_launch.top_level.key_metrics import fetch_key_metrics_data, fetch_and_render_key_metrics_data
 
 from mainnet_launch.constants import (
     ALL_AUTOPOOLS,
@@ -45,7 +44,7 @@ from mainnet_launch.constants import (
 
 logging.basicConfig(filename="data_caching.log", filemode="w", format="%(asctime)s - %(message)s", level=logging.INFO)
 
-data_caching_functions = [fetch_solver_diagnostics_data]
+data_caching_functions = [fetch_solver_diagnostics_data, fetch_key_metrics_data]
 
 
 def cache_data_loop():
@@ -115,7 +114,7 @@ def display_destination_diagnostics(autopool: AutopoolConstants):
 
 
 CONTENT_FUNCTIONS = {
-    "Key Metrics": display_key_metrics,
+    "Key Metrics": fetch_and_render_key_metrics_data,
     "Autopool Diagnostics": display_autopool_diagnostics,
     "Autopool Exposure": display_autopool_exposure,
     "Autopool APRs": display_weighted_crm,
