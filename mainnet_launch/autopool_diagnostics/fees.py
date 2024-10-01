@@ -133,3 +133,7 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
 
     # Return all three figures
     return daily_fee_fig, cumulative_fee_fig, weekly_fee_fig
+
+
+if __name__ == "__main__":
+    _fetch_autopool_fee_df(ALL_AUTOPOOLS[0])

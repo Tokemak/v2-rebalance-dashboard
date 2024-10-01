@@ -30,7 +30,7 @@ def display_destination_allocation_over_time(autopool: AutopoolConstants):
         names=non_zero_allocation.columns,
         title=f"{autopool.name} % allocation at {non_zero_allocation.index[0]} of {nav} total ETH",
     )
-    
+
     allocation_fig = px.bar(allocation_df, title=f"{autopool.name}: Total ETH Value of TVL by Destination")
     allocation_fig.update_layout(yaxis_title="ETH")
 
