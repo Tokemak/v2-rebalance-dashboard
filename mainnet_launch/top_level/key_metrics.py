@@ -11,7 +11,7 @@ from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats impo
 
 
 @st.cache_data(ttl=3600)
-def display_key_metrics(autopool: AutopoolConstants):
+def fetch_key_metrics_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use()
     nav_per_share_df = fetch_nav_per_share(blocks, autopool)
     uwcr_df, allocation_df, compositeReturn_df, total_nav_df, summary_stats_df, points_df = (
@@ -26,7 +26,11 @@ def display_key_metrics(autopool: AutopoolConstants):
         "summary_stats_df": summary_stats_df,
         "points_df": points_df,
     }
+    return key_metric_data
 
+
+def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
+    key_metric_data = fetch_key_metrics_data(autopool)
     _show_key_metrics(key_metric_data, autopool)
 
 
