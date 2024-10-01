@@ -14,25 +14,15 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     safe_normalize_6_with_bool_success,
     identity_with_bool_success,
+    add_timestamp_to_df_with_block_column,
 )
 from mainnet_launch.destinations import attempt_destination_address_to_symbol
 
 
+# 25 seconds
 @st.cache_data(ttl=3600)  # 1 hours
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
-    blocks = build_blocks_to_use()
-
-    strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
-
-    rebalance_between_destinations_df = fetch_events(
-        strategy_contract.events.RebalanceBetweenDestinations, start_block=min(blocks)
-    )
-
-    clean_rebalance_df = pd.DataFrame.from_records(
-        rebalance_between_destinations_df.apply(
-            lambda row: _make_rebalance_between_destination_human_readable(row), axis=1
-        )
-    )
+    clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
 
     clean_rebalance_df["gasCostInETH"] = clean_rebalance_df.apply(
         lambda row: _calc_gas_used_by_transaction_in_eth(row["hash"]), axis=1
@@ -43,13 +33,26 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     )
 
     if clean_rebalance_df["flash_borrower_address"].nunique() != 1:
-
         raise ValueError("expected only 1 flash borrower address, found more than one", clean_rebalance_df.unique())
 
     flash_borrower_address = clean_rebalance_df["flash_borrower_address"].iloc[0]
 
     _add_solver_profit_cols(clean_rebalance_df, flash_borrower_address)
 
+    return clean_rebalance_df
+
+
+def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConstants) -> pd.DataFrame:
+    strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
+
+    rebalance_between_destinations_df = fetch_events(strategy_contract.events.RebalanceBetweenDestinations)
+
+    clean_rebalance_df = pd.DataFrame.from_records(
+        rebalance_between_destinations_df.apply(
+            lambda row: _make_rebalance_between_destination_human_readable(row), axis=1
+        )
+    )
+    clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df)
     return clean_rebalance_df
 
 
@@ -72,13 +75,13 @@ def _make_rebalance_between_destination_human_readable(
     outEthValue = row["valueStats"][3] / 1e18
 
     predicted_increase_after_swap_cost = predicted_gain_during_swap_cost_off_set_period - swapCost
-    date = pd.to_datetime(eth_client.eth.get_block(row["block"]).timestamp, unit="s")
 
     break_even_days = swapCost / (predictedAnnualizedGain / 365)
     offset_period = row["swapOffsetPeriod"]
 
+    move_name = f"{out_destination} -> {in_destination}"
+
     return {
-        "date": date,
         "block": row["block"],
         "break_even_days": break_even_days,
         "swapCost": swapCost,
@@ -94,6 +97,7 @@ def _make_rebalance_between_destination_human_readable(
         "offset_period": offset_period,
         "slippage": slippage,
         "hash": row["hash"],
+        "moveName": move_name,
     }
 
 

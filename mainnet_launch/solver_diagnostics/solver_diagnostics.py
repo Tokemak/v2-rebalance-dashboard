@@ -5,172 +5,183 @@ import requests
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+from datetime import datetime, timedelta
+import streamlit as st
 
-from mainnet_launch.solver_diagnostics.ensure_solver_plans_are_loaded import (
-    ensure_all_rebalance_plans_are_loaded,
-    SOLVER_PLAN_DATA_PATH,
-)
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, eth_client
-from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, eth_client, SOLVER_REBALANCE_PLANS_DIR, AUTO_ETH
+from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI, AUTOPOOL_ETH_STRATEGY_ABI
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.solver_diagnostics.rebalance_events import fetch_rebalance_events_df
+from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
+    fetch_and_clean_rebalance_between_destination_events,
+)
+from mainnet_launch.destinations import attempt_destination_address_to_symbol
+from mainnet_launch.data_fetching.get_state_by_block import (
+    add_timestamp_to_df_with_block_column,
+)
+import boto3
+from botocore import UNSIGNED
+from botocore.client import Config
+
+from mainnet_launch.constants import SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS
 
 
-def load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
-    # load all the solver plans for this autopool
-    pass
+def ensure_all_rebalance_plans_are_loaded():
+    for autopool in ALL_AUTOPOOLS:
+        s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+        response = s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket)
+        all_rebalance_plans = [o["Key"] for o in response["Contents"]]
+        local_rebalance_plans = [str(path).split("/")[-1] for path in SOLVER_REBALANCE_PLANS_DIR.glob("*.json")]
+        rebalance_plans_to_fetch = [
+            json_path for json_path in all_rebalance_plans if json_path not in local_rebalance_plans
+        ]
+        for json_key in rebalance_plans_to_fetch:
+            s3_client.download_file(
+                autopool.solver_rebalance_plans_bucket, json_key, SOLVER_REBALANCE_PLANS_DIR / json_key
+            )
 
 
-def _fetch_rebalance_between_destination(autopool: AutopoolConstants) -> pd.DataFrame:
-    rebalance_df = fetch_rebalance_events_df(autopool)
+def cache_data_needed_for_solver_diagnostics():
+    ensure_all_rebalance_plans_are_loaded()
+    for autopool in ALL_AUTOPOOLS:
+        _fetch_solver_diagonistics_data(autopool)
 
 
-def load_balETH_solver_df():
-    destination_df = pd.read_parquet(ROOT_DIR / "vaults.parquet")
-    rebalance_event_df = fetch_clean_rebalance_events()
+def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
+    autopool_plans = [p for p in SOLVER_REBALANCE_PLANS_DIR.glob("*.json") if autopool.autopool_eth_addr in str(p)]
 
-    destination_vault_to_name = {
-        str(vault_address).lower(): name[22:]
-        for vault_address, name in zip(destination_df["vaultAddress"], destination_df["name"])
-    }
-    destination_vault_to_name["0x72cf6d7c85ffd73f18a83989e7ba8c1c30211b73"] = "balETH idle"
-    solver_df = load_solver_df()
-    balETH_solver_df = solver_df[solver_df["poolAddress"] == balETH].copy()
-    balETH_solver_df.set_index("date", inplace=True)
+    all_data = []
+    for plan_json in autopool_plans:
+        with open(plan_json, "r") as fin:
+            data = json.load(fin)
+            data["date"] = pd.to_datetime(data["timestamp"], unit="s")
+            data["destinationIn"] = attempt_destination_address_to_symbol(data["destinationIn"])
+            data["destinationOut"] = attempt_destination_address_to_symbol(data["destinationOut"])
+            data["moveName"] = f"{data['destinationOut']} -> {data['destinationIn']}"
+            all_data.append(data)
+    solver_df = pd.DataFrame.from_records(all_data)
+    solver_df.sort_values("date", ascending=True, inplace=True)
+    return solver_df
 
-    balETH_solver_df["destinationInName"] = balETH_solver_df.apply(
-        lambda row: (
-            destination_vault_to_name[row["destinationIn"].lower()]
-            if row["destinationIn"].lower() in destination_vault_to_name
-            else None
-        ),
-        axis=1,
+
+def _fetch_solver_diagonistics_data(autopool: AutopoolConstants):
+    ensure_all_rebalance_plans_are_loaded()
+    solver_df = _load_solver_df(autopool)
+    proposed_rebalances_df = solver_df[solver_df["sodOnly"] == False].copy()
+    proposed_rebalances_df.set_index("date", inplace=True)
+
+    rebalance_event_df = fetch_and_clean_rebalance_between_destination_events(autopool)
+    proposed_vs_actual_rebalance_scatter_plot_fig = _make_proposed_vs_actual_rebalance_scatter_plot(
+        proposed_rebalances_df, rebalance_event_df
     )
-    balETH_solver_df["destinationOutName"] = balETH_solver_df.apply(
-        lambda row: (
-            destination_vault_to_name[row["destinationOut"].lower()]
-            if row["destinationOut"].lower() in destination_vault_to_name
-            else None
-        ),
-        axis=1,
+    bar_chart_count_proposed_vs_actual_rebalances_fig = _make_proposed_vs_actual_rebalances_bar_plot(
+        proposed_rebalances_df, rebalance_event_df
     )
-
-    balETH_solver_df["moveName"] = balETH_solver_df.apply(
-        lambda row: f"Exit {row['destinationOutName']} enter {row['destinationInName']}", axis=1
-    )
-    rebalance_event_df["moveName"] = rebalance_event_df.apply(
-        lambda row: f"Exit {row['out_destination']} enter {row['in_destination']}", axis=1
-    )
-    balETH_proposed_rebalances_df = balETH_solver_df[balETH_solver_df["sodOnly"] == False].copy()
-    return balETH_solver_df, balETH_proposed_rebalances_df, destination_df, rebalance_event_df
+    # distribtuion of predicted gain, box and whisker
+    # distribution of move sizes
+    # maybe move solver earnings here as well
 
 
-def make_proposed_vs_actual_rebalance_scatter_plot(
-    balETH_solver_df: pd.DataFrame, rebalance_event_df: pd.DataFrame
+def render_streamlit_page(proposed_rebalances_fig, _make_proposed_vs_actual_rebalances_bar_plot):
+    st.header("Solver Diagnostics")
+
+    st.plotly_chart(proposed_rebalances_fig, use_container_width=True)
+    st.plotly_chart(_make_proposed_vs_actual_rebalances_bar_plot, use_container_width=True)
+
+
+def _make_proposed_vs_actual_rebalance_scatter_plot(
+    proposed_rebalances_df: pd.DataFrame, rebalance_event_df: pd.DataFrame
 ) -> go.Figure:
-    moves_df = pd.concat([balETH_solver_df["moveName"], rebalance_event_df["moveName"]], axis=1)
+    moves_df = pd.concat([proposed_rebalances_df["moveName"], rebalance_event_df["moveName"]], axis=1)
     moves_df.columns = ["proposed_rebalances", "actual_rebalances"]
+
+    sizes_df = pd.concat(
+        [proposed_rebalances_df["amountOutETH"].apply(lambda x: int(x) / 1e18), rebalance_event_df["outEthValue"]],
+        axis=1,
+    )
+    sizes_df.columns = ["proposed_amount", "actual_amount"]
+
     proposed_rebalances_fig = go.Scatter(
         x=moves_df.index,
         y=moves_df["proposed_rebalances"],
         mode="markers",
         name="Proposed Rebalances",
         marker=dict(color="blue", size=10),
+        text=sizes_df["proposed_amount"],
+        hovertemplate="Proposed ETH Amount Out: %{text}<extra></extra>",
     )
 
-    # Create the plot with actual rebalances with red 'x' markers
     actual_rebalances_fig = go.Scatter(
         x=moves_df.index,
         y=moves_df["actual_rebalances"],
         mode="markers",
         name="Actual Rebalances",
         marker=dict(symbol="x", color="red", size=12),
+        text=sizes_df["actual_amount"],
+        hovertemplate="Actual ETH Amount Out: %{text}<extra></extra>",
     )
 
-    # Combine both plots into one figure
     proposed_vs_actual_rebalance_scatter_plot_fig = go.Figure(data=[proposed_rebalances_fig, actual_rebalances_fig])
 
-    # Update layout
     proposed_vs_actual_rebalance_scatter_plot_fig.update_layout(
         yaxis_title="Rebalances",
         xaxis_title="Date",
-        title="balETH Proposed vs Actual Rebalances",
+        title="Proposed vs Actual Rebalances",
         height=600,
-        width=600 * 2,
+        width=600 * 3,
     )
     return proposed_vs_actual_rebalance_scatter_plot_fig
 
 
-def get_proposed_vs_actual_rebalances(
-    balETH_solver_df: pd.DataFrame, rebalance_event_df: pd.DataFrame, start_date: str = "8-01-2024"
-):
-    recent_solves = balETH_solver_df[balETH_solver_df.index > start_date]
-    num_proposed_rebalances = (~recent_solves["sodOnly"].astype(bool)).sum()
-    num_actual_rebalances = rebalance_event_df[rebalance_event_df.index > start_date].shape[0]
-    rebalance_counts = {"Acutal": num_actual_rebalances, "Proposed": int(num_proposed_rebalances)}
+def _make_proposed_vs_actual_rebalances_bar_plot(
+    proposed_rebalance_df: pd.DataFrame, rebalance_event_df: pd.DataFrame
+) -> go.Figure:
+    today = datetime.now()
+    seven_days_ago = today - timedelta(days=7)
+    thirty_days_ago = today - timedelta(days=30)
+    one_year_ago = today - timedelta(days=30)
 
-    actual_vs_proposed_rebalance_bar_fig = go.Figure(
-        data=[go.Bar(name="Rebalances", x=list(rebalance_counts.keys()), y=list(rebalance_counts.values()))]
+    records = []
+    for time_period, window in zip(
+        ["seven_days_ago", "thirty_days_ago", "one_year_ago"], [seven_days_ago, thirty_days_ago, one_year_ago]
+    ):
+        num_proposed_rebalances = sum(proposed_rebalance_df.index >= window)
+        num_actual_rebalances = sum(rebalance_event_df.index >= window)
+        records.append(
+            {
+                "time_period": time_period,
+                "num_actual_rebalances": num_actual_rebalances,
+                "num_proposed_rebalances": num_proposed_rebalances,
+            }
+        )
+
+    proposed_and_actual_rebalance_counts_df = pd.DataFrame.from_records(records)
+    bar_chart_count_proposed_vs_actual_rebalances_fig = go.Figure()
+
+    bar_chart_count_proposed_vs_actual_rebalances_fig.add_trace(
+        go.Bar(
+            x=proposed_and_actual_rebalance_counts_df["time_period"],
+            y=proposed_and_actual_rebalance_counts_df["num_proposed_rebalances"],
+            name="Proposed Rebalances",
+            marker_color="blue",
+        )
     )
 
-    # Update layout for better visualization
-    actual_vs_proposed_rebalance_bar_fig.update_layout(
-        title=f"Proposed vs Actual Rebalances after {start_date}",
-        xaxis_title="Acutal Vs Proposed",
+    bar_chart_count_proposed_vs_actual_rebalances_fig.add_trace(
+        go.Bar(
+            x=proposed_and_actual_rebalance_counts_df["time_period"],
+            y=proposed_and_actual_rebalance_counts_df["num_actual_rebalances"],
+            name="Actual Rebalances",
+            marker_color="green",
+        )
+    )
+
+    bar_chart_count_proposed_vs_actual_rebalances_fig.update_layout(
+        title="Proposed vs Actual Rebalances Over Time",
+        xaxis_title="Time Period",
         yaxis_title="Count",
-        bargap=0.2,
+        barmode="group",
+        bargap=0.15,
         bargroupgap=0.1,
-        height=600,
-        width=600,
+        template="plotly",
     )
-    return actual_vs_proposed_rebalance_bar_fig
-
-
-def block_to_date(block: int):
-    return pd.to_datetime(eth_client.eth.getBlock(block).timestamp, unit="s")
-
-
-def make_hours_since_last_nav_event_plot(nav_df: pd.DataFrame):
-    nav_df["date"] = nav_df["block"].apply(block_to_date)
-    time_diff_hours = nav_df["date"].diff().dt.total_seconds()[2:] / 3600
-    time_diff_hours.index = nav_df["date"][2:]
-    hours_since_last_nav_event_fig = px.scatter(
-        time_diff_hours,
-        labels={"value": "Hours", "index": "Date"},
-        title="Hours Since Last Nav Event",
-        height=600,
-        width=600 * 3,
-    )
-    hours_since_last_nav_event_fig.add_hline(
-        y=24, line_dash="dash", line_color="red", annotation_text="24-hour threshold", annotation_position="top right"
-    )
-    hours_since_last_nav_event_fig.update_yaxes(range=[20, 25])
-    return hours_since_last_nav_event_fig
-
-
-def fetch_solver_diagnostics_charts(autopool_name: str = "balETH") -> dict:
-    if autopool_name != "balETH":
-        raise ValueError("only works for balETH")
-    _ensure_all_rebalance_plans_are_loaded()
-
-    balETH_solver_df, balETH_proposed_rebalances_df, destination_df, rebalance_event_df = load_balETH_solver_df()
-    proposed_vs_actual_rebalance_scatter_plot_fig = make_proposed_vs_actual_rebalance_scatter_plot(
-        balETH_solver_df, rebalance_event_df
-    )
-    actual_vs_proposed_rebalance_bar_fig = get_proposed_vs_actual_rebalances(
-        balETH_solver_df, rebalance_event_df, start_date="8-01-2024"
-    )
-
-    vault_events, strategy_events = _get_all_events_df()
-    hours_since_last_nav_event_fig = make_hours_since_last_nav_event_plot(vault_events["Nav"])
-
-    return {
-        "proposed_vs_actual_rebalance_scatter_plot_fig": proposed_vs_actual_rebalance_scatter_plot_fig,
-        "actual_vs_proposed_rebalance_bar_fig": actual_vs_proposed_rebalance_bar_fig,
-        "hours_since_last_nav_event_fig": hours_since_last_nav_event_fig,  # might want to move
-    }
-
-
-if __name__ == "__main__":
-    a = fetch_solver_diagnostics_charts()
-    pass
+    return bar_chart_count_proposed_vs_actual_rebalances_fig

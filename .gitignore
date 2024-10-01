@@ -1,7 +1,4 @@
-fetched_data/*
-data/*
-*.pyc
-
 __pycache__/
+*.pyc
 .env
-mainnet_launch/solver_diagnostics/fetched_data
+mainnet_launch/rebalance_plans/
