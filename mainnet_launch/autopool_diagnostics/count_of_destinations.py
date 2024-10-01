@@ -16,18 +16,22 @@ start_block = 20759126  # Sep 15, 2024
 
 
 @st.cache_data(ttl=3600)
-def display_autopool_destination_counts(autopool: AutopoolConstants):
-    st.header("Autopool Destination Counts")
+def fetch_autopool_destination_counts_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use()
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
-    destination_count_figure = build_ownedShares_df(autopool, summary_stats_df)
+    destination_count_figure = _make_destination_count_figure(autopool, summary_stats_df)
+    return destination_count_figure
 
+
+def fetch_and_render_autopool_destination_counts_data(autopool: AutopoolConstants):
+    st.header(f"{autopool.name} Destination Counts")
+    destination_count_figure = fetch_autopool_destination_counts_data(autopool)
     st.plotly_chart(destination_count_figure, use_container_width=True)
 
 
-def build_ownedShares_df(autopool: AutopoolConstants, summary_stats_df: pd.DataFrame) -> go.Figure:
+def _make_destination_count_figure(autopool: AutopoolConstants, summary_stats_df: pd.DataFrame) -> go.Figure:
     ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else None).astype(
         float
     )
