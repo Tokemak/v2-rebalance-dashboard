@@ -7,27 +7,29 @@ from datetime import datetime, timedelta
 import streamlit as st
 
 from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
-from mainnet_launch.solver_diagnostics.fetch_rebalance_events import fetch_rebalance_events_df
+from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
+    fetch_and_clean_rebalance_between_destination_events,
+)
 from mainnet_launch.constants import AutopoolConstants
-from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
-
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use, add_timestamp_to_df_with_block_column
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
 
-def display_autopool_turnover(autopool: AutopoolConstants):
-    rebalance_summary = _fetch_high_level_rebalance_summary(autopool)
-    st.header("Autopool Turnover")
-    st.table(rebalance_summary)
+def fetch_and_render_turnover_data(autopool: AutopoolConstants):
+    turnover_summary = fetch_turnover_data(autopool)
+    st.header(f"{autopool.name} Turnover")
+    st.table(turnover_summary)
 
 
 @st.cache_data(ttl=3600)
-def _fetch_high_level_rebalance_summary(autopool: AutopoolConstants) -> pd.DataFrame:
+def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
     blocks = build_blocks_to_use()
+    clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
+    clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df)
     uwcr_df, allocation_df, compositeReturn_df, total_nav_df, summary_stats_df, points_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
 
-    clean_rebalance_df = fetch_rebalance_events_df(autopool)
     today = datetime.now()
     seven_days_ago = today - timedelta(days=7)
     thirty_days_ago = today - timedelta(days=30)
@@ -38,7 +40,7 @@ def _fetch_high_level_rebalance_summary(autopool: AutopoolConstants) -> pd.DataF
         ["seven_days_ago", "thirty_days_ago", "one_year_ago"], [seven_days_ago, thirty_days_ago, one_year_ago]
     ):
 
-        recent_df = clean_rebalance_df[clean_rebalance_df["date"] >= window]
+        recent_df = clean_rebalance_df[clean_rebalance_df.index >= window]
         rebalance_count = len(recent_df)
 
         avg_tvl = float(total_nav_df[total_nav_df.index >= window].mean())
@@ -60,5 +62,5 @@ def _fetch_high_level_rebalance_summary(autopool: AutopoolConstants) -> pd.DataF
         }
         records.append(record)
 
-    rebalance_summary = pd.DataFrame.from_records(records).round(2)
-    return rebalance_summary
+    turnover_summary = pd.DataFrame.from_records(records).round(2)
+    return turnover_summary

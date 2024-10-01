@@ -12,6 +12,7 @@ from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 start_block = 20759126  # Sep 15, 2024
 
 
+@st.cache_data(ttl=3600)
 def fetch_autopool_fee_data(autopool: AutopoolConstants):
     vault_contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
     streaming_fee_df = fetch_events(vault_contract.events.FeeCollected, start_block=start_block)

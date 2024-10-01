@@ -10,16 +10,17 @@ from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
 
-def display_destination_allocation_over_time(autopool: AutopoolConstants):
+st.cache_data(ttl=3600)
+
+
+def fetch_destination_allocation_over_time_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use()
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
 
     percent_allocation_df = 100 * allocation_df.div(total_nav_df, axis=0)
-
     nav = round(allocation_df.tail(1).sum(), 2)
-    st.header("Autopool Allocation By Destination")
 
     laster_percent_allocation = percent_allocation_df.tail(1)
     non_zero_allocation = laster_percent_allocation.loc[:, (laster_percent_allocation != 0).any(axis=0)]
@@ -37,9 +38,17 @@ def display_destination_allocation_over_time(autopool: AutopoolConstants):
     percent_allocation_fig = px.bar(percent_allocation_df, title=f"{autopool.name}: Percent of TVL by Destination")
     percent_allocation_fig.update_layout(yaxis_title="ETH")
 
+    return pie_allocation_fig, allocation_fig, percent_allocation_fig
+
+
+def fetch_and_render_destination_allocation_over_time_data(autopool: AutopoolConstants):
+    pie_allocation_fig, allocation_fig, percent_allocation_fig = fetch_destination_allocation_over_time_data(autopool)
+
+    st.header(f"{autopool.name} Allocation By Destination")
     st.plotly_chart(pie_allocation_fig, use_container_width=True)
     st.plotly_chart(allocation_fig, use_container_width=True)
     st.plotly_chart(percent_allocation_fig, use_container_width=True)
+    # low priority, add token exposure, from lens contract
 
     with st.expander("See explanation for Autopool Allocation Over Time"):
         st.write(
@@ -49,8 +58,3 @@ def display_destination_allocation_over_time(autopool: AutopoolConstants):
             - Percent of TVL by Destination: Shows the percent of capital deployed to each destination
             """
         )
-
-
-if __name__ == "__main__":
-    display_destination_allocation_over_time(ALL_AUTOPOOLS[0])
-    pass

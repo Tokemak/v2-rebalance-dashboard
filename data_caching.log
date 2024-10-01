@@ -1,16 +1,18 @@
-2024-10-01 11:47:26,234 - Started cache_data_loop()
-2024-10-01 11:47:30,210 - 3.97 seconds: Cached fetch_solver_diagnostics_data(autoETH) 
-2024-10-01 11:47:33,993 - 3.78 seconds: Cached fetch_key_metrics_data(autoETH) 
-2024-10-01 11:47:35,400 - 1.41 seconds: Cached fetch_autopool_diagnostics_data(autoETH) 
-2024-10-01 11:47:35,400 - 9.16 seconds: Cached autoETH
-2024-10-01 11:47:37,956 - 2.56 seconds: Cached fetch_solver_diagnostics_data(balETH) 
-2024-10-01 11:47:45,061 - 7.10 seconds: Cached fetch_key_metrics_data(balETH) 
-2024-10-01 11:47:46,585 - 1.52 seconds: Cached fetch_autopool_diagnostics_data(balETH) 
-2024-10-01 11:47:46,585 - 11.18 seconds: Cached balETH
-2024-10-01 11:47:49,354 - 2.77 seconds: Cached fetch_solver_diagnostics_data(autoLRT) 
-2024-10-01 11:47:55,715 - 6.36 seconds: Cached fetch_key_metrics_data(autoLRT) 
-2024-10-01 11:47:57,099 - 1.38 seconds: Cached fetch_autopool_diagnostics_data(autoLRT) 
-2024-10-01 11:47:57,100 - 10.51 seconds: Cached autoLRT
-2024-10-01 11:47:57,100 - 30.86 seconds: All Autopools Cached
-2024-10-01 11:47:57,100 - Finished Caching
-2024-10-01 11:47:57,100 - Start Sleeping
+2024-10-01 16:42:27,693 - Started cache_data_loop()
+2024-10-01 16:42:31,238 - 3.54 	 seconds: Cached fetch_solver_diagnostics_data(autoETH) 
+2024-10-01 16:42:36,897 - 5.66 	 seconds: Cached fetch_key_metrics_data(autoETH) 
+2024-10-01 16:42:45,272 - 8.37 	 seconds: Cached fetch_autopool_diagnostics_data(autoETH) 
+2024-10-01 16:42:45,517 - 0.15 	 seconds: Cached fetch_destination_allocation_over_time_data(autoETH) 
+2024-10-01 16:42:45,527 - 0.01 	 seconds: Cached fetch_weighted_crm_data(autoETH) 
+2024-10-01 16:43:07,242 - 21.72 	 seconds: Cached fetch_rebalance_events_data(autoETH) 
+2024-10-01 16:43:07,257 - 39.56 	 seconds: Cached autoETH
+2024-10-01 16:43:10,366 - 3.11 	 seconds: Cached fetch_solver_diagnostics_data(balETH) 
+2024-10-01 16:43:17,422 - 7.06 	 seconds: Cached fetch_key_metrics_data(balETH) 
+2024-10-01 16:43:24,404 - 6.98 	 seconds: Cached fetch_autopool_diagnostics_data(balETH) 
+2024-10-01 16:43:24,500 - 0.10 	 seconds: Cached fetch_destination_allocation_over_time_data(balETH) 
+2024-10-01 16:43:24,507 - 0.01 	 seconds: Cached fetch_weighted_crm_data(balETH) 
+2024-10-01 16:43:45,692 - 21.19 	 seconds: Cached fetch_rebalance_events_data(balETH) 
+2024-10-01 16:43:45,692 - 38.43 	 seconds: Cached balETH
+2024-10-01 16:43:48,707 - 3.01 	 seconds: Cached fetch_solver_diagnostics_data(autoLRT) 
+2024-10-01 16:43:56,848 - 8.14 	 seconds: Cached fetch_key_metrics_data(autoLRT) 
+2024-10-01 16:44:13,032 - Server disconnected [0]

@@ -12,22 +12,21 @@ from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 start_block = 20759126  # Sep 15, 2024
 
 
-def display_autopool_deposit_withdraw_stats(autopool: AutopoolConstants):
-    st.header("Autopool Deposit and Withdrawal Stats")
-
-    # Fetch deposit and withdrawal data
+@st.cache_data(ttl=3600)
+def fetch_autopool_deposit_and_withdraw_stats_data(autopool: AutopoolConstants):
     deposit_df, withdraw_df = _fetch_raw_deposit_and_withdrawal_dfs(autopool)
-
-    # Generate figures
     daily_change_fig = _make_deposit_and_withdraw_figure(autopool, deposit_df, withdraw_df)
     scatter_plot_fig = _make_scatter_plot_figure(autopool, deposit_df, withdraw_df)
+    return daily_change_fig, scatter_plot_fig
 
-    # Display figures
+
+def fetch_and_render_autopool_deposit_and_withdraw_stats_data(autopool: AutopoolConstants):
+    daily_change_fig, scatter_plot_fig = fetch_autopool_deposit_and_withdraw_stats_data(autopool)
+    st.header("Autopool Deposit and Withdrawal Stats")
     st.plotly_chart(daily_change_fig, use_container_width=True)
     st.plotly_chart(scatter_plot_fig, use_container_width=True)
 
 
-@st.cache_data(ttl=3600)  # Cache data for 1 hour
 def _fetch_raw_deposit_and_withdrawal_dfs(autopool: AutopoolConstants) -> tuple[pd.DataFrame, pd.DataFrame]:
     contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
 

@@ -15,10 +15,6 @@ import time
 import datetime
 import logging
 
-from mainnet_launch.autopool_diagnostics.fees import fetch_and_render_autopool_fee_data
-from mainnet_launch.autopool_diagnostics.deposits_and_withdrawals import display_autopool_deposit_withdraw_stats
-from mainnet_launch.autopool_diagnostics.count_of_destinations import display_autopool_destination_counts
-from mainnet_launch.autopool_diagnostics.turnover import display_autopool_turnover
 from mainnet_launch.autopool_diagnostics.autopool_diagnostics_tab import (
     fetch_and_render_autopool_diagnostics_data,
     fetch_autopool_diagnostics_data,
@@ -26,12 +22,18 @@ from mainnet_launch.autopool_diagnostics.autopool_diagnostics_tab import (
 
 
 from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import (
-    display_destination_allocation_over_time,
+    fetch_destination_allocation_over_time_data,
+    fetch_and_render_destination_allocation_over_time_data,
 )
-from mainnet_launch.destination_diagnostics.weighted_crm import display_weighted_crm
+from mainnet_launch.destination_diagnostics.weighted_crm import (
+    fetch_weighted_crm_data,
+    fetch_and_render_weighted_crm_data,
+)
 
-
-from mainnet_launch.solver_diagnostics.rebalance_events import display_rebalance_events
+from mainnet_launch.solver_diagnostics.rebalance_events import (
+    fetch_rebalance_events_data,
+    fetch_and_render_rebalance_events_data,
+)
 from mainnet_launch.solver_diagnostics.solver_diagnostics import (
     fetch_and_render_solver_diagnositics_data,
     fetch_solver_diagnostics_data,
@@ -49,7 +51,14 @@ from mainnet_launch.constants import (
 
 logging.basicConfig(filename="data_caching.log", filemode="w", format="%(asctime)s - %(message)s", level=logging.INFO)
 
-data_caching_functions = [fetch_solver_diagnostics_data, fetch_key_metrics_data, fetch_autopool_diagnostics_data]
+data_caching_functions = [
+    fetch_solver_diagnostics_data,
+    fetch_key_metrics_data,
+    fetch_autopool_diagnostics_data,
+    fetch_destination_allocation_over_time_data,
+    fetch_weighted_crm_data,
+    fetch_rebalance_events_data,
+]
 
 
 def cache_data_loop():
@@ -63,13 +72,13 @@ def cache_data_loop():
                     function_start_time = time.time()
                     func(autopool)
                     time_taken = time.time() - function_start_time
-                    logging.info(f"{time_taken:.2f} seconds: Cached {func.__name__}({autopool.name}) ")
+                    logging.info(f"{time_taken:.2f} \t seconds: Cached {func.__name__}({autopool.name}) ")
 
                 autopool_time_taken = time.time() - autopool_start_time
-                logging.info(f"{autopool_time_taken:.2f} seconds: Cached {autopool.name}")
+                logging.info(f"{autopool_time_taken:.2f} \t seconds: Cached {autopool.name}")
 
             all_autopool_time_taken = time.time() - all_caching_started
-            logging.info(f"{all_autopool_time_taken:.2f} seconds: All Autopools Cached")
+            logging.info(f"{all_autopool_time_taken:.2f} \t seconds: All Autopools Cached")
             logging.info(f"Finished Caching")
             logging.info(f"Start Sleeping")
             time.sleep(6 * 3600)  # Sleep for 6 hours
@@ -82,26 +91,16 @@ def cache_data_loop():
         raise
 
 
-def display_autopool_diagnostics(autopool: AutopoolConstants):
-    fetch_and_render_autopool_fee_data(autopool)
-    display_autopool_deposit_withdraw_stats(autopool)
-    display_autopool_destination_counts(autopool)
-    display_autopool_turnover(autopool)
-
-
-def display_autopool_exposure(autopool: AutopoolConstants):
-    display_destination_allocation_over_time(autopool)
-
-    st.text(
-        """ 
-
-        - Token Exposure pie chart
-        
-        """
-    )
-
-
 def display_destination_diagnostics(autopool: AutopoolConstants):
+    # a chart of
+
+    # composite return out
+
+    # composite retun in
+
+    # price, fee, incentive points points
+
+    # for all the destinations
     st.text(
         """
     - unweighted price return (discounts/premiums) over time
@@ -112,26 +111,23 @@ def display_destination_diagnostics(autopool: AutopoolConstants):
     - Growth of a dollar per destination, (don’t auto compound rewards tokens, just let the rewards pile up and price at eth value)
     - Time between Incentive APR snapshots
     - LP safe price
-    - LP spot price
-
+    - LP spot price # lens contract?
     """
     )
 
 
 CONTENT_FUNCTIONS = {
     "Key Metrics": fetch_and_render_key_metrics_data,
-    "Autopool Diagnostics": display_autopool_diagnostics,
-    "Autopool Exposure": display_autopool_exposure,
-    "Autopool APRs": display_weighted_crm,
+    "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
+    "Autopool Exposure": fetch_and_render_destination_allocation_over_time_data,
+    "Autopool APRs": fetch_and_render_weighted_crm_data,
     "Destination Diagnostics": display_destination_diagnostics,
-    "Rebalance Events": display_rebalance_events,
+    "Rebalance Events": fetch_and_render_rebalance_events_data,
     "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
-    "second tab": fetch_and_render_autopool_diagnostics_data,
 }
 
 
 def main():
-
     st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
     st.title("Autopool Diagnostics Dashboard")
 
