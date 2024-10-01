@@ -25,6 +25,43 @@ from botocore.client import Config
 from mainnet_launch.constants import SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS
 
 
+def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
+    proposed_vs_actual_rebalance_scatter_plot_fig, bar_chart_count_proposed_vs_actual_rebalances_fig = (
+        fetch_solver_diagnostics_data(autopool)
+    )
+    _render_solver_diagnostics(
+        autopool, proposed_vs_actual_rebalance_scatter_plot_fig, bar_chart_count_proposed_vs_actual_rebalances_fig
+    )
+
+
+@st.cache_data(ttl=3600)
+def fetch_solver_diagnostics_data(autopool: AutopoolConstants):
+    ensure_all_rebalance_plans_are_loaded()
+    solver_df = _load_solver_df(autopool)
+    proposed_rebalances_df = solver_df[solver_df["sodOnly"] == False].copy()
+    proposed_rebalances_df.set_index("date", inplace=True)
+
+    rebalance_event_df = fetch_and_clean_rebalance_between_destination_events(autopool)
+    proposed_vs_actual_rebalance_scatter_plot_fig = _make_proposed_vs_actual_rebalance_scatter_plot(
+        proposed_rebalances_df, rebalance_event_df
+    )
+    bar_chart_count_proposed_vs_actual_rebalances_fig = _make_proposed_vs_actual_rebalances_bar_plot(
+        proposed_rebalances_df, rebalance_event_df
+    )
+
+    return proposed_vs_actual_rebalance_scatter_plot_fig, bar_chart_count_proposed_vs_actual_rebalances_fig
+
+
+def _render_solver_diagnostics(
+    autopool: AutopoolConstants,
+    proposed_rebalances_fig: go.Figure,
+    bar_chart_count_proposed_vs_actual_rebalances_fig: go.Figure,
+):
+    st.header(f"{autopool.name} Solver Diagnostics")
+    st.plotly_chart(proposed_rebalances_fig, use_container_width=True)
+    st.plotly_chart(bar_chart_count_proposed_vs_actual_rebalances_fig, use_container_width=True)
+
+
 def ensure_all_rebalance_plans_are_loaded():
     for autopool in ALL_AUTOPOOLS:
         s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
@@ -38,12 +75,6 @@ def ensure_all_rebalance_plans_are_loaded():
             s3_client.download_file(
                 autopool.solver_rebalance_plans_bucket, json_key, SOLVER_REBALANCE_PLANS_DIR / json_key
             )
-
-
-def cache_data_needed_for_solver_diagnostics():
-    ensure_all_rebalance_plans_are_loaded()
-    for autopool in ALL_AUTOPOOLS:
-        _fetch_solver_diagonistics_data(autopool)
 
 
 def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
@@ -61,31 +92,6 @@ def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
     solver_df = pd.DataFrame.from_records(all_data)
     solver_df.sort_values("date", ascending=True, inplace=True)
     return solver_df
-
-
-def _fetch_solver_diagonistics_data(autopool: AutopoolConstants):
-    ensure_all_rebalance_plans_are_loaded()
-    solver_df = _load_solver_df(autopool)
-    proposed_rebalances_df = solver_df[solver_df["sodOnly"] == False].copy()
-    proposed_rebalances_df.set_index("date", inplace=True)
-
-    rebalance_event_df = fetch_and_clean_rebalance_between_destination_events(autopool)
-    proposed_vs_actual_rebalance_scatter_plot_fig = _make_proposed_vs_actual_rebalance_scatter_plot(
-        proposed_rebalances_df, rebalance_event_df
-    )
-    bar_chart_count_proposed_vs_actual_rebalances_fig = _make_proposed_vs_actual_rebalances_bar_plot(
-        proposed_rebalances_df, rebalance_event_df
-    )
-    # distribtuion of predicted gain, box and whisker
-    # distribution of move sizes
-    # maybe move solver earnings here as well
-
-
-def render_streamlit_page(proposed_rebalances_fig, _make_proposed_vs_actual_rebalances_bar_plot):
-    st.header("Solver Diagnostics")
-
-    st.plotly_chart(proposed_rebalances_fig, use_container_width=True)
-    st.plotly_chart(_make_proposed_vs_actual_rebalances_bar_plot, use_container_width=True)
 
 
 def _make_proposed_vs_actual_rebalance_scatter_plot(

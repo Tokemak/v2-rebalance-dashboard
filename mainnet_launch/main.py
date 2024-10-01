@@ -13,7 +13,7 @@ st.set_page_config(
 import threading
 import time
 import datetime
-
+import logging
 
 from mainnet_launch.autopool_diagnostics.fees import display_autopool_fees
 from mainnet_launch.autopool_diagnostics.deposits_and_withdrawals import display_autopool_deposit_withdraw_stats
@@ -26,8 +26,14 @@ from mainnet_launch.destination_diagnostics.weighted_crm import display_weighted
 from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import (
     display_destination_allocation_over_time,
 )
-from mainnet_launch.solver_diagnostics.rebalance_events import display_rebalance_events
 
+from mainnet_launch.solver_diagnostics.rebalance_events import display_rebalance_events
+from mainnet_launch.solver_diagnostics.solver_diagnostics import (
+    fetch_and_render_solver_diagnositics_data,
+    fetch_solver_diagnostics_data,
+)
+
+cache_thread_started = False
 
 from mainnet_launch.constants import (
     ALL_AUTOPOOLS,
@@ -35,6 +41,41 @@ from mainnet_launch.constants import (
     STREAMLIT_MARKDOWN_HTML,
     AutopoolConstants,
 )
+
+
+logging.basicConfig(filename="data_caching.log", filemode="w", format="%(asctime)s - %(message)s", level=logging.INFO)
+
+data_caching_functions = [fetch_solver_diagnostics_data]
+
+
+def cache_data_loop():
+    try:
+        logging.info(f"Started cache_data_loop()")
+        while True:
+            all_caching_started = time.time()
+            for autopool in ALL_AUTOPOOLS:
+                autopool_start_time = time.time()
+                for func in data_caching_functions:
+                    function_start_time = time.time()
+                    func(autopool)
+                    time_taken = time.time() - function_start_time
+                    logging.info(f"{time_taken:.2f} seconds: Cached {func.__name__}({autopool.name}) ")
+
+                autopool_time_taken = time.time() - autopool_start_time
+                logging.info(f"{autopool_time_taken:.2f} seconds: Cached {autopool.name}")
+
+            all_autopool_time_taken = time.time() - all_caching_started
+            logging.info(f"{all_autopool_time_taken:.2f} seconds: All Autopools Cached")
+            logging.info(f"Finished Caching")
+            logging.info(f"Start Sleeping")
+            time.sleep(6 * 3600)  # Sleep for 6 hours
+            logging.info(f"Finished Sleeping")
+
+    except Exception as e:
+        logging.error(f"Exception occurred: {str(e)}")
+        logging.error("Stack Trace:", exc_info=True)
+        logging.info(f"Cache data loop has ended at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        raise
 
 
 def display_autopool_diagnostics(autopool: AutopoolConstants):
@@ -53,24 +94,6 @@ def display_autopool_exposure(autopool: AutopoolConstants):
         - Token Exposure pie chart
         
         """
-    )
-
-
-def display_solver_diagnostics(autopool: AutopoolConstants):
-    st.text(
-        """
-    - Up time
-    - rebalance plans generated over 7 days, over 30 days, YTD
-    - rebalance plans successfully executed (% execution)
-    - Solver Gas Costs
-    - Solver Earnings
-    - Aggregator Win Distribution (% 0x, prop, lifi wins)
-    - Swap costs distribution (absolute & normalized by ETH)
-    - Predicted gain distribution (absolute & normalized by ETH)
-    - Rebalance size distribution
-    - Rank of the destination chosen for “add” in the list of destinations sorted by in-CRM
-    - Size of the candidate set that qualified for “add”
-    """
     )
 
 
@@ -98,6 +121,7 @@ CONTENT_FUNCTIONS = {
     "Autopool APRs": display_weighted_crm,
     "Destination Diagnostics": display_destination_diagnostics,
     "Rebalance Events": display_rebalance_events,
+    "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
 }
 
 
@@ -114,6 +138,16 @@ def main():
     page = st.sidebar.radio("Go to", CONTENT_FUNCTIONS.keys())
 
     CONTENT_FUNCTIONS[page](autopool)
+
+
+if "cache_thread_started" not in st.session_state:
+    st.session_state.cache_thread_started = False
+
+# Start the caching thread only once
+if not st.session_state.cache_thread_started:
+    fetch_thread = threading.Thread(target=cache_data_loop, daemon=True)
+    fetch_thread.start()
+    st.session_state.cache_thread_started = True  # Set
 
 
 if __name__ == "__main__":
