@@ -15,16 +15,21 @@ import time
 import datetime
 import logging
 
-from mainnet_launch.autopool_diagnostics.fees import display_autopool_fees
+from mainnet_launch.autopool_diagnostics.fees import fetch_and_render_autopool_fee_data
 from mainnet_launch.autopool_diagnostics.deposits_and_withdrawals import display_autopool_deposit_withdraw_stats
 from mainnet_launch.autopool_diagnostics.count_of_destinations import display_autopool_destination_counts
 from mainnet_launch.autopool_diagnostics.turnover import display_autopool_turnover
+from mainnet_launch.autopool_diagnostics.autopool_diagnostics_tab import (
+    fetch_and_render_autopool_diagnostics_data,
+    fetch_autopool_diagnostics_data,
+)
 
 
-from mainnet_launch.destination_diagnostics.weighted_crm import display_weighted_crm
 from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import (
     display_destination_allocation_over_time,
 )
+from mainnet_launch.destination_diagnostics.weighted_crm import display_weighted_crm
+
 
 from mainnet_launch.solver_diagnostics.rebalance_events import display_rebalance_events
 from mainnet_launch.solver_diagnostics.solver_diagnostics import (
@@ -44,7 +49,7 @@ from mainnet_launch.constants import (
 
 logging.basicConfig(filename="data_caching.log", filemode="w", format="%(asctime)s - %(message)s", level=logging.INFO)
 
-data_caching_functions = [fetch_solver_diagnostics_data, fetch_key_metrics_data]
+data_caching_functions = [fetch_solver_diagnostics_data, fetch_key_metrics_data, fetch_autopool_diagnostics_data]
 
 
 def cache_data_loop():
@@ -78,7 +83,7 @@ def cache_data_loop():
 
 
 def display_autopool_diagnostics(autopool: AutopoolConstants):
-    display_autopool_fees(autopool)
+    fetch_and_render_autopool_fee_data(autopool)
     display_autopool_deposit_withdraw_stats(autopool)
     display_autopool_destination_counts(autopool)
     display_autopool_turnover(autopool)
@@ -121,6 +126,7 @@ CONTENT_FUNCTIONS = {
     "Destination Diagnostics": display_destination_diagnostics,
     "Rebalance Events": display_rebalance_events,
     "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
+    "second tab": fetch_and_render_autopool_diagnostics_data,
 }
 
 
