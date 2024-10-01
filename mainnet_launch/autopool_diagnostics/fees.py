@@ -12,13 +12,27 @@ from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 start_block = 20759126  # Sep 15, 2024
 
 
-def display_autopool_fees(autopool: AutopoolConstants):
-    st.header("Autopool Fees")
+def fetch_autopool_fee_data(autopool: AutopoolConstants):
+    vault_contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+    streaming_fee_df = fetch_events(vault_contract.events.FeeCollected, start_block=start_block)
+    periodic_fee_df = fetch_events(vault_contract.events.PeriodicFeeCollected, start_block=start_block)
 
-    # Fetch fee data
-    fee_df = _fetch_autopool_fee_df(autopool)
+    streaming_fee_df = add_timestamp_to_df_with_block_column(streaming_fee_df)
+    periodic_fee_df = add_timestamp_to_df_with_block_column(periodic_fee_df)
 
-    # Add metrics at the top
+    periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
+
+    if len(streaming_fee_df) > 0:
+        raise ValueError("There are streaming fees now, need to double check _fetch_autopool_fee_df function")
+
+    fee_df = periodic_fee_df[["normalized_fees"]].copy()
+    return fee_df
+
+
+def fetch_and_render_autopool_fee_data(autopool: AutopoolConstants):
+    fee_df = fetch_autopool_fee_data(autopool)
+    st.header(f"{autopool.name} Autopool Fees")
+
     _display_fee_metrics(fee_df)
 
     # Generate fee figures
@@ -31,28 +45,23 @@ def display_autopool_fees(autopool: AutopoolConstants):
 
 def _display_fee_metrics(fee_df: pd.DataFrame):
     """Calculate and display fee metrics at the top of the dashboard."""
-
-    # Today's date and filter windows
+    # I don't really like this pattern, redo it
     today = datetime.now()
     seven_days_ago = today - timedelta(days=7)
     thirty_days_ago = today - timedelta(days=30)
     year_start = datetime(today.year, 1, 1)
 
-    # Fees over the last 7 days
     fees_last_7_days = fee_df[fee_df.index >= seven_days_ago]["normalized_fees"].sum()
 
-    # Fees over the last 30 days (if enough data, otherwise show None)
     if len(fee_df[fee_df.index >= thirty_days_ago]) > 0:
         fees_last_30_days = fee_df[fee_df.index >= thirty_days_ago]["normalized_fees"].sum()
     else:
         fees_last_30_days = "None"
 
-    # Fees year-to-date
     fees_year_to_date = fee_df[fee_df.index >= year_start]["normalized_fees"].sum()
 
     col1, col2, col3 = st.columns(3)
 
-    # Display the metrics in the respective columns
     with col1:
         st.metric(label="Fees Earned Over Last 7 Days (ETH)", value=f"{fees_last_7_days:.2f}")
 
@@ -64,28 +73,6 @@ def _display_fee_metrics(fee_df: pd.DataFrame):
 
     with col3:
         st.metric(label="Fees Earned Year to Date (ETH)", value=f"{fees_year_to_date:.2f}")
-
-
-@st.cache_data(ttl=3600)  # Cache data for 1 hour
-def _fetch_autopool_fee_df(autopool: AutopoolConstants) -> pd.DataFrame:
-    contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    streaming_fee_df = fetch_events(contract.events.FeeCollected, start_block=start_block)
-    periodic_fee_df = fetch_events(contract.events.PeriodicFeeCollected, start_block=start_block)
-
-    # Add timestamps to the dataframes
-    streaming_fee_df = add_timestamp_to_df_with_block_column(streaming_fee_df)
-    periodic_fee_df = add_timestamp_to_df_with_block_column(periodic_fee_df)
-
-    # Normalize the fee amounts to ETH
-    periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
-
-    # Raise an error if streaming fees are detected (as per your original note)
-    if len(streaming_fee_df) > 0:
-        raise ValueError("There are streaming fees now, need to double check _fetch_autopool_fee_df function")
-
-    # Return the periodic fee dataframe with normalized fees
-    fee_df = periodic_fee_df[["normalized_fees"]].copy()
-    return fee_df
 
 
 def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
@@ -131,9 +118,4 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
         height=500,
     )
 
-    # Return all three figures
     return daily_fee_fig, cumulative_fee_fig, weekly_fee_fig
-
-
-if __name__ == "__main__":
-    _fetch_autopool_fee_df(ALL_AUTOPOOLS[0])
