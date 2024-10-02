@@ -5,12 +5,11 @@ import streamlit as st
 
 
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS
-from mainnet_launch.destination_diagnostics.weighted_crm import fetch_weighted_crm_data
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
 
-st.cache_data(ttl=3600)
+st.cache_data(ttl=CACHE_TIME)
 
 
 def fetch_destination_allocation_over_time_data(autopool: AutopoolConstants):
@@ -20,16 +19,12 @@ def fetch_destination_allocation_over_time_data(autopool: AutopoolConstants):
     )
 
     percent_allocation_df = 100 * allocation_df.div(total_nav_df, axis=0)
-    nav = round(allocation_df.tail(1).sum(), 2)
-
     laster_percent_allocation = percent_allocation_df.tail(1)
-    non_zero_allocation = laster_percent_allocation.loc[:, (laster_percent_allocation != 0).any(axis=0)]
 
-    # Create pie chart using plotly with non-zero values
     pie_allocation_fig = px.pie(
-        values=non_zero_allocation.iloc[0],
-        names=non_zero_allocation.columns,
-        title=f"{autopool.name} % allocation at {non_zero_allocation.index[0]} of {nav} total ETH",
+        values=laster_percent_allocation.iloc[0],
+        names=laster_percent_allocation.columns,
+        title=f"{autopool.name}% Allocation by Destination",
     )
 
     allocation_fig = px.bar(allocation_df, title=f"{autopool.name}: Total ETH Value of TVL by Destination")
