@@ -6,11 +6,11 @@ from datetime import datetime, timedelta
 
 import streamlit as st
 
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_and_clean_rebalance_between_destination_events,
 )
-from mainnet_launch.constants import AutopoolConstants
+from mainnet_launch.constants import CACHE_TIME, AutopoolConstants
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use, add_timestamp_to_df_with_block_column
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
@@ -21,7 +21,7 @@ def fetch_and_render_turnover_data(autopool: AutopoolConstants):
     st.table(turnover_summary)
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
     blocks = build_blocks_to_use()
     clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)

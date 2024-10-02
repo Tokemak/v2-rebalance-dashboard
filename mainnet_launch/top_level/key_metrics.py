@@ -3,14 +3,14 @@ import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st
 
-from mainnet_launch.constants import AutopoolConstants
+from mainnet_launch.constants import CACHE_TIME, AutopoolConstants
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 from mainnet_launch.autopool_diagnostics.fetch_nav_per_share import fetch_nav_per_share
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_key_metrics_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use()
     nav_per_share_df = fetch_nav_per_share(blocks, autopool)

@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.destination_diagnostics.weighted_crm import fetch_weighted_crm_data
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats

@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import plotly.express as px
-from mainnet_launch.constants import eth_client, AutopoolConstants
+from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
@@ -12,7 +12,7 @@ from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 start_block = 20759126  # Sep 15, 2024
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_deposit_and_withdraw_stats_data(autopool: AutopoolConstants):
     deposit_df, withdraw_df = _fetch_raw_deposit_and_withdrawal_dfs(autopool)
     daily_change_fig = _make_deposit_and_withdraw_figure(autopool, deposit_df, withdraw_df)

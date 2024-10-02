@@ -19,6 +19,8 @@ AUTO_LRT_BUCKET = os.environ["AUTO_LRT_BUCKET"]
 ALCHEMY_URL = os.environ["ALCHEMY_URL"]
 
 
+CACHE_TIME = 3600 * 6  # siz hours
+
 ROOT_DIR = Path(__file__).parent
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "rebalance_plans"
 

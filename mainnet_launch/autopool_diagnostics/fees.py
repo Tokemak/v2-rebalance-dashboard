@@ -3,7 +3,7 @@ import streamlit as st
 import plotly.express as px
 from datetime import datetime, timedelta
 
-from mainnet_launch.constants import eth_client, AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
@@ -12,7 +12,7 @@ from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 start_block = 20759126  # Sep 15, 2024
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_fee_data(autopool: AutopoolConstants):
     vault_contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
     streaming_fee_df = fetch_events(vault_contract.events.FeeCollected, start_block=start_block)
