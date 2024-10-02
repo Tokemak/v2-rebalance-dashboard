@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import plotly.express as px
-from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants
+from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, AUTO_ETH
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
@@ -27,6 +27,9 @@ def fetch_and_render_autopool_deposit_and_withdraw_stats_data(autopool: Autopool
     st.plotly_chart(scatter_plot_fig, use_container_width=True)
 
 
+
+
+
 def _fetch_raw_deposit_and_withdrawal_dfs(autopool: AutopoolConstants) -> tuple[pd.DataFrame, pd.DataFrame]:
     contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
 
@@ -40,6 +43,8 @@ def _fetch_raw_deposit_and_withdrawal_dfs(autopool: AutopoolConstants) -> tuple[
     withdraw_df["normalized_assets"] = withdraw_df["assets"].apply(lambda x: int(x) / 1e18)
 
     return deposit_df, withdraw_df
+
+
 
 
 def _make_deposit_and_withdraw_figure(
