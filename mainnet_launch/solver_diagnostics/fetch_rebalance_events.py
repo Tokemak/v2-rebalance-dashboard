@@ -4,7 +4,14 @@ import pandas as pd
 import streamlit as st
 from multicall import Call
 
-from mainnet_launch.constants import AutopoolConstants, time_decorator, ALL_AUTOPOOLS, eth_client, ROOT_PRICE_ORACLE
+from mainnet_launch.constants import (
+    CACHE_TIME,
+    AutopoolConstants,
+    time_decorator,
+    ALL_AUTOPOOLS,
+    eth_client,
+    ROOT_PRICE_ORACLE,
+)
 from mainnet_launch.abis.abis import AUTOPOOL_ETH_STRATEGY_ABI, ROOT_PRICE_ORACLE_ABI
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import (
@@ -20,7 +27,7 @@ from mainnet_launch.destinations import attempt_destination_address_to_symbol
 
 
 # 25 seconds
-@st.cache_data(ttl=3600)  # 1 hours
+@st.cache_data(ttl=CACHE_TIME)  # 1 hours
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
 
@@ -166,7 +173,7 @@ def _build_value_held_by_solver(balance_of_calls, price_calls, blocks):
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import ALL_AUTOPOOLS, BAL_ETH
+    from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, BAL_ETH
 
     clean_rebalance_df = fetch_rebalance_events_df(BAL_ETH)
 

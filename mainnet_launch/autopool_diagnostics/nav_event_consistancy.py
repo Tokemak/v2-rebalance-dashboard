@@ -8,7 +8,14 @@ import plotly.express as px
 from datetime import datetime, timedelta
 import streamlit as st
 
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, eth_client, SOLVER_REBALANCE_PLANS_DIR, AUTO_ETH
+from mainnet_launch.constants import (
+    CACHE_TIME,
+    AutopoolConstants,
+    ALL_AUTOPOOLS,
+    eth_client,
+    SOLVER_REBALANCE_PLANS_DIR,
+    AUTO_ETH,
+)
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI, AUTOPOOL_ETH_STRATEGY_ABI
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
@@ -22,10 +29,10 @@ import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
 
-from mainnet_launch.constants import SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS
+from mainnet_launch.constants import CACHE_TIME, SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=CACHE_TIME)
 def _fetch_nav_event_figure(autopool: AutopoolConstants):
     vault_contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
     nav_df = fetch_events(vault_contract.events.Nav)

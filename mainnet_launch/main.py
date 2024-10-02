@@ -42,6 +42,7 @@ from mainnet_launch.solver_diagnostics.solver_diagnostics import (
 from mainnet_launch.top_level.key_metrics import fetch_key_metrics_data, fetch_and_render_key_metrics_data
 
 from mainnet_launch.constants import (
+    CACHE_TIME,
     ALL_AUTOPOOLS,
     AUTOPOOL_NAME_TO_CONSTANTS,
     STREAMLIT_MARKDOWN_HTML,
@@ -81,7 +82,7 @@ def cache_data_loop():
             logging.info(f"{all_autopool_time_taken:.2f} \t seconds: All Autopools Cached")
             logging.info(f"Finished Caching")
             logging.info(f"Start Sleeping")
-            time.sleep(6 * 3600)  # Sleep for 6 hours
+            time.sleep(CACHE_TIME + (60 * 5))  # cache everything at least once every 6:05 hours
             logging.info(f"Finished Sleeping")
 
     except Exception as e:

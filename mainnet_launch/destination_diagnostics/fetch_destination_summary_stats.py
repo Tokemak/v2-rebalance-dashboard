@@ -13,13 +13,13 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
 )
 
-from mainnet_launch.constants import AutopoolConstants, eth_client, ALL_AUTOPOOLS
+from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, eth_client, ALL_AUTOPOOLS
 from mainnet_launch.destinations import attempt_destination_address_to_symbol, get_destination_details
 
 POINTS_HOOK = "0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3"
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_destination_summary_stats(
     blocks: list[int], autopool: AutopoolConstants
 ) -> list[pd.DataFrame, pd.DataFrame, pd.DataFrame]:

@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 
-from mainnet_launch.constants import AutopoolConstants
+from mainnet_launch.constants import CACHE_TIME, AutopoolConstants
 from mainnet_launch.destinations import attempt_destination_address_to_symbol
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
@@ -29,7 +29,7 @@ def fetch_and_render_weighted_crm_data(autopool: AutopoolConstants):
         )
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_weighted_crm_data(autopool: AutopoolConstants) -> dict[str, pd.DataFrame]:
     blocks = build_blocks_to_use()
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df = (

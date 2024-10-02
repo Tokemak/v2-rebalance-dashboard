@@ -6,7 +6,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
 )
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants
+from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, AutopoolConstants
 
 
 def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
@@ -17,7 +17,7 @@ def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
     )
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=CACHE_TIME)
 def _fetch_all_all_pool_nav_per_share(blocks):
     calls = [nav_per_share_call(autopool.name, autopool.autopool_eth_addr) for autopool in ALL_AUTOPOOLS]
     nav_per_share_df = get_raw_state_by_blocks(calls, blocks)

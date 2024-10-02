@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import plotly.express as px
-from mainnet_launch.constants import eth_client, AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import add_timestamp_to_df_with_block_column, build_blocks_to_use
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
@@ -15,7 +15,7 @@ from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats impo
 start_block = 20759126  # Sep 15, 2024
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_destination_counts_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use()
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df = (

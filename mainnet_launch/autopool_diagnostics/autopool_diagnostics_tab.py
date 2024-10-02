@@ -11,7 +11,7 @@ from mainnet_launch.autopool_diagnostics.count_of_destinations import (
     fetch_and_render_autopool_destination_counts_data,
 )
 from mainnet_launch.autopool_diagnostics.turnover import fetch_turnover_data, fetch_and_render_turnover_data
-from mainnet_launch.constants import AutopoolConstants
+from mainnet_launch.constants import CACHE_TIME, AutopoolConstants
 
 
 def fetch_autopool_diagnostics_data(autopool: AutopoolConstants):
