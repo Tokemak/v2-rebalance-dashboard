@@ -14,9 +14,9 @@ def fetch_and_render_weighted_crm_data(autopool: AutopoolConstants):
     key_metric_data = fetch_weighted_crm_data(autopool)
     # must make the figures on render because the destination APR components has a drop down
     composite_return_fig = _make_all_destination_composite_return_df(autopool, key_metric_data)
-    apr_components_fig = _make_apr_components_fig(key_metric_data)
     st.header("Destinations APR")
     st.plotly_chart(composite_return_fig, use_container_width=True)
+    apr_components_fig = _make_apr_components_fig(key_metric_data)
     st.plotly_chart(apr_components_fig, use_container_width=True)
 
     with st.expander("See explanation"):
