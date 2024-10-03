@@ -10,7 +10,7 @@ from mainnet_launch.solver_diagnostics.fetch_rebalance_events import fetch_rebal
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_rebalance_events_data(autopool: AutopoolConstants):
     clean_rebalance_df = fetch_rebalance_events_df(autopool)
-    rebalance_figures = _make_plots(clean_rebalance_df)
+    rebalance_figures = _make_plots(clean_rebalance_df, False)
     return rebalance_figures
 
 
@@ -22,16 +22,26 @@ def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
     for figure in rebalance_figures:
         st.plotly_chart(figure, use_container_width=True)
 
+def fetch_and_render_solver_profit_data(autopool: AutopoolConstants):
+    clean_rebalance_df = fetch_rebalance_events_df(autopool)
+    solver_figures = _make_plots(clean_rebalance_df, True)
 
-def _make_plots(clean_rebalance_df: pd.DataFrame):
+    # Render each figure individually
+    for figure in solver_figures:
+        st.plotly_chart(figure, use_container_width=True)
+
+
+def _make_plots(clean_rebalance_df: pd.DataFrame, solverOnly: bool = False):
     figures = []
 
-    figures.append(_add_composite_return_figures(clean_rebalance_df))
-    figures.append(_add_in_out_eth_value(clean_rebalance_df))
-    figures.append(_add_predicted_gain_and_swap_cost(clean_rebalance_df))
-    figures.append(_add_swap_cost_percent(clean_rebalance_df))
-    figures.append(_add_break_even_days_and_offset_period(clean_rebalance_df))
-    figures.append(_add_solver_profit(clean_rebalance_df))
+    if solverOnly:
+        figures.append(_add_solver_profit(clean_rebalance_df))
+    else:
+        figures.append(_add_composite_return_figures(clean_rebalance_df))
+        figures.append(_add_in_out_eth_value(clean_rebalance_df))
+        figures.append(_add_predicted_gain_and_swap_cost(clean_rebalance_df))
+        figures.append(_add_swap_cost_percent(clean_rebalance_df))
+        figures.append(_add_break_even_days_and_offset_period(clean_rebalance_df))
 
     return figures
 
