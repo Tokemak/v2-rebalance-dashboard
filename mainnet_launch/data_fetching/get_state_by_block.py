@@ -6,7 +6,7 @@ import nest_asyncio
 import asyncio
 
 
-from mainnet_launch.constants import eth_client
+from mainnet_launch.constants import CACHE_TIME, eth_client
 
 nest_asyncio.apply()
 
@@ -128,6 +128,21 @@ async def async_safe_get_raw_state_by_block(
     return df
 
 
+def add_timestamp_to_df_with_block_column(df: pd.DataFrame) -> pd.DataFrame:
+    """Add the timestamp to the df at the index if boock is in the columns"""
+    if "block" not in df.columns:
+        raise ValueError(f"block must be in {df.columns=}")
+    if len(df) == 0:
+        return df
+
+    blocks = list(set(df["block"]))
+    # calling with empty calls gets the block:timestamp
+    block_and_timestamp_df = get_raw_state_by_blocks([], blocks, include_block_number=True).reset_index()
+    df = pd.merge(df, block_and_timestamp_df, on="block", how="left")
+    df.set_index("timestamp", inplace=True)
+    return df
+
+
 def safe_normalize_with_bool_success(success: int, value: int):
     if success:
         return int(value) / 1e18
@@ -156,6 +171,7 @@ def identity_function(value):
     return value
 
 
+@st.cache_data(ttl=CACHE_TIME)
 def build_blocks_to_use(use_mainnet: bool = True) -> list[int]:
     """Returns daily blocks since deployement"""
     current_block = eth_client.eth.block_number

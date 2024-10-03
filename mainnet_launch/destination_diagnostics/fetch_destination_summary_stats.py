@@ -6,17 +6,41 @@ import plotly.express as px
 import numpy as np
 
 
-from mainnet_launch.get_state_by_block import (
+from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     get_state_by_one_block,
     identity_with_bool_success,
     safe_normalize_with_bool_success,
 )
 
-from mainnet_launch.constants import AutopoolConstants, eth_client, ALL_AUTOPOOLS
+from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, eth_client, ALL_AUTOPOOLS
 from mainnet_launch.destinations import attempt_destination_address_to_symbol, get_destination_details
 
 POINTS_HOOK = "0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3"
+
+
+@st.cache_data(ttl=CACHE_TIME)
+def fetch_destination_summary_stats(
+    blocks: list[int], autopool: AutopoolConstants
+) -> list[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    all_autopool_summary_stats_df = _fetch_summary_stats_data(blocks)
+    # check if the autopool name prefix is in the columns
+    cols = [c for c in all_autopool_summary_stats_df if autopool.name in c[:10]]
+    summary_stats_df = all_autopool_summary_stats_df[cols].copy()
+    # columns look like "balETH_0x148Ca723BefeA7b021C399413b8b7426A4701500"
+    # extract out only the destination address
+    summary_stats_df.columns = [c.split("_")[1] for c in summary_stats_df]
+
+    uwcr_df, allocation_df, compositeReturn_out_df = clean_summary_stats_df(summary_stats_df)
+    total_nav_df = allocation_df.sum(axis=1)
+    uwcr_df.columns = [attempt_destination_address_to_symbol(c) for c in uwcr_df.columns]
+    allocation_df.columns = [attempt_destination_address_to_symbol(c) for c in allocation_df.columns]
+    compositeReturn_out_df.columns = [attempt_destination_address_to_symbol(c) for c in compositeReturn_out_df.columns]
+
+    destination_points_calls = _build_destination_points_calls()
+    points_df = get_raw_state_by_blocks(destination_points_calls, blocks)
+
+    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df
 
 
 def _clean_summary_stats_info(success, summary_stats):
@@ -113,29 +137,6 @@ def _fetch_summary_stats_data(blocks: list[int]) -> pd.DataFrame:
     summary_stats_calls = _build_all_summary_stats_calls(blocks)
     summary_stats_df = get_raw_state_by_blocks(summary_stats_calls, blocks)
     return summary_stats_df
-
-
-def fetch_destination_summary_stats(
-    blocks: list[int], autopool: AutopoolConstants
-) -> list[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    all_autopool_summary_stats_df = _fetch_summary_stats_data(blocks)
-    # check if the autopool name prefix is in the columns
-    cols = [c for c in all_autopool_summary_stats_df if autopool.name in c[:10]]
-    summary_stats_df = all_autopool_summary_stats_df[cols].copy()
-    # columns look like "balETH_0x148Ca723BefeA7b021C399413b8b7426A4701500"
-    # extract out only the destination address
-    summary_stats_df.columns = [c.split("_")[1] for c in summary_stats_df]
-
-    uwcr_df, allocation_df, compositeReturn_out_df = clean_summary_stats_df(summary_stats_df)
-    total_nav_df = allocation_df.sum(axis=1)
-    uwcr_df.columns = [attempt_destination_address_to_symbol(c) for c in uwcr_df.columns]
-    allocation_df.columns = [attempt_destination_address_to_symbol(c) for c in allocation_df.columns]
-    compositeReturn_out_df.columns = [attempt_destination_address_to_symbol(c) for c in compositeReturn_out_df.columns]
-
-    destination_points_calls = _build_destination_points_calls()
-    points_df = get_raw_state_by_blocks(destination_points_calls, blocks)
-
-    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df
 
 
 def clean_summary_stats_df(summary_stats_df: pd.DataFrame):
