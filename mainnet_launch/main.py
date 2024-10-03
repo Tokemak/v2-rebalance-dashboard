@@ -28,6 +28,7 @@ from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import
 from mainnet_launch.destination_diagnostics.weighted_crm import (
     fetch_weighted_crm_data,
     fetch_and_render_weighted_crm_data,
+    fetch_and_render_destination_apr_data
 )
 
 from mainnet_launch.solver_diagnostics.rebalance_events import (
@@ -93,6 +94,7 @@ def cache_data_loop():
 
 
 def display_destination_diagnostics(autopool: AutopoolConstants):
+    fetch_and_render_destination_apr_data(autopool)
     # a chart of
 
     # composite return out
@@ -102,28 +104,16 @@ def display_destination_diagnostics(autopool: AutopoolConstants):
     # price, fee, incentive points points
 
     # for all the destinations
-    st.text(
-        """
-    - unweighted price return (discounts/premiums) over time
-    - fee apr
-    - base apr
-    - incentive apr (in / out)
-    - points hook output → autoLRT
-    - Growth of a dollar per destination, (don’t auto compound rewards tokens, just let the rewards pile up and price at eth value)
-    - Time between Incentive APR snapshots
-    - LP safe price
-    - LP spot price # lens contract?
-    """
-    )
+
 
 
 CONTENT_FUNCTIONS = {
     "Key Metrics": fetch_and_render_key_metrics_data,
-    "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
     "Autopool Exposure": fetch_and_render_destination_allocation_over_time_data,
-    "Autopool APRs": fetch_and_render_weighted_crm_data,
-    "Destination Diagnostics": display_destination_diagnostics,
+    "Autopool CRM": fetch_and_render_weighted_crm_data,
     "Rebalance Events": fetch_and_render_rebalance_events_data,
+    "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
+    "Destination Diagnostics": display_destination_diagnostics,
     "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
 }
 
