@@ -1,6 +1,6 @@
 import pandas as pd
 import web3
-from mainnet_launch.constants import eth_client
+from mainnet_launch.constants import CACHE_TIME, eth_client
 
 
 def _flatten_events(just_found_events: list[dict]) -> None:

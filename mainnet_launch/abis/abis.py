@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 
-ABI_DIR = Path(__file__).parent / "abis"
+ABI_DIR = Path(__file__).parent.parent / "abis"
 
 with open(ABI_DIR / "vault_abi.json", "r") as fin:
     AUTOPOOL_VAULT_ABI = json.load(fin)

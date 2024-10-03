@@ -1,63 +1,40 @@
+# deposit_withdraw.py
+
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 import plotly.express as px
-import plotly.graph_objects as go
-
-from mainnet_launch.constants import eth_client, AutopoolConstants
-from mainnet_launch.get_events import fetch_events
-from mainnet_launch.get_state_by_block import get_raw_state_by_blocks
-from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
-
+from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants
+from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.data_fetching.get_state_by_block import add_timestamp_to_df_with_block_column
+from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 
 start_block = 20759126  # Sep 15, 2024
 
 
-def display_autopool_lp_stats(autopool: AutopoolConstants):
-    st.header("Autopool Allocation Over Time By Destination")
+@st.cache_data(ttl=CACHE_TIME)
+def fetch_autopool_deposit_and_withdraw_stats_data(autopool: AutopoolConstants):
     deposit_df, withdraw_df = _fetch_raw_deposit_and_withdrawal_dfs(autopool)
     daily_change_fig = _make_deposit_and_withdraw_figure(autopool, deposit_df, withdraw_df)
-    lp_deposit_and_withdraw_df = _make_scatter_plot_figure(autopool, deposit_df, withdraw_df)
+    scatter_plot_fig = _make_scatter_plot_figure(autopool, deposit_df, withdraw_df)
+    return daily_change_fig, scatter_plot_fig
 
-    st.header(f"{autopool.name} Our LP Stats")
+
+def fetch_and_render_autopool_deposit_and_withdraw_stats_data(autopool: AutopoolConstants):
+    daily_change_fig, scatter_plot_fig = fetch_autopool_deposit_and_withdraw_stats_data(autopool)
+    st.header("Autopool Deposit and Withdrawal Stats")
     st.plotly_chart(daily_change_fig, use_container_width=True)
-    st.plotly_chart(lp_deposit_and_withdraw_df, use_container_width=True)
-
-    with st.expander(f"See explanation for Deposits and Withdrawals"):
-        st.write(
-            """
-            - Total Deposits and Withdrawals per Day: Daily total Deposit and Withdrawals in ETH per day
-            - Individual Deposits and Withdrawals per Day: Each point is scaled by the size of the deposit or withdrawal
-            """
-        )
+    st.plotly_chart(scatter_plot_fig, use_container_width=True)
 
 
-def _make_unique_wallets_figure(deposit_df, withdraw_df) -> go.Figure:
-    # cumulative count of wallets that have touched any autopool
-
-    # group by day week etc
-    pass
-
-
-def _make_current_unique_wallets():
-    # for each autopool get the cumulative current holders of each token.
-    pass
-
-
-@st.cache_data(ttl=3600)  # 1 hours
 def _fetch_raw_deposit_and_withdrawal_dfs(autopool: AutopoolConstants) -> tuple[pd.DataFrame, pd.DataFrame]:
     contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
 
     deposit_df = fetch_events(contract.events.Deposit, start_block=start_block)
     withdraw_df = fetch_events(contract.events.Withdraw, start_block=start_block)
 
-    blocks = list(set([*deposit_df["block"], *withdraw_df["block"]]))
-    # calling with empty calls gets the block:timestamp
-    block_and_timestamp_df = get_raw_state_by_blocks([], blocks, include_block_number=True).reset_index()
-
-    deposit_df = pd.merge(deposit_df, block_and_timestamp_df, on="block", how="left")
-    deposit_df.set_index("timestamp", inplace=True)
-    withdraw_df = pd.merge(withdraw_df, block_and_timestamp_df, on="block", how="left")
-    withdraw_df.set_index("timestamp", inplace=True)
+    deposit_df = add_timestamp_to_df_with_block_column(deposit_df)
+    withdraw_df = add_timestamp_to_df_with_block_column(withdraw_df)
 
     deposit_df["normalized_assets"] = deposit_df["assets"].apply(lambda x: int(x) / 1e18)
     withdraw_df["normalized_assets"] = withdraw_df["assets"].apply(lambda x: int(x) / 1e18)
@@ -73,17 +50,14 @@ def _make_deposit_and_withdraw_figure(
 
     fig = go.Figure()
 
-    # Add total withdrawals
     fig.add_trace(
         go.Bar(x=total_withdrawals_per_day.index, y=total_withdrawals_per_day, name="Withdrawals", marker_color="red")
     )
 
-    # Add total deposits
     fig.add_trace(
         go.Bar(x=total_deposits_per_day.index, y=total_deposits_per_day, name="Deposits", marker_color="blue")
     )
 
-    # Update layout for better visualization
     fig.update_layout(
         title=f"{autopool.name} Total Withdrawals and Deposits per Day",
         xaxis_tickformat="%Y-%m-%d",

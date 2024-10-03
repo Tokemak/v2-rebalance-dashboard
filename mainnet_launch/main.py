@@ -10,107 +10,136 @@ st.set_page_config(
 )
 
 
-from mainnet_launch.key_metrics import display_key_metrics
-from mainnet_launch.weighted_crm import display_weighted_crm
-from mainnet_launch.destination_allocation_over_time import display_destination_allocation_over_time
-from mainnet_launch.rebalance_events import display_rebalance_events
-from mainnet_launch.autopool_lp_stats import display_autopool_lp_stats
+import threading
+import time
+import datetime
+import logging
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AUTOPOOL_NAME_TO_CONSTANTS, AutopoolConstants
+from mainnet_launch.autopool_diagnostics.autopool_diagnostics_tab import (
+    fetch_and_render_autopool_diagnostics_data,
+    fetch_autopool_diagnostics_data,
+)
+
+
+from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import (
+    fetch_destination_allocation_over_time_data,
+    fetch_and_render_destination_allocation_over_time_data,
+)
+from mainnet_launch.destination_diagnostics.weighted_crm import (
+    fetch_weighted_crm_data,
+    fetch_and_render_weighted_crm_data,
+    fetch_and_render_destination_apr_data
+)
+
+from mainnet_launch.solver_diagnostics.rebalance_events import (
+    fetch_rebalance_events_data,
+    fetch_and_render_rebalance_events_data,
+)
+from mainnet_launch.solver_diagnostics.solver_diagnostics import (
+    fetch_and_render_solver_diagnositics_data,
+    fetch_solver_diagnostics_data,
+)
+
+from mainnet_launch.top_level.key_metrics import fetch_key_metrics_data, fetch_and_render_key_metrics_data
+
+from mainnet_launch.constants import (
+    CACHE_TIME,
+    ALL_AUTOPOOLS,
+    AUTOPOOL_NAME_TO_CONSTANTS,
+    STREAMLIT_MARKDOWN_HTML,
+    AutopoolConstants,
+)
+
+
+logging.basicConfig(filename="data_caching.log", filemode="w", format="%(asctime)s - %(message)s", level=logging.INFO)
+
+data_caching_functions = [
+    fetch_solver_diagnostics_data,
+    fetch_key_metrics_data,
+    fetch_autopool_diagnostics_data,
+    fetch_destination_allocation_over_time_data,
+    fetch_weighted_crm_data,
+    fetch_rebalance_events_data,
+]
+
+
+def cache_data_loop():
+    try:
+        logging.info(f"Started cache_data_loop()")
+        while True:
+            all_caching_started = time.time()
+            for autopool in ALL_AUTOPOOLS:
+                autopool_start_time = time.time()
+                for func in data_caching_functions:
+                    function_start_time = time.time()
+                    func(autopool)
+                    time_taken = time.time() - function_start_time
+                    logging.info(f"{time_taken:.2f} \t seconds: Cached {func.__name__}({autopool.name}) ")
+
+                autopool_time_taken = time.time() - autopool_start_time
+                logging.info(f"{autopool_time_taken:.2f} \t seconds: Cached {autopool.name}")
+
+            all_autopool_time_taken = time.time() - all_caching_started
+            logging.info(f"{all_autopool_time_taken:.2f} \t seconds: All Autopools Cached")
+            logging.info(f"Finished Caching")
+            logging.info(f"Start Sleeping")
+            time.sleep(CACHE_TIME + (60 * 5))  # cache everything at least once every 6:05 hours
+            logging.info(f"Finished Sleeping")
+
+    except Exception as e:
+        logging.error(f"Exception occurred: {str(e)}")
+        logging.error("Stack Trace:", exc_info=True)
+        logging.info(f"Cache data loop has ended at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        raise
+
+
+def display_destination_diagnostics(autopool: AutopoolConstants):
+    fetch_and_render_destination_apr_data(autopool)
+    # a chart of
+
+    # composite return out
+
+    # composite retun in
+
+    # price, fee, incentive points points
+
+    # for all the destinations
+
+
+
+CONTENT_FUNCTIONS = {
+    "Key Metrics": fetch_and_render_key_metrics_data,
+    "Autopool Exposure": fetch_and_render_destination_allocation_over_time_data,
+    "Autopool CRM": fetch_and_render_weighted_crm_data,
+    "Rebalance Events": fetch_and_render_rebalance_events_data,
+    "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
+    "Destination Diagnostics": display_destination_diagnostics,
+    "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
+}
 
 
 def main():
-
-    st.markdown(
-        """
-        <style>
-        .main {
-            max-width: 85%;
-            margin: 0 auto;
-            padding-top: 40px;
-        }
-        .stPlotlyChart {
-            width: 100%;
-            height: auto;
-            min-height: 300px;
-            max-height: 600px;
-            background-color: #f0f2f6;
-            border-radius: 5px;
-            padding: 20px;
-        }
-        @media (max-width: 768px) {
-            .stPlotlyChart {
-                min-height: 250px;
-                max-height: 450px;
-            }
-        }
-        .stPlotlyChart {
-            background-color: #f0f2f6;
-            border-radius: 5px;
-            padding: 10px;
-        }
-        .stExpander {
-            background-color: #e6e9ef;
-            border-radius: 5px;
-            padding: 10px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
+    st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
     st.title("Autopool Diagnostics Dashboard")
 
     st.sidebar.title("Navigation")
-    names = [autopool.name for autopool in ALL_AUTOPOOLS]
 
+    names = [autopool.name for autopool in ALL_AUTOPOOLS]
     pool_name = st.sidebar.selectbox("Select Pool", names)
     autopool = AUTOPOOL_NAME_TO_CONSTANTS[pool_name]
+    page = st.sidebar.radio("Go to", CONTENT_FUNCTIONS.keys())
 
-    # Sidebar Pages
-    page = st.sidebar.radio(
-        "Go to",
-        [
-            "Key Metrics",
-            "Autopool Exposure",
-            "Allocation Over Time",
-            "Weighted CRM",
-            "Rebalance Events",
-            "Autopool Deposits and Withdrawals",
-        ],
-    )
-
-    display_autopool(autopool, page)
+    CONTENT_FUNCTIONS[page](autopool)
 
 
-def display_autopool(autopool: AutopoolConstants, page: str):
+if "cache_thread_started" not in st.session_state:
+    st.session_state.cache_thread_started = False
 
-    content_functions = {
-        "Key Metrics": display_key_metrics,
-        "Autopool Exposure": display_autopool_exposure,
-        "Allocation Over Time": display_destination_allocation_over_time,
-        "Weighted CRM": display_weighted_crm,
-        "Rebalance Events": display_rebalance_events,
-        "Autopool Deposits and Withdrawals": display_autopool_lp_stats,
-    }
-
-    # Get the function based on the page selected
-    content_function = content_functions.get(page)
-    if content_function:
-        # Call the function with the pool name
-        content_function(autopool)
-    else:
-        st.write("Page not found.")
-
-
-def display_autopool_exposure(pool_name):
-    st.write(f"Displaying Autopool Exposure for {pool_name}...")
-    # Add content here
-
-
-def display_allocation_over_time(pool_name):
-    st.write(f"Displaying Allocation Over Time for {pool_name}...")
-    # Add content here
+# Start the caching thread only once
+if not st.session_state.cache_thread_started:
+    fetch_thread = threading.Thread(target=cache_data_loop, daemon=True)
+    fetch_thread.start()
+    st.session_state.cache_thread_started = True  # Set
 
 
 if __name__ == "__main__":

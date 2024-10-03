@@ -3,12 +3,12 @@ from dataclasses import dataclass
 from multicall import Call
 import streamlit as st
 
-from mainnet_launch.get_state_by_block import (
+from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,
 )
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, eth_client
+from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, eth_client
 
 
 @dataclass
@@ -81,7 +81,7 @@ def _get_current_destinations_to_symbol(block: int) -> dict[str, str]:
     return destination_to_symbol
 
 
-@st.cache_data(ttl=3600)  # 1 hours
+@st.cache_data(ttl=CACHE_TIME)  # 1 hours
 def get_destination_details(block: int) -> dict[str, DestinationDetails]:
     destination_to_symbol = _get_current_destinations_to_symbol(block)
 
