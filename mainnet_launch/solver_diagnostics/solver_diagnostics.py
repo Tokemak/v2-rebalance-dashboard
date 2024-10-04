@@ -21,9 +21,7 @@ from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_and_clean_rebalance_between_destination_events,
 )
-from mainnet_launch.solver_diagnostics.rebalance_events import (
-    fetch_and_render_solver_profit_data
-)
+from mainnet_launch.solver_diagnostics.rebalance_events import fetch_and_render_solver_profit_data
 
 from mainnet_launch.destinations import attempt_destination_address_to_symbol
 from mainnet_launch.data_fetching.get_state_by_block import (
@@ -37,12 +35,9 @@ from mainnet_launch.constants import CACHE_TIME, SOLVER_REBALANCE_PLANS_DIR, ALL
 
 
 def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
-    proposed_vs_actual_rebalance_scatter_plot_fig, bar_chart_count_proposed_vs_actual_rebalances_fig = (
-        fetch_solver_diagnostics_data(autopool)
-    )
-    _render_solver_diagnostics(
-        autopool, proposed_vs_actual_rebalance_scatter_plot_fig, bar_chart_count_proposed_vs_actual_rebalances_fig
-    )
+    figs = fetch_solver_diagnostics_data(autopool)
+    _render_solver_diagnostics(autopool, figs)
+    fetch_and_render_solver_profit_data(autopool)
 
 
 @st.cache_data(ttl=CACHE_TIME)
@@ -60,18 +55,28 @@ def fetch_solver_diagnostics_data(autopool: AutopoolConstants):
         proposed_rebalances_df, rebalance_event_df
     )
 
-    return proposed_vs_actual_rebalance_scatter_plot_fig, bar_chart_count_proposed_vs_actual_rebalances_fig
+    hours_between_plans_fig = _make_hours_between_fig(solver_df)
+
+    plan_count_fig = _make_count_of_solver_plans_each_day_plot(solver_df)
+
+    dex_win_fig = _dex_win_metrics(solver_df)
+
+    size_of_candidate_set = _add_add_rank_count(solver_df)
+
+    return [
+        proposed_vs_actual_rebalance_scatter_plot_fig,
+        bar_chart_count_proposed_vs_actual_rebalances_fig,
+        plan_count_fig,
+        hours_between_plans_fig,
+        dex_win_fig,
+        size_of_candidate_set,
+    ]
 
 
-def _render_solver_diagnostics(
-    autopool: AutopoolConstants,
-    proposed_rebalances_fig: go.Figure,
-    bar_chart_count_proposed_vs_actual_rebalances_fig: go.Figure,
-):
+def _render_solver_diagnostics(autopool: AutopoolConstants, figs):
     st.header(f"{autopool.name} Solver Diagnostics")
-    fetch_and_render_solver_profit_data(autopool)
-    st.plotly_chart(proposed_rebalances_fig, use_container_width=True)
-    st.plotly_chart(bar_chart_count_proposed_vs_actual_rebalances_fig, use_container_width=True)
+    for fig in figs:
+        st.plotly_chart(fig, use_container_width=True)
 
 
 def ensure_all_rebalance_plans_are_loaded():
@@ -203,3 +208,66 @@ def _make_proposed_vs_actual_rebalances_bar_plot(
         template="plotly",
     )
     return bar_chart_count_proposed_vs_actual_rebalances_fig
+
+
+def _make_count_of_solver_plans_each_day_plot(solver_df):
+    solver_count_per_day = solver_df.groupby(solver_df["date"].dt.date).size()
+    solver_count_per_day_df = pd.DataFrame(solver_count_per_day, columns=["Num Generated"])
+    return px.line(solver_count_per_day_df, title="Count of solver plans per day")
+
+
+def _dex_win_metrics(solver_df):
+    all_steps = solver_df["steps"].values
+    dex_steps = []
+
+    for steps in all_steps:
+        for step in steps:
+            if "dex" in step:
+                dex_steps.append(step)
+
+    absolute_counts = pd.DataFrame.from_records(dex_steps)["dex"].value_counts()
+    normalized_counts = (100 * pd.DataFrame.from_records(dex_steps)["dex"].value_counts(normalize=True)).round(2)
+
+    # Combine the two DataFrames into one for display
+    combined_df = pd.DataFrame(
+        {
+            "DEX": absolute_counts.index,  # The index (dex names)
+            "Count of step": absolute_counts.values,  # The absolute counts
+            "Percent of steps": normalized_counts.values,  # The normalized counts
+        }
+    )
+
+    # Create the table figure
+    fig = go.Figure(
+        data=[
+            go.Table(
+                header=dict(
+                    values=list(combined_df.columns), align="left"  # Use column names from the combined DataFrame
+                ),  # Align header to the left
+                cells=dict(
+                    values=[combined_df[col] for col in combined_df.columns],  # Table data from the DataFrame
+                    align="left",
+                ),
+            )  # Align cells to the left
+        ]
+    )
+    fig.update_layout(title="Dex Aggregator Win Counts")
+
+    return fig
+
+
+def _make_hours_between_fig(solver_df):
+    solver_df["hoursBetween"] = (solver_df["date"].diff().dt.total_seconds()) / 3600
+    hours_between_plans_fig = px.scatter(
+        y=solver_df["hoursBetween"],
+        x=solver_df["date"],
+        title="Hours Between Rebalance Plans Generated",
+        labels={"x": "Rebalances", "y": "Hours"},
+    )
+    return hours_between_plans_fig
+
+
+def _add_add_rank_count(solver_df):
+    solver_df["len_addRank"] = solver_df["addRank"].apply(lambda x: len(x))
+    fig = px.bar(solver_df, x="date", y="len_addRank", title="Candidate Destinations Size")
+    return fig
