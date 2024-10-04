@@ -24,6 +24,7 @@ def fetch_and_render_weighted_crm_data(autopool: AutopoolConstants):
             """
         )
 
+
 def fetch_and_render_destination_apr_data(autopool: AutopoolConstants):
     key_metric_data = fetch_weighted_crm_data(autopool)
 

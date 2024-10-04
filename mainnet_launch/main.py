@@ -28,7 +28,7 @@ from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import
 from mainnet_launch.destination_diagnostics.weighted_crm import (
     fetch_weighted_crm_data,
     fetch_and_render_weighted_crm_data,
-    fetch_and_render_destination_apr_data
+    fetch_and_render_destination_apr_data,
 )
 
 from mainnet_launch.solver_diagnostics.rebalance_events import (
@@ -104,7 +104,6 @@ def display_destination_diagnostics(autopool: AutopoolConstants):
     # price, fee, incentive points points
 
     # for all the destinations
-
 
 
 CONTENT_FUNCTIONS = {
