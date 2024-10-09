@@ -76,24 +76,34 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
     nav_per_share_df = key_metric_data["nav_per_share_df"]
     uwcr_df = key_metric_data["uwcr_df"]
     allocation_df = key_metric_data["allocation_df"]
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
     col1.metric(
-        "30-day Return (%)",
-        nav_per_share_df["30_day_annualized_return"].iloc[-1],
+        "30-day Rolling APY (%)",
+        round(nav_per_share_df["30_day_annualized_return"].iloc[-1],2),
         _diffReturn(nav_per_share_df["30_day_annualized_return"]),
     )
     col2.metric(
-        "7-day Return (%)",
-        nav_per_share_df["7_day_annualized_return"].iloc[-1],
-        _diffReturn(nav_per_share_df["7_day_annualized_return"]),
+        "30-day MA APY (%)",
+        round(nav_per_share_df["30_day_MA_annualized_return"].iloc[-1],2),
+        _diffReturn(nav_per_share_df["30_day_MA_annualized_return"]),
     )
     col3.metric(
-        "Expected Annual Return (%)", uwcr_df["Expected_Return"].iloc[-1], _diffReturn(uwcr_df["Expected_Return"])
+        "7-day Rolling APY (%)",
+        round(nav_per_share_df["7_day_annualized_return"].iloc[-1],2),
+        _diffReturn(nav_per_share_df["7_day_annualized_return"]),
+    )
+    col4.metric(
+        "7-day MA APY (%)",
+        round(nav_per_share_df["7_day_MA_annualized_return"].iloc[-1],2),
+        _diffReturn(nav_per_share_df["7_day_MA_annualized_return"]),
+    )
+    col5.metric(
+        "Expected Annual Return (%)", round(uwcr_df["Expected_Return"].iloc[-1],2), _diffReturn(uwcr_df["Expected_Return"])
     )
 
     percent_deployed_yesterday, percent_deployed_today = _get_percent_deployed(allocation_df, autopool)
 
-    col4.metric(
+    col6.metric(
         "Percent Deployed", percent_deployed_today, round(percent_deployed_today - percent_deployed_yesterday, 2)
     )
 
@@ -114,7 +124,15 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
 
     annualized_7d_return_fig = px.line(nav_per_share_df, y="7_day_annualized_return", title=" ")
     _apply_default_style(annualized_7d_return_fig)
-    annualized_7d_return_fig.update_layout(yaxis_title="7-day Annualized Return (%)")
+    annualized_7d_return_fig.update_layout(yaxis_title="7-day Rolling Annualized Return (%)")
+
+    annualized_7d_ma_return_fig = px.line(nav_per_share_df, y="7_day_MA_annualized_return", title=" ")
+    _apply_default_style(annualized_7d_ma_return_fig)
+    annualized_7d_ma_return_fig.update_layout(yaxis_title="7-day MA Annualized Return (%)")
+
+    annualized_30d_ma_return_fig = px.line(nav_per_share_df, y="30_day_MA_annualized_return", title=" ")
+    _apply_default_style(annualized_30d_ma_return_fig)
+    annualized_30d_ma_return_fig.update_layout(yaxis_title="30-day MA Annualized Return (%)")
 
     uwcr_return_fig = px.line(uwcr_df, y="Expected_Return", title=" ")
     _apply_default_style(uwcr_return_fig)
@@ -131,14 +149,25 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
         st.subheader("NAV")
         st.plotly_chart(nav_fig, use_container_width=True)
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.subheader("30-day Annualized Return (%)")
+        st.subheader("30-day Rolling Annualized Return (%)")
         st.plotly_chart(annualized_30d_return_fig, use_container_width=True)
     with col2:
-        st.subheader("7-day Annualized Return (%)")
-        st.plotly_chart(annualized_7d_return_fig, use_container_width=True)
+        st.subheader("30-day MA Annualized Return (%)")
+        st.plotly_chart(annualized_30d_ma_return_fig, use_container_width=True)
     with col3:
+        st.subheader("7-day Rolling Annualized Return (%)")
+        st.plotly_chart(annualized_7d_return_fig, use_container_width=True)
+
+    # Insert gap
+    st.markdown("<div style='margin: 7em 0;'></div>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.subheader("7-day MA Annualized Return (%)")
+        st.plotly_chart(annualized_7d_ma_return_fig, use_container_width=True)
+    with col2:
         st.subheader("Expected Annualized Return (%)")
         st.plotly_chart(uwcr_return_fig, use_container_width=True)
 
