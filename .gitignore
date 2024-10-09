@@ -3,3 +3,4 @@ __pycache__/
 .env
 mainnet_launch/rebalance_plans/
 data_caching.log
+.vscode/launch.json
