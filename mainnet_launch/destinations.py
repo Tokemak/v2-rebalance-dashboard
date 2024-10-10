@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from multicall import Call
 import streamlit as st
+import pandas as pd
 
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
@@ -9,120 +10,100 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 
 from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, eth_client
+from mainnet_launch.lens_contract import fetch_pools_and_destinations_df
 
 
-@dataclass
+@dataclass()
 class DestinationDetails:
-    address: str
-    symbol: str
-    color: str
+    vaultAddress: str
+    exchangeName: str
+
+    dexPool: str
+    lpTokenAddress: str
+    lpTokenSymbol: str
+    lpTokenName: str
+
+    autopool_vault_address: str
+    autopool_vault_symbol: str
+
+    vault_name: str = None
 
 
-# this is so that the colors of each destination are consistent between plots
-# TODO: this feature is not added yet
-destination_colors = [
-    "#1f77b4",
-    "#ff7f0e",
-    "#2ca02c",
-    "#d62728",
-    "#9467bd",
-    "#8c564b",
-    "#e377c2",
-    "#7f7f7f",
-    "#bcbd22",
-    "#17becf",
-    "#ffbb78",
-    "#98df8a",
-    "#ff9896",
-    "#c5b0d5",
-    "#c49c94",
-    "#f7b6d2",
-    "#dbdb8d",
-    "#9edae5",
-    "#f4a442",
-    "#c3e5f9",
-    "#f0a3a1",
-    "#b5e3e3",
-    "#ffcc00",
-    "#ff6600",
-    "#ccff00",
-    "#00ffcc",
-    "#6600ff",
-    "#ff00cc",
-    "#ff9966",
-    "#00ccff",
-]
-
-
-def _get_current_destinations_to_symbol(block: int) -> dict[str, str]:
-    """Returns a dictionary of the current destinations: destination.symbol"""
-    get_destinations_calls = [
-        Call(a.autopool_eth_addr, "getDestinations()(address[])", [(f"{a.name} Idle", identity_with_bool_success)])
-        for a in ALL_AUTOPOOLS
-    ]
-    destinations = get_state_by_one_block(get_destinations_calls, block)
-
-    all_destinations = set([a.autopool_eth_addr for a in ALL_AUTOPOOLS])
-    for _, destination_addresses in destinations.items():
-        for d in destination_addresses:
-            all_destinations.add(d)
-
-    get_destination_symbols_calls = [
-        Call(d, "symbol()(string)", [(eth_client.toChecksumAddress(d), identity_with_bool_success)])
-        for d in all_destinations
-    ]
-
-    destination_to_symbol = get_state_by_one_block(get_destination_symbols_calls, block)
+def make_idle_destination_details() -> list[DestinationDetails]:
+    idle_details = []
 
     for a in ALL_AUTOPOOLS:
+        idle_details.append(
+            DestinationDetails(
+                vaultAddress=a.autopool_eth_addr,
+                exchangeName="Tokemak",
+                dexPool=None,
+                lpTokenAddress=None,
+                lpTokenSymbol=None,
+                lpTokenName=None,
+                autopool_vault_address=a.autopool_eth_addr,
+                autopool_vault_symbol=f"{a.name} Idle",
+            )
+        )
+    return idle_details
 
-        destination_to_symbol[a.autopool_eth_addr] = a.name + " idle"
 
-    return destination_to_symbol
+def flat_destinations_to_DestinationDetails(flat_destinations: list[dict]) -> list[DestinationDetails]:
+    fields = {field.name for field in DestinationDetails.__dataclass_fields__.values()}
+    filtered_data = [{k: v for k, v in json_data.items() if k in fields} for json_data in flat_destinations]
+    return [DestinationDetails(**data) for data in filtered_data]
 
 
-@st.cache_data(ttl=CACHE_TIME)  # 1 hours
-def get_destination_details(block: int) -> dict[str, DestinationDetails]:
-    destination_to_symbol = _get_current_destinations_to_symbol(block)
+def build_all_destinationDetails(pools_and_destinations_df: pd.DataFrame) -> list[DestinationDetails]:
+    all_destination_details = make_idle_destination_details()
+    found_pairs = []
 
-    destination_details = {}
-    color_index = 0
+    def _add_to_all_destination_details(row: dict):
+        autopools = row["autopools"]
+        destinations = row["destinations"]
+        for a, d in zip(autopools, destinations):
+            for dest in d:
+                dest["autopool_vault_address"] = a["poolAddress"]
+                dest["autopool_vault_symbol"] = a["symbol"]
 
-    for address, symbol in destination_to_symbol.items():
-        color = destination_colors[color_index % len(destination_colors)]
-        destination_details[address] = DestinationDetails(address=address, symbol=symbol, color=color)
-        destination_details[symbol] = DestinationDetails(address=address, symbol=symbol, color=color)
-        color_index += 1
+        flat_destinations = [d for des in destinations for d in des]
+
+        destinations = flat_destinations_to_DestinationDetails(flat_destinations)
+        for dest in destinations:
+            if (dest.vaultAddress, dest.autopool_vault_address) not in found_pairs:
+                found_pairs.append((dest.vaultAddress, dest.autopool_vault_address))
+                all_destination_details.append(dest)
+
+    pools_and_destinations_df["getPoolsAndDestinations"].apply(_add_to_all_destination_details)
+
+    return all_destination_details
+
+
+@st.cache_data(ttl=CACHE_TIME)
+def get_destination_details() -> list[estinationDetails]:
+    pools_and_destinations_df = fetch_pools_and_destinations_df()
+    destination_details = build_all_destinationDetails(pools_and_destinations_df)
+
+    get_destination_names_calls = [
+        Call(
+            d.vaultAddress,
+            "name()(string)",
+            [(eth_client.toChecksumAddress(d.vaultAddress), identity_with_bool_success)],
+        )
+        for d in destination_details
+    ]
+
+    vault_addresses_to_names = get_state_by_one_block(get_destination_names_calls, eth_client.eth.block_number)
+
+    for dest in destination_details:
+        dest.vault_name = vault_addresses_to_names[eth_client.toChecksumAddress(dest.vaultAddress)]
 
     return destination_details
 
 
-destination_details = get_destination_details(eth_client.eth.block_number)
-
-
 def attempt_destination_address_to_symbol(address: str) -> str:
-    if address in destination_details:
-        return destination_details[address].symbol
-    else:
-        return address
-
-
-def attempt_destination_address_to_color(address: str) -> str:
-    if address in destination_details:
-        return destination_details[address].color
-    else:
-        return None
-
-
-def attempt_destination_symbol_to_color(symbol: str) -> str:
-    if symbol in destination_details:
-        return destination_details[symbol].color
-    else:
-        return None
-
-
-if __name__ == "__main__":
-
-    for d in destination_details:
-        print(d)
-        print(destination_details[d])
+    destination_details = get_destination_details()
+    vault_address_to_name = {
+        eth_client.toChecksumAddress(dest.vaultAddress): dest.vault_name for dest in destination_details
+    }
+    return vault_address_to_name[eth_client.toChecksumAddress(address)]
