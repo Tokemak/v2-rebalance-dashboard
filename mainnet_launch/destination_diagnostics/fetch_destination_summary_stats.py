@@ -120,7 +120,7 @@ def _build_all_summary_stats_calls(blocks: list[int]) -> list[Call]:
 
 
 def _build_destination_points_calls() -> list[Call]:
-    destination_details = get_destination_details(eth_client.eth.block_number)
+    destination_details = get_destination_details()
 
     destination_points_calls = [
         Call(
