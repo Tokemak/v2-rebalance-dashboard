@@ -39,9 +39,6 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
         lambda row: _get_flash_borrower_address(row["hash"]), axis=1
     )
 
-    if clean_rebalance_df["flash_borrower_address"].nunique() != 1:
-        raise ValueError("expected only 1 flash borrower address, found more than one", clean_rebalance_df.unique())
-
     flash_borrower_address = clean_rebalance_df["flash_borrower_address"].iloc[0]
 
     _add_solver_profit_cols(clean_rebalance_df, flash_borrower_address)
