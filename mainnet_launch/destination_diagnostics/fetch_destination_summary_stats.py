@@ -11,6 +11,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,
     safe_normalize_with_bool_success,
+    build_blocks_to_use,
 )
 
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, eth_client, ALL_AUTOPOOLS
@@ -23,7 +24,7 @@ POINTS_HOOK = "0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3"
 def fetch_destination_summary_stats(
     blocks: list[int], autopool: AutopoolConstants
 ) -> list[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    all_autopool_summary_stats_df = _fetch_summary_stats_data(blocks)
+    all_autopool_summary_stats_df = _fetch_summary_stats_data()
     # check if the autopool name prefix is in the columns
     cols = [c for c in all_autopool_summary_stats_df if autopool.name in c[:10]]
     summary_stats_df = all_autopool_summary_stats_df[cols].copy()
@@ -125,15 +126,16 @@ def _build_destination_points_calls() -> list[Call]:
     destination_points_calls = [
         Call(
             POINTS_HOOK,
-            ["destinationBoosts(address)(uint256)", d.address],
-            [(d.symbol, safe_normalize_with_bool_success)],
+            ["destinationBoosts(address)(uint256)", dest.vaultAddress],
+            [(dest.vault_name, safe_normalize_with_bool_success)],
         )
-        for key, d in destination_details.items()
+        for dest in destination_details
     ]
     return destination_points_calls
 
 
-def _fetch_summary_stats_data(blocks: list[int]) -> pd.DataFrame:
+def _fetch_summary_stats_data() -> pd.DataFrame:
+    blocks = build_blocks_to_use()
     summary_stats_calls = _build_all_summary_stats_calls(blocks)
     summary_stats_df = get_raw_state_by_blocks(summary_stats_calls, blocks)
     return summary_stats_df

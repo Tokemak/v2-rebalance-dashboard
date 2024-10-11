@@ -4,3 +4,4 @@ __pycache__/
 mainnet_launch/rebalance_plans/
 data_caching.log
 .vscode/launch.json
+test_fetching_functions.log

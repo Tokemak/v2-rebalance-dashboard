@@ -26,8 +26,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 from mainnet_launch.destinations import attempt_destination_address_to_symbol
 
 
-# 25 seconds
-@st.cache_data(ttl=CACHE_TIME)  # 1 hours
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
 
@@ -39,13 +38,7 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
         lambda row: _get_flash_borrower_address(row["hash"]), axis=1
     )
 
-    # TODO add a fix ehre
-    if clean_rebalance_df["flash_borrower_address"].nunique() != 1:
-        raise ValueError("expected only 1 flash borrower address, found more than one", clean_rebalance_df.nunique())
-
-    flash_borrower_address = clean_rebalance_df["flash_borrower_address"].iloc[0]
-
-    _add_solver_profit_cols(clean_rebalance_df, flash_borrower_address)
+    _add_solver_profit_cols(clean_rebalance_df)
 
     return clean_rebalance_df
 
@@ -128,7 +121,26 @@ def _get_flash_borrower_address(tx_hash: str) -> str:
     return eth_client.eth.get_transaction(tx_hash)["to"]
 
 
-def _add_solver_profit_cols(clean_rebalance_df: pd.DataFrame, flash_borrower_address: str) -> list[Call]:
+def _add_solver_profit_cols(clean_rebalance_df: pd.DataFrame):
+
+    all_flash_borrowers = clean_rebalance_df["flash_borrower_address"].unique()
+    rebalance_dfs = []
+    for flash_borrower_address in all_flash_borrowers:
+        limited_clean_rebalance_df = clean_rebalance_df[
+            clean_rebalance_df["flash_borrower_address"] == flash_borrower_address
+        ].copy()
+        limited_clean_rebalance_df = _add_solver_profit_cols_by_flash_borrower(
+            limited_clean_rebalance_df, flash_borrower_address
+        )
+        rebalance_dfs.append(limited_clean_rebalance_df)
+
+    all_clean_rebalance_df = pd.concat(rebalance_dfs, axis=0)
+    return all_clean_rebalance_df
+
+
+def _add_solver_profit_cols_by_flash_borrower(
+    limited_clean_rebalance_df: pd.DataFrame, flash_borrower_address: str
+) -> list[Call]:
     """
     Solver profit: ETH value held by the solver AFTER a rebalance - ETH value held by the solver BEFORE a rebalance
     """
@@ -136,7 +148,7 @@ def _add_solver_profit_cols(clean_rebalance_df: pd.DataFrame, flash_borrower_add
     tokens: list[str] = fetch_events(root_price_oracle_contract.events.TokenRegistered)["token"].values
 
     symbol_calls = [Call(t, ["symbol()(string)"], [(t, identity_with_bool_success)]) for t in tokens]
-    block = int(clean_rebalance_df["block"].max())
+    block = int(limited_clean_rebalance_df["block"].max())
     token_address_to_symbol = get_state_by_one_block(symbol_calls, block)
 
     price_calls = [getPriceInEth_call(token_address_to_symbol[t], t) for t in tokens]
@@ -149,17 +161,19 @@ def _add_solver_profit_cols(clean_rebalance_df: pd.DataFrame, flash_borrower_add
         for t in tokens
     ]
 
-    value_before_df = _build_value_held_by_solver(balance_of_calls, price_calls, clean_rebalance_df["block"] - 1)
-    value_after_df = _build_value_held_by_solver(balance_of_calls, price_calls, clean_rebalance_df["block"])
+    value_before_df = _build_value_held_by_solver(
+        balance_of_calls, price_calls, limited_clean_rebalance_df["block"] - 1
+    )
+    value_after_df = _build_value_held_by_solver(balance_of_calls, price_calls, limited_clean_rebalance_df["block"])
 
-    clean_rebalance_df["before_rebalance_eth_value_of_solver"] = value_before_df["total_eth_value"].values
-    clean_rebalance_df["after_rebalance_eth_value_of_solver"] = value_after_df["total_eth_value"].values
-    clean_rebalance_df["solver_profit"] = (
-        clean_rebalance_df["after_rebalance_eth_value_of_solver"]
-        - clean_rebalance_df["before_rebalance_eth_value_of_solver"]
+    limited_clean_rebalance_df["before_rebalance_eth_value_of_solver"] = value_before_df["total_eth_value"].values
+    limited_clean_rebalance_df["after_rebalance_eth_value_of_solver"] = value_after_df["total_eth_value"].values
+    limited_clean_rebalance_df["solver_profit"] = (
+        limited_clean_rebalance_df["after_rebalance_eth_value_of_solver"]
+        - limited_clean_rebalance_df["before_rebalance_eth_value_of_solver"]
     )
 
-    return clean_rebalance_df
+    return limited_clean_rebalance_df
 
 
 def _build_value_held_by_solver(balance_of_calls, price_calls, blocks):

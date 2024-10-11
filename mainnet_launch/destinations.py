@@ -80,17 +80,17 @@ def build_all_destinationDetails(pools_and_destinations_df: pd.DataFrame) -> lis
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def get_destination_details() -> list[estinationDetails]:
+def get_destination_details() -> list[DestinationDetails]:
     pools_and_destinations_df = fetch_pools_and_destinations_df()
     destination_details = build_all_destinationDetails(pools_and_destinations_df)
 
     get_destination_names_calls = [
         Call(
-            d.vaultAddress,
+            dest.vaultAddress,
             "name()(string)",
-            [(eth_client.toChecksumAddress(d.vaultAddress), identity_with_bool_success)],
+            [(eth_client.toChecksumAddress(dest.vaultAddress), identity_with_bool_success)],
         )
-        for d in destination_details
+        for dest in destination_details
     ]
 
     vault_addresses_to_names = get_state_by_one_block(get_destination_names_calls, eth_client.eth.block_number)
@@ -106,4 +106,7 @@ def attempt_destination_address_to_symbol(address: str) -> str:
     vault_address_to_name = {
         eth_client.toChecksumAddress(dest.vaultAddress): dest.vault_name for dest in destination_details
     }
-    return vault_address_to_name[eth_client.toChecksumAddress(address)]
+    if eth_client.isChecksumAddress(address):
+        checksumAddress = eth_client.toChecksumAddress(address)
+        return vault_address_to_name[checksumAddress] if checksumAddress in vault_address_to_name else checksumAddress
+    return address

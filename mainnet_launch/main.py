@@ -74,13 +74,13 @@ def cache_data_loop():
                     function_start_time = time.time()
                     func(autopool)
                     time_taken = time.time() - function_start_time
-                    logging.info(f"{time_taken:.2f} \t seconds: Cached {func.__name__}({autopool.name}) ")
+                    logging.info(f"{time_taken:06.2f} \t seconds: Cached {func.__name__}({autopool.name}) ")
 
                 autopool_time_taken = time.time() - autopool_start_time
-                logging.info(f"{autopool_time_taken:.2f} \t seconds: Cached {autopool.name}")
+                logging.info(f"{autopool_time_taken:06.2f} \t seconds: Cached {autopool.name}")
 
             all_autopool_time_taken = time.time() - all_caching_started
-            logging.info(f"{all_autopool_time_taken:.2f} \t seconds: All Autopools Cached")
+            logging.info(f"{all_autopool_time_taken:06.2f} \t seconds: All Autopools Cached")
             logging.info(f"Finished Caching")
             logging.info(f"Start Sleeping")
             time.sleep(CACHE_TIME + (60 * 5))  # cache everything at least once every 6:05 hours
