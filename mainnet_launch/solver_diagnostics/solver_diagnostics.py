@@ -23,7 +23,7 @@ from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
 )
 from mainnet_launch.solver_diagnostics.rebalance_events import fetch_and_render_solver_profit_data
 
-from mainnet_launch.destinations import attempt_destination_address_to_symbol
+from mainnet_launch.destinations import attempt_destination_address_to_vault_name
 from mainnet_launch.data_fetching.get_state_by_block import (
     add_timestamp_to_df_with_block_column,
 )
@@ -102,8 +102,8 @@ def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
         with open(plan_json, "r") as fin:
             data = json.load(fin)
             data["date"] = pd.to_datetime(data["timestamp"], unit="s")
-            data["destinationIn"] = attempt_destination_address_to_symbol(data["destinationIn"])
-            data["destinationOut"] = attempt_destination_address_to_symbol(data["destinationOut"])
+            data["destinationIn"] = attempt_destination_address_to_vault_name(data["destinationIn"])
+            data["destinationOut"] = attempt_destination_address_to_vault_name(data["destinationOut"])
             data["moveName"] = f"{data['destinationOut']} -> {data['destinationIn']}"
             all_data.append(data)
     solver_df = pd.DataFrame.from_records(all_data)

@@ -48,6 +48,9 @@ from mainnet_launch.constants import (
     AUTOPOOL_NAME_TO_CONSTANTS,
     STREAMLIT_MARKDOWN_HTML,
     AutopoolConstants,
+    BAL_ETH,
+    AUTO_ETH,
+    AUTO_LRT,
 )
 
 
@@ -131,15 +134,14 @@ def main():
     CONTENT_FUNCTIONS[page](autopool)
 
 
-if "cache_thread_started" not in st.session_state:
-    st.session_state.cache_thread_started = False
-
-# Start the caching thread only once
-if not st.session_state.cache_thread_started:
-    fetch_thread = threading.Thread(target=cache_data_loop, daemon=True)
-    fetch_thread.start()
-    st.session_state.cache_thread_started = True  # Set
-
-
 if __name__ == "__main__":
+    if "cache_thread_started" not in st.session_state:
+        st.session_state.cache_thread_started = False
+
+    # Start the caching thread only once
+    if not st.session_state.cache_thread_started:
+        fetch_thread = threading.Thread(target=cache_data_loop, daemon=True)
+        fetch_thread.start()
+        st.session_state.cache_thread_started = True
+
     main()

@@ -15,7 +15,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, eth_client, ALL_AUTOPOOLS
-from mainnet_launch.destinations import attempt_destination_address_to_symbol, get_destination_details
+from mainnet_launch.destinations import attempt_destination_address_to_vault_name, get_destination_details
 
 POINTS_HOOK = "0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3"
 
@@ -34,9 +34,11 @@ def fetch_destination_summary_stats(
 
     uwcr_df, allocation_df, compositeReturn_out_df = clean_summary_stats_df(summary_stats_df)
     total_nav_df = allocation_df.sum(axis=1)
-    uwcr_df.columns = [attempt_destination_address_to_symbol(c) for c in uwcr_df.columns]
-    allocation_df.columns = [attempt_destination_address_to_symbol(c) for c in allocation_df.columns]
-    compositeReturn_out_df.columns = [attempt_destination_address_to_symbol(c) for c in compositeReturn_out_df.columns]
+    uwcr_df.columns = [attempt_destination_address_to_vault_name(c) for c in uwcr_df.columns]
+    allocation_df.columns = [attempt_destination_address_to_vault_name(c) for c in allocation_df.columns]
+    compositeReturn_out_df.columns = [
+        attempt_destination_address_to_vault_name(c) for c in compositeReturn_out_df.columns
+    ]
 
     destination_points_calls = _build_destination_points_calls()
     points_df = get_raw_state_by_blocks(destination_points_calls, blocks)

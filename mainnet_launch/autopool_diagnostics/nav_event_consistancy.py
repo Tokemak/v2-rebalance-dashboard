@@ -21,7 +21,7 @@ from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_and_clean_rebalance_between_destination_events,
 )
-from mainnet_launch.destinations import attempt_destination_address_to_symbol
+from mainnet_launch.destinations import attempt_destination_address_to_vault_name
 from mainnet_launch.data_fetching.get_state_by_block import (
     add_timestamp_to_df_with_block_column,
 )
