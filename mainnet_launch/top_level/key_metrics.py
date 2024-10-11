@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st
 
-from mainnet_launch.constants import CACHE_TIME, AutopoolConstants
+from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, AUTO_LRT
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 from mainnet_launch.autopool_diagnostics.fetch_nav_per_share import fetch_nav_per_share
@@ -61,11 +61,11 @@ def _get_percent_deployed(allocation_df: pd.DataFrame, autopool: AutopoolConstan
     daily_allocation_df = allocation_df.resample("1D").last()
 
     tvl_according_to_allocation_df = float(daily_allocation_df.iloc[-1].sum())
-    tvl_in_idle = float(daily_allocation_df[f"{autopool.name} idle"].iloc[-1])
+    tvl_in_idle = float(daily_allocation_df[f"Tokemak {autopool.name}"].iloc[-1])
     percent_deployed_today = 100 * ((tvl_according_to_allocation_df - tvl_in_idle) / tvl_according_to_allocation_df)
 
     tvl_according_to_allocation_df = float(daily_allocation_df.iloc[-2].sum())
-    tvl_in_idle = float(daily_allocation_df[f"{autopool.name} idle"].iloc[-2])
+    tvl_in_idle = float(daily_allocation_df[f"Tokemak {autopool.name}"].iloc[-2])
     percent_deployed_yesterday = 100 * ((tvl_according_to_allocation_df - tvl_in_idle) / tvl_according_to_allocation_df)
 
     return round(percent_deployed_yesterday, 2), round(percent_deployed_today, 2)
@@ -183,3 +183,4 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
         - Expected Annualized Return: Projected percent annual return based on current allocations of the Autopool.
         """
         )
+
