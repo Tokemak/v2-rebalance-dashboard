@@ -101,7 +101,7 @@ def get_destination_details() -> list[DestinationDetails]:
     return destination_details
 
 
-def attempt_destination_address_to_symbol(address: str) -> str:
+def attempt_destination_address_to_vault_name(address: str) -> str:
     destination_details = get_destination_details()
     vault_address_to_name = {
         eth_client.toChecksumAddress(dest.vaultAddress): dest.vault_name for dest in destination_details

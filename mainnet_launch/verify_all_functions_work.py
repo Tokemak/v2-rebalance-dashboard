@@ -28,9 +28,7 @@ from mainnet_launch.constants import (
 
 TESTING_LOG_FILE = "test_fetching_functions.log"
 
-logging.basicConfig(
-    filename=TESTING_LOG_FILE, filemode="w", format="%(asctime)s - %(message)s", level=logging.INFO
-)
+logging.basicConfig(filename=TESTING_LOG_FILE, filemode="w", format="%(asctime)s - %(message)s", level=logging.INFO)
 
 
 data_caching_functions = [
@@ -69,7 +67,7 @@ def verify_data_fetching_functions_work():
     with open(TESTING_LOG_FILE, "r") as log_file:
         log_contents = log_file.read()
 
-    if 'Exception occurred:' in log_contents:
+    if "Exception occurred:" in log_contents:
         print(log_contents)
 
 
