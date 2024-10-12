@@ -130,6 +130,7 @@ def get_destination_details() -> list[DestinationDetails]:
     return list(all_destination_details)
 
 
+@st.cache_data(ttl=CACHE_TIME)
 def attempt_destination_address_to_vault_name(possible_address: str) -> str:
     # possible_address is typically a column in DataFrame
 
@@ -137,8 +138,8 @@ def attempt_destination_address_to_vault_name(possible_address: str) -> str:
     vault_address_to_name = {
         eth_client.toChecksumAddress(dest.vaultAddress): dest.vault_name for dest in destination_details
     }
-    if eth_client.isChecksumAddress(possible_address):
-        checksumAddress = eth_client.toChecksumAddress(possible_address)
-        return vault_address_to_name[checksumAddress] if checksumAddress in vault_address_to_name else checksumAddress
-
-    return possible_address
+    try:
+        vault_name = vault_address_to_name[eth_client.toChecksumAddress(possible_address)]
+        return vault_name
+    except Exception:
+        return possible_address

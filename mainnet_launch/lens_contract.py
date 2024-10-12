@@ -152,8 +152,8 @@ def build_proxyGetDestinationSummaryStats_call(
         direction_enum = 0
     elif direction == "out":
         direction_enum = 1
-    else: 
-        raise ValueError(f'direction can only be `in` or `out` is {direction=}')
+    else:
+        raise ValueError(f"direction can only be `in` or `out` is {direction=}")
 
     return Call(
         LENS_CONTRACT,
