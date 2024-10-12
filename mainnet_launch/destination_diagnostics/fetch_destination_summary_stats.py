@@ -100,6 +100,7 @@ def _build_summary_stats_call(
 
 
 def _build_all_summary_stats_calls(blocks: list[int]) -> list[Call]:
+    # not accounting for multiple destinations
     get_destinations_calls = [
         Call(a.autopool_eth_addr, "getDestinations()(address[])", [(a.name, identity_with_bool_success)])
         for a in ALL_AUTOPOOLS
@@ -120,6 +121,10 @@ def _build_all_summary_stats_calls(blocks: list[int]) -> list[Call]:
         summary_stats_calls.append(call)
 
     return summary_stats_calls
+
+
+# def _build_all_summary_stats_calls(blocks: list[int]) -> list[Call]:
+#     destination_details = get_destination_details()
 
 
 def _build_destination_points_calls() -> list[Call]:

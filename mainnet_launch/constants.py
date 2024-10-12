@@ -42,7 +42,7 @@ def time_decorator(func):
 @dataclass
 class AutopoolConstants:
     name: str
-    autopool_eth_addr: str
+    autopool_eth_addr: str  # consider renaming
     autopool_eth_strategy_addr: str
     solver_rebalance_plans_bucket: str
 

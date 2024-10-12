@@ -125,11 +125,46 @@ def get_pools_and_destinations_call() -> Call:
     )
 
 
-def proxy_get_stats_call(destination_address: str, destination_symbol: str) -> Call:
+def _clean_summary_stats_info(success, summary_stats):
+    if success is True:
+        summary = {
+            "destination": summary_stats[0],
+            "baseApr": summary_stats[1] / 1e18,
+            "feeApr": summary_stats[2] / 1e18,
+            "incentiveApr": summary_stats[3] / 1e18,
+            "safeTotalSupply": summary_stats[4] / 1e18,
+            "priceReturn": summary_stats[5] / 1e18,
+            "maxDiscount": summary_stats[6] / 1e18,
+            "maxPremium": summary_stats[7] / 1e18,
+            "ownedShares": summary_stats[8] / 1e18,
+            "compositeReturn": summary_stats[9] / 1e18,
+            "pricePerShare": summary_stats[10] / 1e18,
+        }
+        return summary
+    else:
+        return None
+
+
+def build_proxyGetDestinationSummaryStats_call(
+    name: str, autopool_strategy_address: str, destination_address: str, direction: str, amount: int
+) -> Call:
+    if direction == "in":
+        direction_enum = 0
+    elif direction == "out":
+        direction_enum = 1
+    else: 
+        raise ValueError(f'direction can only be `in` or `out` is {direction=}')
+
     return Call(
         LENS_CONTRACT,
-        ["proxyGetStats(address)(tuple)", destination_address],
-        [["destination_symbol" + destination_address, identity_with_bool_success]],
+        [
+            f"proxyGetDestinationSummaryStats(address,address,uint8,uint256)((address,uint256,uint256,uint256,uint256,int256,int256,int256,uint256,int256,uint256))",
+            autopool_strategy_address,
+            destination_address,
+            direction_enum,
+            amount,
+        ],
+        [(name, _clean_summary_stats_info)],
     )
 
 
