@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 from multicall import Call
 import streamlit as st
@@ -9,7 +9,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
 )
 
-from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, eth_client
+from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, eth_client, AutopoolConstants
 from mainnet_launch.lens_contract import fetch_pools_and_destinations_df
 
 
@@ -23,66 +23,95 @@ class DestinationDetails:
     lpTokenSymbol: str
     lpTokenName: str
 
-    autopool_vault_address: str
-    autopool_vault_symbol: str
+    autopool: AutopoolConstants
 
     vault_name: str = None
 
+    def __str__(self):
+        details = "Destination Details:\n"
+        for field, value in asdict(self).items():
+            details += f" {field.title():20}\t: {value}\n"
+        return details
 
-def make_idle_destination_details() -> list[DestinationDetails]:
-    idle_details = []
+    def __repr__(self) -> str:
+        return self.__str__()
 
-    for a in ALL_AUTOPOOLS:
-        idle_details.append(
+    def __hash__(self):
+        return hash(
+            (
+                self.vaultAddress,
+                self.exchangeName,
+                self.dexPool,
+                self.lpTokenAddress,
+                self.lpTokenSymbol,
+                self.lpTokenName,
+            )
+        )
+
+
+def make_idle_destination_details() -> set[DestinationDetails]:
+    # Idle is not included in pools and destinations
+    idle_details = set()
+
+    for autopool in ALL_AUTOPOOLS:
+        idle_details.add(
             DestinationDetails(
-                vaultAddress=a.autopool_eth_addr,
+                vaultAddress=autopool.autopool_eth_addr,
                 exchangeName="Tokemak",
                 dexPool=None,
                 lpTokenAddress=None,
                 lpTokenSymbol=None,
                 lpTokenName=None,
-                autopool_vault_address=a.autopool_eth_addr,
-                autopool_vault_symbol=f"{a.name} Idle",
+                autopool=autopool,
+                vault_name=autopool.name,
             )
         )
     return idle_details
 
 
-def flat_destinations_to_DestinationDetails(flat_destinations: list[dict]) -> list[DestinationDetails]:
-    fields = {field.name for field in DestinationDetails.__dataclass_fields__.values()}
-    filtered_data = [{k: v for k, v in json_data.items() if k in fields} for json_data in flat_destinations]
-    return [DestinationDetails(**data) for data in filtered_data]
-
-
-def build_all_destinationDetails(pools_and_destinations_df: pd.DataFrame) -> list[DestinationDetails]:
-    all_destination_details = make_idle_destination_details()
-    found_pairs = []
-
-    def _add_to_all_destination_details(row: dict):
-        autopools = row["autopools"]
-        destinations = row["destinations"]
-        for a, d in zip(autopools, destinations):
-            for dest in d:
-                dest["autopool_vault_address"] = a["poolAddress"]
-                dest["autopool_vault_symbol"] = a["symbol"]
-
-        flat_destinations = [d for des in destinations for d in des]
-
-        destinations = flat_destinations_to_DestinationDetails(flat_destinations)
-        for dest in destinations:
-            if (dest.vaultAddress, dest.autopool_vault_address) not in found_pairs:
-                found_pairs.append((dest.vaultAddress, dest.autopool_vault_address))
-                all_destination_details.append(dest)
-
-    pools_and_destinations_df["getPoolsAndDestinations"].apply(_add_to_all_destination_details)
-
-    return all_destination_details
+def autopool_data_to_autopool_constant(autopool: dict) -> AutopoolConstants:
+    autopool_constant = [
+        c
+        for c in ALL_AUTOPOOLS
+        if eth_client.toChecksumAddress(autopool["poolAddress"]) == eth_client.toChecksumAddress(c.autopool_eth_addr)
+    ][0]
+    return autopool_constant
 
 
 @st.cache_data(ttl=CACHE_TIME)
 def get_destination_details() -> list[DestinationDetails]:
+    # retuns a list of all destinations along with their autopools even if the destinations have been replaced
+
     pools_and_destinations_df = fetch_pools_and_destinations_df()
-    destination_details = build_all_destinationDetails(pools_and_destinations_df)
+    all_destination_details = make_idle_destination_details()
+
+    def _add_to_all_destination_details(row: dict):
+        autopools = row["autopools"]
+
+        if len(autopools) != 3:
+            raise ValueError("only expects 3 autopools, found not 3:", str(autopools))
+
+        list_of_list_of_destinations = row["destinations"]
+
+        autopool_constants = [autopool_data_to_autopool_constant(autopool) for autopool in autopools]
+
+        for autopool_constant, list_of_destinations in zip(autopool_constants, list_of_list_of_destinations):
+
+            for destination in list_of_destinations:
+                destination_details = DestinationDetails(
+                    vaultAddress=destination["vaultAddress"],
+                    exchangeName=destination["exchangeName"],
+                    dexPool=destination["dexPool"],
+                    lpTokenAddress=destination["lpTokenAddress"],
+                    lpTokenName=destination["lpTokenName"],
+                    lpTokenSymbol=destination["lpTokenSymbol"],
+                    autopool=autopool_constant,
+                    vault_name=None,  # added later with an onchain call
+                )
+
+                all_destination_details.add(destination_details)
+
+    pools_and_destinations_df["getPoolsAndDestinations"].apply(_add_to_all_destination_details)
 
     get_destination_names_calls = [
         Call(
@@ -90,23 +119,26 @@ def get_destination_details() -> list[DestinationDetails]:
             "name()(string)",
             [(eth_client.toChecksumAddress(dest.vaultAddress), identity_with_bool_success)],
         )
-        for dest in destination_details
+        for dest in all_destination_details
     ]
-
+    # the names don't change so we only need to get it once
     vault_addresses_to_names = get_state_by_one_block(get_destination_names_calls, eth_client.eth.block_number)
 
-    for dest in destination_details:
+    for dest in all_destination_details:
         dest.vault_name = vault_addresses_to_names[eth_client.toChecksumAddress(dest.vaultAddress)]
 
-    return destination_details
+    return list(all_destination_details)
 
 
-def attempt_destination_address_to_vault_name(address: str) -> str:
-    destination_details = get_destination_details()
+def attempt_destination_address_to_vault_name(possible_address: str) -> str:
+    # possible_address is typically a column in DataFrame
+
+    destination_details: set[DestinationDetails] = get_destination_details()  # cached so is fast
     vault_address_to_name = {
         eth_client.toChecksumAddress(dest.vaultAddress): dest.vault_name for dest in destination_details
     }
-    if eth_client.isChecksumAddress(address):
-        checksumAddress = eth_client.toChecksumAddress(address)
+    if eth_client.isChecksumAddress(possible_address):
+        checksumAddress = eth_client.toChecksumAddress(possible_address)
         return vault_address_to_name[checksumAddress] if checksumAddress in vault_address_to_name else checksumAddress
-    return address
+
+    return possible_address
