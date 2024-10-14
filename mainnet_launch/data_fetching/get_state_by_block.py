@@ -121,7 +121,7 @@ async def async_safe_get_raw_state_by_block(
         print(f"{calls=}")
 
     df.set_index("timestamp", inplace=True)
-    df.index = pd.to_datetime(df.index, unit="s")
+    df.index = pd.to_datetime(df.index, unit="s", utc=True)
     df.sort_index(inplace=True)
     if not include_block_number:
         df.drop(columns="block", inplace=True)
