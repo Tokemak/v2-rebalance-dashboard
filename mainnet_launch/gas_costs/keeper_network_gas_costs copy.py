@@ -6,9 +6,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
 import os
-import time
-import logging
-import json
+
 
 from mainnet_launch.abis.abis import CHAINLINK_KEEPER_REGISTRY_ABI
 from mainnet_launch.constants import (
@@ -42,100 +40,56 @@ INCENTIVE_PRICING_KEEPER_ORACLE_ID = "849108105899238015985360315078279419237356
 KEEPER_REGISTRY_CONTRACT_ADDRESS = "0x6593c7De001fC8542bB1703532EE1E5aA0D458fD"
 START_BLOCK = 20500000  # AUG 10, 2024
 
-# JSON paths for caching each hash-related attribute
-GAS_COST_JSON_PATH = 'hash_to_gas_cost_in_ETH.json'
-GAS_PRICE_JSON_PATH = 'hash_to_gasPrice.json'
-GAS_USED_JSON_PATH = 'has_to_gas_used.json'
+FETCHED_DATA_PATH = 'upkeep_gas_cost_data.parquet'
+
 
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_keeper_network_gas_costs() -> pd.DataFrame:
-    # Load cached data from JSON files or initialize empty structures
-    hash_to_gas_cost_in_ETH = load_json_data(GAS_COST_JSON_PATH)
-    hash_to_gasPrice = load_json_data(GAS_PRICE_JSON_PATH)
-    has_to_gas_used = load_json_data(GAS_USED_JSON_PATH)
-
-    # Fetch contract events and filter relevant data
-    new_upkeep_df = fetch_filtered_upkeep_events()
-
-    fetch_missing_transaction_data(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice, has_to_gas_used)
-
-    updated_df = construct_dataframe(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice, has_to_gas_used)
-
-    fetch_solver_gas_costs()
-
-    return updated_df
-
-
-def load_json_data(file_path):
-    if os.path.exists(file_path):
-        with open(file_path, 'r') as f:
-            return json.load(f)
-    return {}
-
-
-def save_json_data(data, file_path):
-    with open(file_path, 'w') as f:
-        json.dump(data, f)
-
-
-def fetch_filtered_upkeep_events():
     contract = eth_client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
-    upkeep_df = fetch_events(contract.events.UpkeepPerformed, START_BLOCK)
-    filtered_upkeep_df = upkeep_df[
+
+    upkeep_df = fetch_events(contract.events.UpkeepPerformed, START_BLOCK, 20700000)
+    our_upkeep_df = upkeep_df[
         upkeep_df["id"].apply(str).isin([CALCULATOR_KEEPER_ORACLE_TOPIC_ID, INCENTIVE_PRICING_KEEPER_ORACLE_ID])
     ].copy()
-    return add_timestamp_to_df_with_block_column(filtered_upkeep_df)
+    our_upkeep_df = add_timestamp_to_df_with_block_column(our_upkeep_df)
 
-
-def fetch_missing_transaction_data(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice, has_to_gas_used):
-    """Fetch and update transaction data for hashes that are not already cached."""
-    missing_hashes = new_upkeep_df[~new_upkeep_df["hash"].isin(hash_to_gas_cost_in_ETH.keys())]["hash"]
+    hash_to_gas_cost_in_ETH = {}
+    hash_to_gasPrice = {}
+    has_to_gas_used = {}
 
     lock = threading.Lock()
 
     def batch_calc_gas_used_by_transaction_in_eth(tx_hashes: list[str]):
         for tx_hash in tx_hashes:
-            success = False
-            while not success:
-                try:
-                    tx_receipt = eth_client.eth.get_transaction_receipt(tx_hash)
-                    tx = eth_client.eth.get_transaction(tx_hash)
-                    gas_cost_in_ETH = float(eth_client.fromWei(tx["gasPrice"] * tx_receipt["gasUsed"], "ether"))
-                    with lock:
-                        has_to_gas_used[tx_hash] = tx_receipt["gasUsed"]
-                        hash_to_gas_cost_in_ETH[tx_hash] = gas_cost_in_ETH
-                        hash_to_gasPrice[tx_hash] = tx["gasPrice"]
-                    success = True
-                except Exception as e:
-                    logging.warning(f"Retrying for transaction {tx_hash} due to error: {e}")
-                    time.sleep(1)  # Retry after a short delay
+            # add a while loop to make sure this works
+            tx_receipt = eth_client.eth.get_transaction_receipt(tx_hash)
+            tx = eth_client.eth.get_transaction(tx_hash)
+            gas_cost_in_ETH = float(eth_client.fromWei(tx["gasPrice"] * tx_receipt["gasUsed"], "ether"))
+            with lock:
+                has_to_gas_used[tx_hash] = tx_receipt["gasUsed"]
+                hash_to_gas_cost_in_ETH[tx_hash] = gas_cost_in_ETH
+                hash_to_gasPrice[tx_hash] = tx["gasPrice"]
 
-    with ThreadPoolExecutor(max_workers=24) as executor:
-        hash_groups = np.array_split(missing_hashes, 100)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        hash_groups = np.array_split(our_upkeep_df["hash"], 100)
         for tx_hashes in hash_groups:
             executor.submit(batch_calc_gas_used_by_transaction_in_eth, tx_hashes)
 
-    # Save updated data to JSON files
-    save_json_data(hash_to_gas_cost_in_ETH, GAS_COST_JSON_PATH)
-    save_json_data(hash_to_gasPrice, GAS_PRICE_JSON_PATH)
-    save_json_data(has_to_gas_used, GAS_USED_JSON_PATH)
+    our_upkeep_df["gasCostInETH"] = our_upkeep_df["hash"].apply(lambda x: hash_to_gas_cost_in_ETH[x])
+    our_upkeep_df["gasPrice"] = our_upkeep_df["hash"].apply(lambda x: hash_to_gasPrice[x])
+    our_upkeep_df["full_tx_gas_used"] = our_upkeep_df["hash"].apply(lambda x: has_to_gas_used[x])
+    our_upkeep_df["gasCostInETH_with_chainlink_premium"] = (
+        our_upkeep_df["gasCostInETH"] * 1.2
+    )  # it costs a 20% premium on ETH in overhead
+    our_upkeep_df["gasCostInETH_without_chainlink_overhead"] = our_upkeep_df["gasPrice"].astype(int) * our_upkeep_df[
+        "gasUsed"
+    ].apply(lambda x: int(x) / 1e18)
 
+    fetch_solver_gas_costs()  # just to add caching
 
-def construct_dataframe(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice, has_to_gas_used):
-    """Construct the complete DataFrame from JSON-cached data and calculated fields."""
-    # Map values from JSON data to new_upkeep_df
-    new_upkeep_df["gasCostInETH"] = new_upkeep_df["hash"].map(hash_to_gas_cost_in_ETH)
-    new_upkeep_df["gasPrice"] = new_upkeep_df["hash"].map(hash_to_gasPrice)
-    new_upkeep_df["full_tx_gas_used"] = new_upkeep_df["hash"].map(has_to_gas_used)
+    return our_upkeep_df
 
-    # Calculate additional fields
-    new_upkeep_df["gasCostInETH_with_chainlink_premium"] = new_upkeep_df["gasCostInETH"] * 1.2  # 20% premium
-    new_upkeep_df["gasCostInETH_without_chainlink_overhead"] = (
-        new_upkeep_df["gasPrice"].astype(int) * new_upkeep_df["gasUsed"].apply(lambda x: int(x) / 1e18)
-    )
-
-    return new_upkeep_df
 
 def fetch_and_render_keeper_network_gas_costs():
 
@@ -164,6 +118,7 @@ def fetch_and_render_keeper_network_gas_costs():
 
     hourly_gas_price_box_and_whisker_fig = _hourly_box_plot_of_gas_prices(our_upkeep_df)
     st.plotly_chart(hourly_gas_price_box_and_whisker_fig, use_container_width=True)
+
 
 def _daily_box_plot_of_gas_prices(our_upkeep_df: pd.DataFrame):
     daily_gas_price = our_upkeep_df.groupby(our_upkeep_df.index.date)["gasPrice"]
