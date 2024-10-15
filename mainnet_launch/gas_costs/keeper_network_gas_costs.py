@@ -4,7 +4,7 @@ import numpy as np
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import time
 import logging
@@ -43,9 +43,9 @@ KEEPER_REGISTRY_CONTRACT_ADDRESS = "0x6593c7De001fC8542bB1703532EE1E5aA0D458fD"
 START_BLOCK = 20500000  # AUG 10, 2024
 
 # JSON paths for caching each hash-related attribute
-GAS_COST_JSON_PATH = 'hash_to_gas_cost_in_ETH.json'
-GAS_PRICE_JSON_PATH = 'hash_to_gasPrice.json'
-GAS_USED_JSON_PATH = 'has_to_gas_used.json'
+GAS_COST_JSON_PATH = "hash_to_gas_cost_in_ETH.json"
+GAS_PRICE_JSON_PATH = "hash_to_gasPrice.json"
+GAS_USED_JSON_PATH = "has_to_gas_used.json"
 
 
 @st.cache_data(ttl=CACHE_TIME)
@@ -69,13 +69,13 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
 
 def load_json_data(file_path):
     if os.path.exists(file_path):
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             return json.load(f)
     return {}
 
 
 def save_json_data(data, file_path):
-    with open(file_path, 'w') as f:
+    with open(file_path, "w") as f:
         json.dump(data, f)
 
 
@@ -131,11 +131,12 @@ def construct_dataframe(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice
 
     # Calculate additional fields
     new_upkeep_df["gasCostInETH_with_chainlink_premium"] = new_upkeep_df["gasCostInETH"] * 1.2  # 20% premium
-    new_upkeep_df["gasCostInETH_without_chainlink_overhead"] = (
-        new_upkeep_df["gasPrice"].astype(int) * new_upkeep_df["gasUsed"].apply(lambda x: int(x) / 1e18)
-    )
+    new_upkeep_df["gasCostInETH_without_chainlink_overhead"] = new_upkeep_df["gasPrice"].astype(int) * new_upkeep_df[
+        "gasUsed"
+    ].apply(lambda x: int(x) / 1e18)
 
     return new_upkeep_df
+
 
 def fetch_and_render_keeper_network_gas_costs():
 
@@ -143,7 +144,8 @@ def fetch_and_render_keeper_network_gas_costs():
 
     st.header("Operation Gas Costs")
 
-    today = datetime.now()
+    today = datetime.now(timezone.utc)
+
     cost_last_7_days = our_upkeep_df[our_upkeep_df.index >= today - timedelta(days=7)][
         "gasCostInETH_with_chainlink_premium"
     ].sum()
@@ -153,9 +155,21 @@ def fetch_and_render_keeper_network_gas_costs():
     cost_last_1_year = our_upkeep_df[our_upkeep_df.index >= today - timedelta(days=365)][
         "gasCostInETH_with_chainlink_premium"
     ].sum()
-    st.metric(label="Keeper ETH Cost (Last 7 Days)", value=f"{cost_last_7_days:.4f} ETH")
-    st.metric(label="Keeper ETH Cost (Last 30 Days)", value=f"{cost_last_30_days:.4f} ETH")
-    st.metric(label="Keeper ETH Cost (Last 1 Year)", value=f"{cost_last_1_year:.4f} ETH")
+    st.metric(
+        label="Keeper ETH Cost (Last 7 Days)",
+        value=f"{cost_last_7_days:.4f} ETH",
+        delta=f"({cost_last_7_days / 1.2:.4f} ETH)",
+    )
+    st.metric(
+        label="Keeper ETH Cost (Last 30 Days)",
+        value=f"{cost_last_30_days:.4f} ETH",
+        delta=f"({cost_last_30_days / 1.2:.4f} ETH)",
+    )
+    st.metric(
+        label="Keeper ETH Cost (Last 1 Year)",
+        value=f"{cost_last_1_year:.4f} ETH",
+        delta=f"({cost_last_1_year / 1.2:.4f} ETH)",
+    )
 
     fetch_and_render_solver_gas_costs()
 
@@ -164,6 +178,17 @@ def fetch_and_render_keeper_network_gas_costs():
 
     hourly_gas_price_box_and_whisker_fig = _hourly_box_plot_of_gas_prices(our_upkeep_df)
     st.plotly_chart(hourly_gas_price_box_and_whisker_fig, use_container_width=True)
+
+    eth_spent_per_day_fig = _calc_gas_per_day_fig(our_upkeep_df)
+    st.plotly_chart(eth_spent_per_day_fig, use_container_width=True)
+
+
+def _calc_gas_per_day_fig(our_upkeep_df: pd.DataFrame):
+    gas_spent_with_chainlink_premium = our_upkeep_df.groupby(our_upkeep_df.index.date)[
+        "gasCostInETH_with_chainlink_premium"
+    ].sum()
+    return px.bar(gas_spent_with_chainlink_premium, title="ETH spent on Chainlink Upkeep per Day")
+
 
 def _daily_box_plot_of_gas_prices(our_upkeep_df: pd.DataFrame):
     daily_gas_price = our_upkeep_df.groupby(our_upkeep_df.index.date)["gasPrice"]
@@ -190,7 +215,7 @@ def _hourly_box_plot_of_gas_prices(our_upkeep_df: pd.DataFrame):
 
     # Create the box plot for hourly distribution of gas prices
     hourly_gas_price_box_and_whisker_fig = px.box(
-        exploded_df, x="Hour", y="GasPrices", title="Hourly Distribution of Gas Prices"
+        exploded_df, x="Hour", y="GasPrices", title="UTC, Hourly Distribution of Gas Prices"
     )
 
     return hourly_gas_price_box_and_whisker_fig
@@ -199,7 +224,8 @@ def _hourly_box_plot_of_gas_prices(our_upkeep_df: pd.DataFrame):
 def fetch_and_render_solver_gas_costs():
 
     rebalance_gas_cost_df = fetch_solver_gas_costs()
-    today = datetime.now()
+    today = datetime.now(timezone.utc)
+
     cost_last_7_days = rebalance_gas_cost_df[rebalance_gas_cost_df.index >= today - timedelta(days=7)][
         "gasCostInETH"
     ].sum()
