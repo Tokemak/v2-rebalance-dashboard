@@ -40,12 +40,12 @@ INCENTIVE_PRICING_KEEPER_ORACLE_ID = "849108105899238015985360315078279419237356
 # there can be more KEEPER IDs added later
 
 KEEPER_REGISTRY_CONTRACT_ADDRESS = "0x6593c7De001fC8542bB1703532EE1E5aA0D458fD"
-START_BLOCK = 20752910  # sep 15, 2024
+START_BLOCK = 20752581  # 20752910  # sep 15, 2024
 
 # JSON paths for caching each hash-related attribute
 GAS_COST_JSON_PATH = "hash_to_gas_cost_in_ETH.json"
 GAS_PRICE_JSON_PATH = "hash_to_gasPrice.json"
-GAS_USED_JSON_PATH = "has_to_gas_used.json"
+GAS_USED_JSON_PATH = "hash_to_gas_used.json"
 
 
 @st.cache_data(ttl=CACHE_TIME)
@@ -64,7 +64,45 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
 
     fetch_solver_gas_costs()
 
+    date_filter = pd.Timestamp("2024-09-15", tz="UTC")
+
+    updated_df = updated_df[updated_df.index >= date_filter].copy()
+
+    updated_df.to_csv("chainlink_keeper_upkeeper_df.csv")
+
     return updated_df
+
+
+def fetch_and_render_keeper_network_gas_costs():
+
+    our_upkeep_df = fetch_keeper_network_gas_costs()
+
+    st.header("Gas Costs")
+
+    _display_gas_cost_metrics(our_upkeep_df)
+
+    daily_gasPrice_box_and_whisker_fig = _daily_box_plot_of_gas_prices(our_upkeep_df)
+    st.plotly_chart(daily_gasPrice_box_and_whisker_fig, use_container_width=True)
+
+    hourly_gas_price_box_and_whisker_fig = _hourly_box_plot_of_gas_prices(our_upkeep_df)
+    st.plotly_chart(hourly_gas_price_box_and_whisker_fig, use_container_width=True)
+
+    eth_spent_per_day_fig = _make_gas_spent_df(our_upkeep_df)
+    st.plotly_chart(eth_spent_per_day_fig, use_container_width=True)
+
+    with st.expander("See explanation for Gas Costs"):
+        st.write(
+            """
+        Top level metrics.
+
+        - For Chainlink Keepers we pay (in LINK) the ETH cost of the transaction + a 20% premium. 
+        - We don't pay a premium for the Solver because it is in-house.
+        - Currently Keeper transactions are set to execute at any gas price. 
+        - We can set a max gas price here https://docs.chain.link/chainlink-automation/guides/gas-price-threshold
+        - This max price can be updated frequently
+        )
+        """
+        )
 
 
 def load_json_data(file_path):
@@ -91,7 +129,6 @@ def fetch_filtered_upkeep_events():
 def fetch_missing_transaction_data(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice, has_to_gas_used):
     """Fetch and update transaction data for hashes that are not already cached."""
     missing_hashes = new_upkeep_df[~new_upkeep_df["hash"].isin(hash_to_gas_cost_in_ETH.keys())]["hash"]
-
     lock = threading.Lock()
 
     def batch_calc_gas_used_by_transaction_in_eth(tx_hashes: list[str]):
@@ -138,56 +175,47 @@ def construct_dataframe(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice
     return new_upkeep_df
 
 
-def fetch_and_render_keeper_network_gas_costs():
+def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
+    calculator_df = our_upkeep_df[our_upkeep_df["id"].apply(str) == CALCULATOR_KEEPER_ORACLE_TOPIC_ID]
+    incentive_pricing_df = our_upkeep_df[our_upkeep_df["id"].apply(str) == INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 
-    our_upkeep_df = fetch_keeper_network_gas_costs()
+    calculator_gas_costs_7, calculator_gas_costs_30, calculator_gas_costs_365 = get_gas_costs(
+        calculator_df, "gasCostInETH_with_chainlink_premium"
+    )
+    incentive_gas_costs_7, incentive_gas_costs_30, incentive_gas_costs_365 = get_gas_costs(
+        incentive_pricing_df, "gasCostInETH_with_chainlink_premium"
+    )
 
-    st.header("Operation Gas Costs")
+    solver_cost_7, solver_cost_30, solver_cost_365 = fetch_solver_metrics()  # col3
 
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric(label="Calculator Keeper ETH Cost (Last 7 Days)", value=f"{calculator_gas_costs_7:.4f} ETH")
+    col1.metric(label="Calculator Keeper ETH Cost (Last 30 Days)", value=f"{calculator_gas_costs_30:.4f} ETH")
+    col1.metric(label="Calculator Keeper ETH Cost (Last 1 Year)", value=f"{calculator_gas_costs_365:.4f} ETH")
+
+    col2.metric(label="Incentive Keeper ETH Cost (Last 7 Days)", value=f"{incentive_gas_costs_7:.4f} ETH")
+    col2.metric(label="Incentive Keeper ETH Cost (Last 30 Days)", value=f"{incentive_gas_costs_30:.4f} ETH")
+    col2.metric(label="Incentive Keeper ETH Cost (Last 1 Year)", value=f"{incentive_gas_costs_365:.4f} ETH")
+
+    col3.metric(label="Solver ETH Cost (Last 7 Days)", value=f"{solver_cost_7:.4f} ETH")
+    col3.metric(label="Solver ETH Cost (Last 30 Days)", value=f"{solver_cost_30:.4f} ETH")
+    col3.metric(label="Solver ETH Cost (Last 1 Year)", value=f"{solver_cost_365:.4f} ETH")
+
+
+def get_gas_costs(df: pd.DataFrame, column: str):
     today = datetime.now(timezone.utc)
 
-    cost_last_7_days = our_upkeep_df[our_upkeep_df.index >= today - timedelta(days=7)][
-        "gasCostInETH_with_chainlink_premium"
-    ].sum()
-    cost_last_30_days = our_upkeep_df[our_upkeep_df.index >= today - timedelta(days=30)][
-        "gasCostInETH_with_chainlink_premium"
-    ].sum()
-    cost_last_1_year = our_upkeep_df[our_upkeep_df.index >= today - timedelta(days=365)][
-        "gasCostInETH_with_chainlink_premium"
-    ].sum()
-    st.metric(
-        label="Keeper ETH Cost (Last 7 Days)",
-        value=f"{cost_last_7_days:.4f} ETH",
-        delta=f"({cost_last_7_days / 1.2:.4f} ETH)",
-    )
-    st.metric(
-        label="Keeper ETH Cost (Last 30 Days)",
-        value=f"{cost_last_30_days:.4f} ETH",
-        delta=f"({cost_last_30_days / 1.2:.4f} ETH)",
-    )
-    st.metric(
-        label="Keeper ETH Cost (Last 1 Year)",
-        value=f"{cost_last_1_year:.4f} ETH",
-        delta=f"({cost_last_1_year / 1.2:.4f} ETH)",
+    return (
+        df[df.index >= today - timedelta(days=7)][column].sum(),
+        df[df.index >= today - timedelta(days=30)][column].sum(),
+        df[df.index >= today - timedelta(days=365)][column].sum(),
     )
 
-    fetch_and_render_solver_gas_costs()
 
-    daily_gasPrice_box_and_whisker_fig = _daily_box_plot_of_gas_prices(our_upkeep_df)
-    st.plotly_chart(daily_gasPrice_box_and_whisker_fig, use_container_width=True)
-
-    hourly_gas_price_box_and_whisker_fig = _hourly_box_plot_of_gas_prices(our_upkeep_df)
-    st.plotly_chart(hourly_gas_price_box_and_whisker_fig, use_container_width=True)
-
-    eth_spent_per_day_fig = _calc_gas_per_day_fig(our_upkeep_df)
-    st.plotly_chart(eth_spent_per_day_fig, use_container_width=True)
-
-
-def _calc_gas_per_day_fig(our_upkeep_df: pd.DataFrame):
-    gas_spent_with_chainlink_premium = our_upkeep_df.groupby(our_upkeep_df.index.date)[
-        "gasCostInETH_with_chainlink_premium"
-    ].sum()
-    return px.bar(gas_spent_with_chainlink_premium, title="ETH spent on Chainlink Upkeep per Day")
+def _make_gas_spent_df(our_upkeep_df: pd.DataFrame):
+    gas_spent_with_chainlink_premium = our_upkeep_df.resample("1D")["gasCostInETH_with_chainlink_premium"].sum()
+    return px.bar(gas_spent_with_chainlink_premium, title="Total ETH spent per day on Chainlink Keepers")
 
 
 def _daily_box_plot_of_gas_prices(our_upkeep_df: pd.DataFrame):
@@ -221,11 +249,11 @@ def _hourly_box_plot_of_gas_prices(our_upkeep_df: pd.DataFrame):
     return hourly_gas_price_box_and_whisker_fig
 
 
-def fetch_and_render_solver_gas_costs():
 
+def fetch_solver_metrics():
     rebalance_gas_cost_df = fetch_solver_gas_costs()
     today = datetime.now(timezone.utc)
-
+    # Calculate costs over different periods
     cost_last_7_days = rebalance_gas_cost_df[rebalance_gas_cost_df.index >= today - timedelta(days=7)][
         "gasCostInETH"
     ].sum()
@@ -235,21 +263,47 @@ def fetch_and_render_solver_gas_costs():
     cost_last_1_year = rebalance_gas_cost_df[rebalance_gas_cost_df.index >= today - timedelta(days=365)][
         "gasCostInETH"
     ].sum()
-    st.metric(label="All Solvers ETH Cost (Last 7 Days)", value=f"{cost_last_7_days:.4f} ETH")
-    st.metric(label="All Solvers ETH Cost (Last 30 Days)", value=f"{cost_last_30_days:.4f} ETH")
-    st.metric(label="All Solvers ETH Cost (Last 1 Year)", value=f"{cost_last_1_year:.4f} ETH")
+
+    return cost_last_7_days, cost_last_30_days, cost_last_1_year
 
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_solver_gas_costs():
+    # Load cached gas cost data or initialize empty structure if not available
+    hash_to_rebalance_gas_cost_in_ETH = load_json_data(GAS_COST_JSON_PATH)
+
     rebalance_dfs = []
+    lock = threading.Lock()
+
+    def calc_and_cache_gas_cost(tx_hash):
+        """Fetch and cache gas cost for a single transaction."""
+        gas_cost_in_ETH = _calc_gas_used_by_transaction_in_eth(tx_hash)
+        with lock:
+            hash_to_rebalance_gas_cost_in_ETH[tx_hash] = gas_cost_in_ETH
+
     for autopool in ALL_AUTOPOOLS:
         clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
 
-        clean_rebalance_df["gasCostInETH"] = clean_rebalance_df.apply(
-            lambda row: _calc_gas_used_by_transaction_in_eth(row["hash"]), axis=1
-        )
+        # Identify missing transaction hashes
+        missing_hashes = clean_rebalance_df[~clean_rebalance_df["hash"].isin(hash_to_rebalance_gas_cost_in_ETH.keys())][
+            "hash"
+        ]
+
+        # Use ThreadPoolExecutor to calculate gas costs in parallel
+        with ThreadPoolExecutor(max_workers=24) as executor:
+            executor.map(calc_and_cache_gas_cost, missing_hashes)
+
+        # Map cached gas costs to the dataframe
+        clean_rebalance_df["gasCostInETH"] = clean_rebalance_df["hash"].map(hash_to_rebalance_gas_cost_in_ETH)
         rebalance_dfs.append(clean_rebalance_df[["gasCostInETH"]])
 
+    # Save the updated JSON data after all calculations
+    save_json_data(hash_to_rebalance_gas_cost_in_ETH, GAS_COST_JSON_PATH)
+
+    # Concatenate all dataframes and return final rebalance gas cost dataframe
     rebalance_gas_cost_df = pd.concat(rebalance_dfs, axis=0)
     return rebalance_gas_cost_df
+
+
+if __name__ == "__main__":
+    fetch_keeper_network_gas_costs()
