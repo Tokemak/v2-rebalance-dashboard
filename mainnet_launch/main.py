@@ -123,7 +123,7 @@ def cache_data_loop():
             logging.info(f"{get_memory_usage()} MB | After clearing cache")
             all_caching_started = time.time()
             cache_network_data()
-            cache_autopool_data()
+            cache_autopool_data()# note these don't work
             logging.info(f"{time.time() - all_caching_started:.2f} seconds: Everything Cached")
             logging.info("Finished Caching, Starting Sleep")
             # time.sleep(CACHE_TIME + 300)  # 5 minutes
