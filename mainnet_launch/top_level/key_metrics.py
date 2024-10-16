@@ -2,6 +2,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st
+import psutil
+
 
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
@@ -29,9 +31,16 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     return key_metric_data
 
 
+def get_memory_usage():
+    process = psutil.Process()
+    mem_info = process.memory_info()
+    return mem_info.rss / (1024**2)
+
+
 def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
     key_metric_data = fetch_key_metrics_data(autopool)
     _show_key_metrics(key_metric_data, autopool)
+    st.write(f"Memory Usage: {get_memory_usage():.2f} MB")
 
 
 def _apply_default_style(fig: go.Figure) -> None:

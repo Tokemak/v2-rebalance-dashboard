@@ -68,7 +68,7 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
 
     updated_df = updated_df[updated_df.index >= date_filter].copy()
 
-    updated_df.to_csv("chainlink_keeper_upkeeper_df.csv")
+    # updated_df.to_csv("chainlink_keeper_upkeeper_df.csv")
 
     return updated_df
 
