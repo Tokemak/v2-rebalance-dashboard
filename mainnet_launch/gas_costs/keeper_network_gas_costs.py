@@ -249,7 +249,6 @@ def _hourly_box_plot_of_gas_prices(our_upkeep_df: pd.DataFrame):
     return hourly_gas_price_box_and_whisker_fig
 
 
-
 def fetch_solver_metrics():
     rebalance_gas_cost_df = fetch_solver_gas_costs()
     today = datetime.now(timezone.utc)
