@@ -46,6 +46,14 @@ from mainnet_launch.gas_costs.keeper_network_gas_costs import (
     fetch_and_render_keeper_network_gas_costs,
 )
 
+import psutil
+
+
+def get_memory_usage():
+    process = psutil.Process()
+    mem_info = process.memory_info()
+    return mem_info.rss / (1024**2)
+
 
 from mainnet_launch.constants import (
     CACHE_TIME,
@@ -75,11 +83,14 @@ def log_and_time_function(func, *args):
     start_time = time.time()
     func(*args)
     time_taken = time.time() - start_time
+    usage = get_memory_usage()
     if args:
         autopool = args[0]
-        logging.info(f"{time_taken:.2f} seconds: Cached {func.__name__}({autopool.name})")
+        logging.info(
+            f"{time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB |Cached {func.__name__}({autopool.name})"
+        )
     else:
-        logging.info(f"{time_taken:.2f} seconds: Cached {func.__name__}()")
+        logging.info(f"{time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB | Cached {func.__name__}()")
 
 
 def cache_autopool_data():
@@ -106,12 +117,17 @@ def cache_data_loop():
 
     try:
         while True:
+            logging.info(f"{get_memory_usage()} MB | Before clearing cache")
+            st.cache_data.clear()
+            st.cache_resource.clear()
+            logging.info(f"{get_memory_usage()} MB | After clearing cache")
             all_caching_started = time.time()
             cache_network_data()
             cache_autopool_data()
-            logging.info(f"{time.time() - all_caching_started:.2f} seconds: EveryThing Cached")
+            logging.info(f"{time.time() - all_caching_started:.2f} seconds: Everything Cached")
             logging.info("Finished Caching, Starting Sleep")
-            time.sleep(CACHE_TIME + 300)  # 5 minutes
+            # time.sleep(CACHE_TIME + 300)  # 5 minutes
+            time.sleep(100)
             logging.info("Finished Sleeping")
     except Exception:
         logging.exception("Exception occurred in cache_data_loop.")
@@ -149,7 +165,7 @@ PAGES_WITHOUT_AUTOPOOL = ["Gas Costs"]
 def main():
     st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
     st.title("Autopool Diagnostics Dashboard")
-
+    st.sidebar.write(f"Memory Usage: {get_memory_usage():.2f} MB")
     st.sidebar.title("Navigation")
 
     names = [autopool.name for autopool in ALL_AUTOPOOLS]
