@@ -15,6 +15,7 @@ import time
 import datetime
 import logging
 
+
 from mainnet_launch.autopool_diagnostics.autopool_diagnostics_tab import (
     fetch_and_render_autopool_diagnostics_data,
     fetch_autopool_diagnostics_data,
@@ -95,6 +96,7 @@ def log_and_time_function(func, *args):
 
 def cache_autopool_data():
     all_caching_started = time.time()
+    logging.info("Start Autopool Functions")
     for autopool in ALL_AUTOPOOLS:
         autopool_start_time = time.time()
         for func in per_autopool_data_caching_functions:
@@ -117,17 +119,12 @@ def cache_data_loop():
 
     try:
         while True:
-            logging.info(f"{get_memory_usage()} MB | Before clearing cache")
-            st.cache_data.clear()
-            st.cache_resource.clear()
-            logging.info(f"{get_memory_usage()} MB | After clearing cache")
             all_caching_started = time.time()
             cache_network_data()
-            cache_autopool_data()# note these don't work
+            cache_autopool_data()
             logging.info(f"{time.time() - all_caching_started:.2f} seconds: Everything Cached")
             logging.info("Finished Caching, Starting Sleep")
-            # time.sleep(CACHE_TIME + 300)  # 5 minutes
-            time.sleep(100)
+            time.sleep(CACHE_TIME + (60 * 5))
             logging.info("Finished Sleeping")
     except Exception:
         logging.exception("Exception occurred in cache_data_loop.")
@@ -165,7 +162,6 @@ PAGES_WITHOUT_AUTOPOOL = ["Gas Costs"]
 def main():
     st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
     st.title("Autopool Diagnostics Dashboard")
-    st.sidebar.write(f"Memory Usage: {get_memory_usage():.2f} MB")
     st.sidebar.title("Navigation")
 
     names = [autopool.name for autopool in ALL_AUTOPOOLS]
@@ -180,14 +176,36 @@ def main():
         CONTENT_FUNCTIONS[page](autopool)
 
 
-if __name__ == "__main__":
-    if "cache_thread_started" not in st.session_state:
-        st.session_state.cache_thread_started = False
+thread_lock = threading.Lock()
 
-    # Start the caching thread only once
-    if not st.session_state.cache_thread_started:
+
+def start_cache_thread():
+    # Ensure this function only creates a thread if none exists
+    if "cache_thread_started" not in st.session_state:
+        st.session_state["cache_thread_started"] = False
+
+    with thread_lock:
+        if not st.session_state["cache_thread_started"]:
+            fetch_thread = threading.Thread(target=cache_data_loop, daemon=True)
+            fetch_thread.start()
+            st.session_state["cache_thread_started"] = True
+            st.session_state["fetch_thread"] = fetch_thread
+
+
+def start_cache_thread():
+    # this needs to be in a seperate function so that it won't run again on each refresh.
+    # I don't know why this is
+    # but it the below code block is not in a function then a new thread is created on each refresh
+    if "cache_thread_started" not in st.session_state:
+        st.session_state["cache_thread_started"] = False
+
+    if not st.session_state["cache_thread_started"]:
         fetch_thread = threading.Thread(target=cache_data_loop, daemon=True)
         fetch_thread.start()
-        st.session_state.cache_thread_started = True
+        st.session_state["cache_thread_started"] = True
 
+
+start_cache_thread()
+
+if __name__ == "__main__":
     main()
