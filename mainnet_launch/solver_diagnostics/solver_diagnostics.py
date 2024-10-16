@@ -5,7 +5,7 @@ import requests
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import streamlit as st
 
 from mainnet_launch.constants import (
@@ -101,7 +101,7 @@ def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
     for plan_json in autopool_plans:
         with open(plan_json, "r") as fin:
             data = json.load(fin)
-            data["date"] = pd.to_datetime(data["timestamp"], unit="s")
+            data["date"] = pd.to_datetime(data["timestamp"], unit="s", utc=True)
             data["destinationIn"] = attempt_destination_address_to_symbol(data["destinationIn"])
             data["destinationOut"] = attempt_destination_address_to_symbol(data["destinationOut"])
             data["moveName"] = f"{data['destinationOut']} -> {data['destinationIn']}"
@@ -158,7 +158,7 @@ def _make_proposed_vs_actual_rebalance_scatter_plot(
 def _make_proposed_vs_actual_rebalances_bar_plot(
     proposed_rebalance_df: pd.DataFrame, rebalance_event_df: pd.DataFrame
 ) -> go.Figure:
-    today = datetime.now()
+    today = datetime.now(timezone.utc)
     seven_days_ago = today - timedelta(days=7)
     thirty_days_ago = today - timedelta(days=30)
     one_year_ago = today - timedelta(days=30)

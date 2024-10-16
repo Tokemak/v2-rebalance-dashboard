@@ -3,3 +3,7 @@ __pycache__/
 .env
 mainnet_launch/rebalance_plans/
 data_caching.log
+.vscode/launch.json
+hash_to_gas_used.json
+hash_to_gasPrice.json
+hash_to_gas_cost_in_ETH.json

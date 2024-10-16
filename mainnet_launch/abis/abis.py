@@ -27,3 +27,6 @@ with open(ABI_DIR / "aura_stash_token_abi.json", "r") as fin:
 
 with open(ABI_DIR / "root_price_oracle_abi.json", "r") as fin:
     ROOT_PRICE_ORACLE_ABI = json.load(fin)
+
+with open(ABI_DIR / "chainlink_keeper_registry_abi.json", "r") as fin:
+    CHAINLINK_KEEPER_REGISTRY_ABI = json.load(fin)
