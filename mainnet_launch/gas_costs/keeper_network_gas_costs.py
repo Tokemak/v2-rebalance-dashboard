@@ -19,6 +19,7 @@ from mainnet_launch.constants import (
     AUTO_ETH,
     AUTO_LRT,
     AutopoolConstants,
+    WORKING_DATA_DIR
 )
 
 
@@ -68,7 +69,7 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
 
     updated_df = updated_df[updated_df.index >= date_filter].copy()
 
-    # updated_df.to_csv("chainlink_keeper_upkeeper_df.csv")
+    updated_df.to_csv(WORKING_DATA_DIR / "chainlink_keeper_upkeeper_df.csv")
 
     return updated_df
 
@@ -294,13 +295,14 @@ def fetch_solver_gas_costs():
 
         # Map cached gas costs to the dataframe
         clean_rebalance_df["gasCostInETH"] = clean_rebalance_df["hash"].map(hash_to_rebalance_gas_cost_in_ETH)
-        rebalance_dfs.append(clean_rebalance_df[["gasCostInETH"]])
+        rebalance_dfs.append(clean_rebalance_df)
 
     # Save the updated JSON data after all calculations
     save_json_data(hash_to_rebalance_gas_cost_in_ETH, GAS_COST_JSON_PATH)
 
     # Concatenate all dataframes and return final rebalance gas cost dataframe
     rebalance_gas_cost_df = pd.concat(rebalance_dfs, axis=0)
+    rebalance_gas_cost_df.to_csv(WORKING_DATA_DIR / 'rebalance_gas_cost_df.csv')
     return rebalance_gas_cost_df
 
 

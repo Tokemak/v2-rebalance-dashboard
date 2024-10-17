@@ -23,10 +23,13 @@ CACHE_TIME = 3600 * 6  # siz hours
 
 ROOT_DIR = Path(__file__).parent
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "rebalance_plans"
+WORKING_DATA_DIR = ROOT_DIR / 'working_data' # hold temp data for new features or adhoc questions
 
 if not os.path.exists(SOLVER_REBALANCE_PLANS_DIR):
     os.makedirs(SOLVER_REBALANCE_PLANS_DIR)
 
+if not os.path.exists(WORKING_DATA_DIR):
+    os.makedirs(WORKING_DATA_DIR)
 
 def time_decorator(func):
     def wrapper(*args, **kwargs):
