@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .env
 mainnet_launch/rebalance_plans/
+working_data/
 data_caching.log
 .vscode/launch.json
 hash_to_gas_used.json
