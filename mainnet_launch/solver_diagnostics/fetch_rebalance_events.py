@@ -23,7 +23,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
     add_timestamp_to_df_with_block_column,
 )
-from mainnet_launch.destinations import attempt_destination_address_to_vault_name
+from mainnet_launch.destinations import attempt_destination_address_to_readable_name
 
 
 @st.cache_data(ttl=CACHE_TIME)
@@ -66,8 +66,8 @@ def _make_rebalance_between_destination_human_readable(
 
     swapCost = row["valueStats"][4] / 1e18
     slippage = row["valueStats"][5] / 1e18
-    in_destination = attempt_destination_address_to_vault_name(row["inSummaryStats"][0])
-    out_destination = attempt_destination_address_to_vault_name(row["outSummaryStats"][0])
+    in_destination = attempt_destination_address_to_readable_name(row["inSummaryStats"][0])
+    out_destination = attempt_destination_address_to_readable_name(row["outSummaryStats"][0])
 
     out_compositeReturn = 100 * row["outSummaryStats"][9] / 1e18
     in_compositeReturn = 100 * row["inSummaryStats"][9] / 1e18

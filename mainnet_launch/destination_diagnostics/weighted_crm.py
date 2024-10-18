@@ -5,7 +5,7 @@ import streamlit as st
 
 
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS, AUTO_LRT
-from mainnet_launch.destinations import attempt_destination_address_to_vault_name
+from mainnet_launch.destinations import attempt_destination_address_to_readable_name
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
@@ -77,7 +77,7 @@ def _make_all_destination_composite_return_df(autopool: AutopoolConstants, key_m
 
 def _make_apr_components_fig(key_metric_data: dict) -> go.Figure:
     summary_stats_df = key_metric_data["summary_stats_df"]
-    summary_stats_df.columns = [attempt_destination_address_to_vault_name(c) for c in summary_stats_df.columns]
+    # summary_stats_df.columns = [attempt_destination_address_to_vault_name(c) for c in summary_stats_df.columns]
     price_return_df = 100 * summary_stats_df.map(
         lambda row: row["priceReturn"] if isinstance(row, dict) else None
     ).astype(float)

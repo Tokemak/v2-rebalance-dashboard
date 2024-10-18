@@ -107,7 +107,9 @@ def _add_break_even_days_and_offset_period(clean_rebalance_df: pd.DataFrame) -> 
 def _add_solver_profit(clean_rebalance_df: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(
-        go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["solver_profit"], name="Solver Profit Before Gas")
+        go.Bar(
+            x=clean_rebalance_df.index, y=clean_rebalance_df["solver_profit"], name="Solver Profit Before Gas"
+        )  # broken
     )
     fig.add_trace(
         go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["gasCostInETH"], name="Solver Gas Cost in ETH")
@@ -173,3 +175,7 @@ def _add_solver_cumulative_profit(clean_rebalance_df: pd.DataFrame) -> go.Figure
     fig.update_yaxes(title_text="ETH")
     fig.update_layout(title="Cumulative Profit and Gas Costs")
     return fig
+
+
+if __name__ == '__main__':
+    fetch_rebalance_events_data(ALL_AUTOPOOLS[1])

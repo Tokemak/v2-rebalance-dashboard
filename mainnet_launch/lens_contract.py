@@ -168,6 +168,7 @@ def build_proxyGetDestinationSummaryStats_call(
     )
 
 
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_pools_and_destinations_df() -> pd.DataFrame:
     blocks = build_blocks_to_use()
     calls = [get_pools_and_destinations_call()]

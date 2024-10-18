@@ -48,6 +48,9 @@ class DestinationDetails:
             )
         )
 
+    def to_readable_name(self) -> str:
+        return f"{self.vault_name} {self.exchangeName} {self.vaultAddress[:5]}"
+
 
 def make_idle_destination_details() -> set[DestinationDetails]:
     # Idle is not included in pools and destinations
@@ -56,7 +59,7 @@ def make_idle_destination_details() -> set[DestinationDetails]:
     for autopool in ALL_AUTOPOOLS:
         idle_details.add(
             DestinationDetails(
-                vaultAddress=autopool.autopool_eth_addr,
+                vaultAddress=eth_client.toChecksumAddress(autopool.autopool_eth_addr),
                 exchangeName="Tokemak",
                 dexPool=None,
                 lpTokenAddress=None,
@@ -99,10 +102,10 @@ def get_destination_details() -> list[DestinationDetails]:
 
             for destination in list_of_destinations:
                 destination_details = DestinationDetails(
-                    vaultAddress=destination["vaultAddress"],
+                    vaultAddress=eth_client.toChecksumAddress(destination["vaultAddress"]),
                     exchangeName=destination["exchangeName"],
-                    dexPool=destination["dexPool"],
-                    lpTokenAddress=destination["lpTokenAddress"],
+                    dexPool=eth_client.toChecksumAddress(destination["dexPool"]),
+                    lpTokenAddress=eth_client.toChecksumAddress(destination["lpTokenAddress"]),
                     lpTokenName=destination["lpTokenName"],
                     lpTokenSymbol=destination["lpTokenSymbol"],
                     autopool=autopool_constant,
@@ -125,18 +128,18 @@ def get_destination_details() -> list[DestinationDetails]:
     vault_addresses_to_names = get_state_by_one_block(get_destination_names_calls, eth_client.eth.block_number)
 
     for dest in all_destination_details:
-        dest.vault_name = vault_addresses_to_names[eth_client.toChecksumAddress(dest.vaultAddress)]
+        dest.vault_name = f"{vault_addresses_to_names[eth_client.toChecksumAddress(dest.vaultAddress)]}"
 
     return list(all_destination_details)
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def attempt_destination_address_to_vault_name(possible_address: str) -> str:
+def attempt_destination_address_to_readable_name(possible_address: str) -> str:
     # possible_address is typically a column in DataFrame
 
-    destination_details: set[DestinationDetails] = get_destination_details()  # cached so is fast
+    destination_details: list[DestinationDetails] = get_destination_details()  # cached so is fast
     vault_address_to_name = {
-        eth_client.toChecksumAddress(dest.vaultAddress): dest.vault_name for dest in destination_details
+        eth_client.toChecksumAddress(dest.vaultAddress): dest.to_readable_name() for dest in destination_details
     }
     try:
         vault_name = vault_address_to_name[eth_client.toChecksumAddress(possible_address)]

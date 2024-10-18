@@ -8,7 +8,7 @@ from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 from mainnet_launch.autopool_diagnostics.fetch_nav_per_share import fetch_nav_per_share
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
-from mainnet_launch.destinations import attempt_destination_address_to_vault_name
+from mainnet_launch.destinations import attempt_destination_address_to_readable_name
 
 
 @st.cache_data(ttl=CACHE_TIME)
@@ -60,7 +60,7 @@ def _diffReturn(x: list):
 def _get_percent_deployed(allocation_df: pd.DataFrame, autopool: AutopoolConstants) -> tuple[float, float]:
 
     daily_allocation_df = allocation_df.resample("1D").last()
-    vault_name = attempt_destination_address_to_vault_name(autopool.autopool_eth_addr)
+    vault_name = attempt_destination_address_to_readable_name(autopool.autopool_eth_addr)
 
     tvl_according_to_allocation_df = float(daily_allocation_df.iloc[-1].sum())
 
