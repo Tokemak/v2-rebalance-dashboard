@@ -5,7 +5,7 @@ import requests
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import streamlit as st
 
 from mainnet_launch.constants import (
@@ -158,7 +158,7 @@ def _make_proposed_vs_actual_rebalance_scatter_plot(
 def _make_proposed_vs_actual_rebalances_bar_plot(
     proposed_rebalance_df: pd.DataFrame, rebalance_event_df: pd.DataFrame
 ) -> go.Figure:
-    today = datetime.now()
+    today = datetime.now(timezone.utc)
     seven_days_ago = today - timedelta(days=7)
     thirty_days_ago = today - timedelta(days=30)
     one_year_ago = today - timedelta(days=30)

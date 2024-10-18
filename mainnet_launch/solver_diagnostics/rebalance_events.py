@@ -177,5 +177,5 @@ def _add_solver_cumulative_profit(clean_rebalance_df: pd.DataFrame) -> go.Figure
     return fig
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     fetch_rebalance_events_data(ALL_AUTOPOOLS[1])

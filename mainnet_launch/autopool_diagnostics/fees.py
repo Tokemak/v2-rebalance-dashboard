@@ -3,7 +3,7 @@ import streamlit as st
 import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import colorsys
 
 from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS
@@ -151,10 +151,11 @@ def fetch_and_render_autopool_fee_data(autopool: AutopoolConstants):
 def _display_fee_metrics(fee_df: pd.DataFrame, isPeriodic: bool):
     """Calculate and display fee metrics at the top of the dashboard."""
     # I don't really like this pattern, redo it
-    today = datetime.now()
+    today = datetime.now(timezone.utc)
+
     seven_days_ago = today - timedelta(days=7)
     thirty_days_ago = today - timedelta(days=30)
-    year_start = datetime(today.year, 1, 1)
+    year_ago = today - timedelta(days=465)
 
     fees_last_7_days = fee_df[fee_df.index >= seven_days_ago]["normalized_fees"].sum()
 
@@ -163,7 +164,7 @@ def _display_fee_metrics(fee_df: pd.DataFrame, isPeriodic: bool):
     else:
         fees_last_30_days = "None"
 
-    fees_year_to_date = fee_df[fee_df.index >= year_start]["normalized_fees"].sum()
+    fees_year_to_date = fee_df[fee_df.index >= year_ago]["normalized_fees"].sum()
 
     col1, col2, col3 = st.columns(3)
 

@@ -15,6 +15,7 @@ import time
 import datetime
 import logging
 
+
 from mainnet_launch.autopool_diagnostics.autopool_diagnostics_tab import (
     fetch_and_render_autopool_diagnostics_data,
     fetch_autopool_diagnostics_data,
@@ -41,6 +42,19 @@ from mainnet_launch.solver_diagnostics.solver_diagnostics import (
 )
 
 from mainnet_launch.top_level.key_metrics import fetch_key_metrics_data, fetch_and_render_key_metrics_data
+from mainnet_launch.gas_costs.keeper_network_gas_costs import (
+    fetch_keeper_network_gas_costs,
+    fetch_and_render_keeper_network_gas_costs,
+)
+
+import psutil
+
+
+def get_memory_usage():
+    process = psutil.Process()
+    mem_info = process.memory_info()
+    return mem_info.rss / (1024**2)
+
 
 from mainnet_launch.constants import (
     CACHE_TIME,
@@ -56,7 +70,7 @@ from mainnet_launch.constants import (
 
 logging.basicConfig(filename="data_caching.log", filemode="w", format="%(asctime)s - %(message)s", level=logging.INFO)
 
-data_caching_functions = [
+per_autopool_data_caching_functions = [
     fetch_solver_diagnostics_data,
     fetch_key_metrics_data,
     fetch_autopool_diagnostics_data,
@@ -66,33 +80,58 @@ data_caching_functions = [
 ]
 
 
+not_per_autopool_data_caching_functions = [fetch_keeper_network_gas_costs]  # does not take any input variables
+
+
+def log_and_time_function(func, *args):
+    start_time = time.time()
+    func(*args)
+    time_taken = time.time() - start_time
+    usage = get_memory_usage()
+    if args:
+        autopool = args[0]
+        logging.info(
+            f"{time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB |Cached {func.__name__}({autopool.name})"
+        )
+    else:
+        logging.info(f"{time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB | Cached {func.__name__}()")
+
+
+def cache_autopool_data():
+    all_caching_started = time.time()
+    logging.info("Start Autopool Functions")
+    for autopool in ALL_AUTOPOOLS:
+        autopool_start_time = time.time()
+        for func in per_autopool_data_caching_functions:
+            log_and_time_function(func, autopool)
+        logging.info(f"{time.time() - autopool_start_time:.2f} seconds: Cached {autopool.name}")
+
+    logging.info(f"{time.time() - all_caching_started:.2f} seconds: All Autopools Cached")
+
+
+def cache_network_data():
+    logging.info("Start Network Functions")
+    network_start_time = time.time()
+    for func in not_per_autopool_data_caching_functions:
+        log_and_time_function(func)
+    logging.info(f"{time.time() - network_start_time:.2f} seconds: Cached Network Functions")
+
+
 def cache_data_loop():
+    logging.info("Started cache_data_loop()")
+
     try:
-        logging.info(f"Started cache_data_loop()")
         while True:
             all_caching_started = time.time()
-            for autopool in ALL_AUTOPOOLS:
-                autopool_start_time = time.time()
-                for func in data_caching_functions:
-                    function_start_time = time.time()
-                    func(autopool)
-                    time_taken = time.time() - function_start_time
-                    logging.info(f"{time_taken:06.2f} \t seconds: Cached {func.__name__}({autopool.name}) ")
-
-                autopool_time_taken = time.time() - autopool_start_time
-                logging.info(f"{autopool_time_taken:06.2f} \t seconds: Cached {autopool.name}")
-
-            all_autopool_time_taken = time.time() - all_caching_started
-            logging.info(f"{all_autopool_time_taken:06.2f} \t seconds: All Autopools Cached")
-            logging.info(f"Finished Caching")
-            logging.info(f"Start Sleeping")
-            time.sleep(CACHE_TIME + (60 * 5))  # cache everything at least once every 6:05 hours
-            logging.info(f"Finished Sleeping")
-
-    except Exception as e:
-        logging.error(f"Exception occurred: {str(e)}")
-        logging.error("Stack Trace:", exc_info=True)
-        logging.info(f"Cache data loop has ended at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            cache_network_data()
+            cache_autopool_data()
+            logging.info(f"{time.time() - all_caching_started:.2f} seconds: Everything Cached")
+            logging.info("Finished Caching, Starting Sleep")
+            time.sleep(CACHE_TIME + (60 * 5))
+            logging.info("Finished Sleeping")
+    except Exception:
+        logging.exception("Exception occurred in cache_data_loop.")
+        logging.info(f"Cache data loop ended at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         raise
 
 
@@ -117,31 +156,43 @@ CONTENT_FUNCTIONS = {
     "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
     "Destination Diagnostics": display_destination_diagnostics,
     "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
+    "Gas Costs": fetch_and_render_keeper_network_gas_costs,
 }
+
+PAGES_WITHOUT_AUTOPOOL = ["Gas Costs"]
 
 
 def main():
     st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
     st.title("Autopool Diagnostics Dashboard")
-
     st.sidebar.title("Navigation")
 
     names = [autopool.name for autopool in ALL_AUTOPOOLS]
     pool_name = st.sidebar.selectbox("Select Pool", names)
     autopool = AUTOPOOL_NAME_TO_CONSTANTS[pool_name]
+
     page = st.sidebar.radio("Go to", CONTENT_FUNCTIONS.keys())
 
-    CONTENT_FUNCTIONS[page](autopool)
+    if page in PAGES_WITHOUT_AUTOPOOL:
+        CONTENT_FUNCTIONS[page]()
+    else:
+        CONTENT_FUNCTIONS[page](autopool)
 
 
-if __name__ == "__main__":
+thread_lock = threading.Lock()
+
+
+def start_cache_thread():
+    # Ensure this function only creates a thread if none exists
     if "cache_thread_started" not in st.session_state:
-        st.session_state.cache_thread_started = False
+        st.session_state["cache_thread_started"] = False
 
-    # Start the caching thread only once
-    if not st.session_state.cache_thread_started:
-        fetch_thread = threading.Thread(target=cache_data_loop, daemon=True)
-        fetch_thread.start()
-        st.session_state.cache_thread_started = True
+    with thread_lock:
+        if not st.session_state["cache_thread_started"]:
+            fetch_thread = threading.Thread(target=cache_data_loop, daemon=True)
+            fetch_thread.start()
+            st.session_state["cache_thread_started"] = True
+            st.session_state["fetch_thread"] = fetch_thread
 
-    main()
+
+start_cache_thread()

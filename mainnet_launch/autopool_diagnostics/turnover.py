@@ -2,7 +2,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 
@@ -30,7 +30,8 @@ def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
         fetch_destination_summary_stats(blocks, autopool)
     )
 
-    today = datetime.now()
+    today = datetime.now(timezone.utc)
+
     seven_days_ago = today - timedelta(days=7)
     thirty_days_ago = today - timedelta(days=30)
     one_year_ago = today - timedelta(days=365)
