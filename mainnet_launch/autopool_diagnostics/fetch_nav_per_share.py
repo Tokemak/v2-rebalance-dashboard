@@ -43,18 +43,18 @@ def fetch_nav_per_share(blocks: list[int], autopool: AutopoolConstants) -> pd.Da
     )
 
     # Calculate daily returns
-    nav_per_share_df['daily_return'] = nav_per_share_df[autopool.name].pct_change()
+    nav_per_share_df["daily_return"] = nav_per_share_df[autopool.name].pct_change()
 
     # Calculate 7-day moving average of daily returns
-    nav_per_share_df['7_day_MA_return'] = nav_per_share_df['daily_return'].rolling(window=7).mean()
+    nav_per_share_df["7_day_MA_return"] = nav_per_share_df["daily_return"].rolling(window=7).mean()
 
     # Annualize the 7-day moving average return
-    nav_per_share_df['7_day_MA_annualized_return'] = nav_per_share_df['7_day_MA_return'] * 365 * 100
+    nav_per_share_df["7_day_MA_annualized_return"] = nav_per_share_df["7_day_MA_return"] * 365 * 100
 
-     # Calculate 30-day moving average of daily returns
-    nav_per_share_df['30_day_MA_return'] = nav_per_share_df['daily_return'].rolling(window=30).mean()
+    # Calculate 30-day moving average of daily returns
+    nav_per_share_df["30_day_MA_return"] = nav_per_share_df["daily_return"].rolling(window=30).mean()
 
     # Annualize the 30-day moving average return
-    nav_per_share_df['30_day_MA_annualized_return'] = nav_per_share_df['30_day_MA_return'] * 365 * 100
+    nav_per_share_df["30_day_MA_annualized_return"] = nav_per_share_df["30_day_MA_return"] * 365 * 100
 
     return nav_per_share_df

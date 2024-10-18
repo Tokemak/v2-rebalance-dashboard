@@ -3,7 +3,7 @@ import streamlit as st
 import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import colorsys
 
 from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS
@@ -33,7 +33,8 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
     pfee_df = periodic_fee_df[["normalized_fees"]].copy()
     sfee_df = streaming_fee_df[["normalized_fees"]].copy()
 
-    return pfee_df, sfee_df 
+    return pfee_df, sfee_df
+
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_rewardliq_plot(autopool: AutopoolConstants):
@@ -44,66 +45,79 @@ def fetch_autopool_rewardliq_plot(autopool: AutopoolConstants):
     # Process event data
     event_data = []
     for event in rewardsliq_events:
-        block = eth_client.eth.get_block(event['blockNumber'])
-        event_data.append({
-            'timestamp': datetime.fromtimestamp(block['timestamp']),
-            'destination': event['args']['destination'],
-            'claimed': event['args']['claimed'] / 1e18,  # Convert Wei to ETH
-        })
+        block = eth_client.eth.get_block(event["blockNumber"])
+        event_data.append(
+            {
+                "timestamp": datetime.fromtimestamp(block["timestamp"]),
+                "destination": event["args"]["destination"],
+                "claimed": event["args"]["claimed"] / 1e18,  # Convert Wei to ETH
+            }
+        )
 
     # Create DataFrame
     df = pd.DataFrame(event_data)
 
     # Generate distinct colors for each destination
-    unique_destinations = df['destination'].unique()
+    unique_destinations = df["destination"].unique()
     n = len(unique_destinations)
-    colors = [f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}' for r, g, b in [colorsys.hsv_to_rgb(i/n, 0.8, 0.8) for i in range(n)]]
+    colors = [
+        f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
+        for r, g, b in [colorsys.hsv_to_rgb(i / n, 0.8, 0.8) for i in range(n)]
+    ]
     color_map = dict(zip(unique_destinations, colors))
 
     # Create subplots
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.1,
-                        subplot_titles=("Destination Debt Reporting: Claimed ETH over Time",
-                                        "Total Claimed ETH for Autopool"))
+    fig = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.1,
+        subplot_titles=("Destination Debt Reporting: Claimed ETH over Time", "Total Claimed ETH for Autopool"),
+    )
 
     # Plot for individual destinations
     for destination in unique_destinations:
-        df_dest = df[df['destination'] == destination]
-        fig.add_trace(go.Scatter(
-            x=df_dest['timestamp'],
-            y=df_dest['claimed'],
-            mode='markers',
-            name=destination,
-            marker=dict(
-                size=df_dest['claimed'] * 2,
-                color=color_map[destination],
-                sizemode='area',
-                sizemin=4,
-                sizeref=2.*max(df['claimed'])/(40.**2),
-                line=dict(width=0)
+        df_dest = df[df["destination"] == destination]
+        fig.add_trace(
+            go.Scatter(
+                x=df_dest["timestamp"],
+                y=df_dest["claimed"],
+                mode="markers",
+                name=destination,
+                marker=dict(
+                    size=df_dest["claimed"] * 2,
+                    color=color_map[destination],
+                    sizemode="area",
+                    sizemin=4,
+                    sizeref=2.0 * max(df["claimed"]) / (40.0**2),
+                    line=dict(width=0),
+                ),
+                text=df_dest["claimed"].apply(lambda x: f"{x:.4f} ETH"),
+                hoverinfo="text+name",
             ),
-            text=df_dest['claimed'].apply(lambda x: f'{x:.4f} ETH'),
-            hoverinfo='text+name'
-        ), row=1, col=1)
+            row=1,
+            col=1,
+        )
 
     # Calculate and plot total claimed over time
-    total_claimed_data = df.groupby('timestamp').agg(total_claimed=('claimed', 'sum')).reset_index()
-    total_claimed_data['cumulative_claimed'] = total_claimed_data['total_claimed'].cumsum()
+    total_claimed_data = df.groupby("timestamp").agg(total_claimed=("claimed", "sum")).reset_index()
+    total_claimed_data["cumulative_claimed"] = total_claimed_data["total_claimed"].cumsum()
 
-    fig.add_trace(go.Scatter(
-        x=total_claimed_data['timestamp'],
-        y=total_claimed_data['cumulative_claimed'],
-        mode='lines+markers',
-        name='Total Claimed',
-        line=dict(color='blue', width=2),
-        marker=dict(color='blue', size=8),
-    ), row=2, col=1)
+    fig.add_trace(
+        go.Scatter(
+            x=total_claimed_data["timestamp"],
+            y=total_claimed_data["cumulative_claimed"],
+            mode="lines+markers",
+            name="Total Claimed",
+            line=dict(color="blue", width=2),
+            marker=dict(color="blue", size=8),
+        ),
+        row=2,
+        col=1,
+    )
 
     # Customize the layout
-    fig.update_layout(
-        height=800,
-        hovermode='closest',
-        showlegend=True
-    )
+    fig.update_layout(height=800, hovermode="closest", showlegend=True)
 
     fig.update_xaxes(title_text="Time", row=2, col=1)
     fig.update_yaxes(title_text="Claimed (ETH)", row=1, col=1)
@@ -121,7 +135,7 @@ def fetch_and_render_autopool_fee_data(autopool: AutopoolConstants):
     # Generate fee figures
     daily_fee_fig, cumulative_fee_fig, weekly_fee_fig = _build_fee_figures(autopool, fee_df)
     daily_sfee_fig, cumulative_sfee_fig, weekly_sfee_fig = _build_fee_figures(autopool, sfee_df)
-    
+
     st.subheader(f"{autopool.name} Autopool Periodic Fees")
 
     st.plotly_chart(daily_fee_fig, use_container_width=True)
@@ -137,10 +151,11 @@ def fetch_and_render_autopool_fee_data(autopool: AutopoolConstants):
 def _display_fee_metrics(fee_df: pd.DataFrame, isPeriodic: bool):
     """Calculate and display fee metrics at the top of the dashboard."""
     # I don't really like this pattern, redo it
-    today = datetime.now()
+    today = datetime.now(timezone.utc)
+
     seven_days_ago = today - timedelta(days=7)
     thirty_days_ago = today - timedelta(days=30)
-    year_start = datetime(today.year, 1, 1)
+    year_ago = today - timedelta(days=465)
 
     fees_last_7_days = fee_df[fee_df.index >= seven_days_ago]["normalized_fees"].sum()
 
@@ -149,7 +164,7 @@ def _display_fee_metrics(fee_df: pd.DataFrame, isPeriodic: bool):
     else:
         fees_last_30_days = "None"
 
-    fees_year_to_date = fee_df[fee_df.index >= year_start]["normalized_fees"].sum()
+    fees_year_to_date = fee_df[fee_df.index >= year_ago]["normalized_fees"].sum()
 
     col1, col2, col3 = st.columns(3)
 
