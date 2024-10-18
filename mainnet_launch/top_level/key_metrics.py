@@ -2,6 +2,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st
+import psutil
+
 
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
@@ -29,9 +31,16 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     return key_metric_data
 
 
+def get_memory_usage():
+    process = psutil.Process()
+    mem_info = process.memory_info()
+    return mem_info.rss / (1024**2)
+
+
 def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
     key_metric_data = fetch_key_metrics_data(autopool)
     _show_key_metrics(key_metric_data, autopool)
+    st.write(f"Memory Usage: {get_memory_usage():.2f} MB")
 
 
 def _apply_default_style(fig: go.Figure) -> None:
@@ -79,26 +88,28 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     col1.metric(
         "30-day Rolling APY (%)",
-        round(nav_per_share_df["30_day_annualized_return"].iloc[-1],2),
+        round(nav_per_share_df["30_day_annualized_return"].iloc[-1], 2),
         _diffReturn(nav_per_share_df["30_day_annualized_return"]),
     )
     col2.metric(
         "30-day MA APY (%)",
-        round(nav_per_share_df["30_day_MA_annualized_return"].iloc[-1],2),
+        round(nav_per_share_df["30_day_MA_annualized_return"].iloc[-1], 2),
         _diffReturn(nav_per_share_df["30_day_MA_annualized_return"]),
     )
     col3.metric(
         "7-day Rolling APY (%)",
-        round(nav_per_share_df["7_day_annualized_return"].iloc[-1],2),
+        round(nav_per_share_df["7_day_annualized_return"].iloc[-1], 2),
         _diffReturn(nav_per_share_df["7_day_annualized_return"]),
     )
     col4.metric(
         "7-day MA APY (%)",
-        round(nav_per_share_df["7_day_MA_annualized_return"].iloc[-1],2),
+        round(nav_per_share_df["7_day_MA_annualized_return"].iloc[-1], 2),
         _diffReturn(nav_per_share_df["7_day_MA_annualized_return"]),
     )
     col5.metric(
-        "Expected Annual Return (%)", round(uwcr_df["Expected_Return"].iloc[-1],2), _diffReturn(uwcr_df["Expected_Return"])
+        "Expected Annual Return (%)",
+        round(uwcr_df["Expected_Return"].iloc[-1], 2),
+        _diffReturn(uwcr_df["Expected_Return"]),
     )
 
     percent_deployed_yesterday, percent_deployed_today = _get_percent_deployed(allocation_df, autopool)
@@ -163,7 +174,7 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
     # Insert gap
     st.markdown("<div style='margin: 7em 0;'></div>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
         st.subheader("7-day MA Annualized Return (%)")
         st.plotly_chart(annualized_7d_ma_return_fig, use_container_width=True)
