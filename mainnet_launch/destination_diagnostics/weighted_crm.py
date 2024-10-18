@@ -128,6 +128,3 @@ def _apply_default_style(fig: go.Figure) -> None:
         yaxis=dict(showgrid=True, gridcolor="lightgray"),
         colorway=px.colors.qualitative.Set2,
     )
-
-
-fetch_and_render_weighted_crm_data(AUTO_LRT)

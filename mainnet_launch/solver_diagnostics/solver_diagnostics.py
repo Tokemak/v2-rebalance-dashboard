@@ -101,7 +101,7 @@ def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
     for plan_json in autopool_plans:
         with open(plan_json, "r") as fin:
             data = json.load(fin)
-            data["date"] = pd.to_datetime(data["timestamp"], unit="s")
+            data["date"] = pd.to_datetime(data["timestamp"], unit="s", utc=True)
             data["destinationIn"] = attempt_destination_address_to_readable_name(data["destinationIn"])
             data["destinationOut"] = attempt_destination_address_to_readable_name(data["destinationOut"])
             data["moveName"] = f"{data['destinationOut']} -> {data['destinationIn']}"
