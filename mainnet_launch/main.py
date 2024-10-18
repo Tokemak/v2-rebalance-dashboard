@@ -159,6 +159,7 @@ CONTENT_FUNCTIONS = {
     "Gas Costs": fetch_and_render_keeper_network_gas_costs,
 }
 
+
 PAGES_WITHOUT_AUTOPOOL = ["Gas Costs"]
 
 
@@ -196,3 +197,6 @@ def start_cache_thread():
 
 
 start_cache_thread()
+
+if __name__ == "__main__":
+    main()
