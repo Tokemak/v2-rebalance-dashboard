@@ -71,24 +71,11 @@ def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants) -> pd.D
         summary_stats_df[dest.to_readable_name()] = summary_stats_df[dest.to_readable_name()].combine(
             points_df[dest.to_readable_name()], _add_points_value_to_summary_stats
         )
+    # just makes more readable by having the destinations next to each other on the UI
+    points_df = points_df[sorted(points_df.columns)]
+    summary_stats_df = summary_stats_df[sorted(summary_stats_df.columns)]
 
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df = _build_summary_stats_plots(summary_stats_df)
-
-    # destination_vault_address_to_readable_name = {
-    #     dest.vaultAddress: dest.to_readable_name() for dest in destination_details if dest.autopool == autopool
-    # }
-
-    # for df in [uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df]:
-    #     new_columns = []
-
-    #     for col in df.columns:
-    #         col
-    #     # go from vault address to readable names
-    #     df.columns = [
-    #         destination_vault_address_to_readable_name[c]
-    #         for c in df.columns
-    #         if c in destination_vault_address_to_readable_name else c
-    #     ]
 
     return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df
 
