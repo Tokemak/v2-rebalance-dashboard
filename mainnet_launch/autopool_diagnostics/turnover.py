@@ -25,11 +25,9 @@ def fetch_and_render_turnover_data(autopool: AutopoolConstants):
 def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
     blocks = build_blocks_to_use()
     clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
-    clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df)
-    uwcr_df, allocation_df, compositeReturn_df, total_nav_df, summary_stats_df, points_df = (
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
-
     today = datetime.now(timezone.utc)
 
     seven_days_ago = today - timedelta(days=7)
@@ -44,7 +42,7 @@ def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
         recent_df = clean_rebalance_df[clean_rebalance_df.index >= window]
         rebalance_count = len(recent_df)
 
-        avg_tvl = float(total_nav_df[total_nav_df.index >= window].mean())
+        avg_tvl = float(total_nav_series[total_nav_series.index >= window].mean())
 
         eth_value_solver_took_from_to_autopool = recent_df["outEthValue"].sum()
         eth_value_solver_sent_to_autopool = recent_df["inEthValue"].sum()
@@ -65,3 +63,7 @@ def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
 
     turnover_summary = pd.DataFrame.from_records(records).round(2)
     return turnover_summary
+
+
+if __name__ == "__main__":
+    fetch_turnover_data(ALL_AUTOPOOLS[2])

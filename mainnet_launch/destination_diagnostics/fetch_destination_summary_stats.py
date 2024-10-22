@@ -27,8 +27,11 @@ POINTS_HOOK = "0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3"
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants) -> pd.DataFrame:
     """
-    Returns a DataFrame where the columns are the destination vaultAddress, and the values are the destination summary stats
+    Returns a DataFrame where the columns are the destination vaultName,
+    and the values are the destination summary stats
     and price return when amount=0 and direction=out
+
+    combines ownedShares across all shares
 
     example response:
     {
@@ -43,14 +46,77 @@ def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants) -> pd.D
         'ownedShares': 844.9280278590563,
         'compositeReturn': 0.07905259675399179,
         'pricePerShare': 1.016326271270958,
-        'pointsApr':None | .001
+        'pointsApr': None | .001
     }
 
     """
-    destination_details = get_destination_details()
-    summary_stats_df = _fetch_autopool_destination_df(blocks, destination_details, autopool)
+    blocks = build_blocks_to_use()
+    destination_details = [dest for dest in get_destination_details() if dest.autopool == autopool]
 
-    destination_points_calls = _build_destination_points_calls(autopool)
+    raw_summary_stats_df = _fetch_autopool_destination_df(
+        blocks, destination_details, autopool
+    )  # it does have idle at this point
+
+    summary_stats_df = _combine_migrated_destinations(
+        autopool, raw_summary_stats_df, destination_details
+    )  # it does not have idle at this points
+
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series = _build_summary_stats_dfs(summary_stats_df)
+    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df
+
+
+def _combine_migrated_destinations(
+    autopool: AutopoolConstants, summary_stats_df: pd.DataFrame, destination_details: set[DestinationDetails]
+) -> pd.DataFrame:
+    # Occasionally the same underlying destinations are added or removed from an autopool's currenct destinations
+    # when this happens, the autopool can still own some shares of that destination, eg `ownedShares` > 0
+    # so in that case, we want to use only the stats of the active destination and combine all the owned shares.
+    def _combine_to_destination_name(row: pd.Series) -> pd.DataFrame:
+        # just add in the current destination, but combine the ownedShares together by destination.vault_name
+
+        ownedShares_record = {d.vault_name: 0 for d in destination_details}
+        for dest in destination_details:
+            summary_stats_data = row[dest.vaultAddress]
+            if summary_stats_data is not None:
+                ownedShares_record[dest.vault_name] += summary_stats_data["ownedShares"]
+
+        name_to_summary_records = {}
+        for dest in destination_details:
+            if dest.vaultAddress in [*row["current_destinations"], autopool.autopool_eth_addr]:
+                summary_stats_data = row[dest.vaultAddress]
+                if summary_stats_data is not None:
+                    # overwrite the ownShares so that it counts the shares in deprecated destinations
+                    summary_stats_data["ownedShares"] = ownedShares_record[dest.vault_name]
+                name_to_summary_records[dest.vault_name] = summary_stats_data
+        return name_to_summary_records
+
+    merged_destination_df = pd.DataFrame.from_records(summary_stats_df.apply(_combine_to_destination_name, axis=1))
+    merged_destination_df.index = summary_stats_df.index
+    return merged_destination_df
+
+
+def _fetch_autopool_destination_df(
+    blocks, destination_details: list[DestinationDetails], autopool: AutopoolConstants
+) -> pd.DataFrame:
+    calls = [_build_summary_stats_call(dest.autopool, dest) for dest in destination_details]
+    summary_stats_df = get_raw_state_by_blocks(calls, blocks)
+
+    def get_current_destinations_by_block(
+        autopool: AutopoolConstants, getPoolsAndDestinations: pd.DataFrame
+    ) -> list[str]:
+        for a, list_of_destinations in zip(
+            getPoolsAndDestinations["autopools"], getPoolsAndDestinations["destinations"]
+        ):
+            if a["poolAddress"].lower() == autopool.autopool_eth_addr.lower():
+                return [eth_client.toChecksumAddress(dest["vaultAddress"]) for dest in list_of_destinations]
+
+    pools_and_destinations_df = fetch_pools_and_destinations_df()
+
+    summary_stats_df["current_destinations"] = pools_and_destinations_df.apply(
+        lambda row: get_current_destinations_by_block(autopool, row["getPoolsAndDestinations"]), axis=1
+    )
+
+    destination_points_calls = _build_destination_points_calls(destination_details)
     points_df = get_raw_state_by_blocks(destination_points_calls, blocks)
 
     def _add_points_value_to_summary_stats(summary_stats_cell, points_cell: float | None):
@@ -65,85 +131,12 @@ def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants) -> pd.D
 
             return summary_stats_cell
 
-    destinations = [dest for dest in destination_details if dest.autopool == autopool]
-
-    for dest in destinations:
+    for dest in destination_details:
         summary_stats_df[dest.vaultAddress] = summary_stats_df[dest.vaultAddress].combine(
             points_df[dest.vaultAddress], _add_points_value_to_summary_stats
         )
 
-    summary_stats_df = _combine_migrated_destinations(summary_stats_df, destination_details)
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df = _build_summary_stats_dfs(summary_stats_df)
-
-    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df
-
-
-def _combine_migrated_destinations(
-    summary_stats_df: pd.DataFrame, destination_details: set[DestinationDetails]
-) -> pd.DataFrame:
-    # Occasionally the same underlying destinations are added or removed from an autopool's currenct destinations
-    # when this happens, the autopool can still own some shares of that destination, eg `ownedShares` > 0
-    # so in that case, we want to use only the stats of the active destination and combine all the owned shares.
-
-    dest_vault_to_destination = {d.vaultAddress: d for d in destination_details}
-
-    def _combine_to_destination_name(row: pd.Series) -> pd.DataFrame:
-        target_name = 'Tokemak-Wrapped Ether-Balancer weETH/rETH StablePool'
-        # just add in the current destination, but combine the shares together
-
-        merged_migration_data = {}
-        for destination_vault_address in row.keys():
-            if destination_vault_address != "current_destinations":
-                
-                destination_name = dest_vault_to_destination[destination_vault_address].vault_name
-                if destination_name != target_name:
-                    continue
-                summary_stats_data: dict | None = row[destination_vault_address]
-
-                if destination_name not in merged_migration_data:
-                    merged_migration_data[destination_name] = summary_stats_data
-                                    
-                if summary_stats_data is None:
-                    continue
-                
-                if merged_migration_data[destination_name] is None:
-                    merged_migration_data[destination_name] = summary_stats_data
-                
-                elif (merged_migration_data[destination_name] is not None) and (summary_stats_data is not None):
-                    if 'ownedShares' not in merged_migration_data[destination_name]:
-                        raise ValueError(f'expected to find ownedShares but not in {merged_migration_data[destination_name]=}') 
-                    merged_migration_data[destination_name]['ownedShares'] += summary_stats_data['ownedShares']
-
-
-        return merged_migration_data
-
-    merged_destination_df = pd.DataFrame.from_records(summary_stats_df.apply(_combine_to_destination_name, axis=1))
-    return merged_destination_df
-
-
-def _fetch_autopool_destination_df(
-    blocks, destination_details: list[DestinationDetails], autopool: AutopoolConstants
-) -> pd.DataFrame:
-    calls = [
-        _build_summary_stats_call(dest.autopool, dest) for dest in destination_details if dest.autopool == autopool
-    ]
-    destination_summary_stats_df = get_raw_state_by_blocks(calls, blocks)
-
-    def get_current_destinations_by_block(
-        autopool: AutopoolConstants, getPoolsAndDestinations: pd.DataFrame
-    ) -> list[str]:
-        for a, list_of_destinations in zip(
-            getPoolsAndDestinations["autopools"], getPoolsAndDestinations["destinations"]
-        ):
-            if a["poolAddress"].lower() == autopool.autopool_eth_addr.lower():
-                return [eth_client.toChecksumAddress(dest["vaultAddress"]) for dest in list_of_destinations]
-
-    pools_and_destinations_df = fetch_pools_and_destinations_df()
-    destination_summary_stats_df["current_destinations"] = pools_and_destinations_df.apply(
-        lambda row: get_current_destinations_by_block(autopool, row["getPoolsAndDestinations"]), axis=1
-    )
-
-    return destination_summary_stats_df
+    return summary_stats_df
 
 
 def _clean_summary_stats_info(success, summary_stats):
@@ -199,8 +192,7 @@ def _build_summary_stats_call(
     )
 
 
-def _build_destination_points_calls(autopool: AutopoolConstants) -> list[Call]:
-    destination_details = get_destination_details()
+def _build_destination_points_calls(destination_details: set[DestinationDetails]) -> list[Call]:
 
     destination_points_calls = [
         Call(
@@ -209,7 +201,6 @@ def _build_destination_points_calls(autopool: AutopoolConstants) -> list[Call]:
             [(dest.vaultAddress, safe_normalize_with_bool_success)],
         )
         for dest in destination_details
-        if dest.autopool == autopool
     ]
 
     return destination_points_calls
@@ -220,10 +211,10 @@ def _build_summary_stats_dfs(summary_stats_df: pd.DataFrame):
     allocation_df = _extract_allocation_df(summary_stats_df)
     compositeReturn_out_df = _extract_composite_return_out_df(summary_stats_df)
 
-    total_nav_df = allocation_df.sum(axis=1)
-    portion_df = allocation_df.div(total_nav_df, axis=0)
+    total_nav_series = allocation_df.sum(axis=1)
+    portion_df = allocation_df.div(total_nav_series, axis=0)
     uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
-    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df
+    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series
 
 
 def _extract_composite_return_out_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
@@ -259,12 +250,11 @@ def _extract_allocation_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
 
 @time_decorator
 def tester():
-    blocks = build_blocks_to_use()
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df = (
+    blocks = build_blocks_to_use()[::8]
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
         fetch_destination_summary_stats(blocks, AUTO_LRT)
     )
-
-    pass
+    ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else 0).astype(float)
 
 
 if __name__ == "__main__":
