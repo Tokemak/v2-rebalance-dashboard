@@ -33,3 +33,6 @@ with open(ABI_DIR / "lens_contract_abi.json", "r") as fin:
 
 with open(ABI_DIR / "chainlink_keeper_registry_abi.json", "r") as fin:
     CHAINLINK_KEEPER_REGISTRY_ABI = json.load(fin)
+
+with open(ABI_DIR / "destination_vault_registry_abi.json", "r") as fin:
+    DESTINATION_VAULT_REGISTRY_ABI = json.load(fin)

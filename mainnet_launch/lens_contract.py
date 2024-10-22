@@ -172,7 +172,7 @@ def build_proxyGetDestinationSummaryStats_call(
 def fetch_pools_and_destinations_df() -> pd.DataFrame:
     blocks = build_blocks_to_use()
     calls = [get_pools_and_destinations_call()]
-    pools_and_destinations_df = get_raw_state_by_blocks(calls, blocks)
+    pools_and_destinations_df = get_raw_state_by_blocks(calls, blocks, include_block_number=True)
     return pools_and_destinations_df
 
     # # Process and return results
