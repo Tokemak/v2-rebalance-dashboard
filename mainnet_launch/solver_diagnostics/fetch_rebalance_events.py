@@ -38,7 +38,7 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
         lambda row: _get_flash_borrower_address(row["hash"]), axis=1
     )
 
-    _add_solver_profit_cols(clean_rebalance_df)
+    clean_rebalance_df = _add_solver_profit_cols(clean_rebalance_df)
 
     return clean_rebalance_df
 
