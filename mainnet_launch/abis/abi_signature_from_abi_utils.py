@@ -39,7 +39,13 @@ def get_function_signatures_with_returns(abi_json):
                 signature = f"{func_name}({input_types})({output_types})"
             else:
                 signature = f"{func_name}({input_types})"
+                
+        elif item.get('type') == 'event':
+            func_name = item["name"]
+            inputs = item.get("inputs", [])
+            input_types = ",".join(parse_type(param) for param in inputs)
+            signature = f"{func_name}({input_types})"
 
-            signatures.append(signature)
+        signatures.append(signature)
 
     return signatures
