@@ -24,13 +24,13 @@ class DestinationDetails:
     lpTokenName: str
 
     autopool: AutopoolConstants
-
+    first_block_destination_was_seen_registered: int | None
     vault_name: str = None
 
     def __str__(self):
         details = "Destination Details:\n"
         for field, value in asdict(self).items():
-            details += f" {field.title():20}\t: {value}\n"
+            details += f" {field}\t: {value}\n"
         return details
 
     def __repr__(self) -> str:
@@ -66,6 +66,7 @@ def make_idle_destination_details() -> set[DestinationDetails]:
                 lpTokenSymbol=None,
                 lpTokenName=None,
                 autopool=autopool,
+                first_block_destination_was_seen_registered=None,
                 vault_name=autopool.name,
             )
         )
@@ -86,13 +87,30 @@ def get_destination_details() -> list[DestinationDetails]:
     # retuns a list of all destinations along with their autopools even if the destinations have been replaced
 
     pools_and_destinations_df = fetch_pools_and_destinations_df()
-    all_destination_details = make_idle_destination_details()
+    all_destination_details: set[DestinationDetails] = make_idle_destination_details()
+
+    first_block_destination_registered_dict = {}
+
+    def _build_first_block_registered(row: dict):
+
+        for autopool in row["getPoolsAndDestinations"]["autopools"]:
+            vaultAddress = eth_client.toChecksumAddress(autopool["poolAddress"])
+            if vaultAddress not in first_block_destination_registered_dict:
+                first_block_destination_registered_dict[vaultAddress] = row["block"]
+
+        for list_of_destinations in row["getPoolsAndDestinations"]["destinations"]:
+            for destination in list_of_destinations:
+                vaultAddress = eth_client.toChecksumAddress(destination["vaultAddress"])
+                if vaultAddress not in first_block_destination_registered_dict:
+                    first_block_destination_registered_dict[vaultAddress] = row["block"]
+
+    pools_and_destinations_df.apply(_build_first_block_registered, axis=1)
 
     def _add_to_all_destination_details(row: dict):
         autopools = row["autopools"]
 
         if len(autopools) != 3:
-            raise ValueError("only expects 3 autopools, found not 3:", str(autopools))
+            raise ValueError("Only expects 3 autopools, found not 3:", str(row))
 
         list_of_list_of_destinations = row["destinations"]
 
@@ -109,6 +127,9 @@ def get_destination_details() -> list[DestinationDetails]:
                     lpTokenName=destination["lpTokenName"],
                     lpTokenSymbol=destination["lpTokenSymbol"],
                     autopool=autopool_constant,
+                    first_block_destination_was_seen_registered=first_block_destination_registered_dict[
+                        eth_client.toChecksumAddress(destination["vaultAddress"])
+                    ],
                     vault_name=None,  # added later with an onchain call
                 )
 
