@@ -8,7 +8,6 @@ from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, 
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import add_timestamp_to_df_with_block_column, build_blocks_to_use
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
-from mainnet_launch.destinations import attempt_destination_address_to_readable_name
 
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
@@ -35,7 +34,6 @@ def _make_destination_count_figure(autopool: AutopoolConstants, summary_stats_df
     ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else None).astype(
         float
     )
-    # ownedShares_df.columns = [attempt_destination_address_to_readable_name(c) for c in ownedShares_df.columns]
     daily_owned_shares_df = ownedShares_df.resample("1D").last()
     destination_count_df = pd.DataFrame(index=daily_owned_shares_df.index)
     destination_count_df["Count of Destinations Allocated"] = daily_owned_shares_df.apply(
