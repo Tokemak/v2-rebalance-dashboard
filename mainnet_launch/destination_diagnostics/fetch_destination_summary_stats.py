@@ -46,7 +46,7 @@ def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants) -> pd.D
         'ownedShares': 844.9280278590563,
         'compositeReturn': 0.07905259675399179,
         'pricePerShare': 1.016326271270958,
-        'pointsApr': None | .001
+        'pointsApr': .001
     }
 
     """
@@ -125,9 +125,9 @@ def _fetch_autopool_destination_df(
             return None
         else:
             if points_cell is None:
-                summary_stats_cell["points"] = None
+                summary_stats_cell["pointsApr"] = 0
             else:
-                summary_stats_cell["points"] = float(points_cell)
+                summary_stats_cell["pointsApr"] = float(points_cell)
 
             return summary_stats_cell
 
@@ -153,7 +153,7 @@ def _clean_summary_stats_info(success, summary_stats):
             "ownedShares": summary_stats[8] / 1e18,
             "compositeReturn": summary_stats[9] / 1e18,
             "pricePerShare": summary_stats[10] / 1e18,
-            "pointsApr": None,  # added later
+            "pointsApr": None,  # set later
         }
         return summary
     else:
@@ -210,7 +210,6 @@ def _build_summary_stats_dfs(summary_stats_df: pd.DataFrame):
     uwcr_df = _extract_unweighted_composite_return_df(summary_stats_df)
     allocation_df = _extract_allocation_df(summary_stats_df)
     compositeReturn_out_df = _extract_composite_return_out_df(summary_stats_df)
-
     total_nav_series = allocation_df.sum(axis=1)
     portion_df = allocation_df.div(total_nav_series, axis=0)
     uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)

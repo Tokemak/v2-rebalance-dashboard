@@ -65,7 +65,7 @@ def make_idle_destination_details() -> set[DestinationDetails]:
                 lpTokenSymbol=None,
                 lpTokenName=None,
                 autopool=autopool,
-                vault_name=autopool.name,
+                vault_name=None,  # added later with an onchain call
             )
         )
     return idle_details

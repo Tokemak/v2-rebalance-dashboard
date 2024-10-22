@@ -43,6 +43,7 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     return clean_rebalance_df
 
 
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConstants) -> pd.DataFrame:
     strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
 
