@@ -67,7 +67,7 @@ AUTO_ETH = AutopoolConstants(
 )
 
 BAL_ETH = AutopoolConstants(
-    "Tokemak balETH",
+    "Balancer/Tokemak balETH",
     "0x6dC3ce9C57b20131347FDc9089D740DAf6eB34c5",
     "0xabe104560D0B390309bcF20b73Dca335457AA32e",
     BAL_ETH_BUCKET,
