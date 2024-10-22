@@ -5,7 +5,6 @@ import streamlit as st
 
 
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS, AUTO_LRT
-from mainnet_launch.destinations import attempt_destination_address_to_readable_name
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 

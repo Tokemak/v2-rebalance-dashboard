@@ -59,7 +59,7 @@ def make_idle_destination_details() -> set[DestinationDetails]:
         idle_details.add(
             DestinationDetails(
                 vaultAddress=eth_client.toChecksumAddress(autopool.autopool_eth_addr),
-                exchangeName="Tokemak",
+                exchangeName="tokemak",
                 dexPool=None,
                 lpTokenAddress=None,
                 lpTokenSymbol=None,
@@ -118,7 +118,7 @@ def get_destination_details() -> list[DestinationDetails]:
     get_destination_names_calls = [
         Call(
             dest.vaultAddress,
-            "name()(string)",
+            "symbol()(string)",
             [(eth_client.toChecksumAddress(dest.vaultAddress), identity_with_bool_success)],
         )
         for dest in all_destination_details
@@ -127,21 +127,8 @@ def get_destination_details() -> list[DestinationDetails]:
     vault_addresses_to_names = get_state_by_one_block(get_destination_names_calls, eth_client.eth.block_number)
 
     for dest in all_destination_details:
-        dest.vault_name = f"{vault_addresses_to_names[eth_client.toChecksumAddress(dest.vaultAddress)]}"
+        symbol = vault_addresses_to_names[eth_client.toChecksumAddress(dest.vaultAddress)]
+        symbol = symbol.replace("toke-WETH-", "")
+        dest.vault_name = f"{symbol} ({dest.exchangeName})"
 
     return list(all_destination_details)
-
-
-@st.cache_data(ttl=CACHE_TIME)
-def attempt_destination_address_to_readable_name(possible_address: str) -> str:
-    # possible_address is typically a column in DataFrame
-
-    destination_details: list[DestinationDetails] = get_destination_details()  # cached so is fast
-    vault_address_to_name = {
-        eth_client.toChecksumAddress(dest.vaultAddress): dest.to_readable_name() for dest in destination_details
-    }
-    try:
-        vault_name = vault_address_to_name[eth_client.toChecksumAddress(possible_address)]
-        return vault_name
-    except Exception:
-        return possible_address

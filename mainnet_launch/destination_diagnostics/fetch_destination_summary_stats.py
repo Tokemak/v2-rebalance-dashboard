@@ -16,7 +16,6 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 from mainnet_launch.lens_contract import fetch_pools_and_destinations_df
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, eth_client, ALL_AUTOPOOLS, AUTO_LRT, time_decorator
 from mainnet_launch.destinations import (
-    attempt_destination_address_to_readable_name,
     get_destination_details,
     DestinationDetails,
 )

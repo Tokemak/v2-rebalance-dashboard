@@ -153,22 +153,19 @@ def _make_solver_distribution_figures(clean_rebalance_df: pd.DataFrame) -> go.Fi
 
 
 def _add_solver_cumulative_profit(clean_rebalance_df: pd.DataFrame) -> go.Figure:
-    
-    daily_profit_df = clean_rebalance_df[['solver_profit', 'gasCostInETH']].resample('1D').sum()
+
+    daily_profit_df = clean_rebalance_df[["solver_profit", "gasCostInETH"]].resample("1D").sum()
     fig = go.Figure()
     fig.add_trace(
-        go.Line(
-            x=daily_profit_df.index, y=daily_profit_df["solver_profit"].cumsum(), name="Solver Profit Before Gas"
-        )
+        go.Line(x=daily_profit_df.index, y=daily_profit_df["solver_profit"].cumsum(), name="Solver Profit Before Gas")
     )
     fig.add_trace(
-        go.Line(
-            x=daily_profit_df.index, y=daily_profit_df["gasCostInETH"].cumsum(), name="Solver Gas Cost in ETH"
-        )
+        go.Line(x=daily_profit_df.index, y=daily_profit_df["gasCostInETH"].cumsum(), name="Solver Gas Cost in ETH")
     )
 
-    solver_profit_after_gas_costs = daily_profit_df["solver_profit"].astype(float) - daily_profit_df["gasCostInETH" ].astype(float)  
-    
+    solver_profit_after_gas_costs = daily_profit_df["solver_profit"].astype(float) - daily_profit_df[
+        "gasCostInETH"
+    ].astype(float)
 
     fig.add_trace(
         go.Line(x=daily_profit_df.index, y=solver_profit_after_gas_costs.cumsum(), name="Solver Profit After Gas")

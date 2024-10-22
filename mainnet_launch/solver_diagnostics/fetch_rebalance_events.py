@@ -23,7 +23,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
     add_timestamp_to_df_with_block_column,
 )
-from mainnet_launch.destinations import attempt_destination_address_to_readable_name
+from mainnet_launch.destinations import get_destination_details
 
 
 @st.cache_data(ttl=CACHE_TIME)
@@ -48,6 +48,52 @@ def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConst
     strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
 
     rebalance_between_destinations_df = fetch_events(strategy_contract.events.RebalanceBetweenDestinations)
+    destination_details = get_destination_details()
+    destination_vault_address_to_symbol = {dest.vaultAddress: dest.vault_name for dest in destination_details}
+
+    def _make_rebalance_between_destination_human_readable(
+        row: dict,
+    ) -> dict:
+
+        predictedAnnualizedGain = (row["predictedAnnualizedGain"]) / 1e18
+        predicted_gain_during_swap_cost_off_set_period = predictedAnnualizedGain * (row["swapOffsetPeriod"] / 365)
+
+        swapCost = row["valueStats"][4] / 1e18
+        slippage = row["valueStats"][5] / 1e18
+        in_destination = destination_vault_address_to_symbol[eth_client.toChecksumAddress(row["inSummaryStats"][0])]
+        out_destination = destination_vault_address_to_symbol[eth_client.toChecksumAddress(row["outSummaryStats"][0])]
+
+        out_compositeReturn = 100 * row["outSummaryStats"][9] / 1e18
+        in_compositeReturn = 100 * row["inSummaryStats"][9] / 1e18
+        apr_delta = in_compositeReturn - out_compositeReturn
+        inEthValue = row["valueStats"][2] / 1e18
+        outEthValue = row["valueStats"][3] / 1e18
+
+        predicted_increase_after_swap_cost = predicted_gain_during_swap_cost_off_set_period - swapCost
+
+        break_even_days = swapCost / (predictedAnnualizedGain / 365)
+        offset_period = row["swapOffsetPeriod"]
+
+        move_name = f"{out_destination} -> {in_destination}"
+
+        return {
+            "block": row["block"],
+            "break_even_days": break_even_days,
+            "swapCost": swapCost,
+            "apr_delta": apr_delta,
+            "out_compositeReturn": out_compositeReturn,
+            "in_compositeReturn": in_compositeReturn,
+            "predicted_increase_after_swap_cost": predicted_increase_after_swap_cost,
+            "predicted_gain_during_swap_cost_off_set_period": predicted_gain_during_swap_cost_off_set_period,
+            "inEthValue": inEthValue,
+            "outEthValue": outEthValue,
+            "out_destination": out_destination,
+            "in_destination": in_destination,
+            "offset_period": offset_period,
+            "slippage": slippage,
+            "hash": row["hash"],
+            "moveName": move_name,
+        }
 
     clean_rebalance_df = pd.DataFrame.from_records(
         rebalance_between_destinations_df.apply(
@@ -56,51 +102,6 @@ def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConst
     )
     clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df)
     return clean_rebalance_df
-
-
-def _make_rebalance_between_destination_human_readable(
-    row: dict,
-) -> dict:
-
-    predictedAnnualizedGain = (row["predictedAnnualizedGain"]) / 1e18
-    predicted_gain_during_swap_cost_off_set_period = predictedAnnualizedGain * (row["swapOffsetPeriod"] / 365)
-
-    swapCost = row["valueStats"][4] / 1e18
-    slippage = row["valueStats"][5] / 1e18
-    in_destination = attempt_destination_address_to_readable_name(row["inSummaryStats"][0])
-    out_destination = attempt_destination_address_to_readable_name(row["outSummaryStats"][0])
-
-    out_compositeReturn = 100 * row["outSummaryStats"][9] / 1e18
-    in_compositeReturn = 100 * row["inSummaryStats"][9] / 1e18
-    apr_delta = in_compositeReturn - out_compositeReturn
-    inEthValue = row["valueStats"][2] / 1e18
-    outEthValue = row["valueStats"][3] / 1e18
-
-    predicted_increase_after_swap_cost = predicted_gain_during_swap_cost_off_set_period - swapCost
-
-    break_even_days = swapCost / (predictedAnnualizedGain / 365)
-    offset_period = row["swapOffsetPeriod"]
-
-    move_name = f"{out_destination} -> {in_destination}"
-
-    return {
-        "block": row["block"],
-        "break_even_days": break_even_days,
-        "swapCost": swapCost,
-        "apr_delta": apr_delta,
-        "out_compositeReturn": out_compositeReturn,
-        "in_compositeReturn": in_compositeReturn,
-        "predicted_increase_after_swap_cost": predicted_increase_after_swap_cost,
-        "predicted_gain_during_swap_cost_off_set_period": predicted_gain_during_swap_cost_off_set_period,
-        "inEthValue": inEthValue,
-        "outEthValue": outEthValue,
-        "out_destination": out_destination,
-        "in_destination": in_destination,
-        "offset_period": offset_period,
-        "slippage": slippage,
-        "hash": row["hash"],
-        "moveName": move_name,
-    }
 
 
 def _calc_gas_used_by_transaction_in_eth(tx_hash: str) -> float:
