@@ -17,17 +17,16 @@ from mainnet_launch.destinations import attempt_destination_address_to_readable_
 def fetch_key_metrics_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use()
     nav_per_share_df = fetch_nav_per_share(blocks, autopool)
-    uwcr_df, allocation_df, compositeReturn_df, total_nav_df, summary_stats_df, points_df = (
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
     key_metric_data = {
         "nav_per_share_df": nav_per_share_df,
         "uwcr_df": uwcr_df,
         "allocation_df": allocation_df,
-        "compositeReturn_df": compositeReturn_df,
-        "total_nav_df": total_nav_df,
+        "compositeReturn_df": compositeReturn_out_df,
+        "total_nav_df": total_nav_series,
         "summary_stats_df": summary_stats_df,
-        "points_df": points_df,
     }
     return key_metric_data
 
@@ -69,7 +68,9 @@ def _diffReturn(x: list):
 def _get_percent_deployed(allocation_df: pd.DataFrame, autopool: AutopoolConstants) -> tuple[float, float]:
 
     daily_allocation_df = allocation_df.resample("1D").last()
-    vault_name = attempt_destination_address_to_readable_name(autopool.autopool_eth_addr)
+    vault_name = autopool.name
+
+    print(daily_allocation_df.columns)
 
     tvl_according_to_allocation_df = float(daily_allocation_df.iloc[-1].sum())
 
@@ -195,3 +196,7 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
         - Expected Annualized Return: Projected percent annual return based on current allocations of the Autopool.
         """
         )
+
+
+if __name__ == "__main__":
+    fetch_and_render_key_metrics_data(AUTO_LRT)
