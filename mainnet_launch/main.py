@@ -1,15 +1,29 @@
+# # this needs to be first because otherwise we get this error:
+# # `StreamlitAPIException: set_page_config() can only be called once per app page,
+# # and must be called as the first Streamlit command in your script.`
+# st.set_page_config(
+#     page_title="Mainnet Autopool Diagnostics Dashboard",
+#     layout="wide",
+#     initial_sidebar_state="expanded",
+# )
+# import plotly.io as pio
+# import plotly.express as px
+
+# # Define your custom color sequence
+# custom_color_sequence = px.colors.qualitative.Dark24  # You can choose a different palette if you like
+
+# # Create a custom template
+# pio.templates["custom_template"] = pio.templates["plotly"]  # Start from an existing template
+# pio.templates["custom_template"]["layout"]["colorway"] = custom_color_sequence  # Set your custom color sequence
+
+# # Set the custom template as the default template
+# pio.templates.default = "custom_template"
+
+from mainnet_launch.ui_config_setup import config_plotly_and_streamlit
+
+config_plotly_and_streamlit()
+
 import streamlit as st
-
-# this needs to be first because otherwise we get this error:
-# `StreamlitAPIException: set_page_config() can only be called once per app page,
-# and must be called as the first Streamlit command in your script.`
-st.set_page_config(
-    page_title="Mainnet Autopool Diagnostics Dashboard",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-
 import threading
 import time
 import datetime
