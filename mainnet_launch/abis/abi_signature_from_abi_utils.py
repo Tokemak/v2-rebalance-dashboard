@@ -18,7 +18,7 @@ def parse_type(param):
         return param["type"]
 
 
-def get_function_signatures_with_returns(abi_json):
+def get_function_and_event_signatures_with_returns(abi_json):
     # eg for multicall.py
     # might need to spot check
     signatures = []
@@ -27,12 +27,9 @@ def get_function_signatures_with_returns(abi_json):
         # Check if the item is a function
         if item.get("type") == "function":
             func_name = item["name"]
-
-            # Parse input types
             inputs = item.get("inputs", [])
             input_types = ",".join(parse_type(param) for param in inputs)
 
-            # Parse output types
             outputs = item.get("outputs", [])
             if outputs:
                 output_types = ",".join(parse_type(param) for param in outputs)
@@ -45,6 +42,8 @@ def get_function_signatures_with_returns(abi_json):
             inputs = item.get("inputs", [])
             input_types = ",".join(parse_type(param) for param in inputs)
             signature = f"{func_name}({input_types})"
+        else:
+            signature = None
 
         signatures.append(signature)
 
