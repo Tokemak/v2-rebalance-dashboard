@@ -19,7 +19,7 @@ from mainnet_launch.constants import (
     AUTO_ETH,
     AUTO_LRT,
     AutopoolConstants,
-    WORKING_DATA_DIR
+    WORKING_DATA_DIR,
 )
 
 
@@ -36,7 +36,8 @@ from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_and_clean_rebalance_between_destination_events,
 )
 
-CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "1344461886831441856282597505993515040672606510446374000438363195934269203116"
+OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "1344461886831441856282597505993515040672606510446374000438363195934269203116"
+NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "113129673265054907567420460651277872997162644350081440026681710279139531871240"
 INCENTIVE_PRICING_KEEPER_ORACLE_ID = "84910810589923801598536031507827941923735631663622593132512932471876788938876"
 # there can be more KEEPER IDs added later
 
@@ -122,7 +123,15 @@ def fetch_filtered_upkeep_events():
     contract = eth_client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
     upkeep_df = fetch_events(contract.events.UpkeepPerformed, START_BLOCK)
     filtered_upkeep_df = upkeep_df[
-        upkeep_df["id"].apply(str).isin([CALCULATOR_KEEPER_ORACLE_TOPIC_ID, INCENTIVE_PRICING_KEEPER_ORACLE_ID])
+        upkeep_df["id"]
+        .apply(str)
+        .isin(
+            [
+                OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+                NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+                INCENTIVE_PRICING_KEEPER_ORACLE_ID,
+            ]
+        )
     ].copy()
     return add_timestamp_to_df_with_block_column(filtered_upkeep_df)
 
@@ -177,7 +186,11 @@ def construct_dataframe(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice
 
 
 def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
-    calculator_df = our_upkeep_df[our_upkeep_df["id"].apply(str) == CALCULATOR_KEEPER_ORACLE_TOPIC_ID]
+    calculator_df = our_upkeep_df[
+        our_upkeep_df["id"]
+        .apply(str)
+        .isin([OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID, NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID])
+    ]
     incentive_pricing_df = our_upkeep_df[our_upkeep_df["id"].apply(str) == INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 
     calculator_gas_costs_7, calculator_gas_costs_30, calculator_gas_costs_365 = get_gas_costs(
@@ -302,7 +315,7 @@ def fetch_solver_gas_costs():
 
     # Concatenate all dataframes and return final rebalance gas cost dataframe
     rebalance_gas_cost_df = pd.concat(rebalance_dfs, axis=0)
-    rebalance_gas_cost_df.to_csv(WORKING_DATA_DIR / 'rebalance_gas_cost_df.csv')
+    rebalance_gas_cost_df.to_csv(WORKING_DATA_DIR / "rebalance_gas_cost_df.csv")
     return rebalance_gas_cost_df
 
 
