@@ -14,11 +14,11 @@ st.cache_data(ttl=CACHE_TIME)
 
 def fetch_destination_allocation_over_time_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use()
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df = (
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
 
-    percent_allocation_df = 100 * allocation_df.div(total_nav_df, axis=0)
+    percent_allocation_df = 100 * allocation_df.div(total_nav_series, axis=0)
     laster_percent_allocation = percent_allocation_df.tail(1)
 
     pie_allocation_fig = px.pie(

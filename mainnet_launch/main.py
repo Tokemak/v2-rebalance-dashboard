@@ -1,15 +1,29 @@
+# # this needs to be first because otherwise we get this error:
+# # `StreamlitAPIException: set_page_config() can only be called once per app page,
+# # and must be called as the first Streamlit command in your script.`
+# st.set_page_config(
+#     page_title="Mainnet Autopool Diagnostics Dashboard",
+#     layout="wide",
+#     initial_sidebar_state="expanded",
+# )
+# import plotly.io as pio
+# import plotly.express as px
+
+# # Define your custom color sequence
+# custom_color_sequence = px.colors.qualitative.Dark24  # You can choose a different palette if you like
+
+# # Create a custom template
+# pio.templates["custom_template"] = pio.templates["plotly"]  # Start from an existing template
+# pio.templates["custom_template"]["layout"]["colorway"] = custom_color_sequence  # Set your custom color sequence
+
+# # Set the custom template as the default template
+# pio.templates.default = "custom_template"
+
+from mainnet_launch.ui_config_setup import config_plotly_and_streamlit
+
+config_plotly_and_streamlit()
+
 import streamlit as st
-
-# this needs to be first because otherwise we get this error:
-# `StreamlitAPIException: set_page_config() can only be called once per app page,
-# and must be called as the first Streamlit command in your script.`
-st.set_page_config(
-    page_title="Mainnet Autopool Diagnostics Dashboard",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-
 import threading
 import time
 import datetime
@@ -62,6 +76,9 @@ from mainnet_launch.constants import (
     AUTOPOOL_NAME_TO_CONSTANTS,
     STREAMLIT_MARKDOWN_HTML,
     AutopoolConstants,
+    BAL_ETH,
+    AUTO_ETH,
+    AUTO_LRT,
 )
 
 
@@ -156,6 +173,7 @@ CONTENT_FUNCTIONS = {
     "Gas Costs": fetch_and_render_keeper_network_gas_costs,
 }
 
+
 PAGES_WITHOUT_AUTOPOOL = ["Gas Costs"]
 
 
@@ -190,19 +208,6 @@ def start_cache_thread():
             fetch_thread.start()
             st.session_state["cache_thread_started"] = True
             st.session_state["fetch_thread"] = fetch_thread
-
-
-def start_cache_thread():
-    # this needs to be in a seperate function so that it won't run again on each refresh.
-    # I don't know why this is
-    # but it the below code block is not in a function then a new thread is created on each refresh
-    if "cache_thread_started" not in st.session_state:
-        st.session_state["cache_thread_started"] = False
-
-    if not st.session_state["cache_thread_started"]:
-        fetch_thread = threading.Thread(target=cache_data_loop, daemon=True)
-        fetch_thread.start()
-        st.session_state["cache_thread_started"] = True
 
 
 start_cache_thread()

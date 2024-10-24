@@ -1,128 +1,134 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 from multicall import Call
 import streamlit as st
+import pandas as pd
 
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,
 )
 
-from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, eth_client
+from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, eth_client, AutopoolConstants
+from mainnet_launch.lens_contract import fetch_pools_and_destinations_df
 
 
-@dataclass
+@dataclass()
 class DestinationDetails:
-    address: str
-    symbol: str
-    color: str
+    vaultAddress: str
+    exchangeName: str
+
+    dexPool: str
+    lpTokenAddress: str
+    lpTokenSymbol: str
+    lpTokenName: str
+
+    autopool: AutopoolConstants
+    vault_name: str = None
+
+    def __str__(self):
+        details = "Destination Details:\n"
+        for field, value in asdict(self).items():
+            details += f" {field}\t: {value}\n"
+        return details
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __hash__(self):
+        return hash(
+            (
+                self.vaultAddress,
+                self.exchangeName,
+                self.dexPool,
+                self.lpTokenAddress,
+                self.lpTokenSymbol,
+                self.lpTokenName,
+            )
+        )
+
+    def to_readable_name(self) -> str:
+        return f"{self.vault_name} {self.exchangeName} {self.vaultAddress[:5]}"
 
 
-# this is so that the colors of each destination are consistent between plots
-# TODO: this feature is not added yet
-destination_colors = [
-    "#1f77b4",
-    "#ff7f0e",
-    "#2ca02c",
-    "#d62728",
-    "#9467bd",
-    "#8c564b",
-    "#e377c2",
-    "#7f7f7f",
-    "#bcbd22",
-    "#17becf",
-    "#ffbb78",
-    "#98df8a",
-    "#ff9896",
-    "#c5b0d5",
-    "#c49c94",
-    "#f7b6d2",
-    "#dbdb8d",
-    "#9edae5",
-    "#f4a442",
-    "#c3e5f9",
-    "#f0a3a1",
-    "#b5e3e3",
-    "#ffcc00",
-    "#ff6600",
-    "#ccff00",
-    "#00ffcc",
-    "#6600ff",
-    "#ff00cc",
-    "#ff9966",
-    "#00ccff",
-]
+def make_idle_destination_details() -> set[DestinationDetails]:
+    # Idle is not included in pools and destinations
+    idle_details = set()
+
+    for autopool in ALL_AUTOPOOLS:
+        idle_details.add(
+            DestinationDetails(
+                vaultAddress=eth_client.toChecksumAddress(autopool.autopool_eth_addr),
+                exchangeName="tokemak",
+                dexPool=None,
+                lpTokenAddress=None,
+                lpTokenSymbol=None,
+                lpTokenName=None,
+                autopool=autopool,
+                vault_name=None,  # added later with an onchain call
+            )
+        )
+    return idle_details
 
 
-def _get_current_destinations_to_symbol(block: int) -> dict[str, str]:
-    """Returns a dictionary of the current destinations: destination.symbol"""
-    get_destinations_calls = [
-        Call(a.autopool_eth_addr, "getDestinations()(address[])", [(f"{a.name} Idle", identity_with_bool_success)])
-        for a in ALL_AUTOPOOLS
+def autopool_data_to_autopool_constant(autopool: dict) -> AutopoolConstants:
+    autopool_constant = [
+        c
+        for c in ALL_AUTOPOOLS
+        if eth_client.toChecksumAddress(autopool["poolAddress"]) == eth_client.toChecksumAddress(c.autopool_eth_addr)
+    ][0]
+    return autopool_constant
+
+
+@st.cache_data(ttl=CACHE_TIME)
+def get_destination_details() -> list[DestinationDetails]:
+    # retuns a list of all destinations along with their autopools even if the destinations have been replaced
+
+    pools_and_destinations_df = fetch_pools_and_destinations_df()
+    all_destination_details: set[DestinationDetails] = make_idle_destination_details()
+
+    def _add_to_all_destination_details(row: dict):
+        autopools = row["autopools"]
+
+        if len(autopools) != 3:
+            raise ValueError("Only expects 3 autopools, found not 3:", str(row))
+
+        list_of_list_of_destinations = row["destinations"]
+
+        autopool_constants = [autopool_data_to_autopool_constant(autopool) for autopool in autopools]
+
+        for autopool_constant, list_of_destinations in zip(autopool_constants, list_of_list_of_destinations):
+
+            for destination in list_of_destinations:
+                destination_details = DestinationDetails(
+                    vaultAddress=eth_client.toChecksumAddress(destination["vaultAddress"]),
+                    exchangeName=destination["exchangeName"],
+                    dexPool=eth_client.toChecksumAddress(destination["dexPool"]),
+                    lpTokenAddress=eth_client.toChecksumAddress(destination["lpTokenAddress"]),
+                    lpTokenName=destination["lpTokenName"],
+                    lpTokenSymbol=destination["lpTokenSymbol"],
+                    autopool=autopool_constant,
+                    vault_name=None,  # added later with an onchain call
+                )
+
+                all_destination_details.add(destination_details)
+
+    pools_and_destinations_df["getPoolsAndDestinations"].apply(_add_to_all_destination_details)
+
+    get_destination_names_calls = [
+        Call(
+            dest.vaultAddress,
+            "symbol()(string)",
+            [(eth_client.toChecksumAddress(dest.vaultAddress), identity_with_bool_success)],
+        )
+        for dest in all_destination_details
     ]
-    destinations = get_state_by_one_block(get_destinations_calls, block)
+    # the names don't change so we only need to get it once
+    vault_addresses_to_names = get_state_by_one_block(get_destination_names_calls, eth_client.eth.block_number)
 
-    all_destinations = set([a.autopool_eth_addr for a in ALL_AUTOPOOLS])
-    for _, destination_addresses in destinations.items():
-        for d in destination_addresses:
-            all_destinations.add(d)
+    for dest in all_destination_details:
+        symbol = vault_addresses_to_names[eth_client.toChecksumAddress(dest.vaultAddress)]
+        symbol = symbol.replace("toke-WETH-", "")
+        dest.vault_name = f"{symbol} ({dest.exchangeName})"
 
-    get_destination_symbols_calls = [
-        Call(d, "symbol()(string)", [(eth_client.toChecksumAddress(d), identity_with_bool_success)])
-        for d in all_destinations
-    ]
-
-    destination_to_symbol = get_state_by_one_block(get_destination_symbols_calls, block)
-
-    for a in ALL_AUTOPOOLS:
-
-        destination_to_symbol[a.autopool_eth_addr] = a.name + " idle"
-
-    return destination_to_symbol
-
-
-@st.cache_data(ttl=CACHE_TIME)  # 1 hours
-def get_destination_details(block: int) -> dict[str, DestinationDetails]:
-    destination_to_symbol = _get_current_destinations_to_symbol(block)
-
-    destination_details = {}
-    color_index = 0
-
-    for address, symbol in destination_to_symbol.items():
-        color = destination_colors[color_index % len(destination_colors)]
-        destination_details[address] = DestinationDetails(address=address, symbol=symbol, color=color)
-        destination_details[symbol] = DestinationDetails(address=address, symbol=symbol, color=color)
-        color_index += 1
-
-    return destination_details
-
-
-destination_details = get_destination_details(eth_client.eth.block_number)
-
-
-def attempt_destination_address_to_symbol(address: str) -> str:
-    if address in destination_details:
-        return destination_details[address].symbol
-    else:
-        return address
-
-
-def attempt_destination_address_to_color(address: str) -> str:
-    if address in destination_details:
-        return destination_details[address].color
-    else:
-        return None
-
-
-def attempt_destination_symbol_to_color(symbol: str) -> str:
-    if symbol in destination_details:
-        return destination_details[symbol].color
-    else:
-        return None
-
-
-if __name__ == "__main__":
-
-    for d in destination_details:
-        print(d)
-        print(destination_details[d])
+    return list(all_destination_details)

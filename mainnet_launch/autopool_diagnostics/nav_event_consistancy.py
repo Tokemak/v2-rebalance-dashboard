@@ -18,16 +18,11 @@ from mainnet_launch.constants import (
 )
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI, AUTOPOOL_ETH_STRATEGY_ABI
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
-    fetch_and_clean_rebalance_between_destination_events,
-)
-from mainnet_launch.destinations import attempt_destination_address_to_symbol
+
 from mainnet_launch.data_fetching.get_state_by_block import (
     add_timestamp_to_df_with_block_column,
 )
-import boto3
-from botocore import UNSIGNED
-from botocore.client import Config
+
 
 from mainnet_launch.constants import CACHE_TIME, SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS
 

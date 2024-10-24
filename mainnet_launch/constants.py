@@ -19,17 +19,18 @@ AUTO_LRT_BUCKET = os.environ["AUTO_LRT_BUCKET"]
 ALCHEMY_URL = os.environ["ALCHEMY_URL"]
 
 
-CACHE_TIME = 3600 * 6  # siz hours
+CACHE_TIME = 3600 * 6  # six hours
 
 ROOT_DIR = Path(__file__).parent
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "rebalance_plans"
-WORKING_DATA_DIR = ROOT_DIR / 'working_data' # hold temp data for new features or adhoc questions
+WORKING_DATA_DIR = ROOT_DIR / "working_data"  # hold temp data for new features or adhoc questions
 
 if not os.path.exists(SOLVER_REBALANCE_PLANS_DIR):
     os.makedirs(SOLVER_REBALANCE_PLANS_DIR)
 
 if not os.path.exists(WORKING_DATA_DIR):
     os.makedirs(WORKING_DATA_DIR)
+
 
 def time_decorator(func):
     def wrapper(*args, **kwargs):
@@ -45,7 +46,7 @@ def time_decorator(func):
 @dataclass
 class AutopoolConstants:
     name: str
-    autopool_eth_addr: str
+    autopool_eth_addr: str  # consider renaming
     autopool_eth_strategy_addr: str
     solver_rebalance_plans_bucket: str
 
@@ -54,21 +55,26 @@ class AutopoolConstants:
 SYSTEM_REGISTRY = "0x2218F90A98b0C070676f249EF44834686dAa4285 "
 AUTOPOOL_REGISTRY = "0x7E5828a3A6Ae75426d739E798140513A2E2964E4"
 ROOT_PRICE_ORACLE = "0x61F8BE7FD721e80C0249829eaE6f0DAf21bc2CaC"
+LENS_CONTRACT = "0x146b5564dd061D648275e4Bd3569b8c285783882"
+DESTINATION_VAULT_REGISTRY = "0x3AaC1CE01127593CA0c7f87b1Aedb1E153e152aE"
 
 
 AUTO_ETH = AutopoolConstants(
-    "autoETH",
+    "Tokemak autoETH",
     "0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56",
     "0xf5f6addB08c5e6091e5FdEc7326B21bEEd942235",
     AUTO_ETH_BUCKET,
 )
 
 BAL_ETH = AutopoolConstants(
-    "balETH", "0x6dC3ce9C57b20131347FDc9089D740DAf6eB34c5", "0xabe104560D0B390309bcF20b73Dca335457AA32e", BAL_ETH_BUCKET
+    "Balancer/Tokemak balETH",
+    "0x6dC3ce9C57b20131347FDc9089D740DAf6eB34c5",
+    "0xabe104560D0B390309bcF20b73Dca335457AA32e",
+    BAL_ETH_BUCKET,
 )
 
 AUTO_LRT = AutopoolConstants(
-    "autoLRT",
+    "Tokemak autoLRT",
     "0xE800e3760FC20aA98c5df6A9816147f190455AF3",
     "0x72a726c10220280049687E58B7b05fb03d579109",
     AUTO_LRT_BUCKET,

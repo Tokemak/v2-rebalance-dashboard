@@ -50,7 +50,6 @@ GAS_PRICE_JSON_PATH = "hash_to_gasPrice.json"
 GAS_USED_JSON_PATH = "hash_to_gas_used.json"
 
 
-@st.cache_data(ttl=CACHE_TIME)
 def fetch_keeper_network_gas_costs() -> pd.DataFrame:
     # Load cached data from JSON files or initialize empty structures
     hash_to_gas_cost_in_ETH = load_json_data(GAS_COST_JSON_PATH)
@@ -119,6 +118,7 @@ def save_json_data(data, file_path):
         json.dump(data, f)
 
 
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_filtered_upkeep_events():
     contract = eth_client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
     upkeep_df = fetch_events(contract.events.UpkeepPerformed, START_BLOCK)
@@ -280,7 +280,6 @@ def fetch_solver_metrics():
     return cost_last_7_days, cost_last_30_days, cost_last_1_year
 
 
-@st.cache_data(ttl=CACHE_TIME)
 def fetch_solver_gas_costs():
     # Load cached gas cost data or initialize empty structure if not available
     hash_to_rebalance_gas_cost_in_ETH = load_json_data(GAS_COST_JSON_PATH)
@@ -320,4 +319,4 @@ def fetch_solver_gas_costs():
 
 
 if __name__ == "__main__":
-    fetch_keeper_network_gas_costs()
+    fetch_and_render_keeper_network_gas_costs()

@@ -18,12 +18,12 @@ from mainnet_launch.constants import (
 )
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI, AUTOPOOL_ETH_STRATEGY_ABI
 from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.destinations import get_destination_details
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_and_clean_rebalance_between_destination_events,
 )
 from mainnet_launch.solver_diagnostics.rebalance_events import fetch_and_render_solver_profit_data
 
-from mainnet_launch.destinations import attempt_destination_address_to_symbol
 from mainnet_launch.data_fetching.get_state_by_block import (
     add_timestamp_to_df_with_block_column,
 )
@@ -96,14 +96,19 @@ def ensure_all_rebalance_plans_are_loaded():
 
 def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
     autopool_plans = [p for p in SOLVER_REBALANCE_PLANS_DIR.glob("*.json") if autopool.autopool_eth_addr in str(p)]
-
+    destination_details = get_destination_details()
+    destination_vault_address_to_symbol = {dest.vaultAddress: dest.vault_name for dest in destination_details}
     all_data = []
     for plan_json in autopool_plans:
         with open(plan_json, "r") as fin:
             data = json.load(fin)
             data["date"] = pd.to_datetime(data["timestamp"], unit="s", utc=True)
-            data["destinationIn"] = attempt_destination_address_to_symbol(data["destinationIn"])
-            data["destinationOut"] = attempt_destination_address_to_symbol(data["destinationOut"])
+            if data["destinationIn"] in destination_vault_address_to_symbol:
+                data["destinationIn"] = destination_vault_address_to_symbol[data["destinationIn"]]
+
+            if data["destinationOut"] in destination_vault_address_to_symbol:
+                data["destinationOut"] = destination_vault_address_to_symbol[data["destinationOut"]]
+
             data["moveName"] = f"{data['destinationOut']} -> {data['destinationIn']}"
             all_data.append(data)
     solver_df = pd.DataFrame.from_records(all_data)
@@ -271,3 +276,7 @@ def _add_add_rank_count(solver_df):
     solver_df["len_addRank"] = solver_df["addRank"].apply(lambda x: len(x))
     fig = px.bar(solver_df, x="date", y="len_addRank", title="Candidate Destinations Size")
     return fig
+
+
+if __name__ == "__main__":
+    _load_solver_df(ALL_AUTOPOOLS[0])

@@ -1,0 +1,672 @@
+[
+    {
+      "inputs": [
+        {
+          "internalType": "contract ISystemRegistry",
+          "name": "_systemRegistry",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        { "internalType": "string", "name": "paramName", "type": "string" }
+      ],
+      "name": "ZeroAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "getPools",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "poolAddress",
+              "type": "address"
+            },
+            { "internalType": "string", "name": "name", "type": "string" },
+            { "internalType": "string", "name": "symbol", "type": "string" },
+            { "internalType": "bytes32", "name": "vaultType", "type": "bytes32" },
+            { "internalType": "address", "name": "baseAsset", "type": "address" },
+            {
+              "internalType": "uint256",
+              "name": "streamingFeeBps",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "periodicFeeBps",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "feeHighMarkEnabled",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "feeSettingsIncomplete",
+              "type": "bool"
+            },
+            { "internalType": "bool", "name": "isShutdown", "type": "bool" },
+            {
+              "internalType": "enum IAutopool.VaultShutdownStatus",
+              "name": "shutdownStatus",
+              "type": "uint8"
+            },
+            { "internalType": "address", "name": "rewarder", "type": "address" },
+            { "internalType": "address", "name": "strategy", "type": "address" },
+            {
+              "internalType": "uint256",
+              "name": "totalSupply",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalAssets",
+              "type": "uint256"
+            },
+            { "internalType": "uint256", "name": "totalIdle", "type": "uint256" },
+            { "internalType": "uint256", "name": "totalDebt", "type": "uint256" },
+            {
+              "internalType": "uint256",
+              "name": "navPerShare",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct Lens.Autopool[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getPoolsAndDestinations",
+      "outputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "poolAddress",
+                  "type": "address"
+                },
+                { "internalType": "string", "name": "name", "type": "string" },
+                { "internalType": "string", "name": "symbol", "type": "string" },
+                {
+                  "internalType": "bytes32",
+                  "name": "vaultType",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "address",
+                  "name": "baseAsset",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "streamingFeeBps",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "periodicFeeBps",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "feeHighMarkEnabled",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "feeSettingsIncomplete",
+                  "type": "bool"
+                },
+                { "internalType": "bool", "name": "isShutdown", "type": "bool" },
+                {
+                  "internalType": "enum IAutopool.VaultShutdownStatus",
+                  "name": "shutdownStatus",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "address",
+                  "name": "rewarder",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "strategy",
+                  "type": "address"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalSupply",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalAssets",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalIdle",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalDebt",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "navPerShare",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Lens.Autopool[]",
+              "name": "autoPools",
+              "type": "tuple[]"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "vaultAddress",
+                  "type": "address"
+                },
+                {
+                  "internalType": "string",
+                  "name": "exchangeName",
+                  "type": "string"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "totalSupply",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "lastSnapshotTimestamp",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "feeApr",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "lastDebtReportTime",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "minDebtValue",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "maxDebtValue",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "debtValueHeldByVault",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "queuedForRemoval",
+                  "type": "bool"
+                },
+                {
+                  "internalType": "bool",
+                  "name": "statsIncomplete",
+                  "type": "bool"
+                },
+                { "internalType": "bool", "name": "isShutdown", "type": "bool" },
+                {
+                  "internalType": "enum IDestinationVault.VaultShutdownStatus",
+                  "name": "shutdownStatus",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "autoPoolOwnsShares",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "actualLPTotalSupply",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "address",
+                  "name": "dexPool",
+                  "type": "address"
+                },
+                {
+                  "internalType": "address",
+                  "name": "lpTokenAddress",
+                  "type": "address"
+                },
+                {
+                  "internalType": "string",
+                  "name": "lpTokenSymbol",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "lpTokenName",
+                  "type": "string"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "statsSafeLPTotalSupply",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "statsIncentiveCredits",
+                  "type": "uint8"
+                },
+                {
+                  "internalType": "int256",
+                  "name": "compositeReturn",
+                  "type": "int256"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "address",
+                      "name": "tokenAddress",
+                      "type": "address"
+                    }
+                  ],
+                  "internalType": "struct Lens.RewardToken[]",
+                  "name": "rewardsTokens",
+                  "type": "tuple[]"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "address",
+                      "name": "tokenAddress",
+                      "type": "address"
+                    }
+                  ],
+                  "internalType": "struct Lens.UnderlyingTokenAddress[]",
+                  "name": "underlyingTokens",
+                  "type": "tuple[]"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "string",
+                      "name": "symbol",
+                      "type": "string"
+                    }
+                  ],
+                  "internalType": "struct Lens.UnderlyingTokenSymbol[]",
+                  "name": "underlyingTokenSymbols",
+                  "type": "tuple[]"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint256",
+                      "name": "lastSnapshotTimestamp",
+                      "type": "uint256"
+                    },
+                    {
+                      "internalType": "uint256",
+                      "name": "baseApr",
+                      "type": "uint256"
+                    },
+                    {
+                      "internalType": "int256",
+                      "name": "discount",
+                      "type": "int256"
+                    },
+                    {
+                      "internalType": "uint24[10]",
+                      "name": "discountHistory",
+                      "type": "uint24[10]"
+                    },
+                    {
+                      "internalType": "uint40",
+                      "name": "discountTimestampByPercent",
+                      "type": "uint40"
+                    }
+                  ],
+                  "internalType": "struct ILSTStats.LSTStatsData[]",
+                  "name": "lstStatsData",
+                  "type": "tuple[]"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "uint256",
+                      "name": "valueHeldInEth",
+                      "type": "uint256"
+                    }
+                  ],
+                  "internalType": "struct Lens.UnderlyingTokenValueHeld[]",
+                  "name": "underlyingTokenValueHeld",
+                  "type": "tuple[]"
+                },
+                {
+                  "internalType": "uint256[]",
+                  "name": "reservesInEth",
+                  "type": "uint256[]"
+                },
+                {
+                  "internalType": "uint40[]",
+                  "name": "statsPeriodFinishForRewards",
+                  "type": "uint40[]"
+                },
+                {
+                  "internalType": "uint256[]",
+                  "name": "statsAnnualizedRewardAmounts",
+                  "type": "uint256[]"
+                }
+              ],
+              "internalType": "struct Lens.DestinationVault[][]",
+              "name": "destinations",
+              "type": "tuple[][]"
+            }
+          ],
+          "internalType": "struct Lens.Autopools",
+          "name": "retValues",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getSystemRegistry",
+      "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "wallet", "type": "address" }
+      ],
+      "name": "getUserRewardInfo",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address[]",
+              "name": "autopools",
+              "type": "address[]"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "address",
+                  "name": "tokenAddress",
+                  "type": "address"
+                }
+              ],
+              "internalType": "struct Lens.RewardToken[][]",
+              "name": "rewardTokens",
+              "type": "tuple[][]"
+            },
+            {
+              "components": [
+                { "internalType": "uint256", "name": "amount", "type": "uint256" }
+              ],
+              "internalType": "struct Lens.TokenAmount[][]",
+              "name": "rewardTokenAmounts",
+              "type": "tuple[][]"
+            }
+          ],
+          "internalType": "struct Lens.UserAutopoolRewardInfo",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "contract IAutopoolStrategy",
+          "name": "autopoolStrategy",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "destinationAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "enum IAutopoolStrategy.RebalanceDirection",
+          "name": "direction",
+          "type": "uint8"
+        },
+        { "internalType": "uint256", "name": "amount", "type": "uint256" }
+      ],
+      "name": "proxyGetDestinationSummaryStats",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "destination",
+              "type": "address"
+            },
+            { "internalType": "uint256", "name": "baseApr", "type": "uint256" },
+            { "internalType": "uint256", "name": "feeApr", "type": "uint256" },
+            {
+              "internalType": "uint256",
+              "name": "incentiveApr",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "safeTotalSupply",
+              "type": "uint256"
+            },
+            { "internalType": "int256", "name": "priceReturn", "type": "int256" },
+            { "internalType": "int256", "name": "maxDiscount", "type": "int256" },
+            { "internalType": "int256", "name": "maxPremium", "type": "int256" },
+            {
+              "internalType": "uint256",
+              "name": "ownedShares",
+              "type": "uint256"
+            },
+            {
+              "internalType": "int256",
+              "name": "compositeReturn",
+              "type": "int256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "pricePerShare",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IStrategy.SummaryStats",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        { "internalType": "address", "name": "poolAddress", "type": "address" }
+      ],
+      "name": "proxyGetFeeSettings",
+      "outputs": [
+        {
+          "components": [
+            { "internalType": "address", "name": "feeSink", "type": "address" },
+            {
+              "internalType": "uint256",
+              "name": "totalAssetsHighMark",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalAssetsHighMarkTimestamp",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "lastPeriodicFeeTake",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "periodicFeeSink",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "periodicFeeBps",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "streamingFeeBps",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "navPerShareLastFeeMark",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "navPerShareLastFeeMarkTimestamp",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "rebalanceFeeHighWaterMarkEnabled",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct IAutopool.AutopoolFeeSettings",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "destinationAddress",
+          "type": "address"
+        }
+      ],
+      "name": "proxyGetStats",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "lastSnapshotTimestamp",
+              "type": "uint256"
+            },
+            { "internalType": "uint256", "name": "feeApr", "type": "uint256" },
+            {
+              "internalType": "uint256[]",
+              "name": "reservesInEth",
+              "type": "uint256[]"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "safeTotalSupply",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "address[]",
+                  "name": "rewardTokens",
+                  "type": "address[]"
+                },
+                {
+                  "internalType": "uint256[]",
+                  "name": "annualizedRewardAmounts",
+                  "type": "uint256[]"
+                },
+                {
+                  "internalType": "uint40[]",
+                  "name": "periodFinishForRewards",
+                  "type": "uint40[]"
+                },
+                {
+                  "internalType": "uint8",
+                  "name": "incentiveCredits",
+                  "type": "uint8"
+                }
+              ],
+              "internalType": "struct IDexLSTStats.StakingIncentiveStats",
+              "name": "stakingIncentiveStats",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "lastSnapshotTimestamp",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "baseApr",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "int256",
+                  "name": "discount",
+                  "type": "int256"
+                },
+                {
+                  "internalType": "uint24[10]",
+                  "name": "discountHistory",
+                  "type": "uint24[10]"
+                },
+                {
+                  "internalType": "uint40",
+                  "name": "discountTimestampByPercent",
+                  "type": "uint40"
+                }
+              ],
+              "internalType": "struct ILSTStats.LSTStatsData[]",
+              "name": "lstStatsData",
+              "type": "tuple[]"
+            }
+          ],
+          "internalType": "struct IDexLSTStats.DexLSTStatsData",
+          "name": "queriedStats",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ]
