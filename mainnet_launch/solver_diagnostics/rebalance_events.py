@@ -107,7 +107,9 @@ def _add_break_even_days_and_offset_period(clean_rebalance_df: pd.DataFrame) -> 
 def _add_solver_profit(clean_rebalance_df: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(
-        go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["solver_profit"], name="Solver Profit Before Gas")
+        go.Bar(
+            x=clean_rebalance_df.index, y=clean_rebalance_df["solver_profit"], name="Solver Profit Before Gas"
+        )  # broken
     )
     fig.add_trace(
         go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["gasCostInETH"], name="Solver Gas Cost in ETH")
@@ -151,25 +153,27 @@ def _make_solver_distribution_figures(clean_rebalance_df: pd.DataFrame) -> go.Fi
 
 
 def _add_solver_cumulative_profit(clean_rebalance_df: pd.DataFrame) -> go.Figure:
+
+    daily_profit_df = clean_rebalance_df[["solver_profit", "gasCostInETH"]].resample("1D").sum()
     fig = go.Figure()
     fig.add_trace(
-        go.Line(
-            x=clean_rebalance_df.index, y=clean_rebalance_df["solver_profit"].cumsum(), name="Solver Profit Before Gas"
-        )
+        go.Line(x=daily_profit_df.index, y=daily_profit_df["solver_profit"].cumsum(), name="Solver Profit Before Gas")
     )
     fig.add_trace(
-        go.Line(
-            x=clean_rebalance_df.index, y=clean_rebalance_df["gasCostInETH"].cumsum(), name="Solver Gas Cost in ETH"
-        )
+        go.Line(x=daily_profit_df.index, y=daily_profit_df["gasCostInETH"].cumsum(), name="Solver Gas Cost in ETH")
     )
 
-    solver_profit_after_gas_costs = clean_rebalance_df["solver_profit"].astype(float) - clean_rebalance_df[
+    solver_profit_after_gas_costs = daily_profit_df["solver_profit"].astype(float) - daily_profit_df[
         "gasCostInETH"
     ].astype(float)
 
     fig.add_trace(
-        go.Line(x=clean_rebalance_df.index, y=solver_profit_after_gas_costs.cumsum(), name="Solver Profit After Gas")
+        go.Line(x=daily_profit_df.index, y=solver_profit_after_gas_costs.cumsum(), name="Solver Profit After Gas")
     )
     fig.update_yaxes(title_text="ETH")
     fig.update_layout(title="Cumulative Profit and Gas Costs")
     return fig
+
+
+if __name__ == "__main__":
+    fetch_and_render_solver_profit_data(ALL_AUTOPOOLS[1])
