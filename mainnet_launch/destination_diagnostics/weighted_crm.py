@@ -4,8 +4,7 @@ import pandas as pd
 import streamlit as st
 
 
-from mainnet_launch.constants import CACHE_TIME, AutopoolConstants
-from mainnet_launch.destinations import attempt_destination_address_to_symbol
+from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS, AUTO_LRT
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
@@ -42,15 +41,16 @@ def fetch_and_render_destination_apr_data(autopool: AutopoolConstants):
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_weighted_crm_data(autopool: AutopoolConstants) -> dict[str, pd.DataFrame]:
     blocks = build_blocks_to_use()
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df = (
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
+    points_df = summary_stats_df.map(lambda row: row["pointsApr"] if isinstance(row, dict) else 0).astype(float)
 
     key_metric_data = {
         "uwcr_df": uwcr_df,
         "allocation_df": allocation_df,
         "compositeReturn_out_df": compositeReturn_out_df,
-        "total_nav_df": total_nav_df,
+        "total_nav_df": total_nav_series,
         "summary_stats_df": summary_stats_df,
         "points_df": points_df,
     }
@@ -77,7 +77,7 @@ def _make_all_destination_composite_return_df(autopool: AutopoolConstants, key_m
 
 def _make_apr_components_fig(key_metric_data: dict) -> go.Figure:
     summary_stats_df = key_metric_data["summary_stats_df"]
-    summary_stats_df.columns = [attempt_destination_address_to_symbol(c) for c in summary_stats_df.columns]
+    # summary_stats_df.columns = [attempt_destination_address_to_vault_name(c) for c in summary_stats_df.columns]
     price_return_df = 100 * summary_stats_df.map(
         lambda row: row["priceReturn"] if isinstance(row, dict) else None
     ).astype(float)

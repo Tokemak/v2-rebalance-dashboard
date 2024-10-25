@@ -11,42 +11,137 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,
     safe_normalize_with_bool_success,
+    build_blocks_to_use,
 )
-
-from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, eth_client, ALL_AUTOPOOLS
-from mainnet_launch.destinations import attempt_destination_address_to_symbol, get_destination_details
+from mainnet_launch.lens_contract import fetch_pools_and_destinations_df
+from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, eth_client, ALL_AUTOPOOLS, AUTO_LRT, time_decorator
+from mainnet_launch.destinations import (
+    get_destination_details,
+    DestinationDetails,
+)
 
 POINTS_HOOK = "0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3"
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def fetch_destination_summary_stats(
-    blocks: list[int], autopool: AutopoolConstants
-) -> list[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    all_autopool_summary_stats_df = _fetch_summary_stats_data(blocks)
-    # check if the autopool name prefix is in the columns
-    cols = [c for c in all_autopool_summary_stats_df if autopool.name in c[:10]]
-    summary_stats_df = all_autopool_summary_stats_df[cols].copy()
-    # columns look like "balETH_0x148Ca723BefeA7b021C399413b8b7426A4701500"
-    # extract out only the destination address
-    summary_stats_df.columns = [c.split("_")[1] for c in summary_stats_df]
+def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants) -> pd.DataFrame:
+    """
+    Returns a DataFrame where the columns are the destination vaultName,
+    and the values are the destination summary stats
+    and price return when amount=0 and direction=out
 
-    uwcr_df, allocation_df, compositeReturn_out_df = clean_summary_stats_df(summary_stats_df)
-    total_nav_df = allocation_df.sum(axis=1)
-    uwcr_df.columns = [attempt_destination_address_to_symbol(c) for c in uwcr_df.columns]
-    allocation_df.columns = [attempt_destination_address_to_symbol(c) for c in allocation_df.columns]
-    compositeReturn_out_df.columns = [attempt_destination_address_to_symbol(c) for c in compositeReturn_out_df.columns]
+    combines ownedShares across all shares
 
-    destination_points_calls = _build_destination_points_calls()
+    example response:
+    {
+        'destination': '0xf9779aef9f77e78c857cb4a068c65ccbee25baac',
+        'baseApr': 0.0196821087299046,
+        'feeApr': 0.002059510749280563,
+        'incentiveApr': 0.06320866588379175,
+        'safeTotalSupply': 3107.5585939492885,
+        'priceReturn': 0.000423177979394055,
+        'maxDiscount': 0.000912399533874503,
+        'maxPremium': 0.0,
+        'ownedShares': 844.9280278590563,
+        'compositeReturn': 0.07905259675399179,
+        'pricePerShare': 1.016326271270958,
+        'pointsApr': .001
+    }
+
+    """
+    blocks = build_blocks_to_use()
+    destination_details = [dest for dest in get_destination_details() if dest.autopool == autopool]
+
+    raw_summary_stats_df = _fetch_autopool_destination_df(
+        blocks, destination_details, autopool
+    )  # it does have idle at this point
+
+    summary_stats_df = _combine_migrated_destinations(
+        autopool, raw_summary_stats_df, destination_details
+    )  # it does not have idle at this points
+
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series = _build_summary_stats_dfs(summary_stats_df)
+    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df
+
+
+def _combine_migrated_destinations(
+    autopool: AutopoolConstants, summary_stats_df: pd.DataFrame, destination_details: set[DestinationDetails]
+) -> pd.DataFrame:
+    # Occasionally the same underlying destinations are added or removed from an autopool's currenct destinations
+    # when this happens, the autopool can still own some shares of that destination, eg `ownedShares` > 0
+    # so in that case, we want to use only the stats of the active destination and combine all the owned shares.
+    def _combine_to_destination_name(row: pd.Series) -> pd.DataFrame:
+        # just add in the current destination, but combine the ownedShares together by destination.vault_name
+
+        ownedShares_record = {d.vault_name: 0 for d in destination_details}
+        for dest in destination_details:
+            summary_stats_data = row[dest.vaultAddress]
+            if summary_stats_data is not None:
+                ownedShares_record[dest.vault_name] += summary_stats_data["ownedShares"]
+
+        name_to_summary_records = {}
+        for dest in destination_details:
+            if dest.vaultAddress in [*row["current_destinations"], autopool.autopool_eth_addr]:
+                summary_stats_data = row[dest.vaultAddress]
+                if summary_stats_data is not None:
+                    # overwrite the ownShares so that it counts the shares in deprecated destinations
+                    summary_stats_data["ownedShares"] = ownedShares_record[dest.vault_name]
+                name_to_summary_records[dest.vault_name] = summary_stats_data
+        return name_to_summary_records
+
+    merged_destination_df = pd.DataFrame.from_records(summary_stats_df.apply(_combine_to_destination_name, axis=1))
+    merged_destination_df.index = summary_stats_df.index
+    return merged_destination_df
+
+
+def _fetch_autopool_destination_df(
+    blocks, destination_details: list[DestinationDetails], autopool: AutopoolConstants
+) -> pd.DataFrame:
+    calls = [_build_summary_stats_call(dest.autopool, dest) for dest in destination_details]
+    summary_stats_df = get_raw_state_by_blocks(calls, blocks)
+
+    def get_current_destinations_by_block(
+        autopool: AutopoolConstants, getPoolsAndDestinations: pd.DataFrame
+    ) -> list[str]:
+        for a, list_of_destinations in zip(
+            getPoolsAndDestinations["autopools"], getPoolsAndDestinations["destinations"]
+        ):
+            if a["poolAddress"].lower() == autopool.autopool_eth_addr.lower():
+                return [eth_client.toChecksumAddress(dest["vaultAddress"]) for dest in list_of_destinations]
+
+    pools_and_destinations_df = fetch_pools_and_destinations_df()
+
+    summary_stats_df["current_destinations"] = pools_and_destinations_df.apply(
+        lambda row: get_current_destinations_by_block(autopool, row["getPoolsAndDestinations"]), axis=1
+    )
+
+    destination_points_calls = _build_destination_points_calls(destination_details)
     points_df = get_raw_state_by_blocks(destination_points_calls, blocks)
 
-    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_df, summary_stats_df, points_df
+    def _add_points_value_to_summary_stats(summary_stats_cell, points_cell: float | None):
+
+        if summary_stats_cell is None:
+            return None
+        else:
+            if points_cell is None:
+                summary_stats_cell["pointsApr"] = 0
+            else:
+                summary_stats_cell["pointsApr"] = float(points_cell)
+
+            return summary_stats_cell
+
+    for dest in destination_details:
+        summary_stats_df[dest.vaultAddress] = summary_stats_df[dest.vaultAddress].combine(
+            points_df[dest.vaultAddress], _add_points_value_to_summary_stats
+        )
+
+    return summary_stats_df
 
 
 def _clean_summary_stats_info(success, summary_stats):
     if success is True:
         summary = {
-            "destination": summary_stats[0],
+            "destination": summary_stats[0],  # address
             "baseApr": summary_stats[1] / 1e18,
             "feeApr": summary_stats[2] / 1e18,
             "incentiveApr": summary_stats[3] / 1e18,
@@ -57,7 +152,7 @@ def _clean_summary_stats_info(success, summary_stats):
             "ownedShares": summary_stats[8] / 1e18,
             "compositeReturn": summary_stats[9] / 1e18,
             "pricePerShare": summary_stats[10] / 1e18,
-            # ignoring slashings costs, no longer part of model
+            "pointsApr": None,  # set later
         }
         return summary
     else:
@@ -66,7 +161,7 @@ def _clean_summary_stats_info(success, summary_stats):
 
 def _build_summary_stats_call(
     autopool: AutopoolConstants,
-    destination_vault_address: str,
+    dest: DestinationDetails,
     direction: str = "out",
     amount: int = 0,
 ) -> Call:
@@ -88,84 +183,61 @@ def _build_summary_stats_call(
         autopool.autopool_eth_strategy_addr,
         [
             f"getDestinationSummaryStats(address,uint8,uint256)({return_types})",
-            destination_vault_address,
+            dest.vaultAddress,
             direction_enum,
             amount,
         ],
-        [(f"{autopool.name}_{destination_vault_address}", _clean_summary_stats_info)],
+        [(dest.vaultAddress, _clean_summary_stats_info)],
     )
 
 
-def _build_all_summary_stats_calls(blocks: list[int]) -> list[Call]:
-    get_destinations_calls = [
-        Call(a.autopool_eth_addr, "getDestinations()(address[])", [(a.name, identity_with_bool_success)])
-        for a in ALL_AUTOPOOLS
-    ]
-    block = max(blocks)
-    destinations = get_state_by_one_block(get_destinations_calls, block)
-    # dict of [autopool.name: [list of current destination vaults]]
-
-    summary_stats_calls = []
-    for autopool in ALL_AUTOPOOLS:
-        for destination in destinations[autopool.name]:
-            call = _build_summary_stats_call(autopool, eth_client.toChecksumAddress(destination))
-            summary_stats_calls.append(call)
-
-    for autopool in ALL_AUTOPOOLS:
-        # summary stats on idle ETH
-        call = _build_summary_stats_call(autopool, eth_client.toChecksumAddress(autopool.autopool_eth_addr))
-        summary_stats_calls.append(call)
-
-    return summary_stats_calls
-
-
-def _build_destination_points_calls() -> list[Call]:
-    destination_details = get_destination_details(eth_client.eth.block_number)
+def _build_destination_points_calls(destination_details: set[DestinationDetails]) -> list[Call]:
 
     destination_points_calls = [
         Call(
             POINTS_HOOK,
-            ["destinationBoosts(address)(uint256)", d.address],
-            [(d.symbol, safe_normalize_with_bool_success)],
+            ["destinationBoosts(address)(uint256)", dest.vaultAddress],
+            [(dest.vaultAddress, safe_normalize_with_bool_success)],
         )
-        for key, d in destination_details.items()
+        for dest in destination_details
     ]
+
     return destination_points_calls
 
 
-def _fetch_summary_stats_data(blocks: list[int]) -> pd.DataFrame:
-    summary_stats_calls = _build_all_summary_stats_calls(blocks)
-    summary_stats_df = get_raw_state_by_blocks(summary_stats_calls, blocks)
-    return summary_stats_df
-
-
-def clean_summary_stats_df(summary_stats_df: pd.DataFrame):
+def _build_summary_stats_dfs(summary_stats_df: pd.DataFrame):
     uwcr_df = _extract_unweighted_composite_return_df(summary_stats_df)
     allocation_df = _extract_allocation_df(summary_stats_df)
-    total_nav_df = allocation_df.sum(axis=1)
-    portion_df = allocation_df.div(total_nav_df, axis=0)
+    compositeReturn_out_df = _extract_composite_return_out_df(summary_stats_df)
+    total_nav_series = allocation_df.sum(axis=1)
+    portion_df = allocation_df.div(total_nav_series, axis=0)
     uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
+    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series
 
+
+def _extract_composite_return_out_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
     compositeReturn_out_df = summary_stats_df.map(
         lambda row: row["compositeReturn"] if isinstance(row, dict) else None
     ).astype(float)
-    # fix issue where composite return out can be massive
+    # If we dont have an estimate for safeTotalSupply the Composite Return Out can be very large
+    # clip all CR >100% to None.
     compositeReturn_out_df = 100 * (compositeReturn_out_df.clip(upper=1).replace(1, np.nan).astype(float))
-    return uwcr_df, allocation_df, compositeReturn_out_df
+    return compositeReturn_out_df
 
 
 def _extract_unweighted_composite_return_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
-    """Returns a dataframe of base + fee + incentive + price return for each destination in summary_stats_df"""
+    """Returns a dataframe of base + fee + incentive + price return + pointsApr for each destination in summary_stats_df"""
     base = summary_stats_df.map(lambda row: row["baseApr"] if isinstance(row, dict) else None).astype(float)
     fee = summary_stats_df.map(lambda row: row["feeApr"] if isinstance(row, dict) else None).astype(float)
     incentive = summary_stats_df.map(lambda row: row["incentiveApr"] if isinstance(row, dict) else None).astype(float)
-    pR = summary_stats_df.map(lambda row: row["priceReturn"] if isinstance(row, dict) else None).astype(float)
-    uwcr_df = 100 * (base + fee + incentive + pR)
+    priceReturn = summary_stats_df.map(lambda row: row["priceReturn"] if isinstance(row, dict) else None).astype(float)
+    points = summary_stats_df.map(lambda row: row["pointsApr"] if isinstance(row, dict) else None).astype(float)
+    uwcr_df = 100 * (base + fee + incentive + priceReturn + points)
     return uwcr_df
 
 
 def _extract_allocation_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
-    """Returns eth present ETH value in each destiantion"""
+    """Returns eth present ETH value in each destination"""
     pricePerShare_df = summary_stats_df.map(lambda row: row["pricePerShare"] if isinstance(row, dict) else 0).astype(
         float
     )
@@ -174,5 +246,14 @@ def _extract_allocation_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
     return allocation_df
 
 
+@time_decorator
+def tester():
+    blocks = build_blocks_to_use()[::8]
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
+        fetch_destination_summary_stats(blocks, AUTO_LRT)
+    )
+    ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else 0).astype(float)
+
+
 if __name__ == "__main__":
-    _fetch_summary_stats_data()
+    tester()
