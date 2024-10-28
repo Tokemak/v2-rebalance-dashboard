@@ -107,9 +107,14 @@ def fetch_and_render_keeper_network_gas_costs():
 
 
 def load_json_data(file_path):
+
     if os.path.exists(file_path):
-        with open(file_path, "r") as f:
-            return json.load(f)
+        try:
+            with open(file_path, "r") as f:
+                return json.load(f)
+        except json.decoder.JSONDecodeError:
+            # if we can't read in the json for whatever reason, delete the file and refetch everything
+            os.remove(file_path)
     return {}
 
 
