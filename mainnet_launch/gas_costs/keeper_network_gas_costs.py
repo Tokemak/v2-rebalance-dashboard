@@ -163,7 +163,7 @@ def fetch_missing_transaction_data(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_
                     logging.warning(f"Retrying for transaction {tx_hash} due to error: {e}")
                     time.sleep(1)  # Retry after a short delay
 
-    with ThreadPoolExecutor(max_workers=24) as executor:
+    with ThreadPoolExecutor(max_workers=8) as executor:
         hash_groups = np.array_split(missing_hashes, 100)
         for tx_hashes in hash_groups:
             executor.submit(batch_calc_gas_used_by_transaction_in_eth, tx_hashes)
