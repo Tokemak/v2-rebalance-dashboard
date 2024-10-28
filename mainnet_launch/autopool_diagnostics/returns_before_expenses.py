@@ -87,16 +87,17 @@ def build_fee_shares_minted_df(autopool: AutopoolConstants):
 def _compute_30_day_and_lifetime_annualized_return(autopool_return_and_expenses_df: pd.DataFrame, col: str):
 
     current_value = autopool_return_and_expenses_df.iloc[-1][col]
+
     value_30_days_ago = autopool_return_and_expenses_df.iloc[-31][col]  # this gets the value from 30 days ago
     today = datetime.now(timezone.utc)
     recent_year_df = autopool_return_and_expenses_df[
         autopool_return_and_expenses_df.index >= today - timedelta(days=365)
     ].copy()
 
+    thirty_day_annualized_return = (100 * (current_value - value_30_days_ago) / value_30_days_ago) * (365 / 30)
+
     num_days = len(recent_year_df)
     initial_value = recent_year_df.iloc[0][col]
-
-    thirty_day_annualized_return = (100 * (current_value - value_30_days_ago) / value_30_days_ago) * (365 / 30)
     lifetime_annualized_return = (100 * (current_value - initial_value) / initial_value) * (365 / num_days)
 
     return thirty_day_annualized_return, lifetime_annualized_return
@@ -124,8 +125,6 @@ def _compute_returns(autopool_return_and_expenses_df) -> dict:
         + return_metrics["30_day_return_lost_to_fees"]
     )
 
-    # bal eth has this value be negative, why
-    # also autoETH
     return_metrics["lifetime_return_lost_to_rebalance_costs"] = (
         return_metrics["nav_per_share_if_no_value_lost_from_rebalances lifetime"]
         - return_metrics["actual_nav_per_share lifetime"]
@@ -168,13 +167,25 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> d
         + autopool_return_and_expenses_df["eth_nav_lost_by_rebalance_between_destinations"]
     ) / autopool_return_and_expenses_df["actual_shares"]
 
-    returns_metrics = _compute_returns(autopool_return_and_expenses_df)
+    autopool_return_and_expenses_df["shares_if_no_fees_minted"] = autopool_return_and_expenses_df["actual_shares"] - (
+        autopool_return_and_expenses_df["new_shares_from_periodic_fees"]
+        + autopool_return_and_expenses_df["new_shares_from_streaming_fees"]
+    )
+    autopool_return_and_expenses_df["nav_if_no_losses_from_rebalances"] = (
+        autopool_return_and_expenses_df["actual_nav"]
+        + autopool_return_and_expenses_df["eth_nav_lost_by_rebalance_between_destinations"]
+    )
+    autopool_return_and_expenses_df["nav_per_share_if_no_fees_or_rebalances"] = (
+        autopool_return_and_expenses_df["nav_if_no_losses_from_rebalances"]
+        / autopool_return_and_expenses_df["shares_if_no_fees_minted"]
+    )
 
-    return returns_metrics
+    returns_metrics = _compute_returns(autopool_return_and_expenses_df)
+    return returns_metrics, autopool_return_and_expenses_df
 
 
 def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolConstants):
-    returns_metrics = fetch_autopool_return_and_expenses_metrics(autopool)
+    returns_metrics, autopool_return_and_expenses_df = fetch_autopool_return_and_expenses_metrics(autopool)
 
     bridge_fig_30_days_apr = _make_bridge_plot(
         [
@@ -198,11 +209,102 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
         title="Annualized Year-to-Date Returns",
     )
 
-    line_plot_of_apr_over_time = px.line(title="APR over time before Expenses")
+    autopool_return_and_expenses_df["30_day_annualized_gross_return"] = (
+        (
+            autopool_return_and_expenses_df["nav_per_share_if_no_fees_or_rebalances"].diff(30)
+            / autopool_return_and_expenses_df["nav_per_share_if_no_fees_or_rebalances"].shift(30)
+        )
+        * (365 / 30)
+        * 100
+    )
+
+    autopool_return_and_expenses_df["30_day_annualized_return_if_no_loss_from_rebalances"] = (
+        (
+            autopool_return_and_expenses_df["nav_per_share_if_no_value_lost_from_rebalances"].diff(30)
+            / autopool_return_and_expenses_df["nav_per_share_if_no_value_lost_from_rebalances"].shift(30)
+        )
+        * (365 / 30)
+        * 100
+    )
+
+    autopool_return_and_expenses_df["30_day_annualized_return_if_no_fees"] = (
+        (
+            autopool_return_and_expenses_df["nav_per_share_if_no_fees"].diff(30)
+            / autopool_return_and_expenses_df["nav_per_share_if_no_fees"].shift(30)
+        )
+        * (365 / 30)
+        * 100
+    )
+
+    autopool_return_and_expenses_df["30_day_annualized_net_return"] = (
+        (
+            autopool_return_and_expenses_df["actual_nav_per_share"].diff(30)
+            / autopool_return_and_expenses_df["actual_nav_per_share"].shift(30)
+        )
+        * (365 / 30)
+        * 100
+    )
+
+    line_plot_of_apr_over_time = px.line(
+        autopool_return_and_expenses_df[
+            [
+                "30_day_annualized_gross_return",
+                "30_day_annualized_return_if_no_loss_from_rebalances",
+                "30_day_annualized_return_if_no_fees",
+                "30_day_annualized_net_return",
+            ]
+        ],
+        title="Autopool Gross and Net Return",
+    )
 
     st.plotly_chart(bridge_fig_30_days_apr, use_container_width=True)
     st.plotly_chart(bridge_fig_year_to_date, use_container_width=True)
     st.plotly_chart(line_plot_of_apr_over_time, use_container_width=True)
+
+    with st.expander("See explanation of Autopool Gross and Net Return"):
+        st.write(
+            """
+            Depositors in the Autopool experience two main costs that reduce NAV per share
+
+            #### 1. Tokemak Protocol-Level Fees
+            Autopool shares are minted to Tokemak as a periodic and streaming fees. To account for this, we track the total shares minted to Tokemak since deployment. 
+
+            By subtracting this amount from the total supply of shares, we get the **"total supply of shares if no fees"**. Using this adjusted supply, we calculate the NA per share as if Tokemak had not charged fees:
+            """
+        )
+        st.latex(
+            r"\text{NAV per share (no fees)} = \frac{\text{NAV}}{\text{total supply of shares} - \text{shares minted for fees}}"
+        )
+
+        st.write(
+            """
+            #### 2. ETH Value Lost Due to Rebalances
+            During rebalances ETH value is lost to slippage, swap costs and (later) a solver profit margin. The difference in ETH value from these changes is the **value lost to rebalances**. 
+
+            By tracking this ETH loss since deployment and adding it back to NAV, we calculate the NAV per share as if no value was lost due to rebalances:
+            """
+        )
+        st.latex(
+            r"\text{NAV per share (no rebalance loss)} = \frac{\text{NAV} + \text{ETH lost to rebalances}}{\text{total supply of shares}}"
+        )
+
+        st.write(
+            """
+            #### Gross Return
+            Gross Return is the return as if there were no fees or rebalancing costs:
+            """
+        )
+        st.latex(
+            r"\text{Gross Return} = \frac{\text{NAV} + \text{ETH lost to rebalances}}{\text{total supply of shares} - \text{shares minted for fees}}"
+        )
+
+        st.write(
+            """
+            #### Net Return
+            Net Return represents the annualized rate of change in NAV per share. This is the actual base return experienced by depositors:
+            """
+        )
+        st.latex(r"\text{Net Return} = \text{annualized change in NAV per share}")
 
 
 def _make_bridge_plot(values: list[float], names: list[str], title: str):
