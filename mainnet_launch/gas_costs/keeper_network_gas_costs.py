@@ -10,7 +10,7 @@ import time
 import logging
 import json
 
-from mainnet_launch.abis.abis import CHAINLINK_KEEPER_REGISTRY_ABI
+from mainnet_launch.abis.abis import CHAINLINK_KEEPER_REGISTRY_ABI, AUTOPOOL_VAULT_ABI
 from mainnet_launch.constants import (
     CACHE_TIME,
     eth_client,
@@ -28,7 +28,10 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     get_state_by_one_block,
     add_timestamp_to_df_with_block_column,
+    add_transaction_gas_info_to_df_with_tx_hash,
 )
+from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.data_fetching.get_state_by_block import add_timestamp_to_df_with_block_column
 
 
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
@@ -68,9 +71,8 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
     date_filter = pd.Timestamp("2024-09-15", tz="UTC")
 
     updated_df = updated_df[updated_df.index >= date_filter].copy()
-
+    updated_df = add_transaction_gas_info_to_df_with_tx_hash(updated_df) # possibly redundent
     updated_df.to_csv(WORKING_DATA_DIR / "chainlink_keeper_upkeeper_df.csv")
-
     return updated_df
 
 
@@ -307,7 +309,7 @@ def fetch_solver_gas_costs():
         ]
 
         # Use ThreadPoolExecutor to calculate gas costs in parallel
-        with ThreadPoolExecutor(max_workers=24) as executor:
+        with ThreadPoolExecutor(max_workers=8) as executor:
             executor.map(calc_and_cache_gas_cost, missing_hashes)
 
         # Map cached gas costs to the dataframe
@@ -319,8 +321,24 @@ def fetch_solver_gas_costs():
 
     # Concatenate all dataframes and return final rebalance gas cost dataframe
     rebalance_gas_cost_df = pd.concat(rebalance_dfs, axis=0)
+    rebalance_gas_cost_df = add_transaction_gas_info_to_df_with_tx_hash(rebalance_gas_cost_df)
     rebalance_gas_cost_df.to_csv(WORKING_DATA_DIR / "rebalance_gas_cost_df.csv")
     return rebalance_gas_cost_df
+
+
+def fetch_all_autopool_debt_reporting_events() -> pd.DataFrame:
+    debt_reporting_dfs = []
+
+    for autopool in ALL_AUTOPOOLS:
+        vault_contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+        debt_reporting_df = add_timestamp_to_df_with_block_column(
+            fetch_events(vault_contract.events.DestinationDebtReporting)
+        )
+        debt_reporting_dfs.append(debt_reporting_df)
+
+    destination_debt_reporting_df = pd.concat(debt_reporting_dfs)
+    destination_debt_reporting_df = add_transaction_gas_info_to_df_with_tx_hash(destination_debt_reporting_df)
+    return destination_debt_reporting_df
 
 
 if __name__ == "__main__":
