@@ -24,12 +24,18 @@ CACHE_TIME = 3600 * 6  # six hours
 ROOT_DIR = Path(__file__).parent
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "rebalance_plans"
 WORKING_DATA_DIR = ROOT_DIR / "working_data"  # hold temp data for new features or adhoc questions
+TX_HASH_TO_GAS_COSTS_PATH = WORKING_DATA_DIR / "tx_hash_to_gas_info.json"
 
 if not os.path.exists(SOLVER_REBALANCE_PLANS_DIR):
     os.makedirs(SOLVER_REBALANCE_PLANS_DIR)
 
 if not os.path.exists(WORKING_DATA_DIR):
     os.makedirs(WORKING_DATA_DIR)
+
+if not os.path.exists(TX_HASH_TO_GAS_COSTS_PATH):
+    with open(TX_HASH_TO_GAS_COSTS_PATH, "x"):
+        # create an empty file if it does not exist
+        pass
 
 
 def time_decorator(func):
