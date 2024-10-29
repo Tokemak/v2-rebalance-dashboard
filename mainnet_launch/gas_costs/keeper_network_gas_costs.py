@@ -71,7 +71,7 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
     date_filter = pd.Timestamp("2024-09-15", tz="UTC")
 
     updated_df = updated_df[updated_df.index >= date_filter].copy()
-    updated_df = add_transaction_gas_info_to_df_with_tx_hash(updated_df) # possibly redundent
+    updated_df = add_transaction_gas_info_to_df_with_tx_hash(updated_df)  # possibly redundent
     updated_df.to_csv(WORKING_DATA_DIR / "chainlink_keeper_upkeeper_df.csv")
     return updated_df
 
