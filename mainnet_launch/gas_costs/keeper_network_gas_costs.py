@@ -107,9 +107,14 @@ def fetch_and_render_keeper_network_gas_costs():
 
 
 def load_json_data(file_path):
+
     if os.path.exists(file_path):
-        with open(file_path, "r") as f:
-            return json.load(f)
+        try:
+            with open(file_path, "r") as f:
+                return json.load(f)
+        except json.decoder.JSONDecodeError:
+            # if we can't read in the json for whatever reason, delete the file and refetch everything
+            os.remove(file_path)
     return {}
 
 
@@ -158,7 +163,7 @@ def fetch_missing_transaction_data(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_
                     logging.warning(f"Retrying for transaction {tx_hash} due to error: {e}")
                     time.sleep(1)  # Retry after a short delay
 
-    with ThreadPoolExecutor(max_workers=24) as executor:
+    with ThreadPoolExecutor(max_workers=8) as executor:
         hash_groups = np.array_split(missing_hashes, 100)
         for tx_hashes in hash_groups:
             executor.submit(batch_calc_gas_used_by_transaction_in_eth, tx_hashes)
