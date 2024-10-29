@@ -137,7 +137,7 @@ def _compute_returns(autopool_return_and_expenses_df: pd.DataFrame) -> dict:
         + return_metrics["lifetime_return_lost_to_rebalance_costs"]
         + return_metrics["lifetime_return_lost_to_fees"]
     )
-    
+
     for k, v in return_metrics.items():
         return_metrics[k] = round(float(v), 4)
 
@@ -184,8 +184,9 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> d
             "new_shares_from_streaming_fees",
             "eth_nav_lost_by_rebalance_between_destinations",
         ]
-    ].fillna(0)
-
+    ].fillna(
+        0
+    )
 
     autopool_return_and_expenses_df["nav_per_share_if_no_fees"] = autopool_return_and_expenses_df["actual_nav"] / (
         autopool_return_and_expenses_df["actual_shares"]
