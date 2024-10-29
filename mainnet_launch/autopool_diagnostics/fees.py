@@ -27,9 +27,6 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
     periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
     streaming_fee_df["normalized_fees"] = streaming_fee_df["fees"].apply(lambda x: int(x) / 1e18)
 
-    if len(streaming_fee_df) > 0:
-        print("Warning: There are streaming fees now. Incorporating them into the total fees.")
-
     pfee_df = periodic_fee_df[["normalized_fees"]].copy()
     sfee_df = streaming_fee_df[["normalized_fees"]].copy()
 
@@ -56,6 +53,11 @@ def fetch_autopool_rewardliq_plot(autopool: AutopoolConstants):
 
     # Create DataFrame
     df = pd.DataFrame(event_data)
+    return df
+
+
+def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
+    df = fetch_autopool_rewardliq_plot(autopool)
 
     # Generate distinct colors for each destination
     unique_destinations = df["destination"].unique()
