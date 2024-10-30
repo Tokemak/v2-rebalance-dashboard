@@ -6,13 +6,13 @@ import os
 
 import pandas as pd
 import json
-from filelock import FileLock
+from filelock import SoftFileLock
 
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
-from mainnet_launch.constants import eth_client, TX_HASH_TO_GAS_COSTS_PATH
+from mainnet_launch.constants import eth_client, TX_HASH_TO_GAS_COSTS_PATH, ROOT_DIR
 
 
-LOCK_FILE = "tx_hash_to_gas_info.lock"
+LOCK_FILE = ROOT_DIR / "a_lock_file.lock"
 
 
 def add_timestamp_to_df_with_block_column(df: pd.DataFrame) -> pd.DataFrame:
@@ -45,7 +45,7 @@ def _load_tx_hash_to_gas_info():
 
     # this should prevent multiple processes reading and writing to TX_HASH_TO_GAS_COSTS_PATH at the same time
     # (untested)
-    with FileLock(LOCK_FILE):
+    with SoftFileLock(LOCK_FILE, thread_local=False):
         try:
             with open(TX_HASH_TO_GAS_COSTS_PATH, "r") as f:
                 return json.load(f)
@@ -55,9 +55,12 @@ def _load_tx_hash_to_gas_info():
             return {}
 
 
-def _save_tx_hash_to_gas_info(data):
+_load_tx_hash_to_gas_info()
+
+
+def _save_tx_hash_to_gas_info(data: dict):
     """Save tx_hash_to_gas_info to disk in a thread-safe manner."""
-    with FileLock(LOCK_FILE):
+    with SoftFileLock(LOCK_FILE, thread_local=False):
         with open(TX_HASH_TO_GAS_COSTS_PATH, "w") as f:
             json.dump(data, f)
 
