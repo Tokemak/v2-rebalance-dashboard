@@ -24,14 +24,10 @@ from mainnet_launch.constants import (
 
 
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.data_fetching.get_state_by_block import (
-    get_raw_state_by_blocks,
-    get_state_by_one_block,
+from mainnet_launch.data_fetching.add_info_to_dataframes import (
     add_timestamp_to_df_with_block_column,
     add_transaction_gas_info_to_df_with_tx_hash,
 )
-from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.data_fetching.get_state_by_block import add_timestamp_to_df_with_block_column
 
 
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
