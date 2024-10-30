@@ -116,6 +116,7 @@ def open_log_in_vscode(log_file):
 def main():
     open_log_in_vscode("verify_all_pages_work.log")
     verify_all_pages()
-    
+
+
 if __name__ == "__main__":
-   main()
+    main()
