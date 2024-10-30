@@ -49,8 +49,7 @@ def totalSupply_call(name: str, autopool_vault_address: str) -> Call:
     )
 
 
-def build_actual_nav_per_share_df(autopool: AutopoolConstants) -> pd.DataFrame:
-
+def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants) -> pd.DataFrame:
     calls = [
         getAssetBreakdown_call("actual_nav", autopool.autopool_eth_addr),
         totalSupply_call("actual_shares", autopool.autopool_eth_addr),
@@ -62,7 +61,7 @@ def build_actual_nav_per_share_df(autopool: AutopoolConstants) -> pd.DataFrame:
     return daily_nav_shares_df
 
 
-def build_fee_shares_minted_df(autopool: AutopoolConstants):
+def _fetch_cumulative_fee_shares_minted_by_day(autopool: AutopoolConstants) -> pd.DataFrame:
     autoETH_vault = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
     FeeCollected_df = add_timestamp_to_df_with_block_column(fetch_events(autoETH_vault.events.FeeCollected))
     PeriodicFeeCollected_df = add_timestamp_to_df_with_block_column(
@@ -76,8 +75,9 @@ def build_fee_shares_minted_df(autopool: AutopoolConstants):
             FeeCollected_df[["new_shares_from_streaming_fees"]],
         ]
     )
-    daily_fee_share_df = fee_df.resample("1D").sum()  # double check
-    return daily_fee_share_df.cumsum()
+    daily_fee_share_df = fee_df.resample("1D").sum()
+    cumulative_new_shares_df = daily_fee_share_df.cumsum()
+    return cumulative_new_shares_df
 
 
 def _compute_30_day_and_lifetime_annualized_return(autopool_return_and_expenses_df: pd.DataFrame, col: str):
@@ -99,7 +99,7 @@ def _compute_30_day_and_lifetime_annualized_return(autopool_return_and_expenses_
     return thirty_day_annualized_return, lifetime_annualized_return
 
 
-def _compute_returns(autopool_return_and_expenses_df) -> dict:
+def _compute_returns(autopool_return_and_expenses_df: pd.DataFrame) -> dict:
     return_metrics = {}
     for col in ["actual_nav_per_share", "nav_per_share_if_no_fees", "nav_per_share_if_no_value_lost_from_rebalances"]:
         thirty_day_annualized_return, lifetime_annualized_return = _compute_30_day_and_lifetime_annualized_return(
@@ -134,23 +134,55 @@ def _compute_returns(autopool_return_and_expenses_df) -> dict:
         + return_metrics["lifetime_return_lost_to_fees"]
     )
 
+    for k, v in return_metrics.items():
+        return_metrics[k] = round(float(v), 4)
+
     return return_metrics
 
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> dict[str, float]:
 
-    daily_fee_share_df = build_fee_shares_minted_df(autopool)
-    daily_nav_shares_df = build_actual_nav_per_share_df(autopool)
-    autopool_return_and_expenses_df = daily_nav_shares_df.join(daily_fee_share_df, how="left").fillna(0)
+    cumulative_shares_minted_df = _fetch_cumulative_fee_shares_minted_by_day(autopool)
+    daily_nav_and_shares_df = _fetch_actual_nav_per_share_by_day(autopool)
 
+    autopool_return_and_expenses_df = daily_nav_and_shares_df.join(cumulative_shares_minted_df, how="left")
+
+    autopool_return_and_expenses_df[["new_shares_from_periodic_fees", "new_shares_from_streaming_fees"]] = (
+        autopool_return_and_expenses_df[["new_shares_from_periodic_fees", "new_shares_from_streaming_fees"]].ffill()
+    )
+    # if there were no shares minted on a day the cumulative number of new shares minted has not changed
     rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
-    daily_nav_lost_to_rebalances = (rebalance_df[["swapCost"]].resample("1D").sum()).cumsum()
-    daily_nav_lost_to_rebalances.columns = ["eth_nav_lost_by_rebalance_between_destinations"]
+    cumulative_nav_lost_to_rebalances = (rebalance_df[["swapCost"]].resample("1D").sum()).cumsum()
+    cumulative_nav_lost_to_rebalances.columns = ["eth_nav_lost_by_rebalance_between_destinations"]
 
     autopool_return_and_expenses_df = autopool_return_and_expenses_df.join(
-        daily_nav_lost_to_rebalances, how="left"
-    ).fillna(0)
+        cumulative_nav_lost_to_rebalances, how="left"
+    )
+
+    # if there are no rebalances on the current day then the cumulative eth lost has not changed so we can ffill
+    autopool_return_and_expenses_df["eth_nav_lost_by_rebalance_between_destinations"] = autopool_return_and_expenses_df[
+        "eth_nav_lost_by_rebalance_between_destinations"
+    ].ffill()
+
+    # at the start there can be np.Nan streaming fees, periodic_fees or eth lost to rebalances
+    # this is because for the first few days, there were no fees or rebalances. So we can safely
+    # replace them with 0
+    autopool_return_and_expenses_df[
+        [
+            "new_shares_from_periodic_fees",
+            "new_shares_from_streaming_fees",
+            "eth_nav_lost_by_rebalance_between_destinations",
+        ]
+    ] = autopool_return_and_expenses_df[
+        [
+            "new_shares_from_periodic_fees",
+            "new_shares_from_streaming_fees",
+            "eth_nav_lost_by_rebalance_between_destinations",
+        ]
+    ].fillna(
+        0
+    )
 
     autopool_return_and_expenses_df["nav_per_share_if_no_fees"] = autopool_return_and_expenses_df["actual_nav"] / (
         autopool_return_and_expenses_df["actual_shares"]
@@ -320,3 +352,7 @@ def _make_bridge_plot(values: list[float], names: list[str], title: str):
 
     fig.update_layout(title=title, waterfallgap=0.3, showlegend=True)
     return fig
+
+
+if __name__ == "__main__":
+    fetch_autopool_return_and_expenses_metrics(AUTO_LRT)
