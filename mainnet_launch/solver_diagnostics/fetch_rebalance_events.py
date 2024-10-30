@@ -21,9 +21,10 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     safe_normalize_6_with_bool_success,
     identity_with_bool_success,
-    add_timestamp_to_df_with_block_column,
 )
 from mainnet_launch.destinations import get_destination_details
+
+from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 
 
 @st.cache_data(ttl=CACHE_TIME)

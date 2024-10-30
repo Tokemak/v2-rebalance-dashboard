@@ -14,17 +14,13 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,
     safe_normalize_with_bool_success,
-    add_timestamp_to_df_with_block_column,
     build_blocks_to_use,
     eth_client,
 )
-
+from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.data_fetching.get_events import fetch_events
-
 from mainnet_launch.constants import AUTO_ETH, AUTO_LRT, BAL_ETH, AutopoolConstants, CACHE_TIME
-
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI, AUTOPOOL_ETH_STRATEGY_ABI
-
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_and_clean_rebalance_between_destination_events,
 )

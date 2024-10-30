@@ -10,3 +10,5 @@ hash_to_gas_used.json
 hash_to_gasPrice.json
 hash_to_gas_cost_in_ETH.json
 working_data/
+tx_hash_to_gas_info.lock
+verify_all_pages_work.log
