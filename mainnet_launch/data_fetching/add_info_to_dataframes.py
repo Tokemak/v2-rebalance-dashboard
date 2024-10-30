@@ -45,17 +45,15 @@ def _load_tx_hash_to_gas_info():
 
     # this should prevent multiple processes reading and writing to TX_HASH_TO_GAS_COSTS_PATH at the same time
     # (untested)
+    # this is complicated with streamlit and muliple sessions, (tabs, )
     with SoftFileLock(LOCK_FILE, thread_local=False):
         try:
             with open(TX_HASH_TO_GAS_COSTS_PATH, "r") as f:
                 return json.load(f)
         except json.JSONDecodeError:
-            # if we want read from it for whatever reason then
+            # if we want read from it and fail to , delete the file and try again
             os.remove(TX_HASH_TO_GAS_COSTS_PATH)
             return {}
-
-
-_load_tx_hash_to_gas_info()
 
 
 def _save_tx_hash_to_gas_info(data: dict):
