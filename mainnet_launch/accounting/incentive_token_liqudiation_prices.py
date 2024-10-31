@@ -9,9 +9,8 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     get_state_by_one_block,
     identity_with_bool_success,
-    add_timestamp_to_df_with_block_column,
-    eth_client,
 )
+from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.constants import INCENTIVE_PRICNIG_STATS, LIQUIDATION_ROW, eth_client, CACHE_TIME
