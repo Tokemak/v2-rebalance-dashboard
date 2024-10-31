@@ -131,22 +131,19 @@ def main():
         CONTENT_FUNCTIONS[page](autopool)
 
     if st.button("Start Another Cache Thread"):
-        password = st.text_input("""write: I know what I'm doing """, type="password")
-        if password == "I know what I'm doing":
-            if os.path.exists(cache_file_lock_check):
-                os.remove(cache_file_lock_check)
-                production_logger.info("cache_file_lock_check removed by user action.")
-                st.success("Cache lock file deleted successfully.")
-                start_cache_thread()
-                st.success("Started another cache thread")
-                # there are very low odds of having multiple threads going at once,
-                # this will add in another thread that will call the caching functions
-                # the prior setup reacreated a caching thread with every new users sesssion
-                # I don't expect to need to press this button but it is nice to have for if
-                # some unknown, (power loss, KILL-9) ends the program without deleting the lock file
-                # this manually starts another caching thread
-        else:
-            st.success("typo somewhere")
+        # if st.text_input("""write: I know what I'm doing """) == "I know what I'm doing":
+        if os.path.exists(cache_file_lock_check):
+            os.remove(cache_file_lock_check)
+            production_logger.info("cache_file_lock_check removed by user action.")
+            st.success("Cache lock file deleted successfully.")
+            start_cache_thread()
+            st.success("Started another cache thread")
+            # there are very low odds of having multiple threads going at once,
+            # this will add in another thread that will call the caching functions
+            # the prior setup reacreated a caching thread with every new users sesssion
+            # I don't expect to need to press this button but it is nice to have for if
+            # some unknown, (power loss, KILL-9) ends the program without deleting the lock file
+            # this manually starts another caching thread
 
 
 def start_cache_thread():
