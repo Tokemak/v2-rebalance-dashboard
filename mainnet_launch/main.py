@@ -61,6 +61,12 @@ from mainnet_launch.gas_costs.keeper_network_gas_costs import (
     fetch_and_render_keeper_network_gas_costs,
 )
 
+from mainnet_launch.accounting.incentive_token_liqudiation_prices import (
+    fetch_reward_token_achieved_vs_incentive_token_price,
+    fetch_and_render_reward_token_achieved_vs_incentive_token_price,
+)
+
+
 import psutil
 
 
@@ -94,7 +100,10 @@ per_autopool_data_caching_functions = [
 ]
 
 
-not_per_autopool_data_caching_functions = [fetch_keeper_network_gas_costs]  # does not take any input variables
+not_per_autopool_data_caching_functions = [
+    fetch_keeper_network_gas_costs,
+    fetch_reward_token_achieved_vs_incentive_token_price,
+]  # does not take any input variables
 
 
 def log_and_time_function(func, *args):
@@ -171,10 +180,10 @@ CONTENT_FUNCTIONS = {
     "Destination Diagnostics": display_destination_diagnostics,
     "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
     "Gas Costs": fetch_and_render_keeper_network_gas_costs,
+    "Incentive Token Prices": fetch_and_render_reward_token_achieved_vs_incentive_token_price,
 }
 
-
-PAGES_WITHOUT_AUTOPOOL = ["Gas Costs"]
+PAGES_WITHOUT_AUTOPOOL = ["Gas Costs", "Incentive Token Prices"]
 
 
 def main():
