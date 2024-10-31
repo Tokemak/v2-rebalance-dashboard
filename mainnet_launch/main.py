@@ -75,9 +75,7 @@ def _cache_autopool_data():
     production_logger.info("Start Autopool Functions")
     for func in PER_AUTOPOOOL_DATA_CACHING_FUNCTIONS:
         for autopool in ALL_AUTOPOOLS:
-            autopool_start_time = time.time()
             log_and_time_function("caching", func, autopool)
-            production_logger.info(f"{time.time() - autopool_start_time:.2f} seconds: Cached {autopool.name}")
 
     production_logger.info(f"{time.time() - all_caching_started:.2f} seconds: All Autopools Cached")
 
@@ -108,13 +106,12 @@ def cache_data_loop():
     except Exception as e:
         production_logger.exception("Exception occurred in cache_data_loop." + str(e) + type(e))
         production_logger.info(f"Cache data loop ended at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-
+        raise e
+    finally:
+        # Clean up the lock file
         if os.path.exists(cache_file_lock_check):
             os.remove(cache_file_lock_check)
-            production_logger.info("cache_file_lock_check removed on program exit.")
-        else:
-            production_logger.info("cache_file_lock_check not remobed because it already does not exist")
-        raise e
+            production_logger.info("cache_file_lock_check removed on thread exit.")
 
 
 def main():
@@ -133,9 +130,26 @@ def main():
     else:
         CONTENT_FUNCTIONS[page](autopool)
 
+    if st.button("Start Another Cache Thread"):
+        password = st.text_input("""write: I know what I'm doing """, type="password")
+        if password == "I know what I'm doing":
+            if os.path.exists(cache_file_lock_check):
+                os.remove(cache_file_lock_check)
+                production_logger.info("cache_file_lock_check removed by user action.")
+                st.success("Cache lock file deleted successfully.")
+                start_cache_thread()
+                st.success("Started another cache thread")
+                # there are very low odds of having multiple threads going at once,
+                # this will add in another thread that will call the caching functions
+                # the prior setup reacreated a caching thread with every new users sesssion
+                # I don't expect to need to press this button but it is nice to have for if
+                # some unknown, (power loss, KILL-9) ends the program without deleting the lock file
+                # this manually starts another caching thread
+        else:
+            st.success("typo somewhere")
+
 
 def start_cache_thread():
-    # Ensure this function only creates a thread if none exists
     if os.path.exists(cache_file_lock_check):
         production_logger.info(f"Not starting another thread because {cache_file_lock_check} already exists")
     else:

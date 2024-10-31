@@ -12,3 +12,4 @@ hash_to_gas_cost_in_ETH.json
 working_data/
 tx_hash_to_gas_info.lock
 verify_all_pages_work.log
+cache_thread_already_running.lock
