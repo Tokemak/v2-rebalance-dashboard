@@ -104,6 +104,8 @@ def fetch_gas_cost_df() -> pd.DataFrame:
     # in that case because this only tracks gas cost at the transaction level,
     # drop all the rows in debt_reporting_costs where the solver also executed a rebalance
     # this avoids double counting
+    
+    # the solver a little inflated and the debt reporting is a little under. 
 
     debt_reporting_costs = debt_reporting_costs[~debt_reporting_costs["hash"].isin(solver_costs["hash"])].copy()
 

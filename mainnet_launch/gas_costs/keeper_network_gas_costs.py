@@ -338,4 +338,4 @@ def fetch_all_autopool_debt_reporting_events() -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    fetch_and_render_keeper_network_gas_costs()
+    fetch_all_autopool_debt_reporting_events()
