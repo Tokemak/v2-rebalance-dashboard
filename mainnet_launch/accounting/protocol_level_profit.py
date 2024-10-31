@@ -1,5 +1,8 @@
+from datetime import datetime, timedelta, timezone
+
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 
 from mainnet_launch.constants import CACHE_TIME
 from mainnet_launch.gas_costs.keeper_network_gas_costs import (
@@ -8,51 +11,116 @@ from mainnet_launch.gas_costs.keeper_network_gas_costs import (
     fetch_all_autopool_debt_reporting_events,
 )
 
-
 from mainnet_launch.autopool_diagnostics.fees import fetch_autopool_fee_data
-import pandas as pd
-import plotly.express as px
+
 from mainnet_launch.constants import (
     CACHE_TIME,
-    eth_client,
     ALL_AUTOPOOLS,
-    BAL_ETH,
-    AUTO_ETH,
-    AUTO_LRT,
-    AutopoolConstants,
-    WORKING_DATA_DIR,
+    eth_client,
 )
-from datetime import datetime, timedelta, timezone
 
 
-st.cache_data(ttl=CACHE_TIME)
+@st.cache_data(ttl=CACHE_TIME)
+def fetch_protocol_level_profit_and_loss_data():
+    gas_cost_df = fetch_gas_cost_df()
+    fee_df = fetch_fee_df()
+    return gas_cost_df, fee_df
+
+
+def fetch_and_render_protocol_level_profit_and_loss_data():
+    gas_cost_df, fee_df = fetch_protocol_level_profit_and_loss_data()
+
+    today = datetime.now(timezone.utc)
+
+    seven_days_ago = today - timedelta(days=7)
+    thirty_days_ago = today - timedelta(days=30)
+    one_year_ago = today - timedelta(days=365)
+
+    for window, window_name in zip([seven_days_ago, thirty_days_ago, one_year_ago], ["7-Day", "30-Day", "1-Year"]):
+        _render_protocol_level_profit_and_loss_tables(gas_cost_df, fee_df, window, window_name)
+
+
+def _render_protocol_level_profit_and_loss_tables(
+    gas_cost_df: pd.DataFrame, fee_df: pd.DataFrame, window: timedelta, window_name: str
+):
+    gas_costs_within_window_raw = (
+        gas_cost_df[gas_cost_df.index > window][
+            ["debt_reporting_gas_cost_in_eth", "solver_gas_cost_in_eth", "calculator_gas_cost_in_eth"]
+        ]
+        .sum()
+        .round(2)
+        .to_dict()
+    )
+
+    gas_costs_within_window = {
+        "Debt Reporting Gas Costs": gas_costs_within_window_raw["debt_reporting_gas_cost_in_eth"],
+        "Solver Gas Costs": gas_costs_within_window_raw["solver_gas_cost_in_eth"],
+        "Calculator Gas Costs": gas_costs_within_window_raw["calculator_gas_cost_in_eth"],
+    }
+    fees_within_window_raw = fee_df[fee_df.index > window].sum().round(2).to_dict()
+
+    fees_within_window = {
+        "autoETH Periodic": fees_within_window_raw["autoETH_periodic"],
+        "autoETH Streaming": fees_within_window_raw["autoETH_streaming"],
+        "balETH Periodic": fees_within_window_raw["balETH_periodic"],
+        "balETH Streaming": fees_within_window_raw["balETH_streaming"],
+        "autoLRT Periodic": fees_within_window_raw["autoLRT_periodic"],
+        "autoLRT Streaming": fees_within_window_raw["autoLRT_streaming"],
+    }
+
+    profit_and_loss_data = {"Revenue": fees_within_window, "Expenses": gas_costs_within_window}
+
+    total_revenue = sum(profit_and_loss_data["Revenue"].values())
+    total_expenses = sum(profit_and_loss_data["Expenses"].values())
+    net_profit = total_revenue - total_expenses
+    profit_data = [("Net Profit", net_profit)]
+    income_df = pd.DataFrame(profit_and_loss_data["Revenue"], columns=["Description", "Amount"])
+    expense_df = pd.DataFrame(profit_and_loss_data["Expense"], columns=["Description", "Amount"])
+    profit_df = pd.DataFrame(profit_data, columns=["Description", "Amount"])
+    st.header(f"ETH Profit and Loss in {window_name}")
+    st.subheader("Revenue (fees in ETH)")
+    st.table(income_df)
+    st.subheader("Expenses (gas cost in ETH)")
+    st.table(expense_df)
+    st.subheader("Net Profit (fees - gas costs)")
+    st.table(profit_df)
 
 
 def fetch_gas_cost_df() -> pd.DataFrame:
+    """Fetch the gas costs for running the solver, reward token liqudation, and calculators (chainlink keeper netowrk)"""
     destination_debt_reporting_df = fetch_all_autopool_debt_reporting_events()
     rebalance_gas_cost_df = fetch_solver_gas_costs()
     keeper_gas_costs_df = fetch_keeper_network_gas_costs()
 
-    gas_cost_columns = ["hash", "gas_cost_in_eth"]
+    gas_cost_columns = ["hash", "gas_price", "gas_used", "gas_cost_in_eth"]
 
     debt_reporting_costs = destination_debt_reporting_df[gas_cost_columns].copy().drop_duplicates()
-    debt_reporting_costs.columns = ["hash", "debt_reporting_gas"]
+    debt_reporting_costs.columns = [
+        "hash",
+        "debt_reporting_gas_price",
+        "debt_reporting_gas_used",
+        "debt_reporting_gas_cost_in_eth",
+    ]
 
     solver_costs = rebalance_gas_cost_df[gas_cost_columns].copy().drop_duplicates()
-    solver_costs.columns = ["hash", "solver_gas"]
+    solver_costs.columns = ["hash", "solver_gas_price", "solver_gas_used", "solver_gas_cost_in_eth"]
 
     keeper_costs = keeper_gas_costs_df[gas_cost_columns].copy().drop_duplicates()
-    keeper_costs.columns = ["hash", "keeper_gas"]
+    keeper_costs.columns = ["hash", "calculator_gas_price", "calculator_gas_used", "calculator_gas_cost_in_eth"]
 
     # sometimes the solver rebalancing causes destination debt reporting
-    # to not double count those gas costs all the transactions where
-    # TODO
+    # in that case because this only tracks gas cost at the transaction level,
+    # drop all the rows in debt_reporting_costs where the solver also executed a rebalance
+    # this avoids double counting
+
+    debt_reporting_costs = debt_reporting_costs[~debt_reporting_costs["hash"].isin(solver_costs["hash"])].copy()
 
     gas_cost_df = pd.concat([debt_reporting_costs, solver_costs, keeper_costs])
-    return gas_cost_df.fillna(0)
 
+    if len(gas_cost_df["hash"].unique()) != len(gas_cost_df):
+        raise ValueError("unexpected duplicate hashes found in gas_cost_df, figure out why")
 
-st.cache_data(ttl=CACHE_TIME)
+    return gas_cost_df
 
 
 def fetch_fee_df() -> pd.DataFrame:
