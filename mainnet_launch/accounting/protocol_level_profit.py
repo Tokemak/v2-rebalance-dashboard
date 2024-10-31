@@ -2,9 +2,8 @@ from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 
-from mainnet_launch.constants import CACHE_TIME
+from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS
 from mainnet_launch.gas_costs.keeper_network_gas_costs import (
     fetch_solver_gas_costs,
     fetch_keeper_network_gas_costs,
@@ -12,12 +11,6 @@ from mainnet_launch.gas_costs.keeper_network_gas_costs import (
 )
 
 from mainnet_launch.autopool_diagnostics.fees import fetch_autopool_fee_data
-
-from mainnet_launch.constants import (
-    CACHE_TIME,
-    ALL_AUTOPOOLS,
-    eth_client,
-)
 
 
 @st.cache_data(ttl=CACHE_TIME)
@@ -53,10 +46,13 @@ def _render_protocol_level_profit_and_loss_tables(
     )
 
     gas_costs_within_window = {
-        "Debt Reporting Gas Costs": gas_costs_within_window_raw["debt_reporting_gas_cost_in_eth"],
-        "Solver Gas Costs": gas_costs_within_window_raw["solver_gas_cost_in_eth"],
-        "Calculator Gas Costs": gas_costs_within_window_raw["calculator_gas_cost_in_eth"],
+        "Debt Reporting Gas Costs": -gas_costs_within_window_raw["debt_reporting_gas_cost_in_eth"],
+        "Solver Gas Costs": -gas_costs_within_window_raw["solver_gas_cost_in_eth"],
+        "Calculator Gas Costs": -gas_costs_within_window_raw["calculator_gas_cost_in_eth"],
     }
+
+    gas_costs_within_window["Total Expenses"] = sum(gas_costs_within_window.values())
+
     fees_within_window_raw = fee_df[fee_df.index > window].sum().round(2).to_dict()
 
     fees_within_window = {
@@ -68,26 +64,22 @@ def _render_protocol_level_profit_and_loss_tables(
         "autoLRT Streaming": fees_within_window_raw["autoLRT_streaming"],
     }
 
-    profit_and_loss_data = {"Revenue": fees_within_window, "Expenses": gas_costs_within_window}
+    fees_within_window["Total Revenue"] = sum(fees_within_window.values())
 
-    total_revenue = sum(profit_and_loss_data["Revenue"].values())
-    total_expenses = sum(profit_and_loss_data["Expenses"].values())
-    net_profit = total_revenue - total_expenses
-    profit_data = [("Net Profit", net_profit)]
-    income_df = pd.DataFrame(profit_and_loss_data["Revenue"], columns=["Description", "Amount"])
-    expense_df = pd.DataFrame(profit_and_loss_data["Expense"], columns=["Description", "Amount"])
-    profit_df = pd.DataFrame(profit_data, columns=["Description", "Amount"])
-    st.header(f"ETH Profit and Loss in {window_name}")
-    st.subheader("Revenue (fees in ETH)")
-    st.table(income_df)
-    st.subheader("Expenses (gas cost in ETH)")
-    st.table(expense_df)
-    st.subheader("Net Profit (fees - gas costs)")
-    st.table(profit_df)
+    net_profit_dict = {
+        "Net Profit": round(fees_within_window["Total Revenue"] + gas_costs_within_window["Total Expenses"], 2)
+    }
+
+    profit_and_loss_dict = {**gas_costs_within_window, **fees_within_window, **net_profit_dict}
+
+    profit_and_loss_df = pd.DataFrame(list(profit_and_loss_dict.items()), columns=["Description", "Amount (ETH)"])
+
+    st.header(f"ETH Profit and Loss ({window_name})")
+    st.table(profit_and_loss_df)
 
 
 def fetch_gas_cost_df() -> pd.DataFrame:
-    """Fetch the gas costs for running the solver, reward token liqudation, and calculators (chainlink keeper netowrk)"""
+    """Fetch the gas costs for running the solver, reward token liqudation / debt reporting, and calculators (chainlink keeper network)"""
     destination_debt_reporting_df = fetch_all_autopool_debt_reporting_events()
     rebalance_gas_cost_df = fetch_solver_gas_costs()
     keeper_gas_costs_df = fetch_keeper_network_gas_costs()
@@ -118,7 +110,7 @@ def fetch_gas_cost_df() -> pd.DataFrame:
     gas_cost_df = pd.concat([debt_reporting_costs, solver_costs, keeper_costs])
 
     if len(gas_cost_df["hash"].unique()) != len(gas_cost_df):
-        raise ValueError("unexpected duplicate hashes found in gas_cost_df, figure out why")
+        raise ValueError("unexpected duplicate hashes found in gas_cost_df")
 
     return gas_cost_df
 
@@ -134,5 +126,9 @@ def fetch_fee_df() -> pd.DataFrame:
         streaming_fee_df.columns = [f"{autopool.name}_streaming"]
         fee_dfs.extend([periodic_fee_df, streaming_fee_df])
 
-    fee_df = pd.concat(fee_dfs).fillna(0)
+    fee_df = pd.concat(fee_dfs)
     return fee_df
+
+
+if __name__ == "__main__":
+    fetch_and_render_protocol_level_profit_and_loss_data()

@@ -66,6 +66,11 @@ from mainnet_launch.accounting.incentive_token_liqudiation_prices import (
     fetch_and_render_reward_token_achieved_vs_incentive_token_price,
 )
 
+from mainnet_launch.accounting.protocol_level_profit import (
+    fetch_protocol_level_profit_and_loss_data,
+    fetch_and_render_protocol_level_profit_and_loss_data,
+)
+
 
 import psutil
 
@@ -103,6 +108,7 @@ per_autopool_data_caching_functions = [
 not_per_autopool_data_caching_functions = [
     fetch_keeper_network_gas_costs,
     fetch_reward_token_achieved_vs_incentive_token_price,
+    fetch_protocol_level_profit_and_loss_data,
 ]  # does not take any input variables
 
 
@@ -181,9 +187,10 @@ CONTENT_FUNCTIONS = {
     "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
     "Gas Costs": fetch_and_render_keeper_network_gas_costs,
     "Incentive Token Prices": fetch_and_render_reward_token_achieved_vs_incentive_token_price,
+    "Protocol Level Profit and Loss": fetch_and_render_protocol_level_profit_and_loss_data,
 }
 
-PAGES_WITHOUT_AUTOPOOL = ["Gas Costs", "Incentive Token Prices"]
+PAGES_WITHOUT_AUTOPOOL = ["Gas Costs", "Incentive Token Prices", "Protocol Level Profit and Loss"]
 
 
 def main():
