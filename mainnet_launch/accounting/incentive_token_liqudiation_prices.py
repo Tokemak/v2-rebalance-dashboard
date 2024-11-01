@@ -2,6 +2,9 @@ import pandas as pd
 import streamlit as st
 from multicall import Call
 import plotly.express as px
+import plotly.subplots as sp
+import plotly.graph_objects as go
+
 import json
 
 
@@ -9,54 +12,62 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     get_state_by_one_block,
     identity_with_bool_success,
+    safe_normalize_with_bool_success,
 )
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.constants import INCENTIVE_PRICNIG_STATS, LIQUIDATION_ROW, eth_client, CACHE_TIME
+from mainnet_launch.constants import INCENTIVE_PRICNIG_STATS, LIQUIDATION_ROW, eth_client, CACHE_TIME, ROOT_PRICE_ORACLE
 
 
 def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
-    achieved_eth_price_df, incentive_token_prices_df = fetch_reward_token_achieved_vs_incentive_token_price()
-
-    percent_diff_fig = _make_histogram_of_percent_diff(achieved_eth_price_df, incentive_token_prices_df)
-
-    liquidation_price_plots = _make_liquidation_vs_incentive_token_prices_fig(
-        achieved_eth_price_df, incentive_token_prices_df
+    achieved_eth_price_df, incentive_stats_token_prices_df, oracle_price_df = (
+        fetch_reward_token_achieved_vs_incentive_token_price()
     )
 
-    st.plotly_chart(percent_diff_fig, use_container_width=True)
-    for fig in liquidation_price_plots:
-        st.plotly_chart(fig, use_container_width=True)
+    incentive_stats_percent_diff_fig = _make_histogram_of_percent_diff(
+        achieved_eth_price_df, incentive_stats_token_prices_df, "Achieved vs Incentive Stats Price"
+    )
+    oracle_percent_diff_fig = _make_histogram_of_percent_diff(
+        achieved_eth_price_df, oracle_price_df, "Achieved vs Oracle Price"
+    )
+
+    st.plotly_chart(incentive_stats_percent_diff_fig, use_container_width=True)
+    st.plotly_chart(oracle_percent_diff_fig, use_container_width=True)
+
+    with st.expander("Description"):
+        st.write(
+            """
+            ## Achieved Price
+            - The actual ratio of tokens sold / WETH when selling reward tokens
+
+            
+            ## Achieved vs Incentive Stats Price
+            - This metric uses the Incentive Stats contract to obtain the minimum of the fast and slow filtered incentive token prices. This provides a conservative estimate of the incentive token's value.
+            - PPositive values indicate that we sold the incentive token for more than the Incentive Stats Price at that block
+
+
+
+            ## Achieved vs Oracle Price
+            - This metric uses the Root Price Oracle to fetch the current price of the incentive token via Chainlink.
+            - Positive values indicate that we sold the incentive token for more than the Chainlink price at that block.
+
+            """
+        )
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def fetch_reward_token_achieved_vs_incentive_token_price() -> tuple[pd.DataFrame, pd.DataFrame]:
+def fetch_reward_token_achieved_vs_incentive_token_price() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     swapped_df = _build_swapped_df()
 
-    achieved_eth_price_df = pd.pivot(
-        swapped_df, index="date", columns="sellTokenAddress", values="achieved_token_price_in_eth"
+    incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df = _fetch_incentive_token_price_df(
+        swapped_df
     )
-
-    incentive_token_prices_df = _fetch_incentive_token_price_df(swapped_df)
-
-    symbol_calls = [
-        Call(addr, ["symbol()(string)"], [(addr, identity_with_bool_success)]) for addr in achieved_eth_price_df.columns
-    ]
-
-    token_address_to_symbol = get_state_by_one_block(symbol_calls, eth_client.eth.block_number)
-    achieved_eth_price_df.columns = [token_address_to_symbol[c] for c in achieved_eth_price_df.columns]
-    incentive_token_prices_df.columns = [token_address_to_symbol[c] for c in incentive_token_prices_df.columns]
-
-    incentive_token_prices_df = incentive_token_prices_df[achieved_eth_price_df.columns]
-
-    return achieved_eth_price_df, incentive_token_prices_df
+    return achieved_eth_price_df, incentive_stats_token_prices_df, oracle_price_df
 
 
 def _build_swapped_df():
-
     # This ABI is ABI is not on etherscan, you have to get it from the v2-core repo foundry contracts when it makes the ABIs
-
     # fmt: off
     SWAPPED_EVENT_ABI = json.loads(
         """[{"inputs":[{"internalType":"address","name":"aggregator","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"uint256","name":"balanceNeeded","type":"uint256"},{"internalType":"uint256","name":"balanceAvailable","type":"uint256"}],"type":"error","name":"InsufficientBalance"},{"inputs":[],"type":"error","name":"InsufficientBuyAmount"},{"inputs":[{"internalType":"uint256","name":"buyTokenAmountReceived","type":"uint256"},{"internalType":"uint256","name":"buyAmount","type":"uint256"}],"type":"error","name":"InsufficientBuyAmountReceived"},{"inputs":[],"type":"error","name":"InsufficientSellAmount"},{"inputs":[],"type":"error","name":"SwapFailed"},{"inputs":[],"type":"error","name":"TokenAddressZero"},{"inputs":[{"internalType":"address","name":"sellTokenAddress","type":"address","indexed":true},{"internalType":"address","name":"buyTokenAddress","type":"address","indexed":true},{"internalType":"uint256","name":"sellAmount","type":"uint256","indexed":false},{"internalType":"uint256","name":"buyAmount","type":"uint256","indexed":false},{"internalType":"uint256","name":"buyTokenAmountReceived","type":"uint256","indexed":false}],"type":"event","name":"Swapped","anonymous":false},{"inputs":[],"stateMutability":"view","type":"function","name":"AGGREGATOR","outputs":[{"internalType":"address","name":"","type":"address"}]},{"inputs":[{"internalType":"struct SwapParams","name":"swapParams","type":"tuple","components":[{"internalType":"address","name":"sellTokenAddress","type":"address"},{"internalType":"uint256","name":"sellAmount","type":"uint256"},{"internalType":"address","name":"buyTokenAddress","type":"address"},{"internalType":"uint256","name":"buyAmount","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"},{"internalType":"bytes","name":"extraData","type":"bytes"},{"internalType":"uint256","name":"deadline","type":"uint256"}]}],"stateMutability":"nonpayable","type":"function","name":"swap","outputs":[{"internalType":"uint256","name":"buyTokenAmountReceived","type":"uint256"}]}]"""
@@ -83,6 +94,12 @@ def _build_swapped_df():
 
 
 def _fetch_incentive_token_price_df(swapped_df: pd.DataFrame):
+    symbol_calls = [
+        Call(addr, ["symbol()(string)"], [(addr, identity_with_bool_success)])
+        for addr in swapped_df["sellTokenAddress"].unique()
+    ]
+
+    token_address_to_symbol = get_state_by_one_block(symbol_calls, eth_client.eth.block_number)
 
     def _min_of_low_and_high_price(success, data):
         if success:
@@ -97,30 +114,61 @@ def _fetch_incentive_token_price_df(swapped_df: pd.DataFrame):
             [(name, _min_of_low_and_high_price)],
         )
 
-    token_addresses = swapped_df["sellTokenAddress"].unique()
-    calls = [getIncentiveTokenPrice(addr, addr) for addr in token_addresses]
+    def getOraclePrice(name: str, token_address: str) -> Call:
+        return Call(
+            ROOT_PRICE_ORACLE,
+            ["getPriceInEth(address)(uint256)", token_address],
+            [(name, safe_normalize_with_bool_success)],
+        )
 
     blocks_to_get_incentive_token_prices = swapped_df["block"].unique()
-    incentive_token_prices_df = get_raw_state_by_blocks(calls, blocks_to_get_incentive_token_prices)
-    return incentive_token_prices_df
 
-
-def _make_liquidation_vs_incentive_token_prices_fig(achieved_eth_price_df, incentive_token_prices_df):
-    figs = []
-    for col in achieved_eth_price_df.columns:
-        comparison_prices = pd.DataFrame(index=incentive_token_prices_df.index)
-        comparison_prices[f"{col} achieved"] = achieved_eth_price_df[col]
-        comparison_prices[f"{col} expected_price"] = incentive_token_prices_df[col]
-        fig = px.scatter(comparison_prices, title=f"{col} achieved price vs expected price")
-        figs.append(fig)
-    return figs
-
-
-def _make_histogram_of_percent_diff(incentive_token_prices_df, achieved_eth_price_df):
-    percent_achieved_less_than_pricer_price = 100 * (
-        (incentive_token_prices_df - achieved_eth_price_df) / incentive_token_prices_df
+    incentive_stats_calls = [getIncentiveTokenPrice(symbol, addr) for addr, symbol in token_address_to_symbol.items()]
+    incentive_stats_token_prices_df = get_raw_state_by_blocks(
+        incentive_stats_calls, blocks_to_get_incentive_token_prices
     )
-    fig = px.histogram(percent_achieved_less_than_pricer_price, histnorm="percent")
-    fig.update_xaxes(title_text="Percent diff between achieved vs min(fast, slow price)")
 
+    oracle_price_calls = [getOraclePrice(symbol, addr) for addr, symbol in token_address_to_symbol.items()]
+    oracle_price_df = get_raw_state_by_blocks(oracle_price_calls, blocks_to_get_incentive_token_prices)
+
+    achieved_eth_price_df = pd.pivot(
+        swapped_df, index="date", columns="sellTokenAddress", values="achieved_token_price_in_eth"
+    )
+
+    achieved_eth_price_df.columns = [token_address_to_symbol[c] for c in achieved_eth_price_df.columns]
+
+    return incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df
+
+
+def _make_histogram_of_percent_diff(
+    incentive_token_prices_df: pd.DataFrame, achieved_eth_price_df: pd.DataFrame, title: str
+):
+    percent_diff = 100 * ((incentive_token_prices_df - achieved_eth_price_df) / incentive_token_prices_df)
+
+    num_columns = int(len(percent_diff.columns) / 3) + 1
+    num_rows = int(len(percent_diff.columns) / 3) + 1
+    fig = sp.make_subplots(rows=num_rows, cols=num_columns, subplot_titles=percent_diff.columns)
+
+    # makes the histograms have the same scale
+    all_data = percent_diff.fillna(0).values.flatten()
+    bin_range = [all_data.min(), all_data.max()]
+    bin_range = [int(bin_range[0]) - 1, int(bin_range[1]) + 1]
+    bin_width = 1  # (2 # bin_range[1] - bin_range[0]) / 2 # 2 bps wide
+
+    for i, column in enumerate(percent_diff.columns):
+        row = (i // num_columns) + 1
+        col = (i % num_columns) + 1
+
+        hist = go.Histogram(
+            histnorm="percent", x=percent_diff[column], xbins=dict(start=bin_range[0], end=bin_range[1], size=bin_width)
+        )
+
+        fig.add_trace(hist, row=row, col=col)
+        fig.update_xaxes(range=bin_range, row=row, col=col, autorange=False)
+
+    fig.update_layout(title=title, height=600, width=900, showlegend=False)
     return fig
+
+
+if __name__ == "__main__":
+    fetch_and_render_reward_token_achieved_vs_incentive_token_price()
