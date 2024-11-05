@@ -25,6 +25,7 @@ from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI, AUTOPOOL_ETH_STRATEGY_A
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_and_clean_rebalance_between_destination_events,
 )
+from mainnet_launch.autopool_diagnostics.nav_if_no_discount import fetch_destination_totalEthValueHeldIfNoDiscount
 
 
 def handle_getAssetBreakdown(success, AssetBreakdown):
@@ -102,7 +103,13 @@ def _compute_30_day_and_lifetime_annualized_return(autopool_return_and_expenses_
 
 def _compute_returns(autopool_return_and_expenses_df: pd.DataFrame) -> dict:
     return_metrics = {}
-    for col in ["actual_nav_per_share", "nav_per_share_if_no_fees", "nav_per_share_if_no_value_lost_from_rebalances", "nav_per_share_if_no_value_lost_from_rebalancesIdle", "nav_per_share_if_no_value_lost_from_rebalancesChurn"]:
+    for col in [
+        "actual_nav_per_share",
+        "nav_per_share_if_no_fees",
+        "nav_per_share_if_no_value_lost_from_rebalances",
+        "nav_per_share_if_no_value_lost_from_rebalancesIdle",
+        "nav_per_share_if_no_value_lost_from_rebalancesChurn",
+    ]:
         thirty_day_annualized_return, lifetime_annualized_return = _compute_30_day_and_lifetime_annualized_return(
             autopool_return_and_expenses_df, col
         )
@@ -190,10 +197,10 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> d
     )
 
     # if there are no rebalances on the current day then the cumulative eth lost has not changed so we can ffill
-    autopool_return_and_expenses_df[[
-        "eth_nav_lost_by_rebalance_between_destinations", "swapCostETHChurn", "swapCostETHIdle"]
-    ] = autopool_return_and_expenses_df[[
-        "eth_nav_lost_by_rebalance_between_destinations", "swapCostETHChurn", "swapCostETHIdle"]
+    autopool_return_and_expenses_df[
+        ["eth_nav_lost_by_rebalance_between_destinations", "swapCostETHChurn", "swapCostETHIdle"]
+    ] = autopool_return_and_expenses_df[
+        ["eth_nav_lost_by_rebalance_between_destinations", "swapCostETHChurn", "swapCostETHIdle"]
     ].ffill()
 
     # at the start there can be np.Nan streaming fees, periodic_fees or eth lost to rebalances
@@ -231,13 +238,11 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> d
     ) / autopool_return_and_expenses_df["actual_shares"]
 
     autopool_return_and_expenses_df["nav_per_share_if_no_value_lost_from_rebalancesIdle"] = (
-        autopool_return_and_expenses_df["actual_nav"]
-        + autopool_return_and_expenses_df["swapCostETHIdle"]
+        autopool_return_and_expenses_df["actual_nav"] + autopool_return_and_expenses_df["swapCostETHIdle"]
     ) / autopool_return_and_expenses_df["actual_shares"]
 
     autopool_return_and_expenses_df["nav_per_share_if_no_value_lost_from_rebalancesChurn"] = (
-        autopool_return_and_expenses_df["actual_nav"]
-        + autopool_return_and_expenses_df["swapCostETHChurn"]
+        autopool_return_and_expenses_df["actual_nav"] + autopool_return_and_expenses_df["swapCostETHChurn"]
     ) / autopool_return_and_expenses_df["actual_shares"]
 
     autopool_return_and_expenses_df["shares_if_no_fees_minted"] = autopool_return_and_expenses_df["actual_shares"] - (
@@ -267,9 +272,14 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
             +returns_metrics["30_day_return_lost_to_rebalance_costsIdle"],
             +returns_metrics["30_day_return_lost_to_rebalance_costsChurn"],
             returns_metrics["30_day_return_if_no_fees_or_rebalance_costs"],
-
         ],
-        names=["Net Return", "Return Lost to Fees", "Return Lost to Rebalance Idle",  "Return Lost to Rebalance dest2dest","Gross Return"],
+        names=[
+            "Net Return",
+            "Return Lost to Fees",
+            "Return Lost to Rebalance Idle",
+            "Return Lost to Rebalance dest2dest",
+            "Gross Return",
+        ],
         title="Annualized 30-Day Returns",
     )
 
@@ -281,7 +291,13 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
             +returns_metrics["lifetime_return_lost_to_rebalance_costsChurn"],
             returns_metrics["lifetime_return_if_no_fees_or_rebalance_costs"],
         ],
-        names=["Net Return", "Return Lost to Fees", "Return Lost to Rebalance Idle", "Return Lost to Rebalance dest2dest", "Gross Return"],
+        names=[
+            "Net Return",
+            "Return Lost to Fees",
+            "Return Lost to Rebalance Idle",
+            "Return Lost to Rebalance dest2dest",
+            "Gross Return",
+        ],
         title="Annualized Year-to-Date Returns",
     )
 

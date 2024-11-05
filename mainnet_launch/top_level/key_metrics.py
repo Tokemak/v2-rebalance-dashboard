@@ -28,7 +28,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         "compositeReturn_df": compositeReturn_out_df,
         "total_nav_df": total_nav_series,
         "summary_stats_df": summary_stats_df,
-        "priceReturn_df": priceReturn_df
+        "priceReturn_df": priceReturn_df,
     }
     return key_metric_data
 
