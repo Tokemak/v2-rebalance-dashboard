@@ -53,3 +53,16 @@ def fetch_and_render_destination_allocation_over_time_data(autopool: AutopoolCon
             - Percent of TVL by Destination: Shows the percent of capital deployed to each destination
             """
         )
+
+
+if __name__ == "__main__":
+
+    blocks = build_blocks_to_use()
+    for autopool in ALL_AUTOPOOLS:
+        uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
+            fetch_destination_summary_stats(blocks, autopool)
+        )
+        percent_allocation_df = 100 * allocation_df.div(total_nav_series, axis=0)
+
+        allocation_df.to_csv(f"{autopool.name} allocation_df.csv")
+        percent_allocation_df.to_csv(f"{autopool.name} percent_allocation_df.csv")

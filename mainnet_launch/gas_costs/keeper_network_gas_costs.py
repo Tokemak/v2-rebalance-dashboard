@@ -37,7 +37,18 @@ from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
 
 OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "1344461886831441856282597505993515040672606510446374000438363195934269203116"
 NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "113129673265054907567420460651277872997162644350081440026681710279139531871240"
+NEWER_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = (
+    "93443706906332180407535184303815616290343141548650473059299738217546322242910"  # timing to minimize gas costs
+)
 INCENTIVE_PRICING_KEEPER_ORACLE_ID = "84910810589923801598536031507827941923735631663622593132512932471876788938876"
+
+
+ALL_TIME_KEEPER_ORACLE_IDS = [
+    OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+    NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+    NEWER_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+    INCENTIVE_PRICING_KEEPER_ORACLE_ID,
+]
 # there can be more KEEPER IDs added later
 
 KEEPER_REGISTRY_CONTRACT_ADDRESS = "0x6593c7De001fC8542bB1703532EE1E5aA0D458fD"
@@ -125,17 +136,7 @@ def save_json_data(data, file_path):
 def fetch_filtered_upkeep_events():
     contract = eth_client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
     upkeep_df = fetch_events(contract.events.UpkeepPerformed, START_BLOCK)
-    filtered_upkeep_df = upkeep_df[
-        upkeep_df["id"]
-        .apply(str)
-        .isin(
-            [
-                OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
-                NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
-                INCENTIVE_PRICING_KEEPER_ORACLE_ID,
-            ]
-        )
-    ].copy()
+    filtered_upkeep_df = upkeep_df[upkeep_df["id"].apply(str).isin(ALL_TIME_KEEPER_ORACLE_IDS)].copy()
     return add_timestamp_to_df_with_block_column(filtered_upkeep_df)
 
 
@@ -192,7 +193,13 @@ def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
     calculator_df = our_upkeep_df[
         our_upkeep_df["id"]
         .apply(str)
-        .isin([OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID, NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID])
+        .isin(
+            [
+                OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+                NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+                NEWER_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+            ]
+        )
     ]
     incentive_pricing_df = our_upkeep_df[our_upkeep_df["id"].apply(str) == INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 

@@ -102,7 +102,7 @@ def parse_destination_vault(vault_data):
         "statsPeriodFinishForRewards": vault_data[28],
         "statsAnnualizedRewardAmounts": vault_data[29],
     }
-
+    
 
 def _handle_get_pools_and_destinations(success, response):
     if success:
