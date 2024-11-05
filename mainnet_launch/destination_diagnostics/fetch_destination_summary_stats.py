@@ -49,7 +49,6 @@ def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants) -> pd.D
     }
 
     """
-    blocks = build_blocks_to_use()
     destination_details = [dest for dest in get_destination_details() if dest.autopool == autopool]
 
     raw_summary_stats_df = _fetch_autopool_destination_df(
@@ -61,6 +60,7 @@ def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants) -> pd.D
     )  # it does not have idle at this points
 
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series = _build_summary_stats_dfs(summary_stats_df)
+    pass
     return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df
 
 
@@ -252,6 +252,7 @@ def tester():
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
         fetch_destination_summary_stats(blocks, AUTO_LRT)
     )
+
     ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else 0).astype(float)
 
 
