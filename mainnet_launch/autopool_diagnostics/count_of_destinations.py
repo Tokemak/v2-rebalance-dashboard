@@ -17,7 +17,7 @@ start_block = 20759126  # Sep 15, 2024
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_destination_counts_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use()
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, pR_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
     destination_count_figure = _make_destination_count_figure(autopool, summary_stats_df)

@@ -26,7 +26,7 @@ def fetch_and_render_turnover_data(autopool: AutopoolConstants):
 def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
     blocks = build_blocks_to_use()
     clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, pR_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
     today = datetime.now(timezone.utc)
