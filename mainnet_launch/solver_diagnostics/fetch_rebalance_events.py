@@ -76,11 +76,19 @@ def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConst
         offset_period = row["swapOffsetPeriod"]
 
         move_name = f"{out_destination} -> {in_destination}"
+        if "tokemak" in move_name:
+            swapCostIdle = swapCost
+            swapCostChurn = 0
+        else:
+            swapCostIdle = 0
+            swapCostChurn = swapCost
 
         return {
             "block": row["block"],
             "break_even_days": break_even_days,
             "swapCost": swapCost,
+            "swapCostIdle": swapCostIdle,
+            "swapCostChurn": swapCostChurn,
             "apr_delta": apr_delta,
             "out_compositeReturn": out_compositeReturn,
             "in_compositeReturn": in_compositeReturn,

@@ -17,7 +17,7 @@ from mainnet_launch.destinations import get_destination_details
 def fetch_key_metrics_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use()
     nav_per_share_df = fetch_nav_per_share(blocks, autopool)
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
 
@@ -28,6 +28,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         "compositeReturn_df": compositeReturn_out_df,
         "total_nav_df": total_nav_series,
         "summary_stats_df": summary_stats_df,
+        "priceReturn_df": priceReturn_df
     }
     return key_metric_data
 

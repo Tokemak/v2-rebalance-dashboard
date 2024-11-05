@@ -24,7 +24,7 @@ POINTS_HOOK = "0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3"
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants) -> pd.DataFrame:
+def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants):
     """
     Returns a DataFrame where the columns are the destination vaultName,
     and the values are the destination summary stats
@@ -60,8 +60,8 @@ def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants) -> pd.D
         autopool, raw_summary_stats_df, destination_details
     )  # it does not have idle at this points
 
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series = _build_summary_stats_dfs(summary_stats_df)
-    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, priceReturn_df = _build_summary_stats_dfs(summary_stats_df)
+    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df
 
 
 def _combine_migrated_destinations(
@@ -206,13 +206,13 @@ def _build_destination_points_calls(destination_details: set[DestinationDetails]
 
 
 def _build_summary_stats_dfs(summary_stats_df: pd.DataFrame):
-    uwcr_df = _extract_unweighted_composite_return_df(summary_stats_df)
+    uwcr_df, priceReturn = _extract_unweighted_composite_return_df(summary_stats_df)
     allocation_df = _extract_allocation_df(summary_stats_df)
     compositeReturn_out_df = _extract_composite_return_out_df(summary_stats_df)
     total_nav_series = allocation_df.sum(axis=1)
     portion_df = allocation_df.div(total_nav_series, axis=0)
     uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
-    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series
+    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, priceReturn
 
 
 def _extract_composite_return_out_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
@@ -225,15 +225,19 @@ def _extract_composite_return_out_df(summary_stats_df: pd.DataFrame) -> pd.DataF
     return compositeReturn_out_df
 
 
-def _extract_unweighted_composite_return_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
+def _extract_unweighted_composite_return_df(summary_stats_df: pd.DataFrame):
     """Returns a dataframe of base + fee + incentive + price return + pointsApr for each destination in summary_stats_df"""
     base = summary_stats_df.map(lambda row: row["baseApr"] if isinstance(row, dict) else None).astype(float)
     fee = summary_stats_df.map(lambda row: row["feeApr"] if isinstance(row, dict) else None).astype(float)
     incentive = summary_stats_df.map(lambda row: row["incentiveApr"] if isinstance(row, dict) else None).astype(float)
     priceReturn = summary_stats_df.map(lambda row: row["priceReturn"] if isinstance(row, dict) else None).astype(float)
     points = summary_stats_df.map(lambda row: row["pointsApr"] if isinstance(row, dict) else None).astype(float)
-    uwcr_df = 100 * (base + fee + incentive + priceReturn + points)
-    return uwcr_df
+    # uwcr_df = 100 * (base + fee + incentive + priceReturn + points)
+    # zero out price return & points 
+    # points are not realizable directly
+    # price return assumes we will see depeg compression which is not predictable
+    uwcr_df = 100 * (base + fee + incentive)
+    return uwcr_df, priceReturn
 
 
 def _extract_allocation_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
