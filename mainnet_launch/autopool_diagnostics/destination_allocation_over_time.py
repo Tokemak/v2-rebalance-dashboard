@@ -14,7 +14,7 @@ st.cache_data(ttl=CACHE_TIME)
 
 def fetch_destination_allocation_over_time_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use()
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
 

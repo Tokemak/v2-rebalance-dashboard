@@ -62,7 +62,7 @@ def fetch_destination_totalEthValueHeldIfNoDiscount(autopool: AutopoolConstants,
     eth_value_if_no_discount_df["nav_if_all_lp_tokens_return_to_peg"] = eth_value_if_no_discount_df.sum(axis=1)
     eth_value_if_no_discount_df["total_shares"] = total_shares
     eth_value_if_no_discount_df["nav_per_share_if_no_discount"] = (
-        eth_value_if_no_discount_df["total_eth_value"] / eth_value_if_no_discount_df["total_shares"]
+        eth_value_if_no_discount_df["nav_if_all_lp_tokens_return_to_peg"] / eth_value_if_no_discount_df["total_shares"]
     )
 
     return eth_value_if_no_discount_df
