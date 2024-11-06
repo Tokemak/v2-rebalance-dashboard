@@ -255,7 +255,7 @@ def _extract_allocation_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
 @time_decorator
 def tester():
     blocks = build_blocks_to_use()[::8]
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, price_return_df = (
         fetch_destination_summary_stats(blocks, AUTO_LRT)
     )
     ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else 0).astype(float)
