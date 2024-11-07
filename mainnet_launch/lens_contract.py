@@ -140,6 +140,11 @@ def _clean_summary_stats_info(success, summary_stats):
             "compositeReturn": summary_stats[9] / 1e18,
             "pricePerShare": summary_stats[10] / 1e18,
         }
+        
+        # summary['ethValueFromPricePerShare'] = summary['pricePerShare'] * summary['ownedShares']
+        # summary['pricePerShareIf_0PriceReturn'] = summary['pricePerShare'] / (1 - summary_stats['priceReturn'])
+        # summary['ethValueFromPricePerShare_if0_priceReturn'] = summary['pricePerShareIf_0PriceReturn'] * summary['ownedShares']
+        
         return summary
     else:
         return None
