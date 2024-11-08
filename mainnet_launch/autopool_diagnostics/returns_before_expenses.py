@@ -86,29 +86,70 @@ def _compute_30_day_and_lifetime_annualized_return(autopool_return_and_expenses_
     current_value = autopool_return_and_expenses_df.iloc[-1][col]
 
     value_30_days_ago = autopool_return_and_expenses_df.iloc[-31][col]  # this gets the value from 30 days ago
+    value_7_days_ago = autopool_return_and_expenses_df.iloc[-8][col]  # this gets the value from 7 days ago
     today = datetime.now(timezone.utc)
     recent_year_df = autopool_return_and_expenses_df[
         autopool_return_and_expenses_df.index >= today - timedelta(days=365)
     ].copy()
 
     thirty_day_annualized_return = (100 * (current_value - value_30_days_ago) / value_30_days_ago) * (365 / 30)
+    seven_day_annualized_return = (100 * (current_value - value_7_days_ago) / value_7_days_ago) * (365 / 7)
 
     num_days = len(recent_year_df)
     initial_value = recent_year_df.iloc[0][col]
     lifetime_annualized_return = (100 * (current_value - initial_value) / initial_value) * (365 / num_days)
 
-    return thirty_day_annualized_return, lifetime_annualized_return
+    return thirty_day_annualized_return, lifetime_annualized_return, seven_day_annualized_return
 
 
 def _compute_returns(autopool_return_and_expenses_df: pd.DataFrame) -> dict:
     return_metrics = {}
     for col in ["actual_nav_per_share", "nav_per_share_if_no_fees", "nav_per_share_if_no_value_lost_from_rebalances", 
                 "nav_per_share_if_no_depegs", "nav_per_share_if_no_value_lost_from_rebalancesIdle", "nav_per_share_if_no_value_lost_from_rebalancesChurn"]:
-        thirty_day_annualized_return, lifetime_annualized_return = _compute_30_day_and_lifetime_annualized_return(
+        thirty_day_annualized_return, lifetime_annualized_return, seven_day_annualized_return = _compute_30_day_and_lifetime_annualized_return(
             autopool_return_and_expenses_df, col
         )
         return_metrics[f"{col} 30days"] = thirty_day_annualized_return
         return_metrics[f"{col} lifetime"] = lifetime_annualized_return
+        return_metrics[f"{col} 7days"] = seven_day_annualized_return
+
+    return_metrics["7_day_return_lost_to_rebalance_costs"] = (
+        return_metrics["nav_per_share_if_no_value_lost_from_rebalances 7days"]
+        - return_metrics["actual_nav_per_share 7days"]
+    )
+
+    return_metrics["7_day_return_lost_to_rebalance_costsIdle"] = (
+        return_metrics["nav_per_share_if_no_value_lost_from_rebalancesIdle 7days"]
+        - return_metrics["actual_nav_per_share 7days"]
+    )
+
+    return_metrics["7_day_return_lost_to_rebalance_costsChurn"] = (
+        return_metrics["nav_per_share_if_no_value_lost_from_rebalancesChurn 7days"]
+        - return_metrics["actual_nav_per_share 7days"]
+    )
+    return_metrics["7_day_return_lost_to_fees"] = (
+        return_metrics["nav_per_share_if_no_fees 7days"] - return_metrics["actual_nav_per_share 7days"]
+    )
+
+    return_metrics["7_day_return_lost_to_depegs"] = (
+        return_metrics["nav_per_share_if_no_depegs 7days"] - return_metrics["actual_nav_per_share 7days"]
+    )
+
+    return_metrics["7_day_return_if_no_fees_or_rebalance_costs"] = (
+        return_metrics["actual_nav_per_share 7days"]
+        + return_metrics["7_day_return_lost_to_rebalance_costsIdle"]
+        + return_metrics["7_day_return_lost_to_rebalance_costsChurn"]
+        + return_metrics["7_day_return_lost_to_fees"]
+    )
+
+    return_metrics["7_day_return_if_no_fees_or_rebalance_costs_depegs"] = (
+        return_metrics["actual_nav_per_share 7days"]
+        + return_metrics["7_day_return_lost_to_rebalance_costsIdle"]
+        + return_metrics["7_day_return_lost_to_rebalance_costsChurn"]
+        + return_metrics["7_day_return_lost_to_fees"]
+        + return_metrics["7_day_return_lost_to_depegs"]
+    )
+
 
     return_metrics["30_day_return_lost_to_rebalance_costs"] = (
         return_metrics["nav_per_share_if_no_value_lost_from_rebalances 30days"]
@@ -299,6 +340,20 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> d
 def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolConstants):
     returns_metrics, autopool_return_and_expenses_df = fetch_autopool_return_and_expenses_metrics(autopool)
 
+    bridge_fig_7_days_apr = _make_bridge_plot(
+        [
+            returns_metrics["actual_nav_per_share 7days"],
+            +returns_metrics["7_day_return_lost_to_fees"],
+            +returns_metrics["7_day_return_lost_to_rebalance_costsIdle"],
+            +returns_metrics["7_day_return_lost_to_rebalance_costsChurn"],
+            +returns_metrics["7_day_return_lost_to_depegs"],
+            returns_metrics["7_day_return_if_no_fees_or_rebalance_costs_depegs"],
+        ],
+        names=["Net Return", "Return Lost to Fees", "Return Lost to Rebalance Idle",  "Return Lost to Rebalance dest2dest", "depeg loss", "Gross Return"],
+        title="Annualized 7-Day Returns",
+    )
+
+
     bridge_fig_30_days_apr = _make_bridge_plot(
         [
             returns_metrics["actual_nav_per_share 30days"],
@@ -373,6 +428,7 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
         title="Autopool Gross and Net Return",
     )
 
+    st.plotly_chart(bridge_fig_7_days_apr, use_container_width=True)
     st.plotly_chart(bridge_fig_30_days_apr, use_container_width=True)
     st.plotly_chart(bridge_fig_year_to_date, use_container_width=True)
     st.plotly_chart(line_plot_of_apr_over_time, use_container_width=True)
