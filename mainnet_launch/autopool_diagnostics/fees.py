@@ -8,7 +8,7 @@ import colorsys
 
 from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.data_fetching.get_state_by_block import add_timestamp_to_df_with_block_column
+from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 
 
@@ -27,10 +27,10 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
     periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
     streaming_fee_df["normalized_fees"] = streaming_fee_df["fees"].apply(lambda x: int(x) / 1e18)
 
-    pfee_df = periodic_fee_df[["normalized_fees"]].copy()
-    sfee_df = streaming_fee_df[["normalized_fees"]].copy()
+    periodic_fee_df = periodic_fee_df[["normalized_fees"]].copy()
+    streaming_fee_df = streaming_fee_df[["normalized_fees"]].copy()
 
-    return pfee_df, sfee_df
+    return periodic_fee_df, streaming_fee_df
 
 
 @st.cache_data(ttl=CACHE_TIME)
@@ -157,7 +157,7 @@ def _display_fee_metrics(fee_df: pd.DataFrame, isPeriodic: bool):
 
     seven_days_ago = today - timedelta(days=7)
     thirty_days_ago = today - timedelta(days=30)
-    year_ago = today - timedelta(days=465)
+    year_ago = today - timedelta(days=365)
 
     fees_last_7_days = fee_df[fee_df.index >= seven_days_ago]["normalized_fees"].sum()
 

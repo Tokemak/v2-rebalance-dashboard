@@ -11,8 +11,9 @@ from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_and_clean_rebalance_between_destination_events,
 )
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants
-from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use, add_timestamp_to_df_with_block_column
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
+from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 
 
 def fetch_and_render_turnover_data(autopool: AutopoolConstants):
@@ -25,7 +26,7 @@ def fetch_and_render_turnover_data(autopool: AutopoolConstants):
 def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
     blocks = build_blocks_to_use()
     clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, pR_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
     today = datetime.now(timezone.utc)

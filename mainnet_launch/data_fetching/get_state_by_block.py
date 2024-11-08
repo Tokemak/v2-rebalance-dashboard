@@ -128,19 +128,19 @@ async def async_safe_get_raw_state_by_block(
     return df
 
 
-def add_timestamp_to_df_with_block_column(df: pd.DataFrame) -> pd.DataFrame:
-    """Add the timestamp to the df at the index if boock is in the columns"""
-    if "block" not in df.columns:
-        raise ValueError(f"block must be in {df.columns=}")
-    if len(df) == 0:
-        return df
+# def add_timestamp_to_df_with_block_column(df: pd.DataFrame) -> pd.DataFrame:
+#     """Add the timestamp to the df at the index if boock is in the columns"""
+#     if "block" not in df.columns:
+#         raise ValueError(f"block must be in {df.columns=}")
+#     if len(df) == 0:
+#         return df
 
-    blocks = list(set(df["block"]))
-    # calling with empty calls gets the block:timestamp
-    block_and_timestamp_df = get_raw_state_by_blocks([], blocks, include_block_number=True).reset_index()
-    df = pd.merge(df, block_and_timestamp_df, on="block", how="left")
-    df.set_index("timestamp", inplace=True)
-    return df
+#     blocks = list(set(df["block"]))
+#     # calling with empty calls gets the block:timestamp
+#     block_and_timestamp_df = get_raw_state_by_blocks([], blocks, include_block_number=True).reset_index()
+#     df = pd.merge(df, block_and_timestamp_df, on="block", how="left")
+#     df.set_index("timestamp", inplace=True)
+#     return df
 
 
 def safe_normalize_with_bool_success(success: int, value: int):

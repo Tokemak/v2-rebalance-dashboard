@@ -21,6 +21,7 @@ streamlit = "1.38.0"
 altair = "4.2.2"
 boto3 = "^1.35.29"
 psutil = "^6.0.0"
+filelock = "^3.16.1"
 
 [tool.black]
 line-length = 120
@@ -28,3 +29,6 @@ line-length = 120
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+test-pages = "mainnet_launch.test_pages:main"

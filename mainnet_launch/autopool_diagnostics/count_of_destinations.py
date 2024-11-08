@@ -6,7 +6,7 @@ import streamlit as st
 import plotly.express as px
 from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.data_fetching.get_state_by_block import add_timestamp_to_df_with_block_column, build_blocks_to_use
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
@@ -17,7 +17,7 @@ start_block = 20759126  # Sep 15, 2024
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_destination_counts_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use()
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, pR_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
     destination_count_figure = _make_destination_count_figure(autopool, summary_stats_df)
@@ -78,7 +78,3 @@ def _make_destination_count_figure(autopool: AutopoolConstants, summary_stats_df
     )
 
     return destination_count_figure
-
-
-if __name__ == "__main__":
-    display_autopool_destination_counts(ALL_AUTOPOOLS[0])
