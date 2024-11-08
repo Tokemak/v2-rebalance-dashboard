@@ -1,67 +1,30 @@
-# # this needs to be first because otherwise we get this error:
-# # `StreamlitAPIException: set_page_config() can only be called once per app page,
-# # and must be called as the first Streamlit command in your script.`
-# st.set_page_config(
-#     page_title="Mainnet Autopool Diagnostics Dashboard",
-#     layout="wide",
-#     initial_sidebar_state="expanded",
-# )
-# import plotly.io as pio
-# import plotly.express as px
-
-# # Define your custom color sequence
-# custom_color_sequence = px.colors.qualitative.Dark24  # You can choose a different palette if you like
-
-# # Create a custom template
-# pio.templates["custom_template"] = pio.templates["plotly"]  # Start from an existing template
-# pio.templates["custom_template"]["layout"]["colorway"] = custom_color_sequence  # Set your custom color sequence
-
-# # Set the custom template as the default template
-# pio.templates.default = "custom_template"
-
 from mainnet_launch.ui_config_setup import config_plotly_and_streamlit
 
 config_plotly_and_streamlit()
 
 import streamlit as st
+import atexit
 import threading
 import time
-import datetime
 import logging
-
-
-from mainnet_launch.autopool_diagnostics.autopool_diagnostics_tab import (
-    fetch_and_render_autopool_diagnostics_data,
-    fetch_autopool_diagnostics_data,
-)
-
-
-from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import (
-    fetch_destination_allocation_over_time_data,
-    fetch_and_render_destination_allocation_over_time_data,
-)
-from mainnet_launch.destination_diagnostics.weighted_crm import (
-    fetch_weighted_crm_data,
-    fetch_and_render_weighted_crm_data,
-    fetch_and_render_destination_apr_data,
-)
-
-from mainnet_launch.solver_diagnostics.rebalance_events import (
-    fetch_rebalance_events_data,
-    fetch_and_render_rebalance_events_data,
-)
-from mainnet_launch.solver_diagnostics.solver_diagnostics import (
-    fetch_and_render_solver_diagnositics_data,
-    fetch_solver_diagnostics_data,
-)
-
-from mainnet_launch.top_level.key_metrics import fetch_key_metrics_data, fetch_and_render_key_metrics_data
-from mainnet_launch.gas_costs.keeper_network_gas_costs import (
-    fetch_keeper_network_gas_costs,
-    fetch_and_render_keeper_network_gas_costs,
-)
-
+import os
 import psutil
+import signal
+
+from mainnet_launch.constants import ALL_AUTOPOOLS, ROOT_DIR
+from mainnet_launch.page_functions import (
+    CONTENT_FUNCTIONS,
+    PAGES_WITHOUT_AUTOPOOL,
+    NOT_PER_AUTOPOOL_DATA_CACHING_FUNCTIONS,
+    PER_AUTOPOOOL_DATA_CACHING_FUNCTIONS,
+)
+
+from mainnet_launch.constants import (
+    CACHE_TIME,
+    ALL_AUTOPOOLS,
+    AUTOPOOL_NAME_TO_CONSTANTS,
+    STREAMLIT_MARKDOWN_HTML,
+)
 
 
 def get_memory_usage():
@@ -70,111 +33,85 @@ def get_memory_usage():
     return mem_info.rss / (1024**2)
 
 
-from mainnet_launch.constants import (
-    CACHE_TIME,
-    ALL_AUTOPOOLS,
-    AUTOPOOL_NAME_TO_CONSTANTS,
-    STREAMLIT_MARKDOWN_HTML,
-    AutopoolConstants,
-    BAL_ETH,
-    AUTO_ETH,
-    AUTO_LRT,
-)
+production_logger = logging.getLogger("testing_logger")
+production_logger.setLevel(logging.INFO)
+
+# Only add the handler if it doesn't already exist
+if not production_logger.hasHandlers():
+    handler = logging.FileHandler("data_caching.log", mode="w")
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
+    production_logger.addHandler(handler)
+    production_logger.propagate = False
 
 
-logging.basicConfig(filename="data_caching.log", filemode="w", format="%(asctime)s - %(message)s", level=logging.INFO)
-
-per_autopool_data_caching_functions = [
-    fetch_solver_diagnostics_data,
-    fetch_key_metrics_data,
-    fetch_autopool_diagnostics_data,
-    fetch_destination_allocation_over_time_data,
-    fetch_weighted_crm_data,
-    fetch_rebalance_events_data,
-]
+cache_file_lock_check = ROOT_DIR / "cache_thread_already_running.lock"
 
 
-not_per_autopool_data_caching_functions = [fetch_keeper_network_gas_costs]  # does not take any input variables
+def cleanup():
+    if os.path.exists(cache_file_lock_check):
+        os.remove(cache_file_lock_check)
+        production_logger.info("cache_file_lock_check removed on program exit.")
 
 
-def log_and_time_function(func, *args):
+atexit.register(cleanup)
+
+
+def log_and_time_function(page_name, func, autopool):
     start_time = time.time()
-    func(*args)
-    time_taken = time.time() - start_time
-    usage = get_memory_usage()
-    if args:
-        autopool = args[0]
-        logging.info(
-            f"{time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB |Cached {func.__name__}({autopool.name})"
-        )
+    if autopool is None:
+        func()
     else:
-        logging.info(f"{time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB | Cached {func.__name__}()")
+        func(autopool)
+
+    time_taken = time.time() - start_time
+    if autopool is None:
+        production_logger.info(f"{time_taken:.2f} seconds | {func.__name__} |  {page_name}")
+    else:
+        production_logger.info(f"{time_taken:.2f} seconds | {func.__name__} |  {page_name} | {autopool.name}")
 
 
-def cache_autopool_data():
+def _cache_autopool_data():
     all_caching_started = time.time()
-    logging.info("Start Autopool Functions")
-    for autopool in ALL_AUTOPOOLS:
-        autopool_start_time = time.time()
-        for func in per_autopool_data_caching_functions:
-            log_and_time_function(func, autopool)
-        logging.info(f"{time.time() - autopool_start_time:.2f} seconds: Cached {autopool.name}")
+    production_logger.info("Start Autopool Functions")
+    for func in PER_AUTOPOOOL_DATA_CACHING_FUNCTIONS:
+        for autopool in ALL_AUTOPOOLS:
+            log_and_time_function("caching", func, autopool)
 
-    logging.info(f"{time.time() - all_caching_started:.2f} seconds: All Autopools Cached")
+    production_logger.info(f"{time.time() - all_caching_started:.2f} seconds: All Autopools Cached")
 
 
-def cache_network_data():
-    logging.info("Start Network Functions")
+def _cache_network_data():
+    production_logger.info("Start Network Functions")
     network_start_time = time.time()
-    for func in not_per_autopool_data_caching_functions:
-        log_and_time_function(func)
-    logging.info(f"{time.time() - network_start_time:.2f} seconds: Cached Network Functions")
+    for func in NOT_PER_AUTOPOOL_DATA_CACHING_FUNCTIONS:
+        log_and_time_function("caching thread", func, None)
+    production_logger.info(f"{time.time() - network_start_time:.2f} seconds: Cached Network Functions")
+
+
+def _cache_data():
+    all_caching_started = time.time()
+    _cache_autopool_data()
+    _cache_network_data()
+    production_logger.info(f"{time.time() - all_caching_started:.2f} seconds: Everything Cached")
+    production_logger.info("Finished Caching, Starting Sleep")
 
 
 def cache_data_loop():
-    logging.info("Started cache_data_loop()")
-
+    production_logger.info("Started cache_data_loop()")
     try:
         while True:
-            all_caching_started = time.time()
-            cache_network_data()
-            cache_autopool_data()
-            logging.info(f"{time.time() - all_caching_started:.2f} seconds: Everything Cached")
-            logging.info("Finished Caching, Starting Sleep")
-            time.sleep(CACHE_TIME + (60 * 5))
-            logging.info("Finished Sleeping")
-    except Exception:
-        logging.exception("Exception occurred in cache_data_loop.")
-        logging.info(f"Cache data loop ended at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-        raise
-
-
-def display_destination_diagnostics(autopool: AutopoolConstants):
-    fetch_and_render_destination_apr_data(autopool)
-    # a chart of
-
-    # composite return out
-
-    # composite retun in
-
-    # price, fee, incentive points points
-
-    # for all the destinations
-
-
-CONTENT_FUNCTIONS = {
-    "Key Metrics": fetch_and_render_key_metrics_data,
-    "Autopool Exposure": fetch_and_render_destination_allocation_over_time_data,
-    "Autopool CRM": fetch_and_render_weighted_crm_data,
-    "Rebalance Events": fetch_and_render_rebalance_events_data,
-    "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
-    "Destination Diagnostics": display_destination_diagnostics,
-    "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
-    "Gas Costs": fetch_and_render_keeper_network_gas_costs,
-}
-
-
-PAGES_WITHOUT_AUTOPOOL = ["Gas Costs"]
+            _cache_data()
+            time.sleep(CACHE_TIME + (60 * 5))  # + 5 minutes
+            production_logger.info("Finished Sleeping")
+    except Exception as e:
+        production_logger.exception("Exception occurred in cache_data_loop." + str(e) + type(e))
+        production_logger.info(f"Cache data loop ended at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        raise e
+    finally:
+        # Clean up the lock file
+        if os.path.exists(cache_file_lock_check):
+            os.remove(cache_file_lock_check)
+            production_logger.info("cache_file_lock_check removed on thread exit.")
 
 
 def main():
@@ -193,24 +130,34 @@ def main():
     else:
         CONTENT_FUNCTIONS[page](autopool)
 
-
-thread_lock = threading.Lock()
+    if st.button("Start Another Cache Thread"):
+        # if st.text_input("""write: I know what I'm doing """) == "I know what I'm doing":
+        if os.path.exists(cache_file_lock_check):
+            os.remove(cache_file_lock_check)
+            production_logger.info("cache_file_lock_check removed by user action.")
+            st.success("Cache lock file deleted successfully.")
+            start_cache_thread()
+            st.success("Started another cache thread")
+            # there are very low odds of having multiple threads going at once,
+            # this will add in another thread that will call the caching functions
+            # the prior setup reacreated a caching thread with every new users sesssion
+            # I don't expect to need to press this button but it is nice to have for if
+            # some unknown, (power loss, KILL-9) ends the program without deleting the lock file
+            # this manually starts another caching thread
 
 
 def start_cache_thread():
-    # Ensure this function only creates a thread if none exists
-    if "cache_thread_started" not in st.session_state:
-        st.session_state["cache_thread_started"] = False
+    if os.path.exists(cache_file_lock_check):
+        production_logger.info(f"Not starting another thread because {cache_file_lock_check} already exists")
+    else:
+        production_logger.info(f"Starting First thread because {cache_file_lock_check} does not exist")
+        with open(cache_file_lock_check, "w") as fout:
+            pass  # just open the file and don't write anything to it
 
-    with thread_lock:
-        if not st.session_state["cache_thread_started"]:
-            fetch_thread = threading.Thread(target=cache_data_loop, daemon=True)
-            fetch_thread.start()
-            st.session_state["cache_thread_started"] = True
-            st.session_state["fetch_thread"] = fetch_thread
+        fetch_thread = threading.Thread(target=cache_data_loop, daemon=True)
+        fetch_thread.start()  # this thread should keep going as long as the program is running
 
-
-start_cache_thread()
 
 if __name__ == "__main__":
+    start_cache_thread()
     main()

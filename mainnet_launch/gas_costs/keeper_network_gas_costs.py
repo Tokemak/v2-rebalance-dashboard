@@ -10,7 +10,7 @@ import time
 import logging
 import json
 
-from mainnet_launch.abis.abis import CHAINLINK_KEEPER_REGISTRY_ABI
+from mainnet_launch.abis.abis import CHAINLINK_KEEPER_REGISTRY_ABI, AUTOPOOL_VAULT_ABI
 from mainnet_launch.constants import (
     CACHE_TIME,
     eth_client,
@@ -24,10 +24,9 @@ from mainnet_launch.constants import (
 
 
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.data_fetching.get_state_by_block import (
-    get_raw_state_by_blocks,
-    get_state_by_one_block,
+from mainnet_launch.data_fetching.add_info_to_dataframes import (
     add_timestamp_to_df_with_block_column,
+    add_transaction_gas_info_to_df_with_tx_hash,
 )
 
 
@@ -38,6 +37,7 @@ from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
 
 OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "1344461886831441856282597505993515040672606510446374000438363195934269203116"
 NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "113129673265054907567420460651277872997162644350081440026681710279139531871240"
+NEW2_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "93443706906332180407535184303815616290343141548650473059299738217546322242910"
 INCENTIVE_PRICING_KEEPER_ORACLE_ID = "84910810589923801598536031507827941923735631663622593132512932471876788938876"
 # there can be more KEEPER IDs added later
 
@@ -68,9 +68,8 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
     date_filter = pd.Timestamp("2024-09-15", tz="UTC")
 
     updated_df = updated_df[updated_df.index >= date_filter].copy()
-
+    updated_df = add_transaction_gas_info_to_df_with_tx_hash(updated_df)  # possibly redundent
     updated_df.to_csv(WORKING_DATA_DIR / "chainlink_keeper_upkeeper_df.csv")
-
     return updated_df
 
 
@@ -134,6 +133,7 @@ def fetch_filtered_upkeep_events():
             [
                 OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
                 NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+                NEW2_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
                 INCENTIVE_PRICING_KEEPER_ORACLE_ID,
             ]
         )
@@ -307,7 +307,7 @@ def fetch_solver_gas_costs():
         ]
 
         # Use ThreadPoolExecutor to calculate gas costs in parallel
-        with ThreadPoolExecutor(max_workers=24) as executor:
+        with ThreadPoolExecutor(max_workers=8) as executor:
             executor.map(calc_and_cache_gas_cost, missing_hashes)
 
         # Map cached gas costs to the dataframe
@@ -319,9 +319,25 @@ def fetch_solver_gas_costs():
 
     # Concatenate all dataframes and return final rebalance gas cost dataframe
     rebalance_gas_cost_df = pd.concat(rebalance_dfs, axis=0)
+    rebalance_gas_cost_df = add_transaction_gas_info_to_df_with_tx_hash(rebalance_gas_cost_df)
     rebalance_gas_cost_df.to_csv(WORKING_DATA_DIR / "rebalance_gas_cost_df.csv")
     return rebalance_gas_cost_df
 
 
+def fetch_all_autopool_debt_reporting_events() -> pd.DataFrame:
+    debt_reporting_dfs = []
+
+    for autopool in ALL_AUTOPOOLS:
+        vault_contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+        debt_reporting_df = add_timestamp_to_df_with_block_column(
+            fetch_events(vault_contract.events.DestinationDebtReporting)
+        )
+        debt_reporting_dfs.append(debt_reporting_df)
+
+    destination_debt_reporting_df = pd.concat(debt_reporting_dfs)
+    destination_debt_reporting_df = add_transaction_gas_info_to_df_with_tx_hash(destination_debt_reporting_df)
+    return destination_debt_reporting_df
+
+
 if __name__ == "__main__":
-    fetch_and_render_keeper_network_gas_costs()
+    fetch_all_autopool_debt_reporting_events()

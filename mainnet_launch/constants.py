@@ -24,12 +24,18 @@ CACHE_TIME = 3600 * 6  # six hours
 ROOT_DIR = Path(__file__).parent
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "rebalance_plans"
 WORKING_DATA_DIR = ROOT_DIR / "working_data"  # hold temp data for new features or adhoc questions
+TX_HASH_TO_GAS_COSTS_PATH = WORKING_DATA_DIR / "tx_hash_to_gas_info.json"
 
 if not os.path.exists(SOLVER_REBALANCE_PLANS_DIR):
     os.makedirs(SOLVER_REBALANCE_PLANS_DIR)
 
 if not os.path.exists(WORKING_DATA_DIR):
     os.makedirs(WORKING_DATA_DIR)
+
+if not os.path.exists(TX_HASH_TO_GAS_COSTS_PATH):
+    with open(TX_HASH_TO_GAS_COSTS_PATH, "x"):
+        # create an empty file if it does not exist
+        pass
 
 
 def time_decorator(func):
@@ -58,23 +64,26 @@ ROOT_PRICE_ORACLE = "0x61F8BE7FD721e80C0249829eaE6f0DAf21bc2CaC"
 LENS_CONTRACT = "0x146b5564dd061D648275e4Bd3569b8c285783882"
 DESTINATION_VAULT_REGISTRY = "0x3AaC1CE01127593CA0c7f87b1Aedb1E153e152aE"
 INCENTIVE_PRICNIG_STATS = "0x8607bA6540AF378cbA64F4E3497FBb2d1385f862"
+# this can change over time (is current as of Oct 31, 2024
+LIQUIDATION_ROW = "0xBf58810BB1946429830C1f12205331608c470ff5"
+
 
 AUTO_ETH = AutopoolConstants(
-    "Tokemak autoETH",
+    "autoETH",  #  "Tokemak autoETH",
     "0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56",
     "0xf5f6addB08c5e6091e5FdEc7326B21bEEd942235",
     AUTO_ETH_BUCKET,
 )
 
 BAL_ETH = AutopoolConstants(
-    "Balancer/Tokemak balETH",
+    "balETH",  #   "Balancer/Tokemak balETH",
     "0x6dC3ce9C57b20131347FDc9089D740DAf6eB34c5",
     "0xabe104560D0B390309bcF20b73Dca335457AA32e",
     BAL_ETH_BUCKET,
 )
 
 AUTO_LRT = AutopoolConstants(
-    "Tokemak autoLRT",
+    "autoLRT",  # "Tokemak autoLRT",
     "0xE800e3760FC20aA98c5df6A9816147f190455AF3",
     "0x72a726c10220280049687E58B7b05fb03d579109",
     AUTO_LRT_BUCKET,

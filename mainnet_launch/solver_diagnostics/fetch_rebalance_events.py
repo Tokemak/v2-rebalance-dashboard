@@ -21,9 +21,10 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     safe_normalize_6_with_bool_success,
     identity_with_bool_success,
-    add_timestamp_to_df_with_block_column,
 )
 from mainnet_launch.destinations import get_destination_details
+
+from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 
 
 @st.cache_data(ttl=CACHE_TIME)
@@ -75,11 +76,19 @@ def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConst
         offset_period = row["swapOffsetPeriod"]
 
         move_name = f"{out_destination} -> {in_destination}"
+        if "tokemak" in move_name:
+            swapCostIdle = swapCost
+            swapCostChurn = 0
+        else:
+            swapCostIdle = 0
+            swapCostChurn = swapCost
 
         return {
             "block": row["block"],
             "break_even_days": break_even_days,
             "swapCost": swapCost,
+            "swapCostIdle": swapCostIdle,
+            "swapCostChurn": swapCostChurn,
             "apr_delta": apr_delta,
             "out_compositeReturn": out_compositeReturn,
             "in_compositeReturn": in_compositeReturn,
