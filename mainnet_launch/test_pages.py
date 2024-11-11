@@ -60,7 +60,7 @@ def log_and_time_function(page_name, func, autopool):
         testing_logger.info(f"{time_taken:.2f} seconds | {page_name}")
     else:
         testing_logger.info(f"{time_taken:.2f} seconds | {page_name} |  {autopool.name}")
-
+# uint256 swapCost = outEthValue.subSaturate(inEthValue);
 
 def main():
     open_log_in_vscode("verify_all_pages_work.log")

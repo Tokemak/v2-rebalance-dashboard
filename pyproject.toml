@@ -22,6 +22,7 @@ altair = "4.2.2"
 boto3 = "^1.35.29"
 psutil = "^6.0.0"
 filelock = "^3.16.1"
+statsmodels = "^0.14.4"
 
 [tool.black]
 line-length = 120

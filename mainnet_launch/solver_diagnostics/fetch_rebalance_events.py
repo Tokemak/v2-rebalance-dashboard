@@ -59,7 +59,7 @@ def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConst
         predictedAnnualizedGain = (row["predictedAnnualizedGain"]) / 1e18
         predicted_gain_during_swap_cost_off_set_period = predictedAnnualizedGain * (row["swapOffsetPeriod"] / 365)
 
-        swapCost = row["valueStats"][4] / 1e18
+        swapCost = row["valueStats"][4] / 1e18 # check if this
         slippage = row["valueStats"][5] / 1e18
         in_destination = destination_vault_address_to_symbol[eth_client.toChecksumAddress(row["inSummaryStats"][0])]
         out_destination = destination_vault_address_to_symbol[eth_client.toChecksumAddress(row["outSummaryStats"][0])]
@@ -67,6 +67,9 @@ def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConst
         out_compositeReturn = 100 * row["outSummaryStats"][9] / 1e18
         in_compositeReturn = 100 * row["inSummaryStats"][9] / 1e18
         apr_delta = in_compositeReturn - out_compositeReturn
+        
+        raw_in, raw_out, txHASH = row["valueStats"][2], row["valueStats"][3], row["hash"]
+        print(raw_in, raw_out)
         inEthValue = row["valueStats"][2] / 1e18
         outEthValue = row["valueStats"][3] / 1e18
 
