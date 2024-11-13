@@ -61,7 +61,7 @@ def make_idle_destination_details() -> set[DestinationDetails]:
                 vaultAddress=eth_client.toChecksumAddress(autopool.autopool_eth_addr),
                 exchangeName="tokemak",
                 dexPool=None,
-                lpTokenAddress=None,
+                lpTokenAddress=eth_client.toChecksumAddress(autopool.autopool_eth_addr),
                 lpTokenSymbol=None,
                 lpTokenName=None,
                 autopool=autopool,
