@@ -30,142 +30,329 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to
 from mainnet_launch.top_level.key_metrics import fetch_key_metrics_data
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.constants import AUTO_ETH, AUTO_LRT, BAL_ETH, AutopoolConstants, CACHE_TIME
-from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI, AUTOPOOL_ETH_STRATEGY_ABI, ERC_20_ABI
+from mainnet_launch.abis.abis import (
+    AUTOPOOL_VAULT_ABI,
+    AUTOPOOL_ETH_STRATEGY_ABI,
+    ERC_20_ABI,
+    BALANCER_AURA_DESTINATION_VAULT_ABI,
+)
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_and_clean_rebalance_between_destination_events,
 )
 from mainnet_launch.destinations import get_destination_details, ALL_AUTOPOOLS
 
 
-def _fetch_all_lp_token_transfers(autopool: AutopoolConstants) -> pd.DataFrame:
+def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants) -> pd.DataFrame:
 
     destinations = [d for d in get_destination_details() if d.autopool == autopool]
-
-    lp_tokens = list(set([d.lpTokenAddress for d in destinations]))
     vaultAddresses = list(set([d.vaultAddress for d in destinations]))
     dfs = []
 
-    for lp_token_address in lp_tokens:  # might not need this
-        token_contract = eth_client.eth.contract(eth_client.toChecksumAddress(lp_token_address), abi=ERC_20_ABI)
-        transfers = fetch_events(token_contract.events.Transfer, start_block=20538409)
-        transfers["token_address"] = token_contract.address
-        dfs.append(transfers)
+    for vault_address in vaultAddresses:
+        contract = eth_client.eth.contract(
+            eth_client.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
+        )
+        df = fetch_events(contract.events.UnderlyingDeposited, start_block=20538409)
+        df["contract_address"] = contract.address
+        dfs.append(df)
+
+    UnderlyingDeposited_df = pd.concat(dfs, axis=0)
+    return UnderlyingDeposited_df
+
+
+def _fetch_destination_UnderlyingWithdrawn(autopool: AutopoolConstants) -> pd.DataFrame:
+
+    destinations = [d for d in get_destination_details() if d.autopool == autopool]
+    vaultAddresses = list(set([d.vaultAddress for d in destinations]))
+    dfs = []
 
     for vault_address in vaultAddresses:
-        token_contract = eth_client.eth.contract(eth_client.toChecksumAddress(vault_address), abi=ERC_20_ABI)
-        transfers = fetch_events(token_contract.events.Transfer, start_block=20538409)
-        transfers["token_address"] = token_contract.address
-        dfs.append(transfers)
+        contract = eth_client.eth.contract(
+            eth_client.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
+        )
+        df = fetch_events(contract.events.UnderlyingWithdraw, start_block=20538409)
+        df["contract_address"] = contract.address
+        dfs.append(df)
 
-    transfer_df = pd.concat(dfs, axis=0)
-    return transfer_df
-
-
-def _fetch_safe_lp_token_value_df(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
-    full_data_df = get_raw_state_by_blocks([get_pools_and_destinations_call()], blocks, include_block_number=True)
-
-    def _extract_safe_lp_token_value(row: dict):
-        """Returns the safe lp token value for each destination in autopool as sum(reservesInEth) / actualLPTotalSupply"""
-        for a, destination_list in zip(
-            row["getPoolsAndDestinations"]["autopools"], row["getPoolsAndDestinations"]["destinations"]
-        ):
-            if a["poolAddress"].lower() == autopool.autopool_eth_addr.lower():
-
-                destination_safe_lp_token_value = {}
-                for destination in destination_list:
-                    tvl_in_pool = sum(destination["reservesInEth"]) / 1e18
-                    num_lp_tokens = destination["actualLPTotalSupply"] / 1e18
-                    safe_lp_token_value = tvl_in_pool / num_lp_tokens
-                    lp_token_addr = eth_client.toChecksumAddress(destination["lpTokenAddress"])
-                    destination_safe_lp_token_value[lp_token_addr] = safe_lp_token_value
-
-        return destination_safe_lp_token_value
-
-    safe_lp_token_value_records = full_data_df.apply(_extract_safe_lp_token_value, axis=1)
-    safe_lp_token_value_df = pd.DataFrame.from_records(safe_lp_token_value_records)
-    safe_lp_token_value_df.index = full_data_df.index
-    safe_lp_token_value_df["block"] = full_data_df["block"]
-    return safe_lp_token_value_df
+    UnderlyingWithdraw_df = pd.concat(dfs, axis=0)
+    return UnderlyingWithdraw_df
 
 
 def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
-    
+
     destinations = [d for d in get_destination_details() if d.autopool == autopool]
-    
+
     get_validated_spot_price_calls = []
     for dest in destinations:
         call = Call(
-        dest.vaultAddress,
-        ["getValidatedSpotPrice()(uint256)"],
-        [(dest.vaultAddress, safe_normalize_with_bool_success)],
-    )
+            dest.vaultAddress,
+            ["getValidatedSpotPrice()(uint256)"],
+            [(dest.vaultAddress, safe_normalize_with_bool_success)],
+        )
         get_validated_spot_price_calls.append(call)
-    
+
     validated_spot_price_df = get_raw_state_by_blocks(get_validated_spot_price_calls, blocks, include_block_number=True)
     return validated_spot_price_df
 
 
-def _compute_rebalance_cost_from_rebalance_event_df(rebalance_events_df: pd.DataFrame, autopool: AutopoolConstants):
-
-    lp_token_transfer_df = _fetch_all_lp_token_transfers(autopool)
-
-    blocks_with_rebalances = rebalance_events_df["block"].values
-    blocks_before_rebalances = [b - 1 for b in rebalance_events_df["block"].values]
-
-    # safe_lp_token_value_at_block_before_rebalance = _fetch_safe_lp_token_value_df(blocks_before_rebalances, autopool)
-    validated_spot_price_df = _fetch_lp_token_validated_spot_price(blocks_before_rebalances, autopool)
-
-    return rebalance_events_df, lp_token_transfer_df, validated_spot_price_df
-
-
-def compute_daily_rebalance_costs(autopool: AutopoolConstants) -> pd.DataFrame:
-
+def fetch_all_rebalance_events(autopool: AutopoolConstants) -> pd.DataFrame:
+    # todo add the other kinds of rebalance here this is most
     strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
+
     rebalance_between_destinations_df = fetch_events(strategy_contract.events.RebalanceBetweenDestinations)
-    destination_details = get_destination_details()
-
-    destination_vault_address_to_lp_token_address = {d.vaultAddress: d.lpTokenAddress for d in destination_details}
-
-    rebalance_between_destinations_df["outDestinationLpToken"] = rebalance_between_destinations_df[
-        "outSummaryStats"
-    ].apply(lambda x: destination_vault_address_to_lp_token_address[eth_client.toChecksumAddress(x[0])])
-
     rebalance_between_destinations_df["outDestinationVault"] = rebalance_between_destinations_df[
         "outSummaryStats"
     ].apply(lambda x: eth_client.toChecksumAddress(x[0]))
-
-    rebalance_between_destinations_df["inDestinationLpToken"] = rebalance_between_destinations_df[
-        "inSummaryStats"
-    ].apply(lambda x: destination_vault_address_to_lp_token_address[eth_client.toChecksumAddress(x[0])])
 
     rebalance_between_destinations_df["inDestinationVault"] = rebalance_between_destinations_df["inSummaryStats"].apply(
         lambda x: eth_client.toChecksumAddress(x[0])
     )
 
-    rebalance_between_destinations_df["params_amountIn"] = rebalance_between_destinations_df["params"].apply(
-        lambda x: int(x[2]) / 1e18
+    rebalance_between_destinations_df["tokenIn"] = rebalance_between_destinations_df["params"].apply(
+        lambda x: eth_client.toChecksumAddress(x[1])
     )
 
-    rebalance_between_destinations_df["params_amountOut"] = rebalance_between_destinations_df["params"].apply(
-        lambda x: int(x[5]) / 1e18
+    rebalance_between_destinations_df["tokenOut"] = rebalance_between_destinations_df["params"].apply(
+        lambda x: eth_client.toChecksumAddress(x[4])
     )
 
-    # non elective rebalances, taking inital capital
-    rebalance_from_idle = rebalance_between_destinations_df[
-        rebalance_between_destinations_df["outDestinationLpToken"] == autopool.autopool_eth_addr
-    ].copy()
+    rebalance_between_destinations_df["amountOut"] = rebalance_between_destinations_df["params"].apply(
+        lambda x: x[5]
+        / 1e18  # the amout of lp tokens taken out is always correct, what we don't know is the amount of lp tokens going in
+    )
 
-    # elective chrun rebalances, ether dest -> dest or dest -> idle, to fill back up idle
-    rebalance_between_destinations = rebalance_between_destinations_df = rebalance_between_destinations_df[
-        rebalance_between_destinations_df["outDestinationLpToken"] != autopool.autopool_eth_addr
-    ].copy()
+    rebalance_between_destinations_df["swapCost"] = rebalance_between_destinations_df["valueStats"].apply(
+        lambda x: x[4] / 1e18
+    )
 
-    a = _compute_rebalance_cost_from_rebalance_event_df(rebalance_between_destinations, autopool)
-    b = _compute_rebalance_cost_from_rebalance_event_df(rebalance_from_idle, autopool)
-    # rebalance_events_df, lp_token_transfer_df, safe_lp_token_value_at_block_before_rebalance
+    return rebalance_between_destinations_df
 
-    return a, b
+def _fetch_all_rebalance_events(autopool:AutopoolConstants):
+    strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
+
+    dfs= [
+        fetch_events(strategy_contract.events.RebalanceBetweenDestinations),
+          fetch_events(strategy_contract.events.RebalanceToIdle),
+          fetch_events(strategy_contract.events.SuccessfulRebalanceBetweenDestinations)
+    ]
+    return dfs
 
 
-if __name__ == "__main__":
-    compute_daily_rebalance_costs(AUTO_ETH)
+def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
+
+    destinations = [d for d in get_destination_details() if d.autopool == autopool]
+
+    get_validated_spot_price_calls = []
+    for dest in destinations:
+        call = Call(
+            dest.vaultAddress,
+            ["getValidatedSpotPrice()(uint256)"],
+            [(dest.vaultAddress, safe_normalize_with_bool_success)],
+        )
+        get_validated_spot_price_calls.append(call)
+
+    validated_spot_price_df = get_raw_state_by_blocks(get_validated_spot_price_calls, blocks, include_block_number=True)
+    validated_spot_price_df['block'] = validated_spot_price_df['block'].astype(int)
+    return validated_spot_price_df
+
+
+def get_data(autopool: AutopoolConstants):
+    rebalance_between_destinations_df = fetch_all_rebalance_events(autopool)
+    blocks = rebalance_between_destinations_df["block"]
+    validated_spot_price_df = _fetch_lp_token_validated_spot_price(blocks, autopool)
+    UnderlyingDeposited_df = _fetch_destination_UnderlyingDeposited(autopool)
+    UnderlyingWithdraw_df = _fetch_destination_UnderlyingWithdrawn(autopool)
+
+    return rebalance_between_destinations_df, validated_spot_price_df, UnderlyingDeposited_df, UnderlyingWithdraw_df
+
+
+# def _fetchBalanceOfUnderlyingDebt(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
+
+#     destinations = [d for d in get_destination_details() if d.autopool == autopool]
+
+#     calls = []
+#     for dest in destinations:
+#         call = Call(
+#             dest.vaultAddress,
+#             ["balanceOfUnderlyingDebt()(uint256)"],
+#             [(dest.vaultAddress, safe_normalize_with_bool_success)],
+#         )
+#         calls.append(call)
+
+#     return get_raw_state_by_blocks(calls, blocks, include_block_number=True)
+
+
+# def _fetch_validated_spot_prices_and_balance_of_underlying_debt(autopool: AutopoolConstants):
+#     strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
+#     rebalance_between_destinations_df = fetch_events(strategy_contract.events.RebalanceBetweenDestinations)
+
+#     spot_price_after = _fetch_lp_token_validated_spot_price(rebalance_between_destinations_df["block"], autopool)
+#     spot_price_before = _fetch_lp_token_validated_spot_price(rebalance_between_destinations_df["block"] - 1, autopool)
+
+#     balance_of_undelrying_debt_before = _fetchBalanceOfUnderlyingDebt(
+#         rebalance_between_destinations_df["block"], autopool
+#     )
+#     balance_of_undelrying_debt_after = _fetchBalanceOfUnderlyingDebt(
+#         rebalance_between_destinations_df["block"] - 1, autopool
+#     )
+
+#     rebalance_between_destinations_df["outDestinationVault"] = rebalance_between_destinations_df[
+#         "outSummaryStats"
+#     ].apply(lambda x: eth_client.toChecksumAddress(x[0]))
+
+#     rebalance_between_destinations_df["inDestinationVault"] = rebalance_between_destinations_df["inSummaryStats"].apply(
+#         lambda x: eth_client.toChecksumAddress(x[0])
+#     )
+
+#     rebalance_between_destinations_df["tokenIn"] = rebalance_between_destinations_df["params"].apply(
+#         lambda x: eth_client.toChecksumAddress(x[1])
+#     )
+
+#     rebalance_between_destinations_df["tokenOut"] = rebalance_between_destinations_df["params"].apply(
+#         lambda x: eth_client.toChecksumAddress(x[4])
+#     )
+
+#     rebalance_between_destinations_df["amountOut"] = rebalance_between_destinations_df["params"].apply(
+#         lambda x: x[5] / 1e18 # the amout of lp tokens taken out is always correct, what we don't know is the amount of lp tokens going in
+#     )
+
+#     rebalance_between_destinations_df["destinationIn"] = rebalance_between_destinations_df["params"].apply(
+#         lambda x: eth_client.toChecksumAddress(x[0])
+#         )
+
+
+#     # struct RebalanceParams {
+#     #     address destinationIn;
+#     #     address tokenIn;
+#     #     uint256 amountIn;
+#     #     address destinationOut;
+#     #     address tokenOut;
+#     #     uint256 amountOut;
+#     # }
+
+#     return (
+#         spot_price_after,
+#         spot_price_before,
+#         balance_of_undelrying_debt_before,
+#         balance_of_undelrying_debt_after,
+#         rebalance_between_destinations_df,
+#     )
+
+
+# # def _compute_rebalance_cost_from_rebalance_event_df(rebalance_events_df: pd.DataFrame, autopool: AutopoolConstants):
+
+
+# #     # lp_token_transfer_df = _fetch_all_lp_token_transfers(autopool)
+
+# #     blocks_with_rebalances = rebalance_events_df["block"].values
+# #     blocks_before_rebalances = [b - 1 for b in rebalance_events_df["block"].values]
+
+# #     # safe_lp_token_value_at_block_before_rebalance = _fetch_safe_lp_token_value_df(blocks_before_rebalances, autopool)
+# #     validated_spot_price_df = _fetch_lp_token_validated_spot_price(blocks_before_rebalances, autopool)
+# #     balance_of_undelrying_debt = _fetchBalanceOfUnderlyingDebt(blocks_before_rebalances, autopool)
+
+# #     return rebalance_events_df, lp_token_transfer_df, validated_spot_price_df, balance_of_undelrying_debt
+
+
+# # def compute_daily_rebalance_costs(autopool: AutopoolConstants) -> pd.DataFrame:
+
+# #     strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
+# #     rebalance_between_destinations_df = fetch_events(strategy_contract.events.RebalanceBetweenDestinations)
+# #     destination_details = get_destination_details()
+
+# #     destination_vault_address_to_lp_token_address = {d.vaultAddress: d.lpTokenAddress for d in destination_details}
+
+# #     rebalance_between_destinations_df["outDestinationLpToken"] = rebalance_between_destinations_df[
+# #         "outSummaryStats"
+# #     ].apply(lambda x: destination_vault_address_to_lp_token_address[eth_client.toChecksumAddress(x[0])])
+
+# #     rebalance_between_destinations_df["outDestinationVault"] = rebalance_between_destinations_df[
+# #         "outSummaryStats"
+# #     ].apply(lambda x: eth_client.toChecksumAddress(x[0]))
+
+# #     rebalance_between_destinations_df["inDestinationLpToken"] = rebalance_between_destinations_df[
+# #         "inSummaryStats"
+# #     ].apply(lambda x: destination_vault_address_to_lp_token_address[eth_client.toChecksumAddress(x[0])])
+
+# #     rebalance_between_destinations_df["inDestinationVault"] = rebalance_between_destinations_df["inSummaryStats"].apply(
+# #         lambda x: eth_client.toChecksumAddress(x[0])
+# #     )
+
+# #     rebalance_between_destinations_df["params_amountIn"] = rebalance_between_destinations_df["params"].apply(
+# #         lambda x: int(x[2]) / 1e18
+# #     )
+
+# #     rebalance_between_destinations_df["params_amountOut"] = rebalance_between_destinations_df["params"].apply(
+# #         lambda x: int(x[5]) / 1e18
+# #     )
+
+# #     # non elective rebalances, taking inital capital
+# #     rebalance_from_idle = rebalance_between_destinations_df[
+# #         rebalance_between_destinations_df["outDestinationLpToken"] == autopool.autopool_eth_addr
+# #     ].copy()
+
+# #     # elective chrun rebalances, ether dest -> dest or dest -> idle, to fill back up idle
+# #     rebalance_between_destinations = rebalance_between_destinations_df = rebalance_between_destinations_df[
+# #         rebalance_between_destinations_df["outDestinationLpToken"] != autopool.autopool_eth_addr
+# #     ].copy()
+
+# #     a = _compute_rebalance_cost_from_rebalance_event_df(rebalance_between_destinations, autopool)
+# #     b = _compute_rebalance_cost_from_rebalance_event_df(rebalance_from_idle, autopool)
+# #     # rebalance_events_df, lp_token_transfer_df, safe_lp_token_value_at_block_before_rebalance
+
+# #     return a, b
+
+
+# def _fetch_safe_lp_token_value_df(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
+#     full_data_df = get_raw_state_by_blocks([get_pools_and_destinations_call()], blocks, include_block_number=True)
+
+#     def _extract_safe_lp_token_value(row: dict):
+#         """Returns the safe lp token value for each destination in autopool as sum(reservesInEth) / actualLPTotalSupply"""
+#         for a, destination_list in zip(
+#             row["getPoolsAndDestinations"]["autopools"], row["getPoolsAndDestinations"]["destinations"]
+#         ):
+#             if a["poolAddress"].lower() == autopool.autopool_eth_addr.lower():
+
+#                 destination_safe_lp_token_value = {}
+#                 for destination in destination_list:
+#                     tvl_in_pool = sum(destination["reservesInEth"]) / 1e18
+#                     num_lp_tokens = destination["actualLPTotalSupply"] / 1e18
+#                     safe_lp_token_value = tvl_in_pool / num_lp_tokens
+#                     lp_token_addr = eth_client.toChecksumAddress(destination["lpTokenAddress"])
+#                     destination_safe_lp_token_value[lp_token_addr] = safe_lp_token_value
+
+#         return destination_safe_lp_token_value
+
+#     safe_lp_token_value_records = full_data_df.apply(_extract_safe_lp_token_value, axis=1)
+#     safe_lp_token_value_df = pd.DataFrame.from_records(safe_lp_token_value_records)
+#     safe_lp_token_value_df.index = full_data_df.index
+#     safe_lp_token_value_df["block"] = full_data_df["block"]
+#     return safe_lp_token_value_df
+
+
+# def _fetch_all_lp_token_transfers(autopool: AutopoolConstants) -> pd.DataFrame:
+
+#     destinations = [d for d in get_destination_details() if d.autopool == autopool]
+
+#     lp_tokens = list(set([d.lpTokenAddress for d in destinations]))
+#     vaultAddresses = list(set([d.vaultAddress for d in destinations]))
+#     dfs = []
+
+#     for lp_token_address in lp_tokens:  # might not need this
+#         token_contract = eth_client.eth.contract(eth_client.toChecksumAddress(lp_token_address), abi=ERC_20_ABI)
+#         transfers = fetch_events(token_contract.events.Transfer, start_block=20538409)
+#         transfers["token_address"] = token_contract.address
+#         dfs.append(transfers)
+
+#     for vault_address in vaultAddresses:
+#         token_contract = eth_client.eth.contract(eth_client.toChecksumAddress(vault_address), abi=ERC_20_ABI)
+#         transfers = fetch_events(token_contract.events.Transfer, start_block=20538409)
+#         transfers["token_address"] = token_contract.address
+#         dfs.append(transfers)
+
+#     transfer_df = pd.concat(dfs, axis=0)
+#     return transfer_df
+
+
+# # if __name__ == "__main__":
+# #     compute_daily_rebalance_costs(AUTO_ETH)
