@@ -15,27 +15,33 @@ from mainnet_launch.autopool_diagnostics.fees import fetch_autopool_fee_data
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_protocol_level_profit_and_loss_data():
-    gas_cost_df = fetch_gas_cost_df()
+
     fee_df = fetch_fee_df()
-    return gas_cost_df, fee_df
+    gas_cost_df = fetch_gas_cost_df()
+
+    today = datetime.now(timezone.utc)
+    seven_day_profit = _build_profit_loss_df(gas_cost_df, fee_df, today - timedelta(days=7))
+    thirty_day_profit = _build_profit_loss_df(gas_cost_df, fee_df, today - timedelta(days=30))
+    one_year_profit = _build_profit_loss_df(gas_cost_df, fee_df, today - timedelta(days=365))
+
+    return seven_day_profit, thirty_day_profit, one_year_profit
 
 
 def fetch_and_render_protocol_level_profit_and_loss_data():
-    gas_cost_df, fee_df = fetch_protocol_level_profit_and_loss_data()
+    seven_day_profit, thirty_day_profit, one_year_profit = fetch_protocol_level_profit_and_loss_data()
 
-    today = datetime.now(timezone.utc)
-
-    seven_days_ago = today - timedelta(days=7)
-    thirty_days_ago = today - timedelta(days=30)
-    one_year_ago = today - timedelta(days=365)
-
-    for window, window_name in zip([seven_days_ago, thirty_days_ago, one_year_ago], ["7-Day", "30-Day", "1-Year"]):
-        _render_protocol_level_profit_and_loss_tables(gas_cost_df, fee_df, window, window_name)
+    for profit_and_loss_df, window_name in zip(
+        [seven_day_profit, thirty_day_profit, one_year_profit], ["7-Day", "30-Day", "1-Year"]
+    ):
+        st.header(f"ETH Profit and Loss ({window_name})")
+        st.table(profit_and_loss_df)
 
 
-def _render_protocol_level_profit_and_loss_tables(
-    gas_cost_df: pd.DataFrame, fee_df: pd.DataFrame, window: timedelta, window_name: str
-):
+def _build_profit_loss_df(
+    gas_cost_df: pd.DataFrame,
+    fee_df: pd.DataFrame,
+    window: timedelta,
+) -> pd.DataFrame:
     gas_costs_within_window_raw = (
         gas_cost_df[gas_cost_df.index > window][
             ["debt_reporting_gas_cost_in_eth", "solver_gas_cost_in_eth", "calculator_gas_cost_in_eth"]
@@ -74,8 +80,7 @@ def _render_protocol_level_profit_and_loss_tables(
 
     profit_and_loss_df = pd.DataFrame(list(profit_and_loss_dict.items()), columns=["Description", "Amount (ETH)"])
 
-    st.header(f"ETH Profit and Loss ({window_name})")
-    st.table(profit_and_loss_df)
+    return profit_and_loss_df
 
 
 def fetch_gas_cost_df() -> pd.DataFrame:
