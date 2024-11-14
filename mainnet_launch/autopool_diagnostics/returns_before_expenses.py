@@ -104,10 +104,16 @@ def _compute_30_day_and_lifetime_annualized_return(autopool_return_and_expenses_
 
 def _compute_returns(autopool_return_and_expenses_df: pd.DataFrame) -> dict:
     return_metrics = {}
-    for col in ["actual_nav_per_share", "nav_per_share_if_no_fees", "nav_per_share_if_no_value_lost_from_rebalances", 
-                "nav_per_share_if_no_depegs", "nav_per_share_if_no_value_lost_from_rebalancesIdle", "nav_per_share_if_no_value_lost_from_rebalancesChurn"]:
-        thirty_day_annualized_return, lifetime_annualized_return, seven_day_annualized_return = _compute_30_day_and_lifetime_annualized_return(
-            autopool_return_and_expenses_df, col
+    for col in [
+        "actual_nav_per_share",
+        "nav_per_share_if_no_fees",
+        "nav_per_share_if_no_value_lost_from_rebalances",
+        "nav_per_share_if_no_depegs",
+        "nav_per_share_if_no_value_lost_from_rebalancesIdle",
+        "nav_per_share_if_no_value_lost_from_rebalancesChurn",
+    ]:
+        thirty_day_annualized_return, lifetime_annualized_return, seven_day_annualized_return = (
+            _compute_30_day_and_lifetime_annualized_return(autopool_return_and_expenses_df, col)
         )
         return_metrics[f"{col} 30days"] = thirty_day_annualized_return
         return_metrics[f"{col} lifetime"] = lifetime_annualized_return
@@ -149,7 +155,6 @@ def _compute_returns(autopool_return_and_expenses_df: pd.DataFrame) -> dict:
         + return_metrics["7_day_return_lost_to_fees"]
         + return_metrics["7_day_return_lost_to_depegs"]
     )
-
 
     return_metrics["30_day_return_lost_to_rebalance_costs"] = (
         return_metrics["nav_per_share_if_no_value_lost_from_rebalances 30days"]
@@ -238,11 +243,11 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> d
     cumulative_shares_minted_df = _fetch_cumulative_fee_shares_minted_by_day(autopool)
     daily_nav_and_shares_df = _fetch_actual_nav_per_share_by_day(autopool)
     key_metrics_data = fetch_key_metrics_data(autopool)
-    total_nav_series = key_metrics_data['allocation_df'].sum(axis=1)
-    portion_df = key_metrics_data['allocation_df'].div(total_nav_series, axis=0)
-    wpReturn = (key_metrics_data['priceReturn_df'].fillna(0) * portion_df.fillna(0)).sum(axis=1)
+    total_nav_series = key_metrics_data["allocation_df"].sum(axis=1)
+    portion_df = key_metrics_data["allocation_df"].div(total_nav_series, axis=0)
+    wpReturn = (key_metrics_data["priceReturn_df"].fillna(0) * portion_df.fillna(0)).sum(axis=1)
     wpReturn = wpReturn.resample("1D").last()
-    wpReturn = wpReturn.rename('wpr')
+    wpReturn = wpReturn.rename("wpr")
     autopool_return_and_expenses_df = daily_nav_and_shares_df.join(wpReturn, how="left")
     autopool_return_and_expenses_df = autopool_return_and_expenses_df.join(cumulative_shares_minted_df, how="left")
 
@@ -262,13 +267,11 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> d
         cumulative_nav_lost_to_rebalances, how="left"
     )
 
-
-
     # if there are no rebalances on the current day then the cumulative eth lost has not changed so we can ffill
-    autopool_return_and_expenses_df[[
-        "eth_nav_lost_by_rebalance_between_destinations", "swapCostETHChurn", "swapCostETHIdle"]
-    ] = autopool_return_and_expenses_df[[
-        "eth_nav_lost_by_rebalance_between_destinations", "swapCostETHChurn", "swapCostETHIdle"]
+    autopool_return_and_expenses_df[
+        ["eth_nav_lost_by_rebalance_between_destinations", "swapCostETHChurn", "swapCostETHIdle"]
+    ] = autopool_return_and_expenses_df[
+        ["eth_nav_lost_by_rebalance_between_destinations", "swapCostETHChurn", "swapCostETHIdle"]
     ].ffill()
 
     # at the start there can be np.Nan streaming fees, periodic_fees or eth lost to rebalances
@@ -306,13 +309,11 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> d
     ) / autopool_return_and_expenses_df["actual_shares"]
 
     autopool_return_and_expenses_df["nav_per_share_if_no_value_lost_from_rebalancesIdle"] = (
-        autopool_return_and_expenses_df["actual_nav"]
-        + autopool_return_and_expenses_df["swapCostETHIdle"]
+        autopool_return_and_expenses_df["actual_nav"] + autopool_return_and_expenses_df["swapCostETHIdle"]
     ) / autopool_return_and_expenses_df["actual_shares"]
 
     autopool_return_and_expenses_df["nav_per_share_if_no_value_lost_from_rebalancesChurn"] = (
-        autopool_return_and_expenses_df["actual_nav"]
-        + autopool_return_and_expenses_df["swapCostETHChurn"]
+        autopool_return_and_expenses_df["actual_nav"] + autopool_return_and_expenses_df["swapCostETHChurn"]
     ) / autopool_return_and_expenses_df["actual_shares"]
 
     autopool_return_and_expenses_df["shares_if_no_fees_minted"] = autopool_return_and_expenses_df["actual_shares"] - (
@@ -328,10 +329,9 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> d
         / autopool_return_and_expenses_df["shares_if_no_fees_minted"]
     )
 
-    autopool_return_and_expenses_df["nav_per_share_if_no_depegs"] = (
-        autopool_return_and_expenses_df["actual_nav_per_share"]
-        * (1 + autopool_return_and_expenses_df["wpr"])
-    )
+    autopool_return_and_expenses_df["nav_per_share_if_no_depegs"] = autopool_return_and_expenses_df[
+        "actual_nav_per_share"
+    ] * (1 + autopool_return_and_expenses_df["wpr"])
 
     returns_metrics = _compute_returns(autopool_return_and_expenses_df)
     return returns_metrics, autopool_return_and_expenses_df
@@ -349,10 +349,16 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
             +returns_metrics["7_day_return_lost_to_depegs"],
             returns_metrics["7_day_return_if_no_fees_or_rebalance_costs_depegs"],
         ],
-        names=["Net Return", "Return Lost to Fees", "Return Lost to Rebalance Idle",  "Return Lost to Rebalance dest2dest", "depeg loss", "Gross Return"],
+        names=[
+            "Net Return",
+            "Return Lost to Fees",
+            "Return Lost to Rebalance Idle",
+            "Return Lost to Rebalance dest2dest",
+            "depeg loss",
+            "Gross Return",
+        ],
         title="Annualized 7-Day Returns",
     )
-
 
     bridge_fig_30_days_apr = _make_bridge_plot(
         [
@@ -363,7 +369,14 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
             +returns_metrics["30_day_return_lost_to_depegs"],
             returns_metrics["30_day_return_if_no_fees_or_rebalance_costs_depegs"],
         ],
-        names=["Net Return", "Return Lost to Fees", "Return Lost to Rebalance Idle",  "Return Lost to Rebalance dest2dest", "depeg loss", "Gross Return"],
+        names=[
+            "Net Return",
+            "Return Lost to Fees",
+            "Return Lost to Rebalance Idle",
+            "Return Lost to Rebalance dest2dest",
+            "depeg loss",
+            "Gross Return",
+        ],
         title="Annualized 30-Day Returns",
     )
 
@@ -376,7 +389,14 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
             +returns_metrics["30_day_return_lost_to_depegs"],
             returns_metrics["lifetime_return_if_no_fees_or_rebalance_costs"],
         ],
-        names=["Net Return", "Return Lost to Fees", "Return Lost to Rebalance Idle", "Return Lost to Rebalance dest2dest", "depeg loss", "Gross Return"],
+        names=[
+            "Net Return",
+            "Return Lost to Fees",
+            "Return Lost to Rebalance Idle",
+            "Return Lost to Rebalance dest2dest",
+            "depeg loss",
+            "Gross Return",
+        ],
         title="Annualized Year-to-Date Returns",
     )
 
