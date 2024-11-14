@@ -12,7 +12,7 @@ from v2_rebalance_dashboard.fetch_growth_of_a_dollar import fetch_growth_of_a_do
 def get_autopool_diagnostics_plotData(autopool_name: str):
     if autopool_name != "balETH":
         raise ValueError("only works for balETH autopool")
-
+    bad_change =                      'valid_code'
     (
         eth_allocation_bar_chart_fig,
         composite_return_out_fig1,
