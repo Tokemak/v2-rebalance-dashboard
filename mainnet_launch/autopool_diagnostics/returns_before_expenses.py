@@ -25,6 +25,7 @@ from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI, AUTOPOOL_ETH_STRATEGY_A
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_and_clean_rebalance_between_destination_events,
 )
+from mainnet_launch.autopool_diagnostics.compute_rebalance_cost import fetch_spot_value_swap_cost_df
 
 
 def handle_getAssetBreakdown(success, AssetBreakdown):
@@ -255,17 +256,50 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> d
         autopool_return_and_expenses_df[["new_shares_from_periodic_fees", "new_shares_from_streaming_fees"]].ffill()
     )
     # if there were no shares minted on a day the cumulative number of new shares minted has not changed
-    rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
-    cumulative_nav_lost_to_rebalances = (rebalance_df[["swapCost"]].resample("1D").sum()).cumsum()
-    cumulative_nav_lost_to_rebalancesChurn = (rebalance_df[["swapCostChurn"]].resample("1D").sum()).cumsum()
-    cumulative_nav_lost_to_rebalancesIdle = (rebalance_df[["swapCostIdle"]].resample("1D").sum()).cumsum()
+    # rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
+    # cumulative_nav_lost_to_rebalances = (rebalance_df[["swapCost"]].resample("1D").sum()).cumsum()
+    # cumulative_nav_lost_to_rebalancesChurn = (rebalance_df[["swapCostChurn"]].resample("1D").sum()).cumsum()
+    # cumulative_nav_lost_to_rebalancesIdle = (rebalance_df[["swapCostIdle"]].resample("1D").sum()).cumsum()
+    # cumulative_nav_lost_to_rebalances.columns = ["eth_nav_lost_by_rebalance_between_destinations"]
+    # cumulative_nav_lost_to_rebalances["swapCostETHIdle"] = cumulative_nav_lost_to_rebalancesIdle
+    # cumulative_nav_lost_to_rebalances["swapCostETHChurn"] = cumulative_nav_lost_to_rebalancesChurn
+
+    rebalance_spot_value_swap_cost_df = fetch_spot_value_swap_cost_df(autopool)
+
+    cumulative_nav_lost_to_rebalances = (
+        rebalance_spot_value_swap_cost_df[["spot_value_swap_cost"]].resample("1D").sum()
+    ).cumsum()
     cumulative_nav_lost_to_rebalances.columns = ["eth_nav_lost_by_rebalance_between_destinations"]
-    cumulative_nav_lost_to_rebalances["swapCostETHIdle"] = cumulative_nav_lost_to_rebalancesIdle
-    cumulative_nav_lost_to_rebalances["swapCostETHChurn"] = cumulative_nav_lost_to_rebalancesChurn
+
+    swap_cost_rebalances_from_idle = (
+        rebalance_spot_value_swap_cost_df[
+            rebalance_spot_value_swap_cost_df["outDestinationVault"] == autopool.autopool_eth_addr
+        ]
+        .resample("1D")[["spot_value_swap_cost"]]
+        .sum()
+        .cumsum()
+    )
+
+    swap_cost_rebalances_from_idle.columns = ["swapCostETHIdle"]
+
+    swap_cost_rebalances_churn = (
+        rebalance_spot_value_swap_cost_df[
+            rebalance_spot_value_swap_cost_df["outDestinationVault"] != autopool.autopool_eth_addr
+        ]
+        .resample("1D")[["spot_value_swap_cost"]]
+        .sum()
+        .cumsum()
+    )
+
+    swap_cost_rebalances_churn.columns = ["swapCostETHChurn"]
 
     autopool_return_and_expenses_df = autopool_return_and_expenses_df.join(
         cumulative_nav_lost_to_rebalances, how="left"
     )
+
+    autopool_return_and_expenses_df = autopool_return_and_expenses_df.join(swap_cost_rebalances_from_idle, how="left")
+
+    autopool_return_and_expenses_df = autopool_return_and_expenses_df.join(swap_cost_rebalances_churn, how="left")
 
     # if there are no rebalances on the current day then the cumulative eth lost has not changed so we can ffill
     autopool_return_and_expenses_df[
