@@ -92,6 +92,8 @@ def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolCo
         get_validated_spot_price_calls.append(call)
 
     validated_spot_price_df = get_raw_state_by_blocks(get_validated_spot_price_calls, blocks, include_block_number=True)
+    validated_spot_price_df[autopool.autopool_eth_addr] = 1.0 # movements to or from the autopool itself are always in WETH
+    validated_spot_price_df['block'] = validated_spot_price_df['block'].astype(int)
     return validated_spot_price_df
 
 
@@ -138,22 +140,7 @@ def _fetch_all_rebalance_events(autopool:AutopoolConstants):
     return dfs
 
 
-def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
 
-    destinations = [d for d in get_destination_details() if d.autopool == autopool]
-
-    get_validated_spot_price_calls = []
-    for dest in destinations:
-        call = Call(
-            dest.vaultAddress,
-            ["getValidatedSpotPrice()(uint256)"],
-            [(dest.vaultAddress, safe_normalize_with_bool_success)],
-        )
-        get_validated_spot_price_calls.append(call)
-
-    validated_spot_price_df = get_raw_state_by_blocks(get_validated_spot_price_calls, blocks, include_block_number=True)
-    validated_spot_price_df['block'] = validated_spot_price_df['block'].astype(int)
-    return validated_spot_price_df
 
 
 def get_data(autopool: AutopoolConstants):
