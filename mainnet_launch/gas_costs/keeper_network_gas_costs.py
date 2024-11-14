@@ -194,7 +194,7 @@ def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
     calculator_df = our_upkeep_df[
         our_upkeep_df["id"]
         .apply(str)
-        .isin([OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID, NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID])
+        .isin([OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID, NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID, NEW2_CALCULATOR_KEEPER_ORACLE_TOPIC_ID])
     ]
     incentive_pricing_df = our_upkeep_df[our_upkeep_df["id"].apply(str) == INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 
