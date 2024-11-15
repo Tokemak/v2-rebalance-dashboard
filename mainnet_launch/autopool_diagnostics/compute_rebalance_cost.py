@@ -53,7 +53,7 @@ def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolCo
 
     validated_spot_price_df = get_raw_state_by_blocks(get_validated_spot_price_calls, blocks, include_block_number=True)
     validated_spot_price_df[autopool.autopool_eth_addr] = (
-        1.0  # movements to or from the autopool itself are always in WETH
+        1.0 # movements to or from the autopool itself are always in WETH
     )
     validated_spot_price_df["block"] = validated_spot_price_df["block"].astype(int)
     return validated_spot_price_df
@@ -110,8 +110,9 @@ def fetch_spot_value_swap_cost_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
     """
     rebalance_between_destinations_df = _fetch_all_rebalance_events(autopool)
-    blocks = rebalance_between_destinations_df["block"]
-    validated_spot_price_df = _fetch_lp_token_validated_spot_price(blocks, autopool)
+    blocks = rebalance_between_destinations_df["block"] 
+    validated_spot_price_df = _fetch_lp_token_validated_spot_price(blocks  -1, autopool)
+    validated_spot_price_df['block'] = blocks.values
     UnderlyingDeposited_df = _fetch_destination_UnderlyingDeposited(autopool)
 
     # only look at the deposit transactions that are alone in the hash.
@@ -177,4 +178,4 @@ def fetch_spot_value_swap_cost_df(autopool: AutopoolConstants) -> pd.DataFrame:
     # outDestinationVault == autopool vault address means idle -> dest
     # else
     # dest to dest
-    return amounts_with_spot_values[["spot_value_swap_cost", "inDestinationVault", "outDestinationVault", "block"]]
+    return amounts_with_spot_values[["spot_value_swap_cost", "inDestinationVault", "outDestinationVault", "swapCost", "block"]]
