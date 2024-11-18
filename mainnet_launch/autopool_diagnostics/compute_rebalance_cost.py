@@ -12,8 +12,12 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.constants import AutopoolConstants, CACHE_TIME, AUTO_LRT
-from mainnet_launch.abis.abis import AUTOPOOL_ETH_STRATEGY_ABI, BALANCER_AURA_DESTINATION_VAULT_ABI, AUTOPOOL_VAULT_ABI
-
+from mainnet_launch.abis.abis import (
+    AUTOPOOL_ETH_STRATEGY_ABI,
+    ERC_20_ABI,
+    BALANCER_AURA_DESTINATION_VAULT_ABI,
+    AUTOPOOL_VAULT_ABI,
+)
 from mainnet_launch.destinations import get_destination_details
 
 
@@ -27,7 +31,7 @@ def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants) -> pd.Da
         contract = eth_client.eth.contract(
             eth_client.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
         )
-        df = fetch_events(contract.events.UnderlyingDeposited, start_block=20538409)
+        df = fetch_events(contract.events.UnderlyingDeposited)
         df["contract_address"] = contract.address
         dfs.append(df)
 
@@ -45,7 +49,7 @@ def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants) -> pd.Dat
         contract = eth_client.eth.contract(
             eth_client.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
         )
-        df = fetch_events(contract.events.UnderlyingWithdraw, start_block=20538409)
+        df = fetch_events(contract.events.UnderlyingWithdraw)
         df["contract_address"] = contract.address
         dfs.append(df)
 
@@ -71,13 +75,40 @@ def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolCo
         1.0  # movements to or from the autopool itself are always in WETH
     )
     validated_spot_price_df["block"] = validated_spot_price_df["block"].astype(int)
+    validated_spot_price_df = validated_spot_price_df.reset_index(drop=True)
     return validated_spot_price_df
 
 
-def _fetch_all_rebalance_events(autopool: AutopoolConstants) -> pd.DataFrame:
+def _fetch_weth_transfers_to_or_from_autopool_vault(autopool: AutopoolConstants) -> pd.DataFrame:
+    start_block = 20722908
+
+    WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+    weth_contract = eth_client.eth.contract(WETH, abi=ERC_20_ABI)
+
+    weth_to_autopool = fetch_events(
+        weth_contract.events.Transfer,
+        start_block=start_block,
+        argument_filters={"to": autopool.autopool_eth_addr},
+    )
+
+    weth_from_autopool = fetch_events(
+        weth_contract.events.Transfer,
+        start_block=start_block,
+        argument_filters={"from": autopool.autopool_eth_addr},
+    )
+
+    return weth_to_autopool, weth_from_autopool
+
+
+def _fetch_events_needed_to_compute_rebalance_costs(autopool: AutopoolConstants) -> pd.DataFrame:
+    """
+    Returns a df of event, block, hash, outDestination Vault, inDestinationVault for rebalance between destinations
+    or to/from idle
+    """
     strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
 
     rebalance_between_destinations_df = fetch_events(strategy_contract.events.RebalanceBetweenDestinations)
+
     rebalance_between_destinations_df["outDestinationVault"] = rebalance_between_destinations_df[
         "outSummaryStats"
     ].apply(lambda x: eth_client.toChecksumAddress(x[0]))
@@ -86,129 +117,85 @@ def _fetch_all_rebalance_events(autopool: AutopoolConstants) -> pd.DataFrame:
         lambda x: eth_client.toChecksumAddress(x[0])
     )
 
-    rebalance_between_destinations_df["tokenIn"] = rebalance_between_destinations_df["params"].apply(
-        lambda x: eth_client.toChecksumAddress(x[1])
-    )
-
-    rebalance_between_destinations_df["tokenOut"] = rebalance_between_destinations_df["params"].apply(
-        lambda x: eth_client.toChecksumAddress(x[4])
-    )
-
-    rebalance_between_destinations_df["amountOut"] = rebalance_between_destinations_df["params"].apply(
-        lambda x: x[5]
-        / 1e18  # the amout of lp tokens taken out is always correct, what we don't know is the amount of lp tokens going in
-    )
-
-    rebalance_between_destinations_df["swapCost"] = rebalance_between_destinations_df["valueStats"].apply(
-        lambda x: x[4] / 1e18
-    )
-
-    return rebalance_between_destinations_df
-
-
-def fetch_spot_value_of_rebalances_from_dest_to_idle(autopool: AutopoolConstants) -> pd.DataFrame:
-
-    strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
     rebalance_to_idle_df = fetch_events(strategy_contract.events.RebalanceToIdle)
-    blocks = rebalance_to_idle_df["block"]
-    validated_spot_price_df = _fetch_lp_token_validated_spot_price(blocks - 1, autopool)
-    validated_spot_price_df["block"] = blocks.values
+
+    rebalance_to_idle_df["outDestinationVault"] = rebalance_to_idle_df["outSummary"].apply(
+        lambda x: eth_client.toChecksumAddress(x[0])
+    )
+
+    rebalance_to_idle_df["inDestinationVault"] = autopool.autopool_eth_addr
+
+    rebalance_columns = ["event", "block", "hash", "outDestinationVault", "inDestinationVault"]
+    rebalance_to_idle_df = rebalance_to_idle_df[rebalance_columns].copy()
+    rebalance_between_destinations_df = rebalance_between_destinations_df[rebalance_columns].copy()
+
+    rebalance_df = pd.concat([rebalance_to_idle_df, rebalance_between_destinations_df], axis=0)
+
+    weth_to_autopool, weth_from_autopool = _fetch_weth_transfers_to_or_from_autopool_vault(autopool)
+    UnderlyingDeposited_df = _fetch_destination_UnderlyingDeposited(autopool)
     UnderlyingWithdraw_df = _fetch_destination_UnderlyingWithdraw(autopool)
 
-    return UnderlyingWithdraw_df, validated_spot_price_df, rebalance_to_idle_df
+    valid_weth_from_autopool = weth_from_autopool[~weth_from_autopool["hash"].duplicated(keep=False)].copy()
+    valid_weth_from_autopool["weth_from_autopool"] = valid_weth_from_autopool["value"] / 1e18
 
+    valid_weth_to_autopool = weth_to_autopool[~weth_to_autopool["hash"].duplicated(keep=False)].copy()
+    valid_weth_to_autopool["weth_to_autopool"] = valid_weth_to_autopool["value"] / 1e18
 
+    valid_underlying_withdraw_df = UnderlyingWithdraw_df[~UnderlyingWithdraw_df["hash"].duplicated(keep=False)].copy()
+    valid_underlying_withdraw_df["amount_withdrawn"] = valid_underlying_withdraw_df["amount"] / 1e18
 
+    valid_underlying_deposited_df = UnderlyingDeposited_df[
+        ~UnderlyingDeposited_df["hash"].duplicated(keep=False)
+    ].copy()
+    valid_underlying_deposited_df["amount_deposited"] = valid_underlying_deposited_df["amount"] / 1e18
 
+    # amount_deposited the quanity of LP tokens deposited to a destination (value out the autopool)
+    # amount_withdrawn the quanity of LP tokens withdrawn from a destination (value into the autopool)
+    rebalance_df = pd.merge(
+        rebalance_df, valid_underlying_withdraw_df[["amount_withdrawn", "hash"]], on="hash", how="left"
+    )
+    rebalance_df = pd.merge(
+        rebalance_df, valid_underlying_deposited_df[["amount_deposited", "hash"]], on="hash", how="left"
+    )
+    rebalance_df = pd.merge(rebalance_df, valid_weth_to_autopool[["weth_to_autopool", "hash"]], on="hash", how="left")
+    rebalance_df = pd.merge(
+        rebalance_df, valid_weth_from_autopool[["weth_from_autopool", "hash"]], on="hash", how="left"
+    )
+
+    return rebalance_df
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def fetch_spot_value_swap_cost_df(autopool: AutopoolConstants) -> pd.DataFrame:
-    """
-
-    Returns the spot value of the swap cost by compaaring the spot value of the LP tokens that are added or
-    withdrawn from the pool
-
-    idle -> dest
-    and
-    dest -> idle
-
-    ignores
-
-    dest -> idle (infrequent and small) can add later
-    and
-    dest -> dest when the lp token is the same. Those have a swap cost of 0
-
-    """
-    rebalance_between_destinations_df = _fetch_all_rebalance_events(autopool)
-    blocks = rebalance_between_destinations_df["block"]
-    validated_spot_price_df = _fetch_lp_token_validated_spot_price(blocks - 1, autopool)
-    validated_spot_price_df["block"] = blocks.values
-    UnderlyingDeposited_df = _fetch_destination_UnderlyingDeposited(autopool)
-
-    # only look at the deposit transactions that are alone in the hash.
-    # those transaction with more than one deposit into an underlying destination
-    # are moving same same LP tokens between destinations those have a swap cost of 0
-    # so they can be safely ignored
-
-    valid_deposit_hashes = (
-        UnderlyingDeposited_df["hash"].value_counts()[UnderlyingDeposited_df["hash"].value_counts() == 1].index
+def _fetch_rebalance_df_with_actual_amounts(autopool: AutopoolConstants) -> pd.DataFrame:
+    rebalance_df = _fetch_events_needed_to_compute_rebalance_costs(autopool)
+    # get the price of each destination token before the rebalance
+    validated_spot_price_df = _fetch_lp_token_validated_spot_price(rebalance_df["block"] - 1, autopool)
+    validated_spot_price_df["block"] = validated_spot_price_df["block"] + 1  # set the block to be the blocks +1
+    rebalance_df = pd.merge(rebalance_df, validated_spot_price_df, on="block", how="left")
+    rebalance_df["amount_deposited"] = rebalance_df["amount_deposited"].combine_first(rebalance_df["weth_to_autopool"])
+    rebalance_df["amount_withdrawn"] = rebalance_df["amount_withdrawn"].combine_first(
+        rebalance_df["weth_from_autopool"]
     )
-    valid_underlying_deposited_df = UnderlyingDeposited_df[
-        UnderlyingDeposited_df["hash"].isin(valid_deposit_hashes)
-    ].copy()
-    valid_underlying_deposited_df["amountIn"] = valid_underlying_deposited_df["amount"] / 1e18
-    # this is the correct amount of LP tokens minted during this rebalance transaction
 
-    df = pd.merge(rebalance_between_destinations_df, valid_underlying_deposited_df, on="hash", how="inner")
-    df["raw_amount_out"] = df["params"].apply(lambda x: x[5])
-    df["raw_amount_in"] = df["amount"]
-    df["event_amount_in"] = df["params"].apply(lambda x: x[2])
-    df["block"] = df["block_y"]
+    def _compute_value_out_of_autopool(row):
+        out_price = row[row["outDestinationVault"]]
+        out_amount = row["amount_withdrawn"]
+        in_price = row[row["inDestinationVault"]]
+        in_amount = row["amount_deposited"]
 
-    limited_df = df[
-        [
-            "contract_address",
-            "amountIn",
-            "amountOut",  # amount out is the quantity of LP tokens or WETH removed from the vault
-            "inDestinationVault",
-            "outDestinationVault",
-            "hash",
-            "block",
-            "raw_amount_in",
-            "raw_amount_out",
-            "event_amount_in",
-            "swapCost",
-        ]
-    ].copy()
+        return out_price, out_amount, in_price, in_amount
 
-    amounts_with_spot_values = pd.merge(limited_df, validated_spot_price_df, on="block", how="inner")
-
-    def _compute_spot_value_change(row):
-        in_dest = row["inDestinationVault"]
-        in_dest_spot_price = row[in_dest]
-
-        out_dest = row["outDestinationVault"]
-        out_dest_spot_price = row[out_dest]
-
-        spot_value_out = out_dest_spot_price * row["amountOut"]
-        spot_value_in = in_dest_spot_price * row["amountIn"]
-
-        swap_cost = spot_value_out - spot_value_in
-
-        return {"spot_value_out": spot_value_out, "spot_value_in": spot_value_in, "spot_value_swap_cost": swap_cost}
-
-    spot_values_df = pd.DataFrame.from_records(
-        amounts_with_spot_values.apply(_compute_spot_value_change, axis=1).values
+    rebalance_df[["out_price", "out_amount", "in_price", "in_amount"]] = rebalance_df.apply(
+        lambda row: _compute_value_out_of_autopool(row), axis=1, result_type="expand"
     )
-    amounts_with_spot_values = pd.concat([amounts_with_spot_values, spot_values_df], axis=1)
 
-    # if the solver donates more to the pool than it takes out, treat that as a swap cost of 0 instead of a negative swap cost
-    amounts_with_spot_values["spot_value_swap_cost"] = amounts_with_spot_values["spot_value_swap_cost"].clip(lower=0)
-    amounts_with_spot_values = add_timestamp_to_df_with_block_column(amounts_with_spot_values)
-    # outDestinationVault == autopool vault address means idle -> dest
-    # else
-    # dest to dest
-    return amounts_with_spot_values[
-        ["spot_value_swap_cost", "inDestinationVault", "outDestinationVault", "swapCost", "block"]
-    ]
+    rebalance_df["spot_value_out"] = rebalance_df["out_price"] * rebalance_df["out_amount"]
+    rebalance_df["spot_value_in"] = rebalance_df["in_price"] * rebalance_df["in_amount"]
+    rebalance_df["swap_cost"] = rebalance_df["spot_value_out"] - rebalance_df["spot_value_in"]
+
+    return rebalance_df
+
+
+if __name__ == "__main__":
+    _fetch_rebalance_df_with_actual_amounts(AUTO_LRT)
+
