@@ -16,7 +16,6 @@ from mainnet_launch.abis.abis import (
     AUTOPOOL_ETH_STRATEGY_ABI,
     ERC_20_ABI,
     BALANCER_AURA_DESTINATION_VAULT_ABI,
-    AUTOPOOL_VAULT_ABI,
 )
 from mainnet_launch.destinations import get_destination_details
 
@@ -192,10 +191,9 @@ def _fetch_rebalance_df_with_actual_amounts(autopool: AutopoolConstants) -> pd.D
     rebalance_df["spot_value_out"] = rebalance_df["out_price"] * rebalance_df["out_amount"]
     rebalance_df["spot_value_in"] = rebalance_df["in_price"] * rebalance_df["in_amount"]
     rebalance_df["swap_cost"] = rebalance_df["spot_value_out"] - rebalance_df["spot_value_in"]
-
+    rebalance_df = add_timestamp_to_df_with_block_column(rebalance_df)
     return rebalance_df
 
 
 if __name__ == "__main__":
     _fetch_rebalance_df_with_actual_amounts(AUTO_LRT)
-
