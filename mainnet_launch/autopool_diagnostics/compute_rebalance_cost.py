@@ -11,11 +11,8 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.constants import AutopoolConstants, CACHE_TIME
-from mainnet_launch.abis.abis import (
-    AUTOPOOL_ETH_STRATEGY_ABI,
-    BALANCER_AURA_DESTINATION_VAULT_ABI,
-)
+from mainnet_launch.constants import AutopoolConstants, CACHE_TIME, AUTO_LRT
+from mainnet_launch.abis.abis import AUTOPOOL_ETH_STRATEGY_ABI, BALANCER_AURA_DESTINATION_VAULT_ABI, AUTOPOOL_VAULT_ABI
 
 from mainnet_launch.destinations import get_destination_details
 
@@ -38,6 +35,24 @@ def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants) -> pd.Da
     return UnderlyingDeposited_df
 
 
+def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants) -> pd.DataFrame:
+
+    destinations = [d for d in get_destination_details() if d.autopool == autopool]
+    vaultAddresses = list(set([d.vaultAddress for d in destinations]))
+    dfs = []
+
+    for vault_address in vaultAddresses:
+        contract = eth_client.eth.contract(
+            eth_client.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
+        )
+        df = fetch_events(contract.events.UnderlyingWithdraw, start_block=20538409)
+        df["contract_address"] = contract.address
+        dfs.append(df)
+
+    UnderlyingWithdraw_df = pd.concat(dfs, axis=0)
+    return UnderlyingWithdraw_df
+
+
 def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
 
     destinations = [d for d in get_destination_details() if d.autopool == autopool]
@@ -53,7 +68,7 @@ def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolCo
 
     validated_spot_price_df = get_raw_state_by_blocks(get_validated_spot_price_calls, blocks, include_block_number=True)
     validated_spot_price_df[autopool.autopool_eth_addr] = (
-        1.0 # movements to or from the autopool itself are always in WETH
+        1.0  # movements to or from the autopool itself are always in WETH
     )
     validated_spot_price_df["block"] = validated_spot_price_df["block"].astype(int)
     return validated_spot_price_df
@@ -91,6 +106,22 @@ def _fetch_all_rebalance_events(autopool: AutopoolConstants) -> pd.DataFrame:
     return rebalance_between_destinations_df
 
 
+def fetch_spot_value_of_rebalances_from_dest_to_idle(autopool: AutopoolConstants) -> pd.DataFrame:
+
+    strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
+    rebalance_to_idle_df = fetch_events(strategy_contract.events.RebalanceToIdle)
+    blocks = rebalance_to_idle_df["block"]
+    validated_spot_price_df = _fetch_lp_token_validated_spot_price(blocks - 1, autopool)
+    validated_spot_price_df["block"] = blocks.values
+    UnderlyingWithdraw_df = _fetch_destination_UnderlyingWithdraw(autopool)
+
+    return UnderlyingWithdraw_df, validated_spot_price_df, rebalance_to_idle_df
+
+
+
+
+
+
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_spot_value_swap_cost_df(autopool: AutopoolConstants) -> pd.DataFrame:
     """
@@ -110,9 +141,9 @@ def fetch_spot_value_swap_cost_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
     """
     rebalance_between_destinations_df = _fetch_all_rebalance_events(autopool)
-    blocks = rebalance_between_destinations_df["block"] 
-    validated_spot_price_df = _fetch_lp_token_validated_spot_price(blocks  -1, autopool)
-    validated_spot_price_df['block'] = blocks.values
+    blocks = rebalance_between_destinations_df["block"]
+    validated_spot_price_df = _fetch_lp_token_validated_spot_price(blocks - 1, autopool)
+    validated_spot_price_df["block"] = blocks.values
     UnderlyingDeposited_df = _fetch_destination_UnderlyingDeposited(autopool)
 
     # only look at the deposit transactions that are alone in the hash.
@@ -178,4 +209,6 @@ def fetch_spot_value_swap_cost_df(autopool: AutopoolConstants) -> pd.DataFrame:
     # outDestinationVault == autopool vault address means idle -> dest
     # else
     # dest to dest
-    return amounts_with_spot_values[["spot_value_swap_cost", "inDestinationVault", "outDestinationVault", "swapCost", "block"]]
+    return amounts_with_spot_values[
+        ["spot_value_swap_cost", "inDestinationVault", "outDestinationVault", "swapCost", "block"]
+    ]
