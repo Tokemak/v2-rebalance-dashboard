@@ -36,11 +36,17 @@ def _flatten_events(just_found_events: list[dict]) -> None:
 
 
 def _recursive_helper_get_all_events_within_range(
-    event: "web3.contract.ContractEvent", start_block: int, end_block: int, found_events: list
+    event: "web3.contract.ContractEvent",
+    start_block: int,
+    end_block: int,
+    found_events: list,
+    argument_filters: dict | None,
 ):
     """Recursively fetch all the `event` events between start_block and end_block"""
     try:
-        event_filter = event.createFilter(fromBlock=start_block, toBlock=end_block)
+        # 99% of the time only one filter is needed to get all the events
+        # for some events (eg WETH.transfer) we need to break it into more sections to get all the events
+        event_filter = event.createFilter(fromBlock=start_block, toBlock=end_block, argument_filters=argument_filters)
         just_found_events = event_filter.get_all_entries()
         _flatten_events(just_found_events)
         found_events.extend(just_found_events)
@@ -50,8 +56,8 @@ def _recursive_helper_get_all_events_within_range(
             raise e
 
         mid = (start_block + end_block) // 2
-        _recursive_helper_get_all_events_within_range(event, start_block, mid, found_events)
-        _recursive_helper_get_all_events_within_range(event, mid + 1, end_block, found_events)
+        _recursive_helper_get_all_events_within_range(event, start_block, mid, found_events, argument_filters)
+        _recursive_helper_get_all_events_within_range(event, mid + 1, end_block, found_events, argument_filters)
 
 
 def events_to_df(found_events: list[web3.datastructures.AttributeDict]) -> pd.DataFrame:
@@ -63,11 +69,11 @@ def events_to_df(found_events: list[web3.datastructures.AttributeDict]) -> pd.Da
         cleaned_events.append(
             {
                 **event["args"],
-                "event": event["event"],
-                "block": event["blockNumber"],
-                "transaction_index": event["transactionIndex"],  # the position in the block
-                "log_index": event["logIndex"],
-                "hash": event["transactionHash"].hex(),
+                "event": str(event["event"]),
+                "block": int(event["blockNumber"]),
+                "transaction_index": int(event["transactionIndex"]), 
+                "log_index": int(event["logIndex"]),
+                "hash": str(event["transactionHash"].hex()),
             }
         )
     return pd.DataFrame.from_records(cleaned_events).sort_values(["block", "log_index"])
@@ -77,18 +83,16 @@ def fetch_events(
     event: "web3.contract.ContractEvent",
     start_block: int = 15091387,
     end_block: int = None,
+    argument_filters: dict | None = None,
 ) -> pd.DataFrame:
     """
     Collect every `event` between start_block and end_block into a DataFrame.
-
-    start_block:  15091387 July 22, defaults to 10091387, the earliest block with a timestamp in block collector. May 18, 2020
-
-    include_timestamp: bool if you want to include the column timestamp
     """
     end_block = eth_client.eth.block_number if end_block is None else end_block
+    start_block, end_block = int(start_block), int(end_block)
 
-    found_events = list()
-    _recursive_helper_get_all_events_within_range(event, start_block, end_block, found_events)
+    found_events = []
+    _recursive_helper_get_all_events_within_range(event, start_block, end_block, found_events, argument_filters)
     event_df = events_to_df(found_events)
     return event_df
 
