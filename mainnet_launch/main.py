@@ -9,7 +9,6 @@ import time
 import logging
 import os
 import psutil
-import signal
 
 from mainnet_launch.constants import ALL_AUTOPOOLS, ROOT_DIR
 from mainnet_launch.page_functions import (
@@ -22,9 +21,43 @@ from mainnet_launch.page_functions import (
 from mainnet_launch.constants import (
     CACHE_TIME,
     ALL_AUTOPOOLS,
-    AUTOPOOL_NAME_TO_CONSTANTS,
-    STREAMLIT_MARKDOWN_HTML,
 )
+
+
+STREAMLIT_MARKDOWN_HTML = """
+        <style>
+        .main {
+            max-width: 85%;
+            margin: 0 auto;
+            padding-top: 40px;
+        }
+        .stPlotlyChart {
+            width: 100%;
+            height: auto;
+            min-height: 300px;
+            max-height: 600px;
+            background-color: #f0f2f6;
+            border-radius: 5px;
+            padding: 20px;
+        }
+        @media (max-width: 768px) {
+            .stPlotlyChart {
+                min-height: 250px;
+                max-height: 450px;
+            }
+        }
+        .stPlotlyChart {
+            background-color: #f0f2f6;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        .stExpander {
+            background-color: #e6e9ef;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        </style>
+        """
 
 
 def get_memory_usage():
@@ -121,7 +154,8 @@ def main():
 
     names = [autopool.name for autopool in ALL_AUTOPOOLS]
     pool_name = st.sidebar.selectbox("Select Pool", names)
-    autopool = AUTOPOOL_NAME_TO_CONSTANTS[pool_name]
+    autopool_name_to_constants = {a.name: a for a in ALL_AUTOPOOLS}
+    autopool = autopool_name_to_constants[pool_name]
 
     page = st.sidebar.radio("Go to", CONTENT_FUNCTIONS.keys())
 
