@@ -25,8 +25,11 @@ SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "rebalance_plans"
 WORKING_DATA_DIR = ROOT_DIR / "working_data"
 TX_HASH_TO_GAS_COSTS_PATH = WORKING_DATA_DIR / "tx_hash_to_gas_info.json"
 
+DB_DIR = ROOT_DIR / "databases"
+
 os.makedirs(SOLVER_REBALANCE_PLANS_DIR, exist_ok=True)
 os.makedirs(WORKING_DATA_DIR, exist_ok=True)
+os.makedirs(DB_DIR, exist_ok=True)
 
 if not os.path.exists(TX_HASH_TO_GAS_COSTS_PATH):
     open(TX_HASH_TO_GAS_COSTS_PATH, "x").close()  # create an empty file if it does not exist
@@ -49,12 +52,19 @@ class ChainData:
     client: Web3
     block_autopool_first_deployed: int
     approx_seconds_per_block: float
+    chain_id: int
 
 
 class Chain(Enum):
-    ETH = ChainData(name="eth", client=eth_client, block_autopool_first_deployed=20752910, approx_seconds_per_block=12)
+    ETH = ChainData(
+        name="eth", client=eth_client, block_autopool_first_deployed=20752910, approx_seconds_per_block=12, chain_id=1
+    )
     BASE = ChainData(
-        name="base", client=base_client, block_autopool_first_deployed=21241103, approx_seconds_per_block=2
+        name="base",
+        client=base_client,
+        block_autopool_first_deployed=21241103,
+        approx_seconds_per_block=2,
+        chain_id=8453,
     )
     # Can add more chains here
 
@@ -77,6 +87,11 @@ class Chain(Enum):
     def approx_seconds_per_block(self) -> float:
         """The approximate number of seconds between blocks for the chain."""
         return self.value.approx_seconds_per_block
+
+    @property
+    def chain_id(self) -> float:
+        """The unique chain id"""
+        return self.value.chain_id
 
 
 ETH_CHAIN = Chain.ETH
