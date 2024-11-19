@@ -4,6 +4,7 @@ from multicall import Call
 import plotly.express as px
 import plotly.subplots as sp
 import plotly.graph_objects as go
+from datetime import datetime, timedelta, timezone
 
 import json
 
@@ -24,16 +25,42 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
     achieved_eth_price_df, incentive_stats_token_prices_df, oracle_price_df = (
         fetch_reward_token_achieved_vs_incentive_token_price()
     )
+    today = datetime.now(timezone.utc)
+    thirty_days_ago = today - timedelta(days=30)
 
-    incentive_stats_percent_diff_fig = _make_histogram_of_percent_diff(
-        achieved_eth_price_df, incentive_stats_token_prices_df, "Achieved vs Incentive Stats Price"
-    )
-    oracle_percent_diff_fig = _make_histogram_of_percent_diff(
-        achieved_eth_price_df, oracle_price_df, "Achieved vs Oracle Price"
+    st.plotly_chart(
+        _make_histogram_of_percent_diff(
+            achieved_eth_price_df[achieved_eth_price_df.index > thirty_days_ago],
+            incentive_stats_token_prices_df[incentive_stats_token_prices_df.index > thirty_days_ago],
+            "Previous 30 Days: Percent Difference Achieved vs Incentive Stats Price",
+        ),
+        use_container_width=True,
     )
 
-    st.plotly_chart(incentive_stats_percent_diff_fig, use_container_width=True)
-    st.plotly_chart(oracle_percent_diff_fig, use_container_width=True)
+    st.plotly_chart(
+        _make_histogram_of_percent_diff(
+            achieved_eth_price_df[achieved_eth_price_df.index > thirty_days_ago],
+            oracle_price_df[oracle_price_df.index > thirty_days_ago],
+            "Previous 30 Days: Percent Difference Achieved vs Oracle Price",
+        ),
+        use_container_width=True,
+    )
+
+    st.plotly_chart(
+        _make_histogram_of_percent_diff(
+            achieved_eth_price_df,
+            incentive_stats_token_prices_df,
+            "Since Inception: Percent Difference Achieved vs Incentive Stats Price",
+        ),
+        use_container_width=True,
+    )
+
+    st.plotly_chart(
+        _make_histogram_of_percent_diff(
+            achieved_eth_price_df, oracle_price_df, "Since Inception: Percent Difference Achieved vs Oracle Price"
+        ),
+        use_container_width=True,
+    )
 
     with st.expander("Description"):
         st.write(
@@ -43,15 +70,13 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
 
             
             ## Achieved vs Incentive Stats Price
-            - This metric uses the Incentive Stats contract to obtain the minimum of the fast and slow filtered incentive token prices. This provides a conservative estimate of the incentive token's value.
-            - PPositive values indicate that we sold the incentive token for more than the Incentive Stats Price at that block
-
-
+            - This metric uses the Incentive Stats contract to obtain the minimum of the fast and slow filtered incentive token prices. 
+            - This provides a conservative estimate of the incentive token's value.
+            - Positive values indicate that we sold the incentive token for more than the Incentive Stats Price at that block
 
             ## Achieved vs Oracle Price
-            - This metric uses the Root Price Oracle to fetch the current price of the incentive token via Chainlink.
-            - Positive values indicate that we sold the incentive token for more than the Chainlink price at that block.
-
+            - This metric uses the Root Price Oracle to fetch the current price of the incentive token (typically via Chainlink)
+            - Positive values indicate that we sold the incentive token for more than the oracle price at that block.
             """
         )
 
@@ -147,13 +172,19 @@ def _make_histogram_of_percent_diff(
 
     num_columns = int(len(percent_diff.columns) / 3) + 1
     num_rows = int(len(percent_diff.columns) / 3) + 1
-    fig = sp.make_subplots(rows=num_rows, cols=num_columns, subplot_titles=percent_diff.columns)
+    fig = sp.make_subplots(
+        rows=num_rows,
+        cols=num_columns,
+        subplot_titles=percent_diff.columns,
+        x_title="Percent Difference Achieved vs Expected",
+        y_title="Percent of Reward Liqudations",
+    )
 
     # makes the histograms have the same scale
     all_data = percent_diff.fillna(0).values.flatten()
     bin_range = [all_data.min(), all_data.max()]
     bin_range = [int(bin_range[0]) - 1, int(bin_range[1]) + 1]
-    bin_width = 1  # (2 # bin_range[1] - bin_range[0]) / 2 # 2 bps wide
+    bin_width = 1
 
     for i, column in enumerate(percent_diff.columns):
         row = (i // num_columns) + 1
@@ -166,7 +197,7 @@ def _make_histogram_of_percent_diff(
         fig.add_trace(hist, row=row, col=col)
         fig.update_xaxes(range=bin_range, row=row, col=col, autorange=False)
 
-    fig.update_layout(title=title, height=600, width=900, showlegend=False)
+    fig.update_layout(height=600, width=900, showlegend=False, title=title)
     return fig
 
 
