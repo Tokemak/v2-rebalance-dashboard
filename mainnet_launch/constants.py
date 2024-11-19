@@ -10,8 +10,8 @@ from web3 import Web3
 
 load_dotenv()
 
-eth_client = Web3(Web3.HTTPProvider( os.environ["ALCHEMY_URL"]))
-base_client = Web3(Web3.HTTPProvider( os.environ["ALCHEMY_URL"].replace("eth-mainnet", "base-mainnet")))
+eth_client = Web3(Web3.HTTPProvider(os.environ["ALCHEMY_URL"]))
+base_client = Web3(Web3.HTTPProvider(os.environ["ALCHEMY_URL"].replace("eth-mainnet", "base-mainnet")))
 
 
 CACHE_TIME = 3600 * 6  # six hours
@@ -147,7 +147,7 @@ AUTO_LRT = AutopoolConstants(
     name="autoLRT",  # "Tokemak autoLRT"
     autopool_eth_addr="0xE800e3760FC20aA98c5df6A9816147f190455AF3",
     autopool_eth_strategy_addr="0x72a726c10220280049687E58B7b05fb03d579109",
-    solver_rebalance_plans_bucket= os.environ["AUTO_LRT_BUCKET"],
+    solver_rebalance_plans_bucket=os.environ["AUTO_LRT_BUCKET"],
     chain=Chain.ETH,
 )
 
@@ -158,7 +158,6 @@ BASE_ETH = AutopoolConstants(
     solver_rebalance_plans_bucket=os.environ["BASE_ETH_BUCKET"],
     chain=Chain.BASE,
 )
-
 
 
 ALL_AUTOPOOLS = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH]
@@ -191,3 +190,8 @@ INCENTIVE_PRICNIG_STATS = TokemakAddress(
 LIQUIDATION_ROW = TokemakAddress(
     eth="0xBf58810BB1946429830C1f12205331608c470ff5", base="0xE2F00bbC3E5ddeCfBD95e618CE36b49F38881d4f"
 )
+
+POINTS_HOOK = TokemakAddress(
+    eth="0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3", base="0xE2F00bbC3E5ddeCfBD95e618CE36b49F38881d4f"
+)
+""

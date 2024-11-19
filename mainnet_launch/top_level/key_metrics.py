@@ -13,24 +13,25 @@ from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats impo
 from mainnet_launch.destinations import get_destination_details
 
 
-@st.cache_data(ttl=CACHE_TIME)
+# @st.cache_data(ttl=CACHE_TIME)
 def fetch_key_metrics_data(autopool: AutopoolConstants):
-    blocks = build_blocks_to_use()
+    blocks = build_blocks_to_use(autopool.chain, )
     nav_per_share_df = fetch_nav_per_share(blocks, autopool)
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
+    pass
 
-    key_metric_data = {
-        "nav_per_share_df": nav_per_share_df,
-        "uwcr_df": uwcr_df,
-        "allocation_df": allocation_df,
-        "compositeReturn_df": compositeReturn_out_df,
-        "total_nav_df": total_nav_series,
-        "summary_stats_df": summary_stats_df,
-        "priceReturn_df": priceReturn_df,
-    }
-    return key_metric_data
+    # key_metric_data = {
+    #     "nav_per_share_df": nav_per_share_df,
+    #     "uwcr_df": uwcr_df,
+    #     "allocation_df": allocation_df,
+    #     "compositeReturn_df": compositeReturn_out_df,
+    #     "total_nav_df": total_nav_series,
+    #     "summary_stats_df": summary_stats_df,
+    #     "priceReturn_df": priceReturn_df,
+    # }
+    # return key_metric_data
 
 
 def get_memory_usage():
@@ -214,4 +215,7 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
 
 
 if __name__ == "__main__":
-    fetch_and_render_key_metrics_data(AUTO_LRT)
+    from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS, AUTO_ETH, BASE_ETH
+
+    fetch_key_metrics_data(BASE_ETH)
+    # fetch_and_render_key_metrics_data(AUTO_LRT)

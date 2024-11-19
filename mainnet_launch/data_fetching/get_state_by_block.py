@@ -92,7 +92,7 @@ async def async_safe_get_raw_state_by_block(
     # block 5022 (Jun-15-2023) on Base
     # mostly a non issue but keep in mind that this only works on recent data
 
-    get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls()
+    get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls(chain)
     pending_multicalls = [
         Multicall(
             calls=[*calls, get_block_call, get_timestamp_call],
