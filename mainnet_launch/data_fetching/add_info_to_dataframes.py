@@ -114,7 +114,7 @@ def add_transaction_gas_info_to_df_with_tx_hash(df: pd.DataFrame, chain: Chain) 
 
     df = df.merge(updated_gas_info, how="left", on="hash")
     print(df.columns)
-    df['gas_price_in_eth'] = df.apply(lambda row: (row['gas_price'] * row['gas_used']) /1e18, axis=1)
+    df["gas_price_in_eth"] = df.apply(lambda row: (row["gas_price"] * row["gas_used"]) / 1e18, axis=1)
     return df
 
 
@@ -130,8 +130,7 @@ if __name__ == "__main__":
     print(df.head())
     df = add_transaction_gas_info_to_df_with_tx_hash(df, ETH_CHAIN)
     print(df.head(1).values)
-    
-    
+
     base_contract = BASE_CHAIN.client.eth.contract(
         DESTINATION_VAULT_REGISTRY(BASE_CHAIN), abi=DESTINATION_VAULT_REGISTRY_ABI
     )
@@ -139,5 +138,3 @@ if __name__ == "__main__":
     print(df.head())
     df = add_transaction_gas_info_to_df_with_tx_hash(df, ETH_CHAIN)
     print(df.head(1).values)
-
-
