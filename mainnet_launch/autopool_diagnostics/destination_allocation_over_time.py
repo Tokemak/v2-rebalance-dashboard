@@ -14,7 +14,7 @@ st.cache_data(ttl=CACHE_TIME)
 
 def fetch_destination_allocation_over_time_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use()
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
 
@@ -53,3 +53,7 @@ def fetch_and_render_destination_allocation_over_time_data(autopool: AutopoolCon
             - Percent of TVL by Destination: Shows the percent of capital deployed to each destination
             """
         )
+
+
+if __name__ == "__main__":
+    fetch_destination_allocation_over_time_data(ALL_AUTOPOOLS[0])
