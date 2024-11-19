@@ -43,19 +43,44 @@ def time_decorator(func):
     return wrapper
 
 
-class Chain(Enum):
-    ETH = "eth"
-    BASE = "base"
-    # can add more chains here later
+@dataclass(frozen=True)
+class ChainData:
+    name: str
+    client: Web3
+    block_autopool_first_deployed: int
+    approx_seconds_per_block: float
 
+
+class Chain(Enum):
+    ETH = ChainData(name="eth", client=eth_client, block_autopool_first_deployed=20752910, approx_seconds_per_block=12)
+    BASE = ChainData(
+        name="base", client=base_client, block_autopool_first_deployed=21241103, approx_seconds_per_block=2
+    )
+    # Can add more chains here
+
+    @property
+    def name(self) -> str:
+        """The name of the chain."""
+        return self.value.name
+
+    @property
     def client(self) -> Web3:
-        """Returns the Web3 client associated with the chain."""
-        if self == Chain.ETH:
-            return eth_client
-        elif self == Chain.BASE:
-            return base_client
-        else:
-            raise ValueError(f"No client available for chain: {self.name}")
+        """The Web3 client associated with the chain."""
+        return self.value.client
+
+    @property
+    def block_autopool_first_deployed(self) -> int:
+        """The block number where Autopool was first deployed."""
+        return self.value.block_autopool_first_deployed
+
+    @property
+    def approx_seconds_per_block(self) -> float:
+        """The approximate number of seconds between blocks for the chain."""
+        return self.value.approx_seconds_per_block
+
+
+ETH_CHAIN = Chain.ETH
+BASE_CHAIN = Chain.BASE
 
 
 @dataclass
@@ -77,7 +102,7 @@ class TokemakAddress:
         Returns the contract address for the specified chain.
         Raises ValueError if the address is not defined for the given chain.
         """
-        address = getattr(self, chain.value, None)
+        address = getattr(self, chain.value.name, None)
         if not address:
             raise ValueError(f"No address defined for chain: {chain.name}")
         return address

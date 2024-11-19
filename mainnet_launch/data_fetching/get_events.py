@@ -1,7 +1,10 @@
 import pandas as pd
 import web3
-from mainnet_launch.constants import CACHE_TIME, eth_client
+from mainnet_launch.constants import Chain
 from requests.exceptions import ReadTimeout
+
+
+from web3.contract import Contract, ContractEvent
 
 
 def _flatten_events(just_found_events: list[dict]) -> None:
@@ -93,7 +96,7 @@ def events_to_df(found_events: list[web3.datastructures.AttributeDict]) -> pd.Da
 
 
 def fetch_events(
-    event: "web3.contract.ContractEvent",
+    event: ContractEvent,
     start_block: int = 15091387,
     end_block: int = None,
     argument_filters: dict | None = None,
@@ -101,19 +104,36 @@ def fetch_events(
     """
     Collect every `event` between start_block and end_block into a DataFrame.
     """
-    end_block = eth_client.eth.block_number if end_block is None else end_block
-    start_block, end_block = int(start_block), int(end_block)
-
+    end_block = event.web3.eth.block_number if end_block is None else end_block
     found_events = []
     _recursive_helper_get_all_events_within_range(event, start_block, end_block, found_events, argument_filters)
     event_df = events_to_df(found_events)
     return event_df
 
 
-def get_each_event_in_contract(contract, end_block: int = None) -> dict[str, pd.DataFrame]:
-    end_block = eth_client.eth.block_number if end_block is None else end_block
+def get_each_event_in_contract(contract: Contract, end_block: int = None) -> dict[str, pd.DataFrame]:
+    end_block = contract.web3.eth.block_number if end_block is None else end_block
     events_dict = dict()
-    for e in contract.events:
+    for event in contract.events:
         # add http fail retries?
-        events_dict[e.event_name] = fetch_events(e, end_block=end_block)
+        events_dict[event.event_name] = fetch_events(event, end_block=end_block)
     return events_dict
+
+
+if __name__ == "__main__":
+    from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, ETH_CHAIN, BASE_CHAIN
+    from mainnet_launch.abis.abis import DESTINATION_VAULT_REGISTRY_ABI
+
+    eth_contract = ETH_CHAIN.client.eth.contract(
+        DESTINATION_VAULT_REGISTRY(ETH_CHAIN), abi=DESTINATION_VAULT_REGISTRY_ABI
+    )
+    eth_events = get_each_event_in_contract(eth_contract)
+    for k, v in eth_events.items():
+        print(k, v.shape)
+
+    base_contract = BASE_CHAIN.client.eth.contract(
+        DESTINATION_VAULT_REGISTRY(BASE_CHAIN), abi=DESTINATION_VAULT_REGISTRY_ABI
+    )
+    base_events = get_each_event_in_contract(base_contract)
+    for k, v in base_events.items():
+        print(k, v.shape)
