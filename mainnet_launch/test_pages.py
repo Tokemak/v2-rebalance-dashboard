@@ -4,6 +4,7 @@ import os
 import subprocess
 import time
 import psutil
+import traceback
 
 from mainnet_launch.ui_config_setup import config_plotly_and_streamlit
 from mainnet_launch.constants import ALL_AUTOPOOLS
@@ -50,16 +51,32 @@ def open_log_in_vscode(log_file):
 
 def log_and_time_function(page_name, func, autopool):
     start_time = time.time()
-    if autopool is None:
-        func()
-    else:
-        func(autopool)
 
-    time_taken = time.time() - start_time
-    if autopool is None:
-        testing_logger.info(f"{time_taken:.2f} seconds | {page_name}")
-    else:
-        testing_logger.info(f"{time_taken:.2f} seconds | {page_name} |  {autopool.name}")
+    try:
+        if autopool is None:
+            func()
+        else:
+            func(autopool)
+    except Exception as e:
+        # Log the error with detailed stack trace
+        stack_trace = traceback.format_exc()
+
+        if autopool is None:
+            testing_logger.info(f"Function: {func.__name__} failed | Page: {page_name}")
+        else:
+            testing_logger.info(f"Function: {func.__name__} failed | Page: {page_name} | Autopool: {autopool.name}")
+
+        testing_logger.info(f"Exception: {e}")
+        testing_logger.info("Stack trace:\n" + stack_trace)
+    finally:
+        # Log execution time
+        time_taken = time.time() - start_time
+        if autopool is None:
+            testing_logger.info(f"Execution Time: {time_taken:.2f} seconds | Page: {page_name}")
+        else:
+            testing_logger.info(
+                f"Execution Time: {time_taken:.2f} seconds | Page: {page_name} | Autopool: {autopool.name}"
+            )
 
 
 def main():

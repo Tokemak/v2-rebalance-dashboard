@@ -22,10 +22,7 @@ from mainnet_launch.top_level.key_metrics import fetch_key_metrics_data
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.constants import AUTO_ETH, AUTO_LRT, BAL_ETH, AutopoolConstants, CACHE_TIME
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI, AUTOPOOL_ETH_STRATEGY_ABI
-from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
-    fetch_and_clean_rebalance_between_destination_events,
-)
-from mainnet_launch.autopool_diagnostics.compute_rebalance_cost import fetch_spot_value_swap_cost_df
+from mainnet_launch.solver_diagnostics.fetch_rebalance_events import fetch_rebalance_events_df
 
 
 def handle_getAssetBreakdown(success, AssetBreakdown):
@@ -264,18 +261,13 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> d
     # cumulative_nav_lost_to_rebalances["swapCostETHIdle"] = cumulative_nav_lost_to_rebalancesIdle
     # cumulative_nav_lost_to_rebalances["swapCostETHChurn"] = cumulative_nav_lost_to_rebalancesChurn
 
-    rebalance_spot_value_swap_cost_df = fetch_spot_value_swap_cost_df(autopool)
-
-    cumulative_nav_lost_to_rebalances = (
-        rebalance_spot_value_swap_cost_df[["spot_value_swap_cost"]].resample("1D").sum()
-    ).cumsum()
+    rebalance_df = fetch_rebalance_events_df(autopool)
+    cumulative_nav_lost_to_rebalances = (rebalance_df[["swapCost"]].resample("1D").sum()).cumsum()
     cumulative_nav_lost_to_rebalances.columns = ["eth_nav_lost_by_rebalance_between_destinations"]
 
     swap_cost_rebalances_from_idle = (
-        rebalance_spot_value_swap_cost_df[
-            rebalance_spot_value_swap_cost_df["outDestinationVault"] == autopool.autopool_eth_addr
-        ]
-        .resample("1D")[["spot_value_swap_cost"]]
+        rebalance_df[rebalance_df["out_destination"] == autopool.autopool_eth_addr]
+        .resample("1D")[["swapCost"]]
         .sum()
         .cumsum()
     )
@@ -283,10 +275,8 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants) -> d
     swap_cost_rebalances_from_idle.columns = ["swapCostETHIdle"]
 
     swap_cost_rebalances_churn = (
-        rebalance_spot_value_swap_cost_df[
-            rebalance_spot_value_swap_cost_df["outDestinationVault"] != autopool.autopool_eth_addr
-        ]
-        .resample("1D")[["spot_value_swap_cost"]]
+        rebalance_df[rebalance_df["out_destination"] != autopool.autopool_eth_addr]
+        .resample("1D")[["swapCost"]]
         .sum()
         .cumsum()
     )
