@@ -10,22 +10,17 @@ from web3 import Web3
 
 load_dotenv()
 
-AUTO_ETH_BUCKET = os.environ["AUTO_ETH_BUCKET"]
-BAL_ETH_BUCKET = os.environ["BAL_ETH_BUCKET"]
-AUTO_LRT_BUCKET = os.environ["AUTO_LRT_BUCKET"]
-BASE_ETH_BUCKET = os.environ["BASE_ETH_BUCKET"]
-ALCHEMY_URL = os.environ["ALCHEMY_URL"]
+eth_client = Web3(Web3.HTTPProvider( os.environ["ALCHEMY_URL"]))
+base_client = Web3(Web3.HTTPProvider( os.environ["ALCHEMY_URL"].replace("eth-mainnet", "base-mainnet")))
 
-eth_client = Web3(Web3.HTTPProvider(ALCHEMY_URL))
-base_client = Web3(Web3.HTTPProvider(ALCHEMY_URL.replace("eth-mainnet", "base-mainnet")))
 
 CACHE_TIME = 3600 * 6  # six hours
 ROOT_DIR = Path(__file__).parent
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "rebalance_plans"
 WORKING_DATA_DIR = ROOT_DIR / "working_data"
 TX_HASH_TO_GAS_COSTS_PATH = WORKING_DATA_DIR / "tx_hash_to_gas_info.json"
-
 DB_DIR = ROOT_DIR / "databases"
+
 
 os.makedirs(SOLVER_REBALANCE_PLANS_DIR, exist_ok=True)
 os.makedirs(WORKING_DATA_DIR, exist_ok=True)
@@ -136,7 +131,7 @@ AUTO_ETH = AutopoolConstants(
     name="autoETH",  #  "Tokemak autoETH",
     autopool_eth_addr="0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56",
     autopool_eth_strategy_addr="0xf5f6addB08c5e6091e5FdEc7326B21bEEd942235",
-    solver_rebalance_plans_bucket=AUTO_ETH_BUCKET,
+    solver_rebalance_plans_bucket=os.environ["AUTO_ETH_BUCKET"],
     chain=Chain.ETH,
 )
 
@@ -144,7 +139,7 @@ BAL_ETH = AutopoolConstants(
     name="balETH",  #  "Tokemak autoETH",
     autopool_eth_addr="0x6dC3ce9C57b20131347FDc9089D740DAf6eB34c5",
     autopool_eth_strategy_addr="0xabe104560D0B390309bcF20b73Dca335457AA32e",
-    solver_rebalance_plans_bucket=BAL_ETH_BUCKET,
+    solver_rebalance_plans_bucket=os.environ["BAL_ETH_BUCKET"],
     chain=Chain.ETH,
 )
 
@@ -152,7 +147,7 @@ AUTO_LRT = AutopoolConstants(
     name="autoLRT",  # "Tokemak autoLRT"
     autopool_eth_addr="0xE800e3760FC20aA98c5df6A9816147f190455AF3",
     autopool_eth_strategy_addr="0x72a726c10220280049687E58B7b05fb03d579109",
-    solver_rebalance_plans_bucket=AUTO_LRT_BUCKET,
+    solver_rebalance_plans_bucket= os.environ["AUTO_LRT_BUCKET"],
     chain=Chain.ETH,
 )
 
@@ -160,9 +155,10 @@ BASE_ETH = AutopoolConstants(
     "baseETH",  # "Tokemak baseETH"
     autopool_eth_addr="0xAADf01DD90aE0A6Bb9Eb908294658037096E0404",
     autopool_eth_strategy_addr="0xe72a466d426F735BfeE91Db19dc509735B65b8dc",
-    solver_rebalance_plans_bucket=BASE_ETH_BUCKET,
+    solver_rebalance_plans_bucket=os.environ["BASE_ETH_BUCKET"],
     chain=Chain.BASE,
 )
+
 
 
 ALL_AUTOPOOLS = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH]
