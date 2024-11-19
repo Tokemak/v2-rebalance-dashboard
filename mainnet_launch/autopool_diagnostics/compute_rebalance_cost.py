@@ -124,9 +124,9 @@ def _fetch_events_needed_to_compute_rebalance_costs(autopool: AutopoolConstants)
 
     rebalance_to_idle_df["inDestinationVault"] = autopool.autopool_eth_addr
 
-    rebalance_columns = ["event", "block", "hash", "outDestinationVault", "inDestinationVault"]
-    rebalance_to_idle_df = rebalance_to_idle_df[rebalance_columns].copy()
-    rebalance_between_destinations_df = rebalance_between_destinations_df[rebalance_columns].copy()
+    # rebalance_columns = ["event", "block", "hash", "outDestinationVault", "inDestinationVault"]
+    # rebalance_to_idle_df = rebalance_to_idle_df[rebalance_columns].copy()
+    # rebalance_between_destinations_df = rebalance_between_destinations_df[rebalance_columns].copy()
 
     rebalance_df = pd.concat([rebalance_to_idle_df, rebalance_between_destinations_df], axis=0)
 
@@ -165,7 +165,7 @@ def _fetch_events_needed_to_compute_rebalance_costs(autopool: AutopoolConstants)
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def _fetch_rebalance_df_with_actual_amounts(autopool: AutopoolConstants) -> pd.DataFrame:
+def fetch_rebalance_events_actual_amounts(autopool: AutopoolConstants) -> pd.DataFrame:
     rebalance_df = _fetch_events_needed_to_compute_rebalance_costs(autopool)
     # get the price of each destination token before the rebalance
     validated_spot_price_df = _fetch_lp_token_validated_spot_price(rebalance_df["block"] - 1, autopool)
@@ -191,9 +191,11 @@ def _fetch_rebalance_df_with_actual_amounts(autopool: AutopoolConstants) -> pd.D
     rebalance_df["spot_value_out"] = rebalance_df["out_price"] * rebalance_df["out_amount"]
     rebalance_df["spot_value_in"] = rebalance_df["in_price"] * rebalance_df["in_amount"]
     rebalance_df["swap_cost"] = rebalance_df["spot_value_out"] - rebalance_df["spot_value_in"]
+
+    # Donations to the autopool make the swap cost negative, this throws off a lot of math so
+    # the same is true because the solver can have some excess in rebalance before sendign it back into the pool
+    # on a later rebalance
+    # a negative swap cost throws off some of the stats, so treat it as 0
+    rebalance_df["swap_cost"] = rebalance_df["swap_cost"].clip(lower=0)
     rebalance_df = add_timestamp_to_df_with_block_column(rebalance_df)
     return rebalance_df
-
-
-if __name__ == "__main__":
-    _fetch_rebalance_df_with_actual_amounts(AUTO_LRT)
