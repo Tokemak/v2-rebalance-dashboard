@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    env:
+      ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
+      AUTO_ETH_BUCKET: ${{ secrets.AUTO_ETH_BUCKET }}
+      BAL_ETH_BUCKET: ${{ secrets.BAL_ETH_BUCKET }}
+      AUTO_LRT_BUCKET: ${{ secrets.AUTO_LRT_BUCKET }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install poetry
+          poetry install
+
+      - name: Run Black
+        run: poetry run black --check .
+
+      - name: Run Tests
+        run: poetry run pytest
