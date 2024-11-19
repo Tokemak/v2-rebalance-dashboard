@@ -6,22 +6,25 @@ import nest_asyncio
 import asyncio
 
 
-from mainnet_launch.constants import CACHE_TIME, eth_client
+from mainnet_launch.constants import CACHE_TIME, Chain, TokemakAddress
 
+# needed to run these functions in a jupyter notebook
 nest_asyncio.apply()
 
 
 MULTICALL2_DEPLOYMENT_BLOCK = 12336033
-multicall_v3 = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696"
+MULTICALL_V3 = TokemakAddress(
+    eth="0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696", base="0xcA11bde05977b3631167028862bE2a173976CA11"
+)
 
 
-def get_state_by_one_block(calls: list[Call], block: int):
-    return asyncio.run(safe_get_raw_state_by_block_one_block(calls, block))
+def get_state_by_one_block(calls: list[Call], block: int, chain: Chain):
+    return asyncio.run(safe_get_raw_state_by_block_one_block(calls, block, chain))
 
 
-async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int):
+async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: Chain):
     # nice for testing
-    multicall = Multicall(calls=calls, block_id=block, _w3=eth_client, require_success=False)
+    multicall = Multicall(calls=calls, block_id=block, _w3=chain.client, require_success=False)
     response = await multicall.coroutine()
     return response
 
@@ -29,21 +32,21 @@ async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int):
 def build_get_address_eth_balance_call(name: str, addr: str) -> Call:
     """Use the multicallV3 contract to get the normalized eth balance of an address"""
     return Call(
-        multicall_v3,
+        MULTICALL_V3,
         ["getEthBalance(address)(uint256)", addr],
         [(name, safe_normalize_with_bool_success)],
     )
 
 
-def _build_default_block_and_timestamp_calls():
+def _build_default_block_and_timestamp_calls(chain: Chain):
     get_block_call = Call(
-        multicall_v3,
+        MULTICALL_V3(chain),
         ["getBlockNumber()(uint256)"],
         [("block", identity_with_bool_success)],
     )
 
     get_timestamp_call = Call(
-        multicall_v3,
+        MULTICALL_V3(chain),
         ["getCurrentBlockTimestamp()(uint256)"],
         [("timestamp", identity_with_bool_success)],
     )
@@ -66,15 +69,17 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
 def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
+    chain: Chain,
     semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
     include_block_number: bool = False,
 ) -> pd.DataFrame:
-    return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, semaphore_limits, include_block_number))
+    return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, chain, semaphore_limits, include_block_number))
 
 
 async def async_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
+    chain: Chain,
     semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
     include_block_number: bool = False,
 ) -> pd.DataFrame:
@@ -82,19 +87,20 @@ async def async_safe_get_raw_state_by_block(
     Fetch a DataFame of each call in calls for each block in blocks fast
     """
     blocks_as_ints = [int(b) for b in blocks]
-
-    if any(block <= MULTICALL2_DEPLOYMENT_BLOCK for block in blocks_as_ints):
-        raise TypeError("all blocks must > 12336033")
+    # note only works after the multicall_v3 contract was deployed
+    # block 12336033 (Apr-29-2021) on mainnet
+    # block 5022 (Jun-15-2023) on Base
+    # mostly a non issue but keep in mind that this only works on recent data
 
     get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls()
     pending_multicalls = [
         Multicall(
             calls=[*calls, get_block_call, get_timestamp_call],
-            block_id=b,
-            _w3=eth_client,
+            block_id=int(block),
+            _w3=chain.client,
             require_success=False,
         )
-        for b in blocks_as_ints
+        for block in blocks_as_ints
     ]
 
     responses = []
@@ -128,21 +134,6 @@ async def async_safe_get_raw_state_by_block(
     return df
 
 
-# def add_timestamp_to_df_with_block_column(df: pd.DataFrame) -> pd.DataFrame:
-#     """Add the timestamp to the df at the index if boock is in the columns"""
-#     if "block" not in df.columns:
-#         raise ValueError(f"block must be in {df.columns=}")
-#     if len(df) == 0:
-#         return df
-
-#     blocks = list(set(df["block"]))
-#     # calling with empty calls gets the block:timestamp
-#     block_and_timestamp_df = get_raw_state_by_blocks([], blocks, include_block_number=True).reset_index()
-#     df = pd.merge(df, block_and_timestamp_df, on="block", how="left")
-#     df.set_index("timestamp", inplace=True)
-#     return df
-
-
 def safe_normalize_with_bool_success(success: int, value: int):
     if success:
         return int(value) / 1e18
@@ -172,34 +163,12 @@ def identity_function(value):
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def build_blocks_to_use(use_mainnet: bool = True) -> list[int]:
-    """Returns daily blocks since deployement"""
-    current_block = eth_client.eth.block_number
-
-    start_block = 20752910 if use_mainnet else 20262439
-
-    # Average block time in seconds
-    block_time_seconds = 13.15
-    # Calculate blocks per day to get blocks_hop
-    blocks_hop = int(86400 / block_time_seconds) // 6
-
-    # Generate blocks with an interval of 1 block per day
-    blocks = [b for b in range(start_block, current_block, blocks_hop)]
+def build_blocks_to_use(
+    chain: Chain, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 6
+) -> list[int]:
+    """Returns a block approx every 4 hours. by default between when autopool was first deployed to the current block"""
+    start_block = chain.block_autopool_first_deployed if start_block is None else start_block
+    end_block = chain.client.eth.block_number if end_block is None else end_block
+    blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
+    blocks = [b for b in range(start_block, end_block, blocks_hop)]
     return blocks
-
-
-# def build_blocks_to_use(use_mainnet: bool = True) -> list[int]:
-#     """Returns daily blocks since deployement"""
-#     current_block = eth_client.eth.block_number
-
-#     start_block = 20722910 if use_mainnet else 20262439
-
-#     # Average block time in seconds
-#     block_time_seconds = 13.15
-#     # Calculate blocks per day
-#     blocks_per_day = int(86400 / block_time_seconds) // 6  # 24  # 1 hour resolution
-
-#     # Generate blocks with an interval of 1 block per day
-#     blocks = [b for b in range(current_block, start_block, -blocks_per_day)]
-#     blocks.reverse()
-#     return blocks
