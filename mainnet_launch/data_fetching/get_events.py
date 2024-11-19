@@ -1,9 +1,6 @@
 import pandas as pd
 import web3
-from mainnet_launch.constants import Chain
 from requests.exceptions import ReadTimeout
-
-
 from web3.contract import Contract, ContractEvent
 
 
