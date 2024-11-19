@@ -31,6 +31,7 @@ from mainnet_launch.accounting.protocol_level_profit import (
     fetch_and_render_protocol_level_profit_and_loss_data,
 )
 
+
 # Configure Plotly and Streamlit once before running tests
 def setup_module(module):
     config_plotly_and_streamlit()
@@ -40,10 +41,12 @@ def setup_module(module):
         initial_sidebar_state="expanded",
     )
 
+
 # Define the display function for Destination Diagnostics
 def display_destination_diagnostics(autopool: AutopoolConstants):
     fetch_and_render_destination_apr_data(autopool)
     # Additional code can be added here if necessary
+
 
 # Mapping of page names to their corresponding functions
 CONTENT_FUNCTIONS = {
@@ -67,9 +70,8 @@ PAGES_WITHOUT_AUTOPOOL = [
 ]
 
 # List of pages that require an Autopool parameter
-pages_with_autopool = [
-    p for p in CONTENT_FUNCTIONS.keys() if p not in PAGES_WITHOUT_AUTOPOOL
-]
+pages_with_autopool = [p for p in CONTENT_FUNCTIONS.keys() if p not in PAGES_WITHOUT_AUTOPOOL]
+
 
 # Test functions for pages that require an Autopool parameter
 @pytest.mark.parametrize("page_name", pages_with_autopool)
@@ -79,9 +81,8 @@ def test_pages_with_autopool(page_name, autopool):
     start_time = time.time()
     func(autopool)
     time_taken = time.time() - start_time
-    print(
-        f"Execution Time: {time_taken:.2f} seconds | Page: {page_name} | Autopool: {autopool.name}"
-    )
+    print(f"Execution Time: {time_taken:.2f} seconds | Page: {page_name} | Autopool: {autopool.name}")
+
 
 # Test functions for pages that do not require an Autopool parameter
 @pytest.mark.parametrize("page_name", PAGES_WITHOUT_AUTOPOOL)
