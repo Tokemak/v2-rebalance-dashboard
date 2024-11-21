@@ -29,10 +29,10 @@ async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, c
     return response
 
 
-def build_get_address_eth_balance_call(name: str, addr: str) -> Call:
+def build_get_address_eth_balance_call(name: str, addr: str, chain: ChainData) -> Call:
     """Use the multicallV3 contract to get the normalized eth balance of an address"""
     return Call(
-        MULTICALL_V3,
+        MULTICALL_V3(chain),
         ["getEthBalance(address)(uint256)", addr],
         [(name, safe_normalize_with_bool_success)],
     )
@@ -90,7 +90,7 @@ async def async_safe_get_raw_state_by_block(
     # note only works after the multicall_v3 contract was deployed
     # block 12336033 (Apr-29-2021) on mainnet
     # block 5022 (Jun-15-2023) on Base
-    # mostly a non issue but keep in mind that this only works on recent data
+    # mostly a non issue but keep in mind that this only works on recent (within last 3 years) data
 
     get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls(chain)
     pending_multicalls = [
