@@ -105,6 +105,14 @@ def fetch_events(
     found_events = []
     _recursive_helper_get_all_events_within_range(event, start_block, end_block, found_events, argument_filters)
     event_df = events_to_df(found_events)
+
+    if len(event_df) == 0:
+        # make sure that the df returned as the expected columns
+        event_field_names = [i["name"] for i in event._get_event_abi()["inputs"]]
+        event_df = pd.DataFrame(
+            columns=[*event_field_names, str(event), "block", "transaction_index", "log_index", "hash"]
+        )
+
     return event_df
 
 
@@ -115,22 +123,3 @@ def get_each_event_in_contract(contract: Contract, end_block: int = None) -> dic
         # add http fail retries?
         events_dict[event.event_name] = fetch_events(event, end_block=end_block)
     return events_dict
-
-
-if __name__ == "__main__":
-    from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, ETH_CHAIN, BASE_CHAIN
-    from mainnet_launch.abis.abis import DESTINATION_VAULT_REGISTRY_ABI
-
-    eth_contract = ETH_CHAIN.client.eth.contract(
-        DESTINATION_VAULT_REGISTRY(ETH_CHAIN), abi=DESTINATION_VAULT_REGISTRY_ABI
-    )
-    eth_events = get_each_event_in_contract(eth_contract)
-    for k, v in eth_events.items():
-        print(k, v.shape)
-
-    base_contract = BASE_CHAIN.client.eth.contract(
-        DESTINATION_VAULT_REGISTRY(BASE_CHAIN), abi=DESTINATION_VAULT_REGISTRY_ABI
-    )
-    base_events = get_each_event_in_contract(base_contract)
-    for k, v in base_events.items():
-        print(k, v.shape)
