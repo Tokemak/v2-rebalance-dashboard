@@ -15,7 +15,6 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
     safe_normalize_with_bool_success,
     build_blocks_to_use,
-    eth_client,
 )
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.top_level.key_metrics import fetch_key_metrics_data
