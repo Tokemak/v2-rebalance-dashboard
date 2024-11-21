@@ -1,12 +1,11 @@
 import pandas as pd
 import streamlit as st
 from multicall import Call
-
+from web3 import Web3
 
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
-    eth_client,
 )
 
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
@@ -27,8 +26,8 @@ def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants) -> pd.Da
     dfs = []
 
     for vault_address in vaultAddresses:
-        contract = eth_client.eth.contract(
-            eth_client.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
+        contract = autopool.chain.client.eth.contract(
+            Web3.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
         )
         df = fetch_events(contract.events.UnderlyingDeposited)
         df["contract_address"] = contract.address
@@ -45,8 +44,8 @@ def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants) -> pd.Dat
     dfs = []
 
     for vault_address in vaultAddresses:
-        contract = eth_client.eth.contract(
-            eth_client.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
+        contract = autopool.chain.client.eth.contract(
+            Web3.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
         )
         df = fetch_events(contract.events.UnderlyingWithdraw)
         df["contract_address"] = contract.address
@@ -58,7 +57,7 @@ def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants) -> pd.Dat
 
 def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
 
-    destinations = [d for d in get_destination_details() if d.autopool == autopool]
+    destinations = get_destination_details(autopool, blocks)
 
     get_validated_spot_price_calls = []
     for dest in destinations:
@@ -69,7 +68,9 @@ def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolCo
         )
         get_validated_spot_price_calls.append(call)
 
-    validated_spot_price_df = get_raw_state_by_blocks(get_validated_spot_price_calls, blocks, include_block_number=True)
+    validated_spot_price_df = get_raw_state_by_blocks(
+        get_validated_spot_price_calls, blocks, chain=autopool.chain, include_block_number=True
+    )
     validated_spot_price_df[autopool.autopool_eth_addr] = (
         1.0  # movements to or from the autopool itself are always in WETH
     )
@@ -82,7 +83,7 @@ def _fetch_weth_transfers_to_or_from_autopool_vault(autopool: AutopoolConstants)
     start_block = 20722908
 
     WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-    weth_contract = eth_client.eth.contract(WETH, abi=ERC_20_ABI)
+    weth_contract = autopool.chain.client.eth.contract(WETH, abi=ERC_20_ABI)
 
     weth_to_autopool = fetch_events(
         weth_contract.events.Transfer,

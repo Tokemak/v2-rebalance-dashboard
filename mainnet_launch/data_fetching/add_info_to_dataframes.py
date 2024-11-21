@@ -1,7 +1,9 @@
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
-from mainnet_launch.constants import DB_DIR, Chain
+from mainnet_launch.constants import DB_DIR, ChainData
+from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
+
 
 TX_HASH_TO_GAS_INFO_DB = DB_DIR / "tx_hash_to_gas_info.db"
 
@@ -68,7 +70,7 @@ def _save_tx_hash_to_gas_info(gas_df: pd.DataFrame):
         print(f"inserted len(gas_df)={len(gas_df)}")
 
 
-def _fetch_tx_hash_gas_info(tx_hash: str, chain: Chain) -> dict:
+def _fetch_tx_hash_gas_info(tx_hash: str, chain: ChainData) -> dict:
     tx_receipt = chain.client.eth.get_transaction_receipt(tx_hash)
     tx = chain.client.eth.get_transaction(tx_hash)
     gas_price = tx["gasPrice"]
@@ -81,7 +83,7 @@ def _fetch_tx_hash_gas_info(tx_hash: str, chain: Chain) -> dict:
     }
 
 
-def add_transaction_gas_info_to_df_with_tx_hash(df: pd.DataFrame, chain: Chain) -> pd.DataFrame:
+def add_transaction_gas_info_to_df_with_tx_hash(df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
     """Add gas_price and gas_used to the DataFrame."""
     if "hash" not in df.columns:
         raise ValueError(f"'hash' must be in {df.columns=}")
@@ -115,6 +117,21 @@ def add_transaction_gas_info_to_df_with_tx_hash(df: pd.DataFrame, chain: Chain) 
     df = df.merge(updated_gas_info, how="left", on="hash")
     print(df.columns)
     df["gas_price_in_eth"] = df.apply(lambda row: (row["gas_price"] * row["gas_used"]) / 1e18, axis=1)
+    return df
+
+
+def add_timestamp_to_df_with_block_column(df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
+    """Add the timestamp to the df at the index if block is in the columns"""
+    if "block" not in df.columns:
+        raise ValueError(f"block must be in {df.columns=}")
+    if len(df) == 0:
+        return df
+
+    blocks = list(set(df["block"]))
+    # calling with empty calls gets the block:timestamp
+    block_and_timestamp_df = get_raw_state_by_blocks([], blocks, chain=chain, include_block_number=True).reset_index()
+    df = pd.merge(df, block_and_timestamp_df, on="block", how="left")
+    df.set_index("timestamp", inplace=True)
     return df
 
 

@@ -182,6 +182,10 @@ POINTS_HOOK = TokemakAddress(
     eth="0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3", base="0x000000000000000000000000000000000000dEaD"
 )
 
+WETH = TokemakAddress(
+    eth="0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", base="0x4200000000000000000000000000000000000006"
+)
+
 
 def time_decorator(func):
     def wrapper(*args, **kwargs):
@@ -192,15 +196,3 @@ def time_decorator(func):
         return result
 
     return wrapper
-
-
-# @time_decorator
-# def lo():
-#     for _ in range(1_000):
-#         eth_client = Web3(Web3.HTTPProvider(os.environ["ALCHEMY_URL"]))
-#         base_client = Web3(Web3.HTTPProvider(os.environ["ALCHEMY_URL"].replace("eth-mainnet", "base-mainnet")))
-#         base_client.middleware_onion.inject(geth_poa_middleware, layer=0)
-
-
-# if __name__ == '__main__':
-#     lo()

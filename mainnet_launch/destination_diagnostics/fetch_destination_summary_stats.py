@@ -260,15 +260,15 @@ def _extract_allocation_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
 if __name__ == "__main__":
     blocks = build_blocks_to_use(BASE_ETH.chain, start_block=21241103)[::6]
 
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = fetch_destination_summary_stats(blocks, BASE_ETH)
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
+        fetch_destination_summary_stats(blocks, BASE_ETH)
+    )
 
     print(uwcr_df.tail())
     print(allocation_df.tail())
     print(compositeReturn_out_df.tail())
     print(total_nav_series.tail())
     print(priceReturn_df.tail())
-
-
 
     # mainnet works, but base does not
     # blocks = build_blocks_to_use(
