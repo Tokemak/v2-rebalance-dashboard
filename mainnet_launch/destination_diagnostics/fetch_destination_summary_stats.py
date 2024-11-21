@@ -14,17 +14,26 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     build_blocks_to_use,
 )
 from mainnet_launch.lens_contract import fetch_pools_and_destinations_df
-from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, eth_client, ALL_AUTOPOOLS, AUTO_LRT, time_decorator
+from mainnet_launch.constants import (
+    CACHE_TIME,
+    AutopoolConstants,
+    eth_client,
+    ALL_AUTOPOOLS,
+    AUTO_LRT,
+    time_decorator,
+    BASE_ETH,
+    ETH_CHAIN,
+    POINTS_HOOK,
+    ChainData,
+)
 from mainnet_launch.destinations import (
     get_destination_details,
     DestinationDetails,
 )
 
-POINTS_HOOK = "0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3"
-
 
 @st.cache_data(ttl=CACHE_TIME)
-def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants):
+def fetch_destination_summary_stats(blocks: list[int], autopool: AutopoolConstants):
     """
     Returns a DataFrame where the columns are the destination vaultName,
     and the values are the destination summary stats
@@ -49,8 +58,9 @@ def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants):
     }
 
     """
-    blocks = build_blocks_to_use()
-    destination_details = [dest for dest in get_destination_details() if dest.autopool == autopool]
+
+    # blocks = build_blocks_to_use()
+    destination_details = [dest for dest in get_destination_details(autopool, blocks) if dest.autopool == autopool]
 
     raw_summary_stats_df = _fetch_autopool_destination_df(
         blocks, destination_details, autopool
@@ -60,9 +70,14 @@ def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants):
         autopool, raw_summary_stats_df, destination_details
     )  # it does not have idle at this points
 
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, priceReturn_df = _build_summary_stats_dfs(
-        summary_stats_df
-    )
+    uwcr_df, priceReturn_df = _extract_unweighted_composite_return_df(summary_stats_df)
+
+    allocation_df = _extract_allocation_df(summary_stats_df)
+    compositeReturn_out_df = _extract_composite_return_out_df(summary_stats_df)
+    total_nav_series = allocation_df.sum(axis=1)
+    portion_df = allocation_df.div(total_nav_series, axis=0)
+    uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
+
     return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df
 
 
@@ -100,7 +115,7 @@ def _fetch_autopool_destination_df(
     blocks, destination_details: list[DestinationDetails], autopool: AutopoolConstants
 ) -> pd.DataFrame:
     calls = [_build_summary_stats_call(dest.autopool, dest) for dest in destination_details]
-    summary_stats_df = get_raw_state_by_blocks(calls, blocks)
+    summary_stats_df = get_raw_state_by_blocks(calls, blocks, autopool.chain)
 
     def get_current_destinations_by_block(
         autopool: AutopoolConstants, getPoolsAndDestinations: pd.DataFrame
@@ -111,14 +126,14 @@ def _fetch_autopool_destination_df(
             if a["poolAddress"].lower() == autopool.autopool_eth_addr.lower():
                 return [eth_client.toChecksumAddress(dest["vaultAddress"]) for dest in list_of_destinations]
 
-    pools_and_destinations_df = fetch_pools_and_destinations_df()
+    pools_and_destinations_df = fetch_pools_and_destinations_df(autopool.chain, blocks)
 
     summary_stats_df["current_destinations"] = pools_and_destinations_df.apply(
         lambda row: get_current_destinations_by_block(autopool, row["getPoolsAndDestinations"]), axis=1
     )
 
-    destination_points_calls = _build_destination_points_calls(destination_details)
-    points_df = get_raw_state_by_blocks(destination_points_calls, blocks)
+    destination_points_calls = _build_destination_points_calls(destination_details, autopool.chain)
+    points_df = get_raw_state_by_blocks(destination_points_calls, blocks, autopool.chain)
 
     def _add_points_value_to_summary_stats(summary_stats_cell, points_cell: float | None):
 
@@ -193,11 +208,11 @@ def _build_summary_stats_call(
     )
 
 
-def _build_destination_points_calls(destination_details: set[DestinationDetails]) -> list[Call]:
+def _build_destination_points_calls(destination_details: set[DestinationDetails], chain: ChainData) -> list[Call]:
 
     destination_points_calls = [
         Call(
-            POINTS_HOOK,
+            POINTS_HOOK(chain),
             ["destinationBoosts(address)(uint256)", dest.vaultAddress],
             [(dest.vaultAddress, safe_normalize_with_bool_success)],
         )
@@ -205,16 +220,6 @@ def _build_destination_points_calls(destination_details: set[DestinationDetails]
     ]
 
     return destination_points_calls
-
-
-def _build_summary_stats_dfs(summary_stats_df: pd.DataFrame):
-    uwcr_df, priceReturn = _extract_unweighted_composite_return_df(summary_stats_df)
-    allocation_df = _extract_allocation_df(summary_stats_df)
-    compositeReturn_out_df = _extract_composite_return_out_df(summary_stats_df)
-    total_nav_series = allocation_df.sum(axis=1)
-    portion_df = allocation_df.div(total_nav_series, axis=0)
-    uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
-    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, priceReturn
 
 
 def _extract_composite_return_out_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
@@ -252,14 +257,31 @@ def _extract_allocation_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
     return allocation_df
 
 
-@time_decorator
-def tester():
-    blocks = build_blocks_to_use()[::8]
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
-        fetch_destination_summary_stats(blocks, AUTO_LRT)
-    )
-    ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else 0).astype(float)
-
-
 if __name__ == "__main__":
-    tester()
+    # blocks = build_blocks_to_use(BASE_ETH.chain, start_block=21241103)[::6]
+
+    # uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = fetch_destination_summary_stats(blocks, BASE_ETH)
+
+    # print(uwcr_df.head())
+    # print(allocation_df.head())
+    # print(compositeReturn_out_df.head())
+    # print(total_nav_series.head())
+    # print(priceReturn_df.head())
+    # pass
+
+
+    # mainnet works, but base does not
+    # blocks = build_blocks_to_use(
+    #     ETH_CHAIN,
+    # )[::6]
+    # print(len(blocks))
+    # uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
+    #     fetch_destination_summary_stats(blocks, AUTO_LRT)
+    # )
+
+    # print(uwcr_df.head())
+    # print(allocation_df.head())
+    # print(compositeReturn_out_df.head())
+    # print(total_nav_series.head())
+    # print(priceReturn_df.head())
+    # pass

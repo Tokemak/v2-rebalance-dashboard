@@ -6,7 +6,7 @@ import nest_asyncio
 import asyncio
 
 
-from mainnet_launch.constants import CACHE_TIME, Chain, TokemakAddress
+from mainnet_launch.constants import CACHE_TIME, ChainData, TokemakAddress
 
 # needed to run these functions in a jupyter notebook
 nest_asyncio.apply()
@@ -18,11 +18,11 @@ MULTICALL_V3 = TokemakAddress(
 )
 
 
-def get_state_by_one_block(calls: list[Call], block: int, chain: Chain):
+def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):
     return asyncio.run(safe_get_raw_state_by_block_one_block(calls, block, chain))
 
 
-async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: Chain):
+async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData):
     # nice for testing
     multicall = Multicall(calls=calls, block_id=block, _w3=chain.client, require_success=False)
     response = await multicall.coroutine()
@@ -38,7 +38,7 @@ def build_get_address_eth_balance_call(name: str, addr: str) -> Call:
     )
 
 
-def _build_default_block_and_timestamp_calls(chain: Chain):
+def _build_default_block_and_timestamp_calls(chain: ChainData):
     get_block_call = Call(
         MULTICALL_V3(chain),
         ["getBlockNumber()(uint256)"],
@@ -69,7 +69,7 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
 def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
-    chain: Chain,
+    chain: ChainData,
     semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
     include_block_number: bool = False,
 ) -> pd.DataFrame:
@@ -79,7 +79,7 @@ def get_raw_state_by_blocks(
 async def async_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
-    chain: Chain,
+    chain: ChainData,
     semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
     include_block_number: bool = False,
 ) -> pd.DataFrame:
@@ -164,7 +164,7 @@ def identity_function(value):
 
 @st.cache_data(ttl=CACHE_TIME)
 def build_blocks_to_use(
-    chain: Chain, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 6
+    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 6
 ) -> list[int]:
     """Returns a block approx every 4 hours. by default between when autopool was first deployed to the current block"""
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
