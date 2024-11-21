@@ -24,7 +24,7 @@ def fetch_and_render_turnover_data(autopool: AutopoolConstants):
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
-    blocks = build_blocks_to_use()
+    blocks = build_blocks_to_use(autopool.chain)
     clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, pR_df = (
         fetch_destination_summary_stats(blocks, autopool)
@@ -67,4 +67,6 @@ def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
+
     fetch_turnover_data(ALL_AUTOPOOLS[2])
+    fetch_turnover_data(ALL_AUTOPOOLS[-1])

@@ -8,20 +8,16 @@ from multicall import Call
 from mainnet_launch.constants import (
     CACHE_TIME,
     AutopoolConstants,
-    time_decorator,
-    ALL_AUTOPOOLS,
-    eth_client,
     ROOT_PRICE_ORACLE,
     ChainData,
 )
-from mainnet_launch.abis.abis import AUTOPOOL_ETH_STRATEGY_ABI, ROOT_PRICE_ORACLE_ABI
+from mainnet_launch.abis.abis import ROOT_PRICE_ORACLE_ABI
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     build_blocks_to_use,
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
-    safe_normalize_6_with_bool_success,
     identity_with_bool_success,
 )
 from mainnet_launch.destinations import get_destination_details
@@ -37,7 +33,7 @@ from mainnet_launch.autopool_diagnostics.compute_rebalance_cost import fetch_reb
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
 
-    clean_rebalance_df["gasCostInETH"] = add_transaction_gas_info_to_df_with_tx_hash(clean_rebalance_df, autopool.chain)
+    clean_rebalance_df = add_transaction_gas_info_to_df_with_tx_hash(clean_rebalance_df, autopool.chain)
 
     clean_rebalance_df["flash_borrower_address"] = clean_rebalance_df.apply(
         lambda row: _get_flash_borrower_address(row["hash"], autopool.chain), axis=1
@@ -160,7 +156,7 @@ def _add_solver_profit_cols(clean_rebalance_df: pd.DataFrame, autopool: Autopool
             clean_rebalance_df["flash_borrower_address"] == flash_borrower_address
         ].copy()
         limited_clean_rebalance_df = _add_solver_profit_cols_by_flash_borrower(
-            limited_clean_rebalance_df, flash_borrower_address, autopool
+            limited_clean_rebalance_df, flash_borrower_address, autopool.chain
         )
         rebalance_dfs.append(limited_clean_rebalance_df)
 
@@ -174,7 +170,7 @@ def _add_solver_profit_cols_by_flash_borrower(
     """
     Solver profit: ETH value held by the solver AFTER a rebalance - ETH value held by the solver BEFORE a rebalance
     """
-    root_price_oracle_contract = chain.client.eth.contract(ROOT_PRICE_ORACLE, abi=ROOT_PRICE_ORACLE_ABI)
+    root_price_oracle_contract = chain.client.eth.contract(ROOT_PRICE_ORACLE(chain), abi=ROOT_PRICE_ORACLE_ABI)
     tokens: list[str] = fetch_events(root_price_oracle_contract.events.TokenRegistered)["token"].values
 
     symbol_calls = [Call(t, ["symbol()(string)"], [(t, identity_with_bool_success)]) for t in tokens]
