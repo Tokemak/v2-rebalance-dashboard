@@ -193,5 +193,5 @@ def start_cache_thread():
 
 
 if __name__ == "__main__":
-    # start_cache_thread()
+    start_cache_thread()
     main()

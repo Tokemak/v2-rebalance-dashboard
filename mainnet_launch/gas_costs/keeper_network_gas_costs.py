@@ -20,6 +20,7 @@ from mainnet_launch.constants import (
     AUTO_LRT,
     AutopoolConstants,
     WORKING_DATA_DIR,
+    ETH_CHAIN,
 )
 
 
@@ -29,47 +30,49 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import (
     add_transaction_gas_info_to_df_with_tx_hash,
 )
 
-
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
-    _calc_gas_used_by_transaction_in_eth,
     fetch_and_clean_rebalance_between_destination_events,
 )
+
+KEEPER_REGISTRY_CONTRACT_ADDRESS = "0x6593c7De001fC8542bB1703532EE1E5aA0D458fD"
+
 
 OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "1344461886831441856282597505993515040672606510446374000438363195934269203116"
 NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "113129673265054907567420460651277872997162644350081440026681710279139531871240"
 NEW2_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "93443706906332180407535184303815616290343141548650473059299738217546322242910"
 INCENTIVE_PRICING_KEEPER_ORACLE_ID = "84910810589923801598536031507827941923735631663622593132512932471876788938876"
-# there can be more KEEPER IDs added later
 
-KEEPER_REGISTRY_CONTRACT_ADDRESS = "0x6593c7De001fC8542bB1703532EE1E5aA0D458fD"
-START_BLOCK = 20752581  # 20752910  # sep 15, 2024
 
-# JSON paths for caching each hash-related attribute
-GAS_COST_JSON_PATH = "hash_to_gas_cost_in_ETH.json"
-GAS_PRICE_JSON_PATH = "hash_to_gasPrice.json"
-GAS_USED_JSON_PATH = "hash_to_gas_used.json"
+CALCULATOR_TOPIC_IDS = [
+    OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+    NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+    NEW2_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+]
+INCENTIVE_PRICING_TOPIC_IDS = [INCENTIVE_PRICING_KEEPER_ORACLE_ID]
+
+
+def fetch_our_chainlink_upkeep_events() -> pd.DataFrame:
+    contract = ETH_CHAIN.client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
+    upkeep_df = fetch_events(contract.events.UpkeepPerformed, ETH_CHAIN.block_autopool_first_deployed)
+    our_chainlink_upkeep_events = upkeep_df[
+        upkeep_df["id"].apply(str).isin([*CALCULATOR_TOPIC_IDS, *INCENTIVE_PRICING_TOPIC_IDS])
+    ].copy()
+
+    our_chainlink_upkeep_events = add_timestamp_to_df_with_block_column(our_chainlink_upkeep_events, ETH_CHAIN)
+    return our_chainlink_upkeep_events
 
 
 def fetch_keeper_network_gas_costs() -> pd.DataFrame:
-    # Load cached data from JSON files or initialize empty structures
-    hash_to_gas_cost_in_ETH = load_json_data(GAS_COST_JSON_PATH)
-    hash_to_gasPrice = load_json_data(GAS_PRICE_JSON_PATH)
-    has_to_gas_used = load_json_data(GAS_USED_JSON_PATH)
+    our_chainlink_upkeep_events = fetch_our_chainlink_upkeep_events()
+    our_chainlink_upkeep_events = add_transaction_gas_info_to_df_with_tx_hash(our_chainlink_upkeep_events, ETH_CHAIN)
+    # only count gas costs after mainnet launch on September 15
+    updated_df = updated_df[updated_df.index >= pd.Timestamp("2024-09-15", tz="UTC")].copy()
 
-    # Fetch contract events and filter relevant data
-    new_upkeep_df = fetch_filtered_upkeep_events()
+    updated_df["gasCostInETH_with_chainlink_premium"] = updated_df["gasCostInETH"] * 1.2  # 20% premium
+    updated_df["gasCostInETH_without_chainlink_overhead"] = updated_df["gasPrice"].astype(int) * updated_df[
+        "gasUsed"
+    ].apply(lambda x: int(x) / 1e18)
 
-    fetch_missing_transaction_data(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice, has_to_gas_used)
-
-    updated_df = construct_dataframe(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice, has_to_gas_used)
-
-    fetch_solver_gas_costs()
-
-    date_filter = pd.Timestamp("2024-09-15", tz="UTC")
-
-    updated_df = updated_df[updated_df.index >= date_filter].copy()
-    updated_df = add_transaction_gas_info_to_df_with_tx_hash(updated_df)  # possibly redundent
-    updated_df.to_csv(WORKING_DATA_DIR / "chainlink_keeper_upkeeper_df.csv")
     return updated_df
 
 
@@ -105,104 +108,8 @@ def fetch_and_render_keeper_network_gas_costs():
         )
 
 
-def load_json_data(file_path):
-
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "r") as f:
-                return json.load(f)
-        except json.decoder.JSONDecodeError:
-            # if we can't read in the json for whatever reason, delete the file and refetch everything
-            os.remove(file_path)
-    return {}
-
-
-def save_json_data(data, file_path):
-    with open(file_path, "w") as f:
-        json.dump(data, f)
-
-
-@st.cache_data(ttl=CACHE_TIME)
-def fetch_filtered_upkeep_events():
-    contract = eth_client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
-    upkeep_df = fetch_events(contract.events.UpkeepPerformed, START_BLOCK)
-    filtered_upkeep_df = upkeep_df[
-        upkeep_df["id"]
-        .apply(str)
-        .isin(
-            [
-                OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
-                NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
-                NEW2_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
-                INCENTIVE_PRICING_KEEPER_ORACLE_ID,
-            ]
-        )
-    ].copy()
-    filtered_upkeep_df = add_timestamp_to_df_with_block_column(filtered_upkeep_df)
-    return filtered_upkeep_df
-
-
-def fetch_missing_transaction_data(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice, has_to_gas_used):
-    """Fetch and update transaction data for hashes that are not already cached."""
-    missing_hashes = new_upkeep_df[~new_upkeep_df["hash"].isin(hash_to_gas_cost_in_ETH.keys())]["hash"]
-    lock = threading.Lock()
-
-    def batch_calc_gas_used_by_transaction_in_eth(tx_hashes: list[str]):
-        for tx_hash in tx_hashes:
-            success = False
-            while not success:
-                try:
-                    tx_receipt = eth_client.eth.get_transaction_receipt(tx_hash)
-                    tx = eth_client.eth.get_transaction(tx_hash)
-                    gas_cost_in_ETH = float(eth_client.fromWei(tx["gasPrice"] * tx_receipt["gasUsed"], "ether"))
-                    with lock:
-                        has_to_gas_used[tx_hash] = tx_receipt["gasUsed"]
-                        hash_to_gas_cost_in_ETH[tx_hash] = gas_cost_in_ETH
-                        hash_to_gasPrice[tx_hash] = tx["gasPrice"]
-                    success = True
-                except Exception as e:
-                    logging.warning(f"Retrying for transaction {tx_hash} due to error: {e}")
-                    time.sleep(1)  # Retry after a short delay
-
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        hash_groups = np.array_split(missing_hashes, 100)
-        for tx_hashes in hash_groups:
-            executor.submit(batch_calc_gas_used_by_transaction_in_eth, tx_hashes)
-
-    # Save updated data to JSON files
-    save_json_data(hash_to_gas_cost_in_ETH, GAS_COST_JSON_PATH)
-    save_json_data(hash_to_gasPrice, GAS_PRICE_JSON_PATH)
-    save_json_data(has_to_gas_used, GAS_USED_JSON_PATH)
-
-
-def construct_dataframe(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice, has_to_gas_used):
-    """Construct the complete DataFrame from JSON-cached data and calculated fields."""
-    # Map values from JSON data to new_upkeep_df
-    new_upkeep_df["gasCostInETH"] = new_upkeep_df["hash"].map(hash_to_gas_cost_in_ETH)
-    new_upkeep_df["gasPrice"] = new_upkeep_df["hash"].map(hash_to_gasPrice)
-    new_upkeep_df["full_tx_gas_used"] = new_upkeep_df["hash"].map(has_to_gas_used)
-
-    # Calculate additional fields
-    new_upkeep_df["gasCostInETH_with_chainlink_premium"] = new_upkeep_df["gasCostInETH"] * 1.2  # 20% premium
-    new_upkeep_df["gasCostInETH_without_chainlink_overhead"] = new_upkeep_df["gasPrice"].astype(int) * new_upkeep_df[
-        "gasUsed"
-    ].apply(lambda x: int(x) / 1e18)
-
-    return new_upkeep_df
-
-
 def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
-    calculator_df = our_upkeep_df[
-        our_upkeep_df["id"]
-        .apply(str)
-        .isin(
-            [
-                OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
-                NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
-                NEW2_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
-            ]
-        )
-    ]
+    calculator_df = our_upkeep_df[our_upkeep_df["id"].apply(str).isin([CALCULATOR_TOPIC_IDS])]
     incentive_pricing_df = our_upkeep_df[our_upkeep_df["id"].apply(str) == INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 
     calculator_gas_costs_7, calculator_gas_costs_30, calculator_gas_costs_365 = get_gas_costs(
@@ -292,43 +199,14 @@ def fetch_solver_metrics():
     return cost_last_7_days, cost_last_30_days, cost_last_1_year
 
 
-def fetch_solver_gas_costs():
-    # Load cached gas cost data or initialize empty structure if not available
-    hash_to_rebalance_gas_cost_in_ETH = load_json_data(GAS_COST_JSON_PATH)
-
-    rebalance_dfs = []
-    lock = threading.Lock()
-
-    def calc_and_cache_gas_cost(tx_hash):
-        """Fetch and cache gas cost for a single transaction."""
-        gas_cost_in_ETH = _calc_gas_used_by_transaction_in_eth(tx_hash)
-        with lock:
-            hash_to_rebalance_gas_cost_in_ETH[tx_hash] = gas_cost_in_ETH
-
-    for autopool in ALL_AUTOPOOLS:
-        clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
-
-        # Identify missing transaction hashes
-        missing_hashes = clean_rebalance_df[~clean_rebalance_df["hash"].isin(hash_to_rebalance_gas_cost_in_ETH.keys())][
-            "hash"
-        ]
-
-        # Use ThreadPoolExecutor to calculate gas costs in parallel
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            executor.map(calc_and_cache_gas_cost, missing_hashes)
-
-        # Map cached gas costs to the dataframe
-        clean_rebalance_df["gasCostInETH"] = clean_rebalance_df["hash"].map(hash_to_rebalance_gas_cost_in_ETH)
-        rebalance_dfs.append(clean_rebalance_df)
-
-    # Save the updated JSON data after all calculations
-    save_json_data(hash_to_rebalance_gas_cost_in_ETH, GAS_COST_JSON_PATH)
-
-    # Concatenate all dataframes and return final rebalance gas cost dataframe
-    rebalance_gas_cost_df = pd.concat(rebalance_dfs, axis=0)
-    rebalance_gas_cost_df = add_transaction_gas_info_to_df_with_tx_hash(rebalance_gas_cost_df)
-    rebalance_gas_cost_df.to_csv(WORKING_DATA_DIR / "rebalance_gas_cost_df.csv")
-    return rebalance_gas_cost_df
+def fetch_solver_gas_costs() -> pd.DataFrame:
+    """Returns a dataframe of all the rebalanc events along with the gas costs"""
+    clean_rebalance_df = pd.concat(
+        [fetch_and_clean_rebalance_between_destination_events(a) for a in ALL_AUTOPOOLS if a.chain == ETH_CHAIN]
+    )
+    clean_rebalance_df = add_transaction_gas_info_to_df_with_tx_hash(clean_rebalance_df, ETH_CHAIN)
+    clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, ETH_CHAIN)
+    return clean_rebalance_df
 
 
 def fetch_all_autopool_debt_reporting_events() -> pd.DataFrame:
@@ -336,13 +214,17 @@ def fetch_all_autopool_debt_reporting_events() -> pd.DataFrame:
 
     for autopool in ALL_AUTOPOOLS:
         vault_contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-        debt_reporting_df = add_timestamp_to_df_with_block_column(
-            fetch_events(vault_contract.events.DestinationDebtReporting)
+        debt_reporting_dfs.append(
+            fetch_events(
+                vault_contract.events.DestinationDebtReporting, start_block=ETH_CHAIN.block_autopool_first_deployed
+            )
         )
-        debt_reporting_dfs.append(debt_reporting_df)
 
     destination_debt_reporting_df = pd.concat(debt_reporting_dfs)
-    destination_debt_reporting_df = add_transaction_gas_info_to_df_with_tx_hash(destination_debt_reporting_df)
+    destination_debt_reporting_df = add_transaction_gas_info_to_df_with_tx_hash(
+        destination_debt_reporting_df, ETH_CHAIN
+    )
+    destination_debt_reporting_df = add_timestamp_to_df_with_block_column(destination_debt_reporting_df, ETH_CHAIN)
     return destination_debt_reporting_df
 
 
