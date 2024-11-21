@@ -12,17 +12,18 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 
 
-start_block = 20759126  # Sep 15, 2024
-
-
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_fee_data(autopool: AutopoolConstants):
     vault_contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    streaming_fee_df = fetch_events(vault_contract.events.FeeCollected, start_block=start_block)
-    periodic_fee_df = fetch_events(vault_contract.events.PeriodicFeeCollected, start_block=start_block)
+    streaming_fee_df = fetch_events(
+        vault_contract.events.FeeCollected, start_block=autopool.chain.block_autopool_first_deployed
+    )
+    periodic_fee_df = fetch_events(
+        vault_contract.events.PeriodicFeeCollected, start_block=autopool.chain.block_autopool_first_deployed
+    )
 
-    streaming_fee_df = add_timestamp_to_df_with_block_column(streaming_fee_df)
-    periodic_fee_df = add_timestamp_to_df_with_block_column(periodic_fee_df)
+    streaming_fee_df = add_timestamp_to_df_with_block_column(streaming_fee_df, autopool.chain)
+    periodic_fee_df = add_timestamp_to_df_with_block_column(periodic_fee_df, autopool.chain)
 
     periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
     streaming_fee_df["normalized_fees"] = streaming_fee_df["fees"].apply(lambda x: int(x) / 1e18)
@@ -36,24 +37,11 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_rewardliq_plot(autopool: AutopoolConstants):
     vault_contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    rewardsliq = vault_contract.events.DestinationDebtReporting.createFilter(fromBlock=start_block)
-    rewardsliq_events = rewardsliq.get_all_entries()
-
-    # Process event data
-    event_data = []
-    for event in rewardsliq_events:
-        block = eth_client.eth.get_block(event["blockNumber"])
-        event_data.append(
-            {
-                "timestamp": datetime.fromtimestamp(block["timestamp"]),
-                "destination": event["args"]["destination"],
-                "claimed": event["args"]["claimed"] / 1e18,  # Convert Wei to ETH
-            }
-        )
-
-    # Create DataFrame
-    df = pd.DataFrame(event_data)
-    return df
+    rewardsliq_events_df = fetch_events(
+        vault_contract.events.PeriodicFeeCollected, start_block=autopool.chain.block_autopool_first_deployed
+    )
+    rewardsliq_events_df = add_timestamp_to_df_with_block_column(rewardsliq_events_df, autopool.chain)
+    return rewardsliq_events_df
 
 
 def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
