@@ -15,11 +15,10 @@ from mainnet_launch.destinations import get_destination_details
 
 # @st.cache_data(ttl=CACHE_TIME)
 def fetch_key_metrics_data(autopool: AutopoolConstants):
-    blocks = build_blocks_to_use(autopool.chain, )
-    nav_per_share_df = fetch_nav_per_share(blocks, autopool)
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
-        fetch_destination_summary_stats(blocks, autopool)
-    )
+    blocks = build_blocks_to_use(autopool.chain, start_block=21241103, end_block=22659503)
+    # nav_per_share_df = fetch_nav_per_share(blocks, autopool) # works
+    a = fetch_destination_summary_stats(blocks, autopool)
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = a
     pass
 
     # key_metric_data = {
@@ -217,5 +216,6 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
 if __name__ == "__main__":
     from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS, AUTO_ETH, BASE_ETH
 
+    blocks = build_blocks_to_use(BASE_ETH.chain, start_block=21241103, end_block=22659503)
     fetch_key_metrics_data(BASE_ETH)
     # fetch_and_render_key_metrics_data(AUTO_LRT)

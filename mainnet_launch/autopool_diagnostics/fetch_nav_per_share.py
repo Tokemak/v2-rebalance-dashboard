@@ -9,15 +9,12 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, AutopoolConstants
 
 
-
 def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
     return Call(
         autopool_vault_address,
         ["convertToAssets(uint256)(uint256)", int(1e18)],
         [(name, safe_normalize_with_bool_success)],
     )
-
-
 
 
 def fetch_nav_per_share(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
