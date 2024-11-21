@@ -49,7 +49,8 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConstants) -> pd.DataFrame:
     rebalance_df = fetch_rebalance_events_actual_amounts(autopool)
-    destination_details = get_destination_details()
+    blocks = build_blocks_to_use(autopool.chain)
+    destination_details = get_destination_details(autopool, blocks)
     destination_vault_address_to_symbol = {dest.vaultAddress: dest.vault_name for dest in destination_details}
 
     def _make_rebalance_between_destination_human_readable(

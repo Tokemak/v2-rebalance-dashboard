@@ -6,11 +6,12 @@ from web3 import Web3
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
+    build_blocks_to_use,
 )
 
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.constants import AutopoolConstants, CACHE_TIME, AUTO_LRT
+from mainnet_launch.constants import AutopoolConstants, CACHE_TIME, WETH
 from mainnet_launch.abis.abis import (
     AUTOPOOL_ETH_STRATEGY_ABI,
     ERC_20_ABI,
@@ -20,8 +21,8 @@ from mainnet_launch.destinations import get_destination_details
 
 
 def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants) -> pd.DataFrame:
-
-    destinations = [d for d in get_destination_details() if d.autopool == autopool]
+    blocks = build_blocks_to_use(autopool.chain)
+    destinations = get_destination_details(autopool, blocks)
     vaultAddresses = list(set([d.vaultAddress for d in destinations]))
     dfs = []
 
@@ -38,8 +39,8 @@ def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants) -> pd.Da
 
 
 def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants) -> pd.DataFrame:
-
-    destinations = [d for d in get_destination_details() if d.autopool == autopool]
+    blocks = build_blocks_to_use(autopool.chain)
+    destinations = get_destination_details(autopool, blocks)
     vaultAddresses = list(set([d.vaultAddress for d in destinations]))
     dfs = []
 
@@ -74,26 +75,23 @@ def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolCo
     validated_spot_price_df[autopool.autopool_eth_addr] = (
         1.0  # movements to or from the autopool itself are always in WETH
     )
-    validated_spot_price_df["block"] = validated_spot_price_df["block"].astype(int)
     validated_spot_price_df = validated_spot_price_df.reset_index(drop=True)
     return validated_spot_price_df
 
 
 def _fetch_weth_transfers_to_or_from_autopool_vault(autopool: AutopoolConstants) -> pd.DataFrame:
-    start_block = 20722908
 
-    WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-    weth_contract = autopool.chain.client.eth.contract(WETH, abi=ERC_20_ABI)
+    weth_contract = autopool.chain.client.eth.contract(WETH(autopool.chain), abi=ERC_20_ABI)
 
     weth_to_autopool = fetch_events(
         weth_contract.events.Transfer,
-        start_block=start_block,
+        start_block=autopool.chain.block_autopool_first_deployed,
         argument_filters={"to": autopool.autopool_eth_addr},
     )
 
     weth_from_autopool = fetch_events(
         weth_contract.events.Transfer,
-        start_block=start_block,
+        start_block=autopool.chain.block_autopool_first_deployed,
         argument_filters={"from": autopool.autopool_eth_addr},
     )
 
@@ -105,30 +103,26 @@ def _fetch_events_needed_to_compute_rebalance_costs(autopool: AutopoolConstants)
     Returns a df of event, block, hash, outDestination Vault, inDestinationVault for rebalance between destinations
     or to/from idle
     """
-    strategy_contract = eth_client.eth.contract(autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI)
+    strategy_contract = autopool.chain.client.eth.contract(
+        autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI
+    )
 
     rebalance_between_destinations_df = fetch_events(strategy_contract.events.RebalanceBetweenDestinations)
 
     rebalance_between_destinations_df["outDestinationVault"] = rebalance_between_destinations_df[
         "outSummaryStats"
-    ].apply(lambda x: eth_client.toChecksumAddress(x[0]))
+    ].apply(lambda x: Web3.toChecksumAddress(x[0]))
 
     rebalance_between_destinations_df["inDestinationVault"] = rebalance_between_destinations_df["inSummaryStats"].apply(
-        lambda x: eth_client.toChecksumAddress(x[0])
+        lambda x: Web3.toChecksumAddress(x[0])
     )
 
     rebalance_to_idle_df = fetch_events(strategy_contract.events.RebalanceToIdle)
-
     rebalance_to_idle_df["outDestinationVault"] = rebalance_to_idle_df["outSummary"].apply(
-        lambda x: eth_client.toChecksumAddress(x[0])
+        lambda x: Web3.toChecksumAddress(x[0])
     )
 
     rebalance_to_idle_df["inDestinationVault"] = autopool.autopool_eth_addr
-
-    # rebalance_columns = ["event", "block", "hash", "outDestinationVault", "inDestinationVault"]
-    # rebalance_to_idle_df = rebalance_to_idle_df[rebalance_columns].copy()
-    # rebalance_between_destinations_df = rebalance_between_destinations_df[rebalance_columns].copy()
-
     rebalance_df = pd.concat([rebalance_to_idle_df, rebalance_between_destinations_df], axis=0)
 
     weth_to_autopool, weth_from_autopool = _fetch_weth_transfers_to_or_from_autopool_vault(autopool)
@@ -194,9 +188,17 @@ def fetch_rebalance_events_actual_amounts(autopool: AutopoolConstants) -> pd.Dat
     rebalance_df["swap_cost"] = rebalance_df["spot_value_out"] - rebalance_df["spot_value_in"]
 
     # Donations to the autopool make the swap cost negative, this throws off a lot of math so
-    # the same is true because the solver can have some excess in rebalance before sendign it back into the pool
+    # the same is true because the solver can have some excess in rebalance before sending it back into the pool
     # on a later rebalance
     # a negative swap cost throws off some of the stats, so treat it as 0
     rebalance_df["swap_cost"] = rebalance_df["swap_cost"].clip(lower=0)
-    rebalance_df = add_timestamp_to_df_with_block_column(rebalance_df)
+    rebalance_df = add_timestamp_to_df_with_block_column(rebalance_df, autopool.chain)
     return rebalance_df
+
+
+if __name__ == "__main__":
+
+    from mainnet_launch.constants import BASE_ETH, AUTO_LRT
+
+    fetch_rebalance_events_actual_amounts(BASE_ETH)
+    fetch_rebalance_events_actual_amounts(AUTO_LRT)
