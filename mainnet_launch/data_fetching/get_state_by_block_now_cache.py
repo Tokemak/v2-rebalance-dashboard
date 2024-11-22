@@ -101,19 +101,6 @@ def _insert_multicall_log(multicall_hash: int, response: dict):
         print("saved", multicall_hash)
 
 
-def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_multicalls: list):
-    async def _fetch_data(multicall: Multicall):
-        async with semaphore:
-            try:
-                response = await multicall.coroutine()
-                responses.append(response)
-            except Exception:
-                # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
-                failed_multicalls.append(multicall)
-
-    return _fetch_data
-
-
 def _build_default_block_and_timestamp_calls(chain: ChainData):
     get_block_call = Call(
         MULTICALL_V3(chain),
@@ -187,10 +174,11 @@ async def async_safe_get_raw_state_by_block(
         calls, blocks, chain
     )
 
+    db_hashes_already_cached = list(cached_hash_to_response.keys())
+
     lock = Lock()
     for max_http_calls_per_second in semaphore_limits:
         if len(multicalls_left_to_fetch) == 0:
-            print("no multicalls left to fetch, exiting early")
             break
 
         semaphore = asyncio.Semaphore(max_http_calls_per_second)
@@ -221,19 +209,16 @@ async def async_safe_get_raw_state_by_block(
     finalized_responses_to_cache: list[tuple[str, dict[str, any]]] = [
         (db_hash, response)
         for db_hash, response in cached_hash_to_response.items()
-        if response["block"] <= highest_finalized_block
+        if (response["block"] <= highest_finalized_block) and (db_hash not in db_hashes_already_cached)
     ]
     _batch_insert_multicall_logs(finalized_responses_to_cache)
 
     df = pd.DataFrame(all_responses)
-    print(len(df), len(blocks))
-    print(df.tail())
     df.set_index("timestamp", inplace=True)
     df.index = pd.to_datetime(df.index, unit="s", utc=True)
     df.sort_index(inplace=True)
 
     df["block"] = df["block"].astype(int)
-
     if not include_block_number:
         df.drop(columns="block", inplace=True)
     return df
@@ -247,21 +232,21 @@ def _batch_insert_multicall_logs(finalized_responses_to_cache):
         multicall_hashes (list[str]): List of multicall hash strings.
         responses (list[dict]): Corresponding list of response dictionaries.
     """
-
-    hashes_to_insert = [d[0] for d in finalized_responses_to_cache]
-    responses_to_insert =  [d[1] for d in finalized_responses_to_cache]
-
-    with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
-        cursor = conn.cursor()
-        cursor.executemany(
-            """
-            INSERT OR REPLACE INTO multicall_logs (multicall_hash, response)
-            VALUES (?, ?)
-            """,
-            zip(hashes_to_insert, (json.dumps(response) for response in responses_to_insert)),
-        )
-        conn.commit()
-        print(f"Inserted {len(responses_to_insert)} multicall responses into cache.")
+    if len(finalized_responses_to_cache) > 0:
+        # only touch the db if there are more data to cache
+        hashes_to_insert = [d[0] for d in finalized_responses_to_cache]
+        responses_to_insert = [d[1] for d in finalized_responses_to_cache]
+        with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
+            cursor = conn.cursor()
+            cursor.executemany(
+                """
+                INSERT OR REPLACE INTO multicall_logs (multicall_hash, response)
+                VALUES (?, ?)
+                """,
+                zip(hashes_to_insert, (json.dumps(response) for response in responses_to_insert)),
+            )
+            conn.commit()
+            print(f"Inserted {len(responses_to_insert)} multicall responses into cache.")
 
 
 def _batch_get_multicall_logs(multicall_hashes: list[str]) -> dict[str, dict | None]:
@@ -281,6 +266,7 @@ def _batch_get_multicall_logs(multicall_hashes: list[str]) -> dict[str, dict | N
         query = f"SELECT multicall_hash, response FROM multicall_logs WHERE multicall_hash IN ({placeholders})"
         cursor.execute(query, multicall_hashes)
         rows = cursor.fetchall()
+        print(print(f"loaded {len(rows)} multicall responses of {len(multicall_hashes)} needed"))
 
     # only valid jsons should be here so we should fail on trying to load one that does not work
     cached_hash_to_response = {row[0]: json.loads((row[1])) for row in rows}
@@ -317,15 +303,15 @@ def identity_function(value):
 
 @st.cache_data(ttl=CACHE_TIME)
 def build_blocks_to_use(
-    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 6
+    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 1
 ) -> list[int]:
     # just start from the start block, and go until you hit the end block instead of going backwards
-    """Returns a block approx every 4 hours. by default between when autopool was first deployed to the current block"""
+    """Returns a block approx once per day. by default between when autopool was first deployed to the highest finalized block"""
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
 
     if end_block is None:
         # these are approx but more than safe. can't use `finalized` because we are on a version of web3.py that
-        # was before proof of stake and can't update because multicall.py requires an old version
+        # was before proof of stake and can't update because multicall.py requires an older version of web3.py
         if chain == ETH_CHAIN:
             end_block = ETH_CHAIN.client.eth.get_block("latest").number - (64 * 5)
         elif chain == BASE_CHAIN:
@@ -375,15 +361,15 @@ def _test_get_state_once():
 def _test_get_many_states():
     print(ETH_CHAIN.client.eth.chainId)
     calls = _make_calls()
-    block = 21238611 + random.randint(0, 100)
-    blocks = [21238611 + i for i in range(100)]
+    block =  random.randint(10_000_000, 21238611)
+    blocks = [block + i for i in range(10)]
 
-    df = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN)
+    # intentionally slow to show speed up
+    df1 = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, semaphore_limits=(1,1,1))
 
-    print("df2")
-
-    df = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN)
-    pass
+    df2 = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, semaphore_limits=(1,1,1))
+    
+    assert df1.equals(df2)
 
 
 if __name__ == "__main__":
