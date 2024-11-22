@@ -86,7 +86,7 @@ def events_to_df(found_events: list[web3.datastructures.AttributeDict]) -> pd.Da
                 "block": int(event["blockNumber"]),
                 "transaction_index": int(event["transactionIndex"]),
                 "log_index": int(event["logIndex"]),
-                "hash": str(event["transactionHash"].hex()),
+                "hash": str(event["transactionHash"].hex()).lower(),
             }
         )
     return pd.DataFrame.from_records(cleaned_events).sort_values(["block", "log_index"])
