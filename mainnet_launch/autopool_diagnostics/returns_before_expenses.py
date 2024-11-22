@@ -19,7 +19,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.top_level.key_metrics import fetch_key_metrics_data
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.constants import AUTO_ETH, AUTO_LRT, BAL_ETH, AutopoolConstants, CACHE_TIME
+from mainnet_launch.constants import AUTO_ETH, AUTO_LRT, BAL_ETH, AutopoolConstants, CACHE_TIME, BASE_ETH
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI, AUTOPOOL_ETH_STRATEGY_ABI
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import fetch_rebalance_events_df
 
@@ -60,12 +60,12 @@ def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants) -> pd.DataFr
 
 
 def _fetch_cumulative_fee_shares_minted_by_day(autopool: AutopoolConstants) -> pd.DataFrame:
-    autoETH_vault = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+    vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
     FeeCollected_df = add_timestamp_to_df_with_block_column(
-        fetch_events(autoETH_vault.events.FeeCollected), autopool.chain
+        fetch_events(vault_contract.events.FeeCollected), autopool.chain
     )
     PeriodicFeeCollected_df = add_timestamp_to_df_with_block_column(
-        fetch_events(autoETH_vault.events.PeriodicFeeCollected), autopool.chain
+        fetch_events(vault_contract.events.PeriodicFeeCollected), autopool.chain
     )
     PeriodicFeeCollected_df["new_shares_from_periodic_fees"] = PeriodicFeeCollected_df["mintedShares"] / 1e18
     FeeCollected_df["new_shares_from_streaming_fees"] = FeeCollected_df["mintedShares"] / 1e18
@@ -544,4 +544,4 @@ def _make_bridge_plot(values: list[float], names: list[str], title: str):
 
 
 if __name__ == "__main__":
-    fetch_and_render_autopool_return_and_expenses_metrics(AUTO_LRT)
+    _fetch_cumulative_fee_shares_minted_by_day(BASE_ETH)
