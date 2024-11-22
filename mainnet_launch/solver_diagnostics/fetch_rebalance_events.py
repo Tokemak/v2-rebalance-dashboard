@@ -33,8 +33,6 @@ from mainnet_launch.autopool_diagnostics.compute_rebalance_cost import fetch_reb
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
 
-    clean_rebalance_df = add_transaction_gas_info_to_df_with_tx_hash(clean_rebalance_df, autopool.chain)
-
     clean_rebalance_df["flash_borrower_address"] = clean_rebalance_df.apply(
         lambda row: _get_flash_borrower_address(row["hash"], autopool.chain), axis=1
     )
@@ -44,7 +42,8 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     return clean_rebalance_df
 
 
-@st.cache_data(ttl=CACHE_TIME)
+# very slow
+# @st.cache_data(ttl=CACHE_TIME)
 def fetch_and_clean_rebalance_between_destination_events(
     autopool: AutopoolConstants,
 ) -> pd.DataFrame:  # TODO rename, this is all reblances
