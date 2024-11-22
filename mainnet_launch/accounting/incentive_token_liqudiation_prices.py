@@ -34,7 +34,7 @@ from mainnet_launch.constants import (
 def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
     chain = ETH_CHAIN
     achieved_eth_price_df, incentive_stats_token_prices_df, oracle_price_df = (
-        fetch_reward_token_achieved_vs_incentive_token_price(chain)
+        fetch_reward_token_achieved_vs_incentive_token_price()
     )
     today = datetime.now(timezone.utc)
     thirty_days_ago = today - timedelta(days=30)
@@ -95,9 +95,8 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def fetch_reward_token_achieved_vs_incentive_token_price(
-    chain: ChainData,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def fetch_reward_token_achieved_vs_incentive_token_price() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    chain = ETH_CHAIN
     swapped_df = _build_swapped_df(chain)
 
     incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df = _fetch_incentive_token_price_df(
