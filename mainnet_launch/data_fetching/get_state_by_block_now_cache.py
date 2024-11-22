@@ -329,10 +329,6 @@ import random
 
 
 def _make_calls():
-    def safe_normalize_with_bool_success(success: int, value: int):
-        if success:
-            return int(value) / 1e18
-        return None
 
     weth_bal_of_AUTO_LRT = Call(
         WETH(ETH_CHAIN),
@@ -354,24 +350,25 @@ def _test_get_state_once():
     calls = _make_calls()
     block = 21238611 + random.randint(0, 10000)
 
-    state = get_state_by_one_block(calls, block, ETH_CHAIN)
-    state = get_state_by_one_block(calls, block, ETH_CHAIN)
+    state1 = get_state_by_one_block(calls, block, ETH_CHAIN)
+    state2 = get_state_by_one_block(calls, block, ETH_CHAIN)
+    assert state1 == state2
 
 
 def _test_get_many_states():
     print(ETH_CHAIN.client.eth.chainId)
     calls = _make_calls()
-    block =  random.randint(10_000_000, 21238611)
-    blocks = [block + i for i in range(10)]
+    block = random.randint(10_000_000, 21_000_000)
+    blocks = [block + i for i in range(100)]
 
     # intentionally slow to show speed up
-    df1 = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, semaphore_limits=(1,1,1))
+    df1 = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, semaphore_limits=(1, 1, 1))
 
-    df2 = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, semaphore_limits=(1,1,1))
-    
+    df2 = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, semaphore_limits=(1, 1, 1))
+
     assert df1.equals(df2)
 
 
 if __name__ == "__main__":
-    # _test_get_state_once()
+    _test_get_state_once()
     _test_get_many_states()
