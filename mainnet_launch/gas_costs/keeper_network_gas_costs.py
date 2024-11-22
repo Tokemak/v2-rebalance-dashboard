@@ -5,22 +5,15 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta, timezone
-import os
-import time
-import logging
-import json
 
 from mainnet_launch.abis.abis import CHAINLINK_KEEPER_REGISTRY_ABI, AUTOPOOL_VAULT_ABI
 from mainnet_launch.constants import (
     CACHE_TIME,
-    eth_client,
     ALL_AUTOPOOLS,
-    BAL_ETH,
-    AUTO_ETH,
-    AUTO_LRT,
     AutopoolConstants,
     WORKING_DATA_DIR,
     ETH_CHAIN,
+    ChainData,
 )
 
 
@@ -63,17 +56,18 @@ def fetch_our_chainlink_upkeep_events() -> pd.DataFrame:
 
 
 def fetch_keeper_network_gas_costs() -> pd.DataFrame:
-    our_chainlink_upkeep_events = fetch_our_chainlink_upkeep_events()
-    our_chainlink_upkeep_events = add_transaction_gas_info_to_df_with_tx_hash(our_chainlink_upkeep_events, ETH_CHAIN)
+    our_upkeep_df = fetch_our_chainlink_upkeep_events()
+    our_upkeep_df = add_transaction_gas_info_to_df_with_tx_hash(our_upkeep_df, ETH_CHAIN)
+    our_upkeep_df = add_timestamp_to_df_with_block_column(our_upkeep_df, ETH_CHAIN)
     # only count gas costs after mainnet launch on September 15
-    updated_df = updated_df[updated_df.index >= pd.Timestamp("2024-09-15", tz="UTC")].copy()
+    our_upkeep_df = our_upkeep_df[our_upkeep_df.index >= pd.Timestamp("2024-09-15", tz="UTC")].copy()
 
-    updated_df["gasCostInETH_with_chainlink_premium"] = updated_df["gasCostInETH"] * 1.2  # 20% premium
-    updated_df["gasCostInETH_without_chainlink_overhead"] = updated_df["gasPrice"].astype(int) * updated_df[
+    our_upkeep_df["gasCostInETH_with_chainlink_premium"] = our_upkeep_df["gasCostInETH"] * 1.2  # 20% premium
+    our_upkeep_df["gasCostInETH_without_chainlink_overhead"] = our_upkeep_df["gasPrice"].astype(int) * our_upkeep_df[
         "gasUsed"
     ].apply(lambda x: int(x) / 1e18)
 
-    return updated_df
+    return our_upkeep_df
 
 
 def fetch_and_render_keeper_network_gas_costs():
@@ -201,6 +195,7 @@ def fetch_solver_metrics():
 
 def fetch_solver_gas_costs() -> pd.DataFrame:
     """Returns a dataframe of all the rebalanc events along with the gas costs"""
+    # solver gas costs on base are near free
     clean_rebalance_df = pd.concat(
         [fetch_and_clean_rebalance_between_destination_events(a) for a in ALL_AUTOPOOLS if a.chain == ETH_CHAIN]
     )
@@ -209,24 +204,20 @@ def fetch_solver_gas_costs() -> pd.DataFrame:
     return clean_rebalance_df
 
 
-def fetch_all_autopool_debt_reporting_events() -> pd.DataFrame:
+def fetch_all_autopool_debt_reporting_events(chain: ChainData) -> pd.DataFrame:
     debt_reporting_dfs = []
 
     for autopool in ALL_AUTOPOOLS:
-        vault_contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-        debt_reporting_dfs.append(
-            fetch_events(
-                vault_contract.events.DestinationDebtReporting, start_block=ETH_CHAIN.block_autopool_first_deployed
-            )
-        )
+        if autopool.chain == chain:
+            vault_contract = chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+            destination_debt_reporting_df = fetch_events(vault_contract.events.DestinationDebtReporting)
+            debt_reporting_dfs.append(destination_debt_reporting_df)
 
     destination_debt_reporting_df = pd.concat(debt_reporting_dfs)
-    destination_debt_reporting_df = add_transaction_gas_info_to_df_with_tx_hash(
-        destination_debt_reporting_df, ETH_CHAIN
-    )
-    destination_debt_reporting_df = add_timestamp_to_df_with_block_column(destination_debt_reporting_df, ETH_CHAIN)
+    destination_debt_reporting_df = add_transaction_gas_info_to_df_with_tx_hash(destination_debt_reporting_df, chain)
+    destination_debt_reporting_df = add_timestamp_to_df_with_block_column(destination_debt_reporting_df, chain)
     return destination_debt_reporting_df
 
 
 if __name__ == "__main__":
-    fetch_keeper_network_gas_costs()
+    fetch_and_render_keeper_network_gas_costs()

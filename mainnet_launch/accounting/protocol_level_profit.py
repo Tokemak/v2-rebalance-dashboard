@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import streamlit as st
 import pandas as pd
 
-from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS
+from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, ETH_CHAIN, BASE_CHAIN, AutopoolConstants, ChainData
 from mainnet_launch.gas_costs.keeper_network_gas_costs import (
     fetch_solver_gas_costs,
     fetch_keeper_network_gas_costs,
@@ -16,7 +16,9 @@ from mainnet_launch.autopool_diagnostics.fees import fetch_autopool_fee_data
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_protocol_level_profit_and_loss_data():
     gas_cost_df = fetch_gas_cost_df()
-    fee_df = fetch_fee_df()
+    eth_fee_df = fetch_fee_df(ETH_CHAIN)
+    base_fee_df = fetch_fee_df(BASE_CHAIN)
+    fee_df = pd.concat([eth_fee_df, base_fee_df])
     return gas_cost_df, fee_df
 
 
@@ -117,16 +119,17 @@ def fetch_gas_cost_df() -> pd.DataFrame:
     return gas_cost_df
 
 
-def fetch_fee_df() -> pd.DataFrame:
+def fetch_fee_df(chain: ChainData) -> pd.DataFrame:
     """
     Fetch all the the fees in ETH from the feeCollected and PeriodicFeeCollected events for each autopool
     """
     fee_dfs = []
     for autopool in ALL_AUTOPOOLS:
-        periodic_fee_df, streaming_fee_df = fetch_autopool_fee_data(autopool)
-        periodic_fee_df.columns = [f"{autopool.name}_periodic"]
-        streaming_fee_df.columns = [f"{autopool.name}_streaming"]
-        fee_dfs.extend([periodic_fee_df, streaming_fee_df])
+        if autopool.chain == chain:
+            periodic_fee_df, streaming_fee_df = fetch_autopool_fee_data(autopool)
+            periodic_fee_df.columns = [f"{autopool.name}_periodic"]
+            streaming_fee_df.columns = [f"{autopool.name}_streaming"]
+            fee_dfs.extend([periodic_fee_df, streaming_fee_df])
 
     fee_df = pd.concat(fee_dfs)
     return fee_df

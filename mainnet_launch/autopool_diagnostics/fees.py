@@ -14,13 +14,9 @@ from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_fee_data(autopool: AutopoolConstants):
-    vault_contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    streaming_fee_df = fetch_events(
-        vault_contract.events.FeeCollected, start_block=autopool.chain.block_autopool_first_deployed
-    )
-    periodic_fee_df = fetch_events(
-        vault_contract.events.PeriodicFeeCollected, start_block=autopool.chain.block_autopool_first_deployed
-    )
+    vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+    streaming_fee_df = fetch_events(vault_contract.events.FeeCollected)
+    periodic_fee_df = fetch_events(vault_contract.events.PeriodicFeeCollected)
 
     streaming_fee_df = add_timestamp_to_df_with_block_column(streaming_fee_df, autopool.chain)
     periodic_fee_df = add_timestamp_to_df_with_block_column(periodic_fee_df, autopool.chain)
@@ -227,3 +223,9 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
     )
 
     return daily_fee_fig, cumulative_fee_fig, weekly_fee_fig
+
+
+if __name__ == "__main__":
+
+    fetch_and_render_autopool_fee_data(ALL_AUTOPOOLS[0])
+    fetch_and_render_autopool_fee_data(ALL_AUTOPOOLS[-1])

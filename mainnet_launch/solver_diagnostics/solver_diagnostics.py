@@ -24,6 +24,7 @@ from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
 )
 from mainnet_launch.solver_diagnostics.rebalance_events import fetch_and_render_solver_profit_data
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 import boto3
 from botocore import UNSIGNED
@@ -80,21 +81,25 @@ def _render_solver_diagnostics(autopool: AutopoolConstants, figs):
 def ensure_all_rebalance_plans_are_loaded():
     for autopool in ALL_AUTOPOOLS:
         s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
-        response = s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket)
-        all_rebalance_plans = [o["Key"] for o in response["Contents"]]
-        local_rebalance_plans = [str(path).split("/")[-1] for path in SOLVER_REBALANCE_PLANS_DIR.glob("*.json")]
-        rebalance_plans_to_fetch = [
-            json_path for json_path in all_rebalance_plans if json_path not in local_rebalance_plans
-        ]
-        for json_key in rebalance_plans_to_fetch:
-            s3_client.download_file(
-                autopool.solver_rebalance_plans_bucket, json_key, SOLVER_REBALANCE_PLANS_DIR / json_key
-            )
+        try:
+            response = s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket)
+            all_rebalance_plans = [o["Key"] for o in response["Contents"]]
+            local_rebalance_plans = [str(path).split("/")[-1] for path in SOLVER_REBALANCE_PLANS_DIR.glob("*.json")]
+            rebalance_plans_to_fetch = [
+                json_path for json_path in all_rebalance_plans if json_path not in local_rebalance_plans
+            ]
+            for json_key in rebalance_plans_to_fetch:
+                s3_client.download_file(
+                    autopool.solver_rebalance_plans_bucket, json_key, SOLVER_REBALANCE_PLANS_DIR / json_key
+                )
+        except s3_client.exceptions.NoSuchBucket as e:
+            print(f'{autopool.name} {autopool.solver_rebalance_plans_bucket} failed to load s3 bucket {e=}')
 
 
 def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
     autopool_plans = [p for p in SOLVER_REBALANCE_PLANS_DIR.glob("*.json") if autopool.autopool_eth_addr in str(p)]
-    destination_details = get_destination_details()
+    blocks = build_blocks_to_use(autopool.chain)
+    destination_details = get_destination_details(autopool, blocks)
     destination_vault_address_to_symbol = {dest.vaultAddress: dest.vault_name for dest in destination_details}
     all_data = []
     for plan_json in autopool_plans:
@@ -277,4 +282,4 @@ def _add_add_rank_count(solver_df):
 
 
 if __name__ == "__main__":
-    _load_solver_df(ALL_AUTOPOOLS[0])
+    fetch_and_render_solver_diagnositics_data(ALL_AUTOPOOLS[0])
