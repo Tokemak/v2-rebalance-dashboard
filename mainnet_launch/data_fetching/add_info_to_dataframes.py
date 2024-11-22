@@ -1,11 +1,12 @@
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import pandas as pd
-from mainnet_launch.constants import DB_DIR, ChainData, ETH_CHAIN
-from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
 from web3.exceptions import TransactionNotFound
 
-TX_HASH_TO_GAS_INFO_DB = DB_DIR / "tx_hash_to_gas_info.db"
+from mainnet_launch.constants import ChainData, ETH_CHAIN
+from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
+from mainnet_launch.data_fetching.databases import TX_HASH_TO_GAS_INFO_DB
 
 
 def _load_tx_hash_to_gas_info(hashes: list[str]) -> pd.DataFrame:
