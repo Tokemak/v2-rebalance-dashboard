@@ -21,7 +21,6 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
     periodic_fee_df = add_timestamp_to_df_with_block_column(
         fetch_events(vault_contract.events.PeriodicFeeCollected), autopool.chain
     )
-    
 
     periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
     streaming_fee_df["normalized_fees"] = streaming_fee_df["fees"].apply(lambda x: int(x) / 1e18)

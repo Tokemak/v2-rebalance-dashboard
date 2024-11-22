@@ -110,3 +110,7 @@ def main():
     time_taken = time.time() - start_time
     usage = get_memory_usage()
     testing_logger.info(f"Fetched and Cached all pages {time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB")
+
+
+if __name__ == "__main__":
+    main()
