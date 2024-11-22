@@ -79,21 +79,21 @@ def _render_solver_diagnostics(autopool: AutopoolConstants, figs):
 
 
 def ensure_all_rebalance_plans_are_loaded():
+    s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
     for autopool in ALL_AUTOPOOLS:
-        s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 
-        # the base ETH bucket does not work, unsure why
-        if autopool.name != "baseETH":
-            response = s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket)
-            all_rebalance_plans = [o["Key"] for o in response["Contents"]]
-            local_rebalance_plans = [str(path).split("/")[-1] for path in SOLVER_REBALANCE_PLANS_DIR.glob("*.json")]
-            rebalance_plans_to_fetch = [
-                json_path for json_path in all_rebalance_plans if json_path not in local_rebalance_plans
-            ]
-            for json_key in rebalance_plans_to_fetch:
-                s3_client.download_file(
-                    autopool.solver_rebalance_plans_bucket, json_key, SOLVER_REBALANCE_PLANS_DIR / json_key
-                )
+        # # the base ETH bucket does not work, unsure why
+        # if autopool.name != "baseETH":
+        response = s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket)
+        all_rebalance_plans = [o["Key"] for o in response["Contents"]]
+        local_rebalance_plans = [str(path).split("/")[-1] for path in SOLVER_REBALANCE_PLANS_DIR.glob("*.json")]
+        rebalance_plans_to_fetch = [
+            json_path for json_path in all_rebalance_plans if json_path not in local_rebalance_plans
+        ]
+        for json_key in rebalance_plans_to_fetch:
+            s3_client.download_file(
+                autopool.solver_rebalance_plans_bucket, json_key, SOLVER_REBALANCE_PLANS_DIR / json_key
+            )
 
 
 def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
