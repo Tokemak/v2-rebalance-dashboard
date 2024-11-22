@@ -30,7 +30,7 @@ import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
 
-from mainnet_launch.constants import CACHE_TIME, SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS, BAL_ETH, AUTO_LRT
+from mainnet_launch.constants import CACHE_TIME, SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS, BAL_ETH, AUTO_LRT, BASE_ETH
 
 
 def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
@@ -122,32 +122,24 @@ def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
 def _make_proposed_vs_actual_rebalance_scatter_plot(
     proposed_rebalances_df: pd.DataFrame, rebalance_event_df: pd.DataFrame
 ) -> go.Figure:
-    moves_df = pd.concat([proposed_rebalances_df["moveName"], rebalance_event_df["moveName"]], axis=1)
-    moves_df.columns = ["proposed_rebalances", "actual_rebalances"]
-
-    sizes_df = pd.concat(
-        [proposed_rebalances_df["amountOutETH"].apply(lambda x: int(x) / 1e18), rebalance_event_df["outEthValue"]],
-        axis=1,
-    )
-    sizes_df.columns = ["proposed_amount", "actual_amount"]
-
+    # TODO update this to use the real rebalance sizes
     proposed_rebalances_fig = go.Scatter(
-        x=moves_df.index,
-        y=moves_df["proposed_rebalances"],
+        x=proposed_rebalances_df.index,
+        y=proposed_rebalances_df["moveName"],
         mode="markers",
         name="Proposed Rebalances",
         marker=dict(color="blue", size=10),
-        text=sizes_df["proposed_amount"],
+        text=proposed_rebalances_df["amountOutETH"],
         hovertemplate="Proposed ETH Amount Out: %{text}<extra></extra>",
     )
 
     actual_rebalances_fig = go.Scatter(
-        x=moves_df.index,
-        y=moves_df["actual_rebalances"],
+        x=rebalance_event_df.index,
+        y=rebalance_event_df["moveName"],
         mode="markers",
         name="Actual Rebalances",
         marker=dict(symbol="x", color="red", size=12),
-        text=sizes_df["actual_amount"],
+        text=rebalance_event_df["outEthValue"],
         hovertemplate="Actual ETH Amount Out: %{text}<extra></extra>",
     )
 
@@ -283,4 +275,4 @@ def _add_add_rank_count(solver_df):
 
 if __name__ == "__main__":
     # fetch_and_render_solver_diagnositics_data(ALL_AUTOPOOLS[0])
-    ensure_all_rebalance_plans_are_loaded()
+    fetch_solver_diagnostics_data(BASE_ETH)
