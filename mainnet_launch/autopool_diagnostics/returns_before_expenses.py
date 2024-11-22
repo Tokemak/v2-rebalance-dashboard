@@ -61,7 +61,9 @@ def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants) -> pd.DataFr
 
 def _fetch_cumulative_fee_shares_minted_by_day(autopool: AutopoolConstants) -> pd.DataFrame:
     autoETH_vault = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    FeeCollected_df = add_timestamp_to_df_with_block_column(fetch_events(autoETH_vault.events.FeeCollected), autopool.chain)
+    FeeCollected_df = add_timestamp_to_df_with_block_column(
+        fetch_events(autoETH_vault.events.FeeCollected), autopool.chain
+    )
     PeriodicFeeCollected_df = add_timestamp_to_df_with_block_column(
         fetch_events(autoETH_vault.events.PeriodicFeeCollected), autopool.chain
     )

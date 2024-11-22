@@ -38,7 +38,7 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     )
 
     clean_rebalance_df = _add_solver_profit_cols(clean_rebalance_df, autopool)
-
+    clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, autopool.chain)
     return clean_rebalance_df
 
 

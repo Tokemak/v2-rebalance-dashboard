@@ -125,6 +125,7 @@ def add_timestamp_to_df_with_block_column(df: pd.DataFrame, chain: ChainData) ->
     # calling with empty calls gets the block:timestamp
     block_and_timestamp_df = get_raw_state_by_blocks([], blocks, chain=chain, include_block_number=True).reset_index()
     df = pd.merge(df, block_and_timestamp_df, on="block", how="left")
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df.set_index("timestamp", inplace=True)
     return df
 
