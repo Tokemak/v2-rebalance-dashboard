@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta, timezone
 import colorsys
 
-from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS, BASE_ETH
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
@@ -118,8 +118,8 @@ def fetch_and_render_autopool_fee_data(autopool: AutopoolConstants):
     fee_df, sfee_df = fetch_autopool_fee_data(autopool)
     st.header(f"{autopool.name} Autopool Fees")
 
-    _display_fee_metrics(fee_df, True)
-    _display_fee_metrics(sfee_df, False)
+    _display_fee_metrics(autopool, fee_df, True)
+    _display_fee_metrics(autopool, sfee_df, False)
 
     # Generate fee figures
     daily_fee_fig, cumulative_fee_fig, weekly_fee_fig = _build_fee_figures(autopool, fee_df)
@@ -137,7 +137,7 @@ def fetch_and_render_autopool_fee_data(autopool: AutopoolConstants):
     st.plotly_chart(cumulative_sfee_fig, use_container_width=True)
 
 
-def _display_fee_metrics(fee_df: pd.DataFrame, isPeriodic: bool):
+def _display_fee_metrics(autopool: AutopoolConstants, fee_df: pd.DataFrame, isPeriodic: bool):
     """Calculate and display fee metrics at the top of the dashboard."""
     # I don't really like this pattern, redo it
     today = datetime.now(timezone.utc)
@@ -146,14 +146,19 @@ def _display_fee_metrics(fee_df: pd.DataFrame, isPeriodic: bool):
     thirty_days_ago = today - timedelta(days=30)
     year_ago = today - timedelta(days=365)
 
-    fees_last_7_days = fee_df[fee_df.index >= seven_days_ago]["normalized_fees"].sum()
+    if isPeriodic:
+        fee_column_name = f"{autopool.name}_periodic"
+    else:
+        fee_column_name = f"{autopool.name}_streaming"
+
+    fees_last_7_days = fee_df[fee_df.index >= seven_days_ago][fee_column_name].sum()
 
     if len(fee_df[fee_df.index >= thirty_days_ago]) > 0:
-        fees_last_30_days = fee_df[fee_df.index >= thirty_days_ago]["normalized_fees"].sum()
+        fees_last_30_days = fee_df[fee_df.index >= thirty_days_ago][fee_column_name].sum()
     else:
         fees_last_30_days = "None"
 
-    fees_year_to_date = fee_df[fee_df.index >= year_ago]["normalized_fees"].sum()
+    fees_year_to_date = fee_df[fee_df.index >= year_ago][fee_column_name].sum()
 
     col1, col2, col3 = st.columns(3)
 
@@ -230,5 +235,4 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
 
 if __name__ == "__main__":
 
-    fetch_and_render_autopool_fee_data(ALL_AUTOPOOLS[0])
-    fetch_and_render_autopool_fee_data(ALL_AUTOPOOLS[-1])
+    fetch_and_render_autopool_fee_data(BASE_ETH)

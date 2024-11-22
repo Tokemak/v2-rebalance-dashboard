@@ -145,7 +145,7 @@ def _fetch_already_cached_responses(calls: list[Call], blocks: list[int], chain:
     get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls(chain)
 
     # Prepare Multicall objects for all blocks
-    all_multicalls_to_fetch = [
+    all_multicalls = [
         Multicall(
             calls=[*calls, get_block_call, get_timestamp_call],
             block_id=int(block),
@@ -154,13 +154,11 @@ def _fetch_already_cached_responses(calls: list[Call], blocks: list[int], chain:
         )
         for block in blocks
     ]
-    cached_hash_to_response = _batch_get_multicall_logs([_multicall_to_db_hash(m) for m in all_multicalls_to_fetch])
+    cached_hash_to_response = _batch_get_multicall_logs([_multicall_to_db_hash(m) for m in all_multicalls])
 
-    multicalls_left_to_fetch = [
-        m for m in all_multicalls_to_fetch if _multicall_to_db_hash(m) not in cached_hash_to_response
-    ]
+    multicalls_left_to_fetch = [m for m in all_multicalls if _multicall_to_db_hash(m) not in cached_hash_to_response]
 
-    return cached_hash_to_response, multicalls_left_to_fetch
+    return cached_hash_to_response, multicalls_left_to_fetch, all_multicalls
 
 
 async def async_safe_get_raw_state_by_block(
@@ -185,47 +183,50 @@ async def async_safe_get_raw_state_by_block(
     else:
         raise ValueError(f"{chain} is not Base or Mainnet, add custom highest_finalized block")
 
-    cached_hash_to_response, multicalls_left_to_fetch = _fetch_already_cached_responses(calls, blocks, chain)
+    cached_hash_to_response, multicalls_left_to_fetch, all_multicalls = _fetch_already_cached_responses(
+        calls, blocks, chain
+    )
 
     lock = Lock()
     for max_http_calls_per_second in semaphore_limits:
+        if len(multicalls_left_to_fetch) == 0:
+            print("no multicalls left to fetch, exiting early")
+            break
+
         semaphore = asyncio.Semaphore(max_http_calls_per_second)
-        multicalls_that_failed
+        multicalls_that_failed = []
+
         async def _fetch_data(multicall: Multicall):
             async with semaphore:
-                response = await multicall.coroutine()
-                if response is None:
-                    raise ValueError("response should not be None")
-                db_hash = _multicall_to_db_hash(multicall)
-                # need a lock becuase updating a dictionary is not thread safe
-                with lock:
-                    cached_hash_to_response[db_hash] = response
+                try:
+                    response = await multicall.coroutine()
+                    if response is None:
+                        raise ValueError("response should not be None")
+                    db_hash = _multicall_to_db_hash(multicall)
+                    # need a lock becuase updating a dictionary is not thread safe
+                    with lock:
+                        cached_hash_to_response[db_hash] = response
+                except Exception as e:
+                    print(e)
+                    multicalls_that_failed.append(multicall)
 
                     # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
 
-            tasks = [_fetch_data(m) for m in multicalls_left_to_fetch]
-            await asyncio.gather(*tasks)
+        tasks = [_fetch_data(m) for m in multicalls_left_to_fetch]
+        await asyncio.gather(*tasks)
+        multicalls_left_to_fetch = [m for m in multicalls_that_failed]
 
-    # at this point multicall_responses should be full
+    # multicall_to_db_hash_and_rreponse
 
-    if any([m.response is None for m in multicall_responses]):
-        raise ValueError("failed to fetch a response for a mulitcall becasue a multicallResponse.response is None")
+    db_hash_to_multicall = {_multicall_to_db_hash(m): m for m in all_multicalls}
 
-    multicall_responses_to_cache = [m for m in multicall_responses if m.db_hash not in db_hashes_already_cached]
-    _batch_insert_multicall_logs(multicall_responses_to_cache, highest_finalized_block)
+    all_responses = [v for k, v in cached_hash_to_response.items()]
 
-    df = _responses_to_df(multicall_responses, include_block_number)
-    if len(df) != len(blocks):
-        raise ValueError(
-            f"expected to have a row for unique block but got an unexpected number of rows: {df.shape=} {len(blocks)=}"
-        )
+    cached_hash_to_response  # only cache them if the block is less than the current lbock
 
-    return df
-
-
-def _responses_to_df(multicall_responses: list[MulticallResponse], include_block_number: bool) -> pd.DataFrame:
-    responses = [m.response for m in multicall_responses]
-    df = pd.DataFrame.from_records(responses)
+    df = pd.DataFrame(all_responses)
+    print(len(df), len(blocks))
+    print(df.tail())
     df.set_index("timestamp", inplace=True)
     df.index = pd.to_datetime(df.index, unit="s", utc=True)
     df.sort_index(inplace=True)
@@ -234,8 +235,23 @@ def _responses_to_df(multicall_responses: list[MulticallResponse], include_block
         df.drop(columns="block", inplace=True)
     return df
 
+    # # _batch_insert_multicall_logs(multicall_responses_to_cache)
 
-def _batch_insert_multicall_logs(multicallResponses: list[MulticallResponse], highest_finalized_block: int):
+    # # df = _responses_to_df(multicall_responses, include_block_number)
+    # # if len(df) != len(blocks):
+    # #     raise ValueError(
+    # #         f"expected to have a row for unique block but got an unexpected number of rows: {df.shape=} {len(blocks)=}"
+    # #     )
+
+    # return df
+
+
+# def _responses_to_df(multicall_responses: list[MulticallResponse], include_block_number: bool) -> pd.DataFrame:
+#     responses = [m.response for m in multicall_responses]
+#     df = pd.DataFrame.from_records(responses)
+
+
+def _batch_insert_multicall_logs(multicall_db_hash_to_response: dict):
     """
     Batch insert multiple multicall logs into the cache.
 
