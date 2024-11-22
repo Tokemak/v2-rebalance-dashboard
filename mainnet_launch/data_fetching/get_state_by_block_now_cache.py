@@ -216,13 +216,14 @@ async def async_safe_get_raw_state_by_block(
         await asyncio.gather(*tasks)
         multicalls_left_to_fetch = [m for m in multicalls_that_failed]
 
-    # multicall_to_db_hash_and_rreponse
-
-    db_hash_to_multicall = {_multicall_to_db_hash(m): m for m in all_multicalls}
-
     all_responses = [v for k, v in cached_hash_to_response.items()]
-
-    cached_hash_to_response  # only cache them if the block is less than the current lbock
+    # only cache them if the block is less than the current lbock
+    finalized_responses_to_cache: list[tuple[str, dict[str, any]]] = [
+        (db_hash, response)
+        for db_hash, response in cached_hash_to_response.items()
+        if response["block"] <= highest_finalized_block
+    ]
+    _batch_insert_multicall_logs(finalized_responses_to_cache)
 
     df = pd.DataFrame(all_responses)
     print(len(df), len(blocks))
@@ -230,28 +231,15 @@ async def async_safe_get_raw_state_by_block(
     df.set_index("timestamp", inplace=True)
     df.index = pd.to_datetime(df.index, unit="s", utc=True)
     df.sort_index(inplace=True)
+
     df["block"] = df["block"].astype(int)
+
     if not include_block_number:
         df.drop(columns="block", inplace=True)
     return df
 
-    # # _batch_insert_multicall_logs(multicall_responses_to_cache)
 
-    # # df = _responses_to_df(multicall_responses, include_block_number)
-    # # if len(df) != len(blocks):
-    # #     raise ValueError(
-    # #         f"expected to have a row for unique block but got an unexpected number of rows: {df.shape=} {len(blocks)=}"
-    # #     )
-
-    # return df
-
-
-# def _responses_to_df(multicall_responses: list[MulticallResponse], include_block_number: bool) -> pd.DataFrame:
-#     responses = [m.response for m in multicall_responses]
-#     df = pd.DataFrame.from_records(responses)
-
-
-def _batch_insert_multicall_logs(multicall_db_hash_to_response: dict):
+def _batch_insert_multicall_logs(finalized_responses_to_cache):
     """
     Batch insert multiple multicall logs into the cache.
 
@@ -260,8 +248,8 @@ def _batch_insert_multicall_logs(multicall_db_hash_to_response: dict):
         responses (list[dict]): Corresponding list of response dictionaries.
     """
 
-    hashes_to_insert = [m.db_hash for m in multicallResponses if m.mulitcall.block_id < highest_finalized_block]
-    responses_to_insert = [m.response for m in multicallResponses if m.mulitcall.block_id < highest_finalized_block]
+    hashes_to_insert = [d[0] for d in finalized_responses_to_cache]
+    responses_to_insert =  [d[1] for d in finalized_responses_to_cache]
 
     with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
         cursor = conn.cursor()
