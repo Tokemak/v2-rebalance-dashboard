@@ -25,7 +25,14 @@ MULTICALL_V3 = TokemakAddress(
 
 
 def _call_to_string(call: Call) -> str:
-    returns_functions = [(name, inspect.getsource(handling_function)) for name, handling_function in call.returns]
+    # the plain text of the handling functions such as safe_normalize
+    try:
+        returns_functions = [(name, inspect.getsource(handling_function)) for name, handling_function in call.returns]
+    except Exception as e:
+        raise ValueError(
+            "Cannot properly read plaintext of handling functions, make sure they are not lambda functions\n" + e
+        )
+
     return str((call.target.lower(), call.data, call.function, returns_functions))
 
 
@@ -133,14 +140,7 @@ def get_raw_state_by_blocks(
     return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, chain, semaphore_limits, include_block_number))
 
 
-@dataclass
-class MulticallResponse:
-    mulitcall: Multicall
-    db_hash: str
-    response: dict = None
-
-
-def _fetch_already_cached_responses(calls: list[Call], blocks: list[int], chain: ChainData) -> list[MulticallResponse]:
+def _fetch_already_cached_responses(calls: list[Call], blocks: list[int], chain: ChainData):
 
     get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls(chain)
 
@@ -154,18 +154,13 @@ def _fetch_already_cached_responses(calls: list[Call], blocks: list[int], chain:
         )
         for block in blocks
     ]
+    cached_hash_to_response = _batch_get_multicall_logs([_multicall_to_db_hash(m) for m in all_multicalls_to_fetch])
 
-    multicall_responses = [MulticallResponse(m, _multicall_to_db_hash(m), None) for m in all_multicalls_to_fetch]
+    multicalls_left_to_fetch = [
+        m for m in all_multicalls_to_fetch if _multicall_to_db_hash(m) not in cached_hash_to_response
+    ]
 
-    cached_hash_to_response = _batch_get_multicall_logs([m.db_hash for m in multicall_responses])
-
-
-    # update the mulitcallResponses with the cached responses already in teh db
-    for m in multicall_responses:
-        if m.db_hash in cached_hash_to_response:
-            m.response = cached_hash_to_response[m.db_hash]
-
-    return multicall_responses
+    return cached_hash_to_response, multicalls_left_to_fetch
 
 
 async def async_safe_get_raw_state_by_block(
@@ -190,31 +185,25 @@ async def async_safe_get_raw_state_by_block(
     else:
         raise ValueError(f"{chain} is not Base or Mainnet, add custom highest_finalized block")
 
-    multicall_responses: list[MulticallResponse] = _fetch_already_cached_responses(calls, blocks, chain)
-    db_hashes_already_cached = [m.db_hash for m in multicall_responses if m.response is not None]
-    hash_to_response = {m.db_hash:m.response for m in multicall_responses}
+    cached_hash_to_response, multicalls_left_to_fetch = _fetch_already_cached_responses(calls, blocks, chain)
+
     lock = Lock()
-    for semaphore_limit in semaphore_limits:
-        if any([m.response is None for m in multicall_responses]):
-            # if we are missing any responses try and get them
-            semaphore = asyncio.Semaphore(semaphore_limit)
+    for max_http_calls_per_second in semaphore_limits:
+        semaphore = asyncio.Semaphore(max_http_calls_per_second)
+        multicalls_that_failed
+        async def _fetch_data(multicall: Multicall):
+            async with semaphore:
+                response = await multicall.coroutine()
+                if response is None:
+                    raise ValueError("response should not be None")
+                db_hash = _multicall_to_db_hash(multicall)
+                # need a lock becuase updating a dictionary is not thread safe
+                with lock:
+                    cached_hash_to_response[db_hash] = response
 
-            async def _fetch_data(multicall_response: MulticallResponse):
-                async with semaphore:
-                    try:
-                        response = await multicall_response.multicall.coroutine()
-                        if response is None:
-                            pass
-                            raise ValueError('response should not be None')
-                        with lock:
-                            hash_to_response[multicall_response.db_hash] = response
-                            print('added response to lock')
-                    except Exception as e:
-                        print(type(e), e)
-                        raise e
-                        # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
+                    # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
 
-            tasks = [_fetch_data(m) for m in multicall_responses if hash_to_response[m.db_hash] == None]
+            tasks = [_fetch_data(m) for m in multicalls_left_to_fetch]
             await asyncio.gather(*tasks)
 
     # at this point multicall_responses should be full
