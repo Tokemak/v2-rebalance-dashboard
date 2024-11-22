@@ -93,7 +93,8 @@ def ensure_all_rebalance_plans_are_loaded():
                     autopool.solver_rebalance_plans_bucket, json_key, SOLVER_REBALANCE_PLANS_DIR / json_key
                 )
         except s3_client.exceptions.NoSuchBucket as e:
-            print(f'{autopool.name} {autopool.solver_rebalance_plans_bucket} failed to load s3 bucket {e=}')
+            print(f"{autopool.name} {autopool.solver_rebalance_plans_bucket} failed to load s3 bucket {e=}")
+            raise e
 
 
 def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
