@@ -112,6 +112,7 @@ def fetch_events(
         event_df = pd.DataFrame(
             columns=[*event_field_names, str(event), "block", "transaction_index", "log_index", "hash"]
         )
+        pass
 
     return event_df
 

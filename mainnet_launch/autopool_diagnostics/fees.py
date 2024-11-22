@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta, timezone
 import colorsys
 
-from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS, BASE_ETH
+from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS, BASE_ETH, AUTO_LRT
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
@@ -35,9 +35,9 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_rewardliq_plot(autopool: AutopoolConstants):
-    vault_contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+    vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
     rewardsliq_events_df = fetch_events(
-        vault_contract.events.PeriodicFeeCollected, start_block=autopool.chain.block_autopool_first_deployed
+        vault_contract.events.DestinationDebtReporting, start_block=autopool.chain.block_autopool_first_deployed
     )
     rewardsliq_events_df = add_timestamp_to_df_with_block_column(rewardsliq_events_df, autopool.chain)
     return rewardsliq_events_df
@@ -45,6 +45,7 @@ def fetch_autopool_rewardliq_plot(autopool: AutopoolConstants):
 
 def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
     df = fetch_autopool_rewardliq_plot(autopool)
+    df.reset_index(inplace=True)
 
     # Generate distinct colors for each destination
     unique_destinations = df["destination"].unique()
@@ -89,6 +90,7 @@ def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
         )
 
     # Calculate and plot total claimed over time
+    print(df.columns)
     total_claimed_data = df.groupby("timestamp").agg(total_claimed=("claimed", "sum")).reset_index()
     total_claimed_data["cumulative_claimed"] = total_claimed_data["total_claimed"].cumsum()
 
@@ -235,4 +237,5 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
 
 if __name__ == "__main__":
 
-    fetch_and_render_autopool_fee_data(BASE_ETH)
+    fetch_and_render_autopool_rewardliq_plot(BASE_ETH)
+    fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)

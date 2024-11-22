@@ -119,8 +119,8 @@ def add_timestamp_to_df_with_block_column(df: pd.DataFrame, chain: ChainData) ->
     if "block" not in df.columns:
         raise ValueError(f"block must be in {df.columns=}")
     if len(df) == 0:
+        df.index = pd.DatetimeIndex([], name="timestamp", tz="UTC")
         return df
-
     blocks = list(set(df["block"]))
     # calling with empty calls gets the block:timestamp
     block_and_timestamp_df = get_raw_state_by_blocks([], blocks, chain=chain, include_block_number=True).reset_index()
