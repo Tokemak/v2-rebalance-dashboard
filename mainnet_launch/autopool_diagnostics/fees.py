@@ -233,5 +233,3 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
     )
 
     return daily_fee_fig, cumulative_fee_fig, weekly_fee_fig
-
-
