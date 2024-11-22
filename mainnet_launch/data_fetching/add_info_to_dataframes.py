@@ -82,8 +82,13 @@ def fetch_missing_gas_costs(hashes_to_fetch: list[str], chain: ChainData) -> pd.
 
 def add_transaction_gas_info_to_df_with_tx_hash(df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
     """Add gas_price and gas_used to the DataFrame."""
+    if ("gas_price" in df.columns) or ("gas_used" in df.columns) or ("gasCostInETH" in df.columns):
+        # if there are already gas columns here, feel free to drop them
+        df.drop(columns=["gas_price", "gas_used", "gasCostInETH"], inplace=True)
+
     if "hash" not in df.columns:
         raise ValueError(f"'hash' must be in {df.columns=}")
+
     if len(df) == 0:
         return df
 
@@ -95,8 +100,17 @@ def add_transaction_gas_info_to_df_with_tx_hash(df: pd.DataFrame, chain: ChainDa
 
     _save_tx_hash_to_gas_info(new_gas_info_df)
     gas_cost_df = pd.concat([existing_gas_info, new_gas_info_df], ignore_index=True)
-    df = df.merge(gas_cost_df, how="left", on="hash")
-    df["gas_price_in_eth"] = df.apply(lambda row: (row["gas_price"] * row["gas_used"]) / 1e18, axis=1)
+    try:
+        df = df.merge(gas_cost_df, how="left", on=["hash"])
+        df["gasCostInETH"] = df.apply(lambda row: (row["gas_price"] * row["gas_used"]) / 1e18, axis=1)
+    except Exception as e:
+        print(e)
+        print(df.head())
+        print(df.shape, df.columns)
+        print(gas_cost_df.shape)
+        print(gas_cost_df.columns)
+
+        pass
     return df
 
 

@@ -63,8 +63,8 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
     our_upkeep_df = our_upkeep_df[our_upkeep_df.index >= pd.Timestamp("2024-09-15", tz="UTC")].copy()
 
     our_upkeep_df["gasCostInETH_with_chainlink_premium"] = our_upkeep_df["gasCostInETH"] * 1.2  # 20% premium
-    our_upkeep_df["gasCostInETH_without_chainlink_overhead"] = our_upkeep_df["gasPrice"].astype(int) * our_upkeep_df[
-        "gasUsed"
+    our_upkeep_df["gasCostInETH_without_chainlink_overhead"] = our_upkeep_df["gas_price"].astype(int) * our_upkeep_df[
+        "gas_used"
     ].apply(lambda x: int(x) / 1e18)
 
     return our_upkeep_df
@@ -146,7 +146,7 @@ def _make_gas_spent_df(our_upkeep_df: pd.DataFrame):
 
 
 def _daily_box_plot_of_gas_prices(our_upkeep_df: pd.DataFrame):
-    daily_gas_price = our_upkeep_df.groupby(our_upkeep_df.index.date)["gasPrice"]
+    daily_gas_price = our_upkeep_df.groupby(our_upkeep_df.index.date)["gas_price"]
     daily_gas_price_df = daily_gas_price.apply(list).reset_index()
     daily_gas_price_df.columns = ["Date", "GasPrices"]
     exploded_df = daily_gas_price_df.explode("GasPrices")
@@ -160,7 +160,7 @@ def _daily_box_plot_of_gas_prices(our_upkeep_df: pd.DataFrame):
 
 def _hourly_box_plot_of_gas_prices(our_upkeep_df: pd.DataFrame):
     # Group by hour of the day and aggregate gas prices
-    hourly_gas_price = our_upkeep_df.groupby(our_upkeep_df.index.hour)["gasPrice"]
+    hourly_gas_price = our_upkeep_df.groupby(our_upkeep_df.index.hour)["gas_price"]
     hourly_gas_price_df = hourly_gas_price.apply(list).reset_index()
     hourly_gas_price_df.columns = ["Hour", "GasPrices"]
 

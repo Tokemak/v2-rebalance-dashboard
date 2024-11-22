@@ -15,17 +15,21 @@ from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_fee_data(autopool: AutopoolConstants):
     vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    streaming_fee_df = fetch_events(vault_contract.events.FeeCollected)
-    periodic_fee_df = fetch_events(vault_contract.events.PeriodicFeeCollected)
-
-    streaming_fee_df = add_timestamp_to_df_with_block_column(streaming_fee_df, autopool.chain)
-    periodic_fee_df = add_timestamp_to_df_with_block_column(periodic_fee_df, autopool.chain)
+    streaming_fee_df = add_timestamp_to_df_with_block_column(
+        fetch_events(vault_contract.events.FeeCollected), autopool.chain
+    )
+    periodic_fee_df = add_timestamp_to_df_with_block_column(
+        fetch_events(vault_contract.events.PeriodicFeeCollected), autopool.chain
+    )
+    
 
     periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
     streaming_fee_df["normalized_fees"] = streaming_fee_df["fees"].apply(lambda x: int(x) / 1e18)
-
     periodic_fee_df = periodic_fee_df[["normalized_fees"]].copy()
     streaming_fee_df = streaming_fee_df[["normalized_fees"]].copy()
+
+    periodic_fee_df.columns = [f"{autopool.name}_periodic"]
+    streaming_fee_df.columns = [f"{autopool.name}_streaming"]
 
     return periodic_fee_df, streaming_fee_df
 

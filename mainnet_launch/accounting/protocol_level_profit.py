@@ -11,6 +11,7 @@ from mainnet_launch.gas_costs.keeper_network_gas_costs import (
 )
 
 from mainnet_launch.autopool_diagnostics.fees import fetch_autopool_fee_data
+from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 
 
 @st.cache_data(ttl=CACHE_TIME)
@@ -18,7 +19,8 @@ def fetch_protocol_level_profit_and_loss_data():
     gas_cost_df = fetch_gas_cost_df()
     eth_fee_df = fetch_fee_df(ETH_CHAIN)
     base_fee_df = fetch_fee_df(BASE_CHAIN)
-    fee_df = pd.concat([eth_fee_df, base_fee_df])
+    fee_df = pd.concat([eth_fee_df, base_fee_df]).fillna(0.0)
+    fee_df.sort_index(inplace=True)
     return gas_cost_df, fee_df
 
 
@@ -82,11 +84,12 @@ def _render_protocol_level_profit_and_loss_tables(
 
 def fetch_gas_cost_df() -> pd.DataFrame:
     """Fetch the gas costs for running the solver, reward token liqudation / debt reporting, and calculators (chainlink keeper network)"""
-    destination_debt_reporting_df = fetch_all_autopool_debt_reporting_events()
+    # only tracking gas costs of ethereum mainnet, not Base because gas is near free on Base
+    destination_debt_reporting_df = fetch_all_autopool_debt_reporting_events(ETH_CHAIN)
     rebalance_gas_cost_df = fetch_solver_gas_costs()
     keeper_gas_costs_df = fetch_keeper_network_gas_costs()
 
-    gas_cost_columns = ["hash", "gas_price", "gas_used", "gas_cost_in_eth"]
+    gas_cost_columns = ["hash", "gas_price", "gas_used", "gasCostInETH"]
 
     debt_reporting_costs = destination_debt_reporting_df[gas_cost_columns].copy().drop_duplicates()
     debt_reporting_costs.columns = [
@@ -126,14 +129,14 @@ def fetch_fee_df(chain: ChainData) -> pd.DataFrame:
     fee_dfs = []
     for autopool in ALL_AUTOPOOLS:
         if autopool.chain == chain:
-            periodic_fee_df, streaming_fee_df = fetch_autopool_fee_data(autopool)
-            periodic_fee_df.columns = [f"{autopool.name}_periodic"]
-            streaming_fee_df.columns = [f"{autopool.name}_streaming"]
-            fee_dfs.extend([periodic_fee_df, streaming_fee_df])
 
-    fee_df = pd.concat(fee_dfs)
+            periodic_fee_df, streaming_fee_df = fetch_autopool_fee_data(autopool)
+            fee_dfs.extend([periodic_fee_df, streaming_fee_df])
+    fee_df = pd.concat(fee_dfs).fillna(0.0)
+    fee_df.sort_index(inplace=True)
     return fee_df
 
 
 if __name__ == "__main__":
     fetch_and_render_protocol_level_profit_and_loss_data()
+    pass

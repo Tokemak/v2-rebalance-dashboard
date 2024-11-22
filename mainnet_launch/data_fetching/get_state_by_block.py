@@ -165,7 +165,7 @@ def identity_function(value):
 
 @st.cache_data(ttl=CACHE_TIME)
 def build_blocks_to_use(
-    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 6
+    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 1
 ) -> list[int]:
     """Returns a block approx every 4 hours. by default between when autopool was first deployed to the current block"""
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
