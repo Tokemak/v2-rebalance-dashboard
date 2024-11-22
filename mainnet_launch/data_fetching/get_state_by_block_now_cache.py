@@ -39,9 +39,11 @@ def _multicall_to_db_hash(multicall: Multicall) -> str:
     sha256_hash = hashlib.sha256(data.encode()).hexdigest()
     return sha256_hash
 
+
 @time_decorator
 def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):
     return asyncio.run(safe_get_raw_state_by_block_one_block(calls, block, chain))
+
 
 # TODO rename this
 async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData):
@@ -56,8 +58,6 @@ async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, c
     return response
 
 
-
-
 def _get_multicall_log_if_exists(multicall_hash: str) -> dict | None:
     """Retrieve a log from the multicall_logs table by hash."""
     with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
@@ -70,9 +70,9 @@ def _get_multicall_log_if_exists(multicall_hash: str) -> dict | None:
         )
         row = cursor.fetchone()
         if row is None:
-            print('failed to load', multicall_hash)
+            print("failed to load", multicall_hash)
             return None
-        print('loaded', multicall_hash)
+        print("loaded", multicall_hash)
         return json.loads(row[0]) if row[0] else None  # Deserialize JSON response
 
 
@@ -88,9 +88,224 @@ def _insert_multicall_log(multicall_hash: int, response: dict):
             (f"{multicall_hash}", json.dumps(response)),  # Convert hash to hex string
         )
         conn.commit()
-        print('saved', multicall_hash)
+        print("saved", multicall_hash)
 
 
+def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_multicalls: list):
+    async def _fetch_data(multicall: Multicall):
+        async with semaphore:
+            try:
+                response = await multicall.coroutine()
+                responses.append(response)
+            except Exception:
+                # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
+                failed_multicalls.append(multicall)
+
+    return _fetch_data
+
+
+def _build_default_block_and_timestamp_calls(chain: ChainData):
+    get_block_call = Call(
+        MULTICALL_V3(chain),
+        ["getBlockNumber()(uint256)"],
+        [("block", identity_with_bool_success)],
+    )
+
+    get_timestamp_call = Call(
+        MULTICALL_V3(chain),
+        ["getCurrentBlockTimestamp()(uint256)"],
+        [("timestamp", identity_with_bool_success)],
+    )
+    return get_block_call, get_timestamp_call
+
+
+def get_raw_state_by_blocks(
+    calls: list[Call],
+    blocks: list[int],
+    chain: ChainData,
+    semaphore_limits: tuple = (500, 200, 50, 20, 2),  # Increased limits
+    include_block_number: bool = False,
+) -> pd.DataFrame:
+    """Fetch a DataFrame of each call in calls for each block in blocks quickly using caching."""
+    return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, chain, semaphore_limits, include_block_number))
+
+
+async def async_safe_get_raw_state_by_block(
+    calls: list[Call],
+    blocks: list[int],
+    chain: ChainData,
+    semaphore_limits: tuple = (500, 200, 50, 20, 2),  # Increased limits
+    include_block_number: bool = False,
+) -> pd.DataFrame:
+    """
+    Fetch a DataFrame of each call in `calls` for each block in `blocks` efficiently using caching.
+    """
+    blocks_as_ints = [int(b) for b in blocks]
+
+    # Build default block and timestamp calls
+    get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls(chain)
+
+    # Prepare Multicall objects for all blocks
+    all_multicalls_to_fetch = [
+        Multicall(
+            calls=[*calls, get_block_call, get_timestamp_call],
+            block_id=int(block),
+            _w3=chain.client,
+            require_success=False,
+        )
+        for block in blocks_as_ints
+    ]
+
+    all_multicall_hashes_to_fetch = [_multicall_to_db_hash(m) for m in all_multicalls_to_fetch]
+    # we want (Multicall Object, hash, response)
+    # and it should be filled out
+    cached_responses, missing_hashes = _batch_get_multicall_logs(all_multicall_hashes_to_fetch)
+
+    pending_multicalls = [m for m in all_multicalls_to_fetch if _batch_get_multicall_logs(m) in missing_hashes]
+
+    print(f"Cached responses: {len(cached_responses)=}")
+    print(f"Uncached multicalls to execute: {len(pending_multicalls)=}")
+
+    # Fetch uncached multicalls
+    responses = []
+    failed_multicalls = []
+    calls_remaining = pending_multicalls.copy()
+
+    for semaphore_limit in semaphore_limits:
+        if not calls_remaining:
+            break
+        semaphore = asyncio.Semaphore(semaphore_limit)
+        failed_multicalls = []
+        _ratelimited_async_data_fetcher = _data_fetch_builder(semaphore, responses, failed_multicalls)
+        await asyncio.gather(*[_ratelimited_async_data_fetcher(m) for m in calls_remaining])
+
+        # Update remaining calls
+        calls_remaining = failed_multicalls.copy()
+        print(f"Retrying {len(calls_remaining)} multicalls after failure.")
+
+    # # Insert successful uncached responses into the cache
+    # for multicall, response in zip(pending_multicalls, responses):
+    #     multicall_hash = _multicall_to_db_hash(multicall)
+    #     _insert_multicall_log(multicall_hash, response)
+
+    # Combine cached and fetched responses
+    all_responses = cached_responses + responses
+
+    # Convert to DataFrame
+    if not all_responses:
+        print("No data fetched. Consider retrying with different parameters.")
+        return pd.DataFrame()
+
+    df = pd.DataFrame.from_records(all_responses)
+    df.set_index("timestamp", inplace=True)
+    df.index = pd.to_datetime(df.index, unit="s", utc=True)
+    df.sort_index(inplace=True)
+    df["block"] = df["block"].astype(int)
+    if not include_block_number:
+        df.drop(columns="block", inplace=True)
+    return df
+
+
+def _batch_insert_multicall_logs(multicall_hashes: list[str], responses: list[dict]):
+    """
+    Batch insert multiple multicall logs into the cache.
+
+    Parameters:
+        multicall_hashes (list[str]): List of multicall hash strings.
+        responses (list[dict]): Corresponding list of response dictionaries.
+    """
+    if not multicall_hashes or not responses:
+        return
+
+    with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
+        cursor = conn.cursor()
+        cursor.executemany(
+            """
+            INSERT OR REPLACE INTO multicall_logs (multicall_hash, response)
+            VALUES (?, ?)
+            """,
+            zip(multicall_hashes, (json.dumps(response) for response in responses)),
+        )
+        conn.commit()
+        print(f"Inserted {len(responses)} multicall responses into cache.")
+
+
+def _batch_get_multicall_logs(multicall_hashes: list[str]) -> tuple[list[dict], list[str]]:
+    """
+    Batch retrieve multicall responses from the cache.
+
+    Parameters:
+        multicall_hashes (list[str]): List of multicall hash strings.
+
+    Returns:
+        tuple: A tuple containing:
+            - List of cached response dictionaries.
+            - List of hashes that were not found in the cache.
+    """
+    if not multicall_hashes:
+        return [], []
+
+    with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
+        cursor = conn.cursor()
+        placeholders = ",".join(["?"] * len(multicall_hashes))
+        query = f"SELECT multicall_hash, response FROM multicall_logs WHERE multicall_hash IN ({placeholders})"
+        cursor.execute(query, multicall_hashes)
+        rows = cursor.fetchall()
+
+    cached_responses = [json.loads(row[1]) for row in rows if row[1]]
+    cached_hahses = [row[0] for row in rows]
+
+    missing_hashes = [hash_ for hash_ in multicall_hashes if hash_ not in cached_hahses]
+
+    if missing_hashes:
+        print(f"Cache miss for {len(missing_hashes)} hashes.")
+    else:
+        print("All multicall hashes found in cache.")
+
+    return cached_responses, missing_hashes
+
+
+def safe_normalize_with_bool_success(success: int, value: int):
+    if success:
+        return int(value) / 1e18
+    return None
+
+
+def safe_normalize_6_with_bool_success(success: int, value: int):
+    if success:
+        return int(value) / 1e6
+    return None
+
+
+def to_str_with_bool_success(success, value):
+    if success:
+        return str(value)
+    return None
+
+
+def identity_with_bool_success(success, value):
+    if success:
+        return value
+    return None
+
+
+def identity_function(value):
+    return value
+
+
+@st.cache_data(ttl=CACHE_TIME)
+def build_blocks_to_use(
+    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 6
+) -> list[int]:
+    """Returns a block approx every 4 hours. by default between when autopool was first deployed to the current block"""
+    start_block = chain.block_autopool_first_deployed if start_block is None else start_block
+    end_block = chain.client.eth.block_number if end_block is None else end_block
+    blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
+    blocks = [b for b in range(start_block, end_block, blocks_hop)]
+    return blocks
+
+
+@time_decorator
 def _tester():
 
     from mainnet_launch.constants import ETH_CHAIN, AUTO_LRT, BASE_ETH, BASE_CHAIN, WETH, AUTO_ETH
@@ -114,214 +329,21 @@ def _tester():
         [("AUTO_ETH_weth_bal", safe_normalize_with_bool_success)],
     )
 
-    calls = [weth_bal_of_AUTO_eth, weth_bal_of_AUTO_LRT,weth_bal_of_AUTO_LRT]
-    
-    for i in range(10):
-        calls = [weth_bal_of_AUTO_eth  for _ in range(i)]
-        a = get_state_by_one_block(calls, block, ETH_CHAIN)
-        print(a)
-        
-    for i in range(10):
-        calls = [weth_bal_of_AUTO_eth  for _ in range(i)]
-        a = get_state_by_one_block(calls, block, ETH_CHAIN)
-        print(a)
-    
-#
-_tester()
+    calls = [weth_bal_of_AUTO_eth, weth_bal_of_AUTO_LRT, weth_bal_of_AUTO_LRT]
+
+    for i in range(3):
+        calls = [weth_bal_of_AUTO_eth for _ in range(i)]
+        get_state_by_one_block(calls, block, ETH_CHAIN)
+
+    for i in range(3):
+        calls = [weth_bal_of_AUTO_eth for _ in range(i)]
+        get_state_by_one_block(calls, block, ETH_CHAIN)
+
+    calls = [weth_bal_of_AUTO_eth, weth_bal_of_AUTO_LRT]
+    blocks = build_blocks_to_use(ETH_CHAIN)
+    df = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN)
+    print(df)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData):
-#     # nice for testing
-#     multicall = Multicall(calls=calls, block_id=block, _w3=chain.client, require_success=False)
-#     response = await multicall.coroutine()
-#     return response
-
-
-# def build_get_address_eth_balance_call(name: str, addr: str, chain: ChainData) -> Call:
-#     """Use the multicallV3 contract to get the normalized eth balance of an address"""
-#     return Call(
-#         MULTICALL_V3(chain),
-#         ["getEthBalance(address)(uint256)", addr],
-#         [(name, safe_normalize_with_bool_success)],
-#     )
-
-
-# def _build_default_block_and_timestamp_calls(chain: ChainData):
-#     get_block_call = Call(
-#         MULTICALL_V3(chain),
-#         ["getBlockNumber()(uint256)"],
-#         [("block", identity_with_bool_success)],
-#     )
-
-#     get_timestamp_call = Call(
-#         MULTICALL_V3(chain),
-#         ["getCurrentBlockTimestamp()(uint256)"],
-#         [("timestamp", identity_with_bool_success)],
-#     )
-#     return get_block_call, get_timestamp_call
-
-
-# def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_multicalls: list):
-#     async def _fetch_data(multicall: Multicall):
-#         async with semaphore:
-#             try:
-#                 response = await multicall.coroutine()
-#                 responses.append(response)
-#             except Exception:
-#                 # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
-#                 failed_multicalls.append(multicall)
-
-#     return _fetch_data
-
-
-# def get_raw_state_by_blocks(
-#     calls: list[Call],
-#     blocks: list[int],
-#     chain: ChainData,
-#     semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
-#     include_block_number: bool = False,
-# ) -> pd.DataFrame:
-#     return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, chain, semaphore_limits, include_block_number))
-
-
-# async def async_safe_get_raw_state_by_block(
-#     calls: list[Call],
-#     blocks: list[int],
-#     chain: ChainData,
-#     semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
-#     include_block_number: bool = False,
-# ) -> pd.DataFrame:
-#     """
-#     Fetch a DataFame of each call in calls for each block in blocks fast
-#     """
-#     blocks_as_ints = [int(b) for b in blocks]
-#     # note only works after the multicall_v3 contract was deployed
-#     # block 12336033 (Apr-29-2021) on mainnet
-#     # block 5022 (Jun-15-2023) on Base
-#     # mostly a non issue but keep in mind that this only works on recent (within last 3 years) data
-
-#     get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls(chain)
-#     pending_multicalls = [
-#         Multicall(
-#             calls=[*calls, get_block_call, get_timestamp_call],
-#             block_id=int(block),
-#             _w3=chain.client,
-#             require_success=False,
-#         )
-#         for block in blocks_as_ints
-#     ]
-
-#     responses = []
-#     failed_multicalls = []
-#     calls_remaining = [m for m in pending_multicalls]
-#     for semaphore_limit in semaphore_limits:
-#         # print(f"{len(calls_remaining)=} {semaphore_limit=}")
-#         # make a lot of calls very fast, then slowly back off and remake the calls that failed
-#         semaphore = asyncio.Semaphore(semaphore_limit)
-#         failed_multicalls = []
-#         _ratelimited_async_data_fetcher = _data_fetch_builder(semaphore, responses, failed_multicalls)
-#         await asyncio.gather(*[_ratelimited_async_data_fetcher(m) for m in calls_remaining])
-
-#         calls_remaining = [f for f in failed_multicalls]
-#         if len(calls_remaining) == 0:
-#             break
-
-#     df = pd.DataFrame.from_records(responses)
-#     if len(df) == 0:
-#         print(
-#             f"failed to fetch any data. consider trying again if expected to get data, but with a smaller semaphore_limit"
-#         )
-#         print(f"{len(blocks_as_ints)=} {blocks_as_ints[0]=} {blocks_as_ints[-1]=}")
-#         print(f"{calls=}")
-
-#     df.set_index("timestamp", inplace=True)
-#     df.index = pd.to_datetime(df.index, unit="s", utc=True)
-#     df.sort_index(inplace=True)
-#     df["block"] = df["block"].astype(int)
-#     if not include_block_number:
-#         df.drop(columns="block", inplace=True)
-#     return df
-
-
-# def safe_normalize_with_bool_success(success: int, value: int):
-#     if success:
-#         return int(value) / 1e18
-#     return None
-
-
-# def safe_normalize_6_with_bool_success(success: int, value: int):
-#     if success:
-#         return int(value) / 1e6
-#     return None
-
-
-# def to_str_with_bool_success(success, value):
-#     if success:
-#         return str(value)
-#     return None
-
-
-# def identity_with_bool_success(success, value):
-#     if success:
-#         return value
-#     return None
-
-
-# def identity_function(value):
-#     return value
-
-
-# @st.cache_data(ttl=CACHE_TIME)
-# def build_blocks_to_use(
-#     chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 6
-# ) -> list[int]:
-#     """Returns a block approx every 4 hours. by default between when autopool was first deployed to the current block"""
-#     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-#     end_block = chain.client.eth.block_number if end_block is None else end_block
-#     blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
-#     blocks = [b for b in range(start_block, end_block, blocks_hop)]
-#     return blocks
-
-
-# # not used, might want later
-# class CallWithToString():
-#     # not used
-#     def __init__(self, call:Call):
-#         self.call = call
-
-#     def __str__(self) -> str:
-#         # the string repersentation of the names and handling functions eg safe_normalize etc
-#         returns_functions = [(name, inspect.getsource(handling_function)) for name, handling_function in self.call.returns ]
-#         return str((self.call.target.lower(), self.call.data, self.call.function, returns_functions))
-
-#     # def __lt__(self, other: "Call") -> bool:
-#     #     """
-#     Enables sorting by comparing target, function, and args.
-
-#     The only thing that matter is a consistant ordering, the actual order does not matter
-#     """
-#     if not isinstance(other, SortableCall):
-#         return TypeError(f'not comparing call objects {type(other)=}')
-#     return (self.call.target, self.call.function, self.call.args) < (other.call.target, other.call.function, other.call.args)
-
-# def __eq__(self, other) -> bool:
-#     """
-#     Checks equality based on target, function, and args.
-#     """
-#     if not isinstance(other, SortableCall):
-#         return False
-#     return (self.call.target, self.call.function, self.call.args) == (other.call.target, other.call.function, other.call.args)
-
+if __name__ == "__main__":
+    _tester()
