@@ -132,6 +132,7 @@ def fetch_and_clean_rebalance_between_destination_events(
         rebalance_df.apply(lambda row: _make_rebalance_between_destination_human_readable(row), axis=1)
     )
     clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, autopool.chain)
+    clean_rebalance_df = add_transaction_gas_info_to_df_with_tx_hash(clean_rebalance_df, autopool.chain)
     return clean_rebalance_df
 
 
@@ -160,7 +161,7 @@ def _add_solver_profit_cols(clean_rebalance_df: pd.DataFrame, autopool: Autopool
         )
         rebalance_dfs.append(limited_clean_rebalance_df)
 
-    all_clean_rebalance_df = pd.concat(rebalance_dfs, axis=0)
+    all_clean_rebalance_df = pd.concat(rebalance_dfs)
     return all_clean_rebalance_df
 
 

@@ -26,6 +26,8 @@ def _load_tx_hash_to_gas_info(hashes: list[str]) -> pd.DataFrame:
         rows = cursor.fetchall()
 
     gas_df = pd.DataFrame(rows, columns=["hash", "gas_price", "gas_used"])
+    gas_df["gas_price"] = gas_df["gas_price"].astype(int)
+    gas_df["gas_used"] = gas_df["gas_used"].astype(int)
     return gas_df
 
 
@@ -131,5 +133,5 @@ if __name__ == "__main__":
     )
     df = fetch_events(base_contract.events.DestinationVaultRegistered)
     print(df.head())
-    df = add_transaction_gas_info_to_df_with_tx_hash(df, ETH_CHAIN)
+    df = add_transaction_gas_info_to_df_with_tx_hash(df, BASE_CHAIN)
     print(df.head(1).values)
