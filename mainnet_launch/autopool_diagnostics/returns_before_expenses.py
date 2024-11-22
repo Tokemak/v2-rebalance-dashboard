@@ -52,8 +52,8 @@ def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants) -> pd.DataFr
         getAssetBreakdown_call("actual_nav", autopool.autopool_eth_addr),
         totalSupply_call("actual_shares", autopool.autopool_eth_addr),
     ]
-    blocks = build_blocks_to_use()
-    df = get_raw_state_by_blocks(calls, blocks)
+    blocks = build_blocks_to_use(autopool.chain)
+    df = get_raw_state_by_blocks(calls, blocks, autopool.chain)
     df["actual_nav_per_share"] = df["actual_nav"] / df["actual_shares"]
     daily_nav_shares_df = df.resample("1D").last()
     return daily_nav_shares_df
@@ -61,9 +61,9 @@ def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants) -> pd.DataFr
 
 def _fetch_cumulative_fee_shares_minted_by_day(autopool: AutopoolConstants) -> pd.DataFrame:
     autoETH_vault = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    FeeCollected_df = add_timestamp_to_df_with_block_column(fetch_events(autoETH_vault.events.FeeCollected))
+    FeeCollected_df = add_timestamp_to_df_with_block_column(fetch_events(autoETH_vault.events.FeeCollected), autopool.chain)
     PeriodicFeeCollected_df = add_timestamp_to_df_with_block_column(
-        fetch_events(autoETH_vault.events.PeriodicFeeCollected)
+        fetch_events(autoETH_vault.events.PeriodicFeeCollected), autopool.chain
     )
     PeriodicFeeCollected_df["new_shares_from_periodic_fees"] = PeriodicFeeCollected_df["mintedShares"] / 1e18
     FeeCollected_df["new_shares_from_streaming_fees"] = FeeCollected_df["mintedShares"] / 1e18
