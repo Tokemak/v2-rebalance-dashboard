@@ -54,7 +54,7 @@ def fetch_our_chainlink_upkeep_events() -> pd.DataFrame:
     our_chainlink_upkeep_events = add_timestamp_to_df_with_block_column(our_chainlink_upkeep_events, ETH_CHAIN)
     return our_chainlink_upkeep_events
 
-
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_keeper_network_gas_costs() -> pd.DataFrame:
     our_upkeep_df = fetch_our_chainlink_upkeep_events()
     our_upkeep_df = add_transaction_gas_info_to_df_with_tx_hash(our_upkeep_df, ETH_CHAIN)
@@ -193,6 +193,7 @@ def fetch_solver_metrics():
     return cost_last_7_days, cost_last_30_days, cost_last_1_year
 
 
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_solver_gas_costs() -> pd.DataFrame:
     """Returns a dataframe of all the rebalanc events along with the gas costs"""
     # solver gas costs on base are near free
