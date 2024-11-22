@@ -235,7 +235,3 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
     return daily_fee_fig, cumulative_fee_fig, weekly_fee_fig
 
 
-if __name__ == "__main__":
-
-    fetch_and_render_autopool_rewardliq_plot(BASE_ETH)
-    fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
