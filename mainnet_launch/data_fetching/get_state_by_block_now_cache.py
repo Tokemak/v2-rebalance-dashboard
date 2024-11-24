@@ -10,13 +10,24 @@ import json
 import inspect
 from mainnet_launch.constants import CACHE_TIME, ChainData, TokemakAddress, time_decorator, ETH_CHAIN, BASE_CHAIN
 from mainnet_launch.data_fetching.databases import MULTICALL_LOGS_DB
+from mainnet_launch.data_fetching.on_chain_calls_response_caching import (
+    batch_insert_multicall_logs,
+    batch_load_multicall_logs_if_exists,
+    insert_multicall_log,
+    get_multicall_log_if_exists,
+)
 import sqlite3
 
 from threading import Lock
 from dataclasses import dataclass
+from functools import lru_cache, cached_property
 
-# needed to run these functions in a jupyter notebook
-nest_asyncio.apply()
+import concurrent.futures
+
+from mainnet_launch.constants import ETH_CHAIN, AUTO_LRT, BASE_ETH, BASE_CHAIN, WETH, AUTO_ETH
+import random
+
+nest_asyncio.apply()  # needed to run these functions in a jupyter notebook
 
 
 MULTICALL_V3 = TokemakAddress(
@@ -24,38 +35,11 @@ MULTICALL_V3 = TokemakAddress(
 )
 
 
-def _call_to_string(call: Call) -> str:
-    # the plain text of the handling functions such as safe_normalize
-    try:
-        returns_functions = [(name, inspect.getsource(handling_function)) for name, handling_function in call.returns]
-    except Exception as e:
-        raise ValueError(
-            "Cannot properly read plaintext of handling functions, make sure they are not lambda functions\n" + e
-        )
-
-    return str((call.target.lower(), call.data, call.function, returns_functions))
-
-
-def _multicall_to_db_hash(multicall: Multicall) -> str:
-    # returns the str hash of this unique set of calls on this block on this chain, with the same require success flag
-    call_identifier_strings = str([_call_to_string(call) for call in multicall.calls])
-    data = f"""
-    {multicall.block_id=}
-    {multicall.chainid=}
-    {multicall.require_success=}
-    {multicall.multicall_address.lower()=}
-    {call_identifier_strings=}
-    """
-    sha256_hash = hashlib.sha256(data.encode()).hexdigest()
-    return sha256_hash
-
-
 @time_decorator
 def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):
     return asyncio.run(safe_get_raw_state_by_block_one_block(calls, block, chain))
 
 
-# TODO rename this
 async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData):
     multicall = Multicall(calls=calls, block_id=block, _w3=chain.client, require_success=False)
     multicall_hash = _multicall_to_db_hash(multicall)
@@ -66,39 +50,6 @@ async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, c
     response = await multicall.coroutine()
     _insert_multicall_log(multicall_hash, response)
     return response
-
-
-def _get_multicall_log_if_exists(multicall_hash: str) -> dict | None:
-    """Retrieve a log from the multicall_logs table by hash."""
-    with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT response FROM multicall_logs WHERE multicall_hash = ?
-            """,
-            (f"{multicall_hash}",),
-        )
-        row = cursor.fetchone()
-        if row is None:
-            print("failed to load", multicall_hash)
-            return None
-        print("loaded", multicall_hash)
-        return json.loads(row[0]) if row[0] else None  # Deserialize JSON response
-
-
-def _insert_multicall_log(multicall_hash: int, response: dict):
-    """Insert a new log into the multicall_logs table."""
-    with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT OR REPLACE INTO multicall_logs (multicall_hash, response)
-            VALUES (?, ?)
-            """,
-            (f"{multicall_hash}", json.dumps(response)),  # Convert hash to hex string
-        )
-        conn.commit()
-        print("saved", multicall_hash)
 
 
 def _build_default_block_and_timestamp_calls(chain: ChainData):
@@ -124,7 +75,7 @@ def get_raw_state_by_blocks(
     include_block_number: bool = False,
 ) -> pd.DataFrame:
     """Fetch a DataFrame of each call in calls for each block in blocks quickly using caching."""
-    return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, chain, semaphore_limits, include_block_number))
+    return asyncio.run(async_safe_get_raw_state_by_blocks(calls, blocks, chain, semaphore_limits, include_block_number))
 
 
 def _fetch_already_cached_responses(calls: list[Call], blocks: list[int], chain: ChainData):
@@ -141,14 +92,16 @@ def _fetch_already_cached_responses(calls: list[Call], blocks: list[int], chain:
         )
         for block in blocks
     ]
-    cached_hash_to_response = _batch_get_multicall_logs([_multicall_to_db_hash(m) for m in all_multicalls])
+
+    multicall_db_hashes = _multicall_to_db_hash_parallel(all_multicalls, 10)
+    cached_hash_to_response = _batch_get_multicall_logs(multicall_db_hashes)
 
     multicalls_left_to_fetch = [m for m in all_multicalls if _multicall_to_db_hash(m) not in cached_hash_to_response]
 
     return cached_hash_to_response, multicalls_left_to_fetch, all_multicalls
 
 
-async def async_safe_get_raw_state_by_block(
+async def async_safe_get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
     chain: ChainData,
@@ -161,14 +114,7 @@ async def async_safe_get_raw_state_by_block(
     if (len(blocks)) != len(set(blocks)):
         raise ValueError("No duplicates in blocks")
 
-    if chain == ETH_CHAIN:
-        highest_finalized_block = ETH_CHAIN.client.eth.get_block("latest").number - (
-            64 * 5
-        )  # 5 epochs approx 32 minutes
-    elif chain == BASE_CHAIN:
-        highest_finalized_block = BASE_CHAIN.client.eth.get_block("latest").number - (300)  # approx 10 minutes
-    else:
-        raise ValueError(f"{chain} is not Base or Mainnet, add custom highest_finalized block")
+    highest_finalized_block = _get_highest_finalized_block(chain)
 
     cached_hash_to_response, multicalls_left_to_fetch, all_multicalls = _fetch_already_cached_responses(
         calls, blocks, chain
@@ -211,6 +157,7 @@ async def async_safe_get_raw_state_by_block(
         for db_hash, response in cached_hash_to_response.items()
         if (response["block"] <= highest_finalized_block) and (db_hash not in db_hashes_already_cached)
     ]
+
     _batch_insert_multicall_logs(finalized_responses_to_cache)
 
     df = pd.DataFrame(all_responses)
@@ -222,55 +169,6 @@ async def async_safe_get_raw_state_by_block(
     if not include_block_number:
         df.drop(columns="block", inplace=True)
     return df
-
-
-def _batch_insert_multicall_logs(finalized_responses_to_cache):
-    """
-    Batch insert multiple multicall logs into the cache.
-
-    Parameters:
-        multicall_hashes (list[str]): List of multicall hash strings.
-        responses (list[dict]): Corresponding list of response dictionaries.
-    """
-    if len(finalized_responses_to_cache) > 0:
-        # only touch the db if there are more data to cache
-        hashes_to_insert = [d[0] for d in finalized_responses_to_cache]
-        responses_to_insert = [d[1] for d in finalized_responses_to_cache]
-        with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
-            cursor = conn.cursor()
-            cursor.executemany(
-                """
-                INSERT OR REPLACE INTO multicall_logs (multicall_hash, response)
-                VALUES (?, ?)
-                """,
-                zip(hashes_to_insert, (json.dumps(response) for response in responses_to_insert)),
-            )
-            conn.commit()
-            print(f"Inserted {len(responses_to_insert)} multicall responses into cache.")
-
-
-def _batch_get_multicall_logs(multicall_hashes: list[str]) -> dict[str, dict | None]:
-    """
-    Batch retrieve multicall responses from the cache.
-
-    Parameters:
-        multicall_hashes (list[str]): List of multicall hash strings.
-
-    """
-    if len(multicall_hashes) == 0:
-        return {}
-
-    with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
-        cursor = conn.cursor()
-        placeholders = ",".join(["?"] * len(multicall_hashes))
-        query = f"SELECT multicall_hash, response FROM multicall_logs WHERE multicall_hash IN ({placeholders})"
-        cursor.execute(query, multicall_hashes)
-        rows = cursor.fetchall()
-        print(print(f"loaded {len(rows)} multicall responses of {len(multicall_hashes)} needed"))
-
-    # only valid jsons should be here so we should fail on trying to load one that does not work
-    cached_hash_to_response = {row[0]: json.loads((row[1])) for row in rows}
-    return cached_hash_to_response
 
 
 def safe_normalize_with_bool_success(success: int, value: int):
@@ -301,7 +199,6 @@ def identity_function(value):
     return value
 
 
-@st.cache_data(ttl=CACHE_TIME)
 def build_blocks_to_use(
     chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 1
 ) -> list[int]:
@@ -309,23 +206,14 @@ def build_blocks_to_use(
     """Returns a block approx once per day. by default between when autopool was first deployed to the highest finalized block"""
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
 
-    if end_block is None:
-        # these are approx but more than safe. can't use `finalized` because we are on a version of web3.py that
-        # was before proof of stake and can't update because multicall.py requires an older version of web3.py
-        if chain == ETH_CHAIN:
-            end_block = ETH_CHAIN.client.eth.get_block("latest").number - (64 * 5)
-        elif chain == BASE_CHAIN:
-            end_block = chain.client.eth.get_block("latest") - 300
-        else:
-            raise ValueError("chain is not Base or Eth mainnet", chain)
-
+    end_block = _get_highest_finalized_block() if end_block is None else end_block
     blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
     blocks = [b for b in range(start_block, end_block, blocks_hop)]
     return blocks
 
 
-from mainnet_launch.constants import ETH_CHAIN, AUTO_LRT, BASE_ETH, BASE_CHAIN, WETH, AUTO_ETH
-import random
+def _get_highest_finalized_block(chain: ChainData):
+    return chain.client.eth.get_block("latest").number - (500)  # close enough on the side of caution
 
 
 def _make_calls():
@@ -343,6 +231,88 @@ def _make_calls():
     )
 
     return [weth_bal_of_AUTO_eth, weth_bal_of_AUTO_LRT]
+
+
+def get_multicall_log_if_exists(multicall_db_hash: str) -> dict | None:
+    """Retrieve a log from the multicall_logs table by hash."""
+    with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT response FROM multicall_logs WHERE multicall_hash = ?
+            """,
+            (f"{multicall_db_hash}",),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            print("failed to load", multicall_db_hash)
+            return None
+        print("loaded", multicall_db_hash)
+        return json.loads(row[0]) if row[0] else None  # Deserialize JSON response
+
+
+def insert_multicall_log(multicall_db_hash: int, response: dict):
+    """Insert a new log into the multicall_logs table."""
+    with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO multicall_logs (multicall_hash, response)
+            VALUES (?, ?)
+            """,
+            (f"{multicall_db_hash}", json.dumps(response)),  # Convert hash to hex string
+        )
+        conn.commit()
+        print("saved", multicall_db_hash)
+
+
+def batch_insert_multicall_logs(finalized_responses_to_cache):
+    """
+    Batch insert multiple multicall logs into the cache.
+
+    Parameters:
+        multicall_hashes (list[str]): List of multicall hash strings.
+        responses (list[dict]): Corresponding list of response dictionaries.
+    """
+    if len(finalized_responses_to_cache) > 0:
+        # only touch the db if there are more data to cache
+        hashes_to_insert = [d[0] for d in finalized_responses_to_cache]
+        responses_to_insert = [d[1] for d in finalized_responses_to_cache]
+        with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
+            cursor = conn.cursor()
+            cursor.executemany(
+                """
+                INSERT OR REPLACE INTO multicall_logs (multicall_hash, response)
+                VALUES (?, ?)
+                """,
+                zip(hashes_to_insert, (json.dumps(response) for response in responses_to_insert)),
+            )
+            conn.commit()
+            print(f"Inserted {len(responses_to_insert)} multicall responses into cache.")
+
+
+def batch_load_multicall_logs_if_exists(multicall_hashes: list[str]) -> dict[str, dict | None]:
+    """
+    Batch retrieve multicall responses from the cache.
+
+    Parameters:
+        multicall_hashes (list[str]): List of multicall hash strings.
+
+    """
+    if len(multicall_hashes) == 0:
+        return {}
+
+    with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
+        cursor = conn.cursor()
+        placeholders = ",".join(["?"] * len(multicall_hashes))
+        query = f"SELECT multicall_hash, response FROM multicall_logs WHERE multicall_hash IN ({placeholders})"
+        cursor.execute(query, multicall_hashes)
+        rows = cursor.fetchall()
+        print(print(f"loaded {len(rows)} multicall responses of {len(multicall_hashes)} needed"))
+
+    # only valid jsons should be here so we should fail on trying to load one that does not work
+    cached_hash_to_response = {row[0]: json.loads((row[1])) for row in rows}
+    return cached_hash_to_response
 
 
 def _test_get_state_once():
