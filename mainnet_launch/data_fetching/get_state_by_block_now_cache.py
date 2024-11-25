@@ -224,7 +224,8 @@ def _test_get_many_states():
     print(ETH_CHAIN.client.eth.chainId)
     calls = _build_default_block_and_timestamp_calls(ETH_CHAIN)
     blocks = [14211989 + i for i in range(2000)]
-
+    # good enough, for what I'm trying to do
+    # later can consider optimizing how the response jsons are stored
     # 100 bad calls
     # successfully read len(rows)= 0 of len(len(db_hashes_to_fetch)=2000)
     # successfully wrote  len(hashes_to_insert)= 2000
