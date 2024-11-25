@@ -10,7 +10,7 @@ import json
 import inspect
 from mainnet_launch.constants import CACHE_TIME, ChainData, TokemakAddress, time_decorator, ETH_CHAIN, BASE_CHAIN
 from mainnet_launch.data_fetching.databases import MULTICALL_LOGS_DB
-from mainnet_launch.data_fetching.on_chain_calls_response_caching import (
+from mainnet_launch.data_fetching.multicall_ import (
     batch_insert_multicall_logs,
     batch_load_multicall_logs_if_exists,
     insert_multicall_log,
