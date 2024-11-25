@@ -9,13 +9,12 @@ import json
 
 import inspect
 from mainnet_launch.constants import CACHE_TIME, ChainData, TokemakAddress, time_decorator, ETH_CHAIN, BASE_CHAIN
-from mainnet_launch.data_fetching.databases import MULTICALL_LOGS_DB
-from mainnet_launch.data_fetching.multicall_ import (
+from mainnet_launch.data_fetching.databases import (
+    MULTICALL_LOGS_DB,
     batch_insert_multicall_logs,
     batch_load_multicall_logs_if_exists,
-    insert_multicall_log,
-    get_multicall_log_if_exists,
 )
+from mainnet_launch.data_fetching.multicall_hashing import calls_and_blocks_to_db_hashes
 import sqlite3
 
 from threading import Lock
@@ -35,23 +34,6 @@ MULTICALL_V3 = TokemakAddress(
 )
 
 
-@time_decorator
-def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):
-    return asyncio.run(safe_get_raw_state_by_block_one_block(calls, block, chain))
-
-
-async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData):
-    multicall = Multicall(calls=calls, block_id=block, _w3=chain.client, require_success=False)
-    multicall_hash = _multicall_to_db_hash(multicall)
-    response = _get_multicall_log_if_exists(multicall_hash)
-    if response is not None:
-        return response
-
-    response = await multicall.coroutine()
-    _insert_multicall_log(multicall_hash, response)
-    return response
-
-
 def _build_default_block_and_timestamp_calls(chain: ChainData):
     get_block_call = Call(
         MULTICALL_V3(chain),
@@ -65,7 +47,6 @@ def _build_default_block_and_timestamp_calls(chain: ChainData):
     )
     return get_block_call, get_timestamp_call
 
-
 @time_decorator
 def get_raw_state_by_blocks(
     calls: list[Call],
@@ -78,27 +59,17 @@ def get_raw_state_by_blocks(
     return asyncio.run(async_safe_get_raw_state_by_blocks(calls, blocks, chain, semaphore_limits, include_block_number))
 
 
-def _fetch_already_cached_responses(calls: list[Call], blocks: list[int], chain: ChainData):
+def _fetch_already_cached_responses(
+    calls: list[Call], blocks: list[int], chain: ChainData
+) -> dict[str, dict[str, Multicall | None]]:
 
     get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls(chain)
+    calls_to_fetch = [get_block_call, get_timestamp_call, *calls]
 
-    # Prepare Multicall objects for all blocks
-    all_multicalls = [
-        Multicall(
-            calls=[*calls, get_block_call, get_timestamp_call],
-            block_id=int(block),
-            _w3=chain.client,
-            require_success=False,
-        )
-        for block in blocks
-    ]
+    db_hash_to_multicall_and_response = calls_and_blocks_to_db_hashes(calls_to_fetch, blocks, chain)
+    db_hash_to_multicall_and_response = batch_load_multicall_logs_if_exists(db_hash_to_multicall_and_response)
 
-    multicall_db_hashes = _multicall_to_db_hash_parallel(all_multicalls, 10)
-    cached_hash_to_response = _batch_get_multicall_logs(multicall_db_hashes)
-
-    multicalls_left_to_fetch = [m for m in all_multicalls if _multicall_to_db_hash(m) not in cached_hash_to_response]
-
-    return cached_hash_to_response, multicalls_left_to_fetch, all_multicalls
+    return db_hash_to_multicall_and_response
 
 
 async def async_safe_get_raw_state_by_blocks(
@@ -116,49 +87,52 @@ async def async_safe_get_raw_state_by_blocks(
 
     highest_finalized_block = _get_highest_finalized_block(chain)
 
-    cached_hash_to_response, multicalls_left_to_fetch, all_multicalls = _fetch_already_cached_responses(
-        calls, blocks, chain
-    )
+    db_hash_to_multicall_and_response = _fetch_already_cached_responses(calls, blocks, chain)
 
-    db_hashes_already_cached = list(cached_hash_to_response.keys())
-
+    # updating a dictionary is not thread safe so we need to only update it when a thread has aquired the lock
     lock = Lock()
+
     for max_http_calls_per_second in semaphore_limits:
-        if len(multicalls_left_to_fetch) == 0:
+        semaphore = asyncio.Semaphore(max_http_calls_per_second)
+        db_hashes_left_to_fetch = [
+            (db_hash, multicall_and_maybe_response["multicall"])
+            for db_hash, multicall_and_maybe_response in db_hash_to_multicall_and_response.items()
+            if "response" not in multicall_and_maybe_response
+        ]
+        if len(db_hashes_left_to_fetch) == 0:
+            # if there are no more responses left to fetch exit early
             break
 
-        semaphore = asyncio.Semaphore(max_http_calls_per_second)
-        multicalls_that_failed = []
-
-        async def _fetch_data(multicall: Multicall):
+        async def _fetch_data(db_hash: str, multicall: Multicall):
             async with semaphore:
                 try:
                     response = await multicall.coroutine()
-                    if response is None:
-                        raise ValueError("response should not be None")
-                    db_hash = _multicall_to_db_hash(multicall)
-                    # need a lock becuase updating a dictionary is not thread safe
                     with lock:
-                        cached_hash_to_response[db_hash] = response
+                        db_hash_to_multicall_and_response[db_hash]["response"] = response
                 except Exception as e:
-                    print(e)
-                    multicalls_that_failed.append(multicall)
-
+                    # rate limiting http fails etc
                     # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
+                    # multicalls_that_failed.append((db_hash, multicall))
+                    print(e)
+                    pass
 
-        tasks = [_fetch_data(m) for m in multicalls_left_to_fetch]
-        await asyncio.gather(*tasks)
-        multicalls_left_to_fetch = [m for m in multicalls_that_failed]
+        # upate the db_hash_to_multicall_and_response to have all the responses
+        await asyncio.gather(*[_fetch_data(db_hash, multicall) for db_hash, multicall in db_hashes_left_to_fetch])
 
-    all_responses = [v for k, v in cached_hash_to_response.items()]
-    # only cache them if the block is less than the current lbock
-    finalized_responses_to_cache: list[tuple[str, dict[str, any]]] = [
-        (db_hash, response)
-        for db_hash, response in cached_hash_to_response.items()
-        if (response["block"] <= highest_finalized_block) and (db_hash not in db_hashes_already_cached)
+    batch_insert_multicall_logs(db_hash_to_multicall_and_response, highest_finalized_block)
+
+    if any(
+        [
+            multicall_and_response["response"] is None
+            for db_hash, multicall_and_response in db_hash_to_multicall_and_response.items()
+        ]
+    ):
+        raise ValueError("a response is None when it should not be")
+
+    all_responses = [
+        multicall_and_response["response"]
+        for db_hash, multicall_and_response in db_hash_to_multicall_and_response.items()
     ]
-
-    _batch_insert_multicall_logs(finalized_responses_to_cache)
 
     df = pd.DataFrame(all_responses)
     df.set_index("timestamp", inplace=True)
@@ -171,6 +145,17 @@ async def async_safe_get_raw_state_by_blocks(
     return df
 
 
+async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData):
+    df = await async_safe_get_raw_state_by_blocks(calls, [block], chain)
+    response = df.to_records("orai")
+
+
+@time_decorator
+def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):
+    return asyncio.run(safe_get_raw_state_by_block_one_block(calls, block, chain))
+
+
+# todo move these
 def safe_normalize_with_bool_success(success: int, value: int):
     if success:
         return int(value) / 1e18
@@ -216,108 +201,8 @@ def _get_highest_finalized_block(chain: ChainData):
     return chain.client.eth.get_block("latest").number - (500)  # close enough on the side of caution
 
 
-def _make_calls():
-
-    weth_bal_of_AUTO_LRT = Call(
-        WETH(ETH_CHAIN),
-        ["balanceOf(address)(uint256)", AUTO_LRT.autopool_eth_addr],
-        [("AUTO_LRT_weth_bal", safe_normalize_with_bool_success)],
-    )
-
-    weth_bal_of_AUTO_eth = Call(
-        WETH(ETH_CHAIN),
-        ["balanceOf(address)(uint256)", AUTO_ETH.autopool_eth_addr],
-        [("AUTO_ETH_weth_bal", safe_normalize_with_bool_success)],
-    )
-
-    return [weth_bal_of_AUTO_eth, weth_bal_of_AUTO_LRT]
-
-
-def get_multicall_log_if_exists(multicall_db_hash: str) -> dict | None:
-    """Retrieve a log from the multicall_logs table by hash."""
-    with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT response FROM multicall_logs WHERE multicall_hash = ?
-            """,
-            (f"{multicall_db_hash}",),
-        )
-        row = cursor.fetchone()
-        if row is None:
-            print("failed to load", multicall_db_hash)
-            return None
-        print("loaded", multicall_db_hash)
-        return json.loads(row[0]) if row[0] else None  # Deserialize JSON response
-
-
-def insert_multicall_log(multicall_db_hash: int, response: dict):
-    """Insert a new log into the multicall_logs table."""
-    with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT OR REPLACE INTO multicall_logs (multicall_hash, response)
-            VALUES (?, ?)
-            """,
-            (f"{multicall_db_hash}", json.dumps(response)),  # Convert hash to hex string
-        )
-        conn.commit()
-        print("saved", multicall_db_hash)
-
-
-def batch_insert_multicall_logs(finalized_responses_to_cache):
-    """
-    Batch insert multiple multicall logs into the cache.
-
-    Parameters:
-        multicall_hashes (list[str]): List of multicall hash strings.
-        responses (list[dict]): Corresponding list of response dictionaries.
-    """
-    if len(finalized_responses_to_cache) > 0:
-        # only touch the db if there are more data to cache
-        hashes_to_insert = [d[0] for d in finalized_responses_to_cache]
-        responses_to_insert = [d[1] for d in finalized_responses_to_cache]
-        with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
-            cursor = conn.cursor()
-            cursor.executemany(
-                """
-                INSERT OR REPLACE INTO multicall_logs (multicall_hash, response)
-                VALUES (?, ?)
-                """,
-                zip(hashes_to_insert, (json.dumps(response) for response in responses_to_insert)),
-            )
-            conn.commit()
-            print(f"Inserted {len(responses_to_insert)} multicall responses into cache.")
-
-
-def batch_load_multicall_logs_if_exists(multicall_hashes: list[str]) -> dict[str, dict | None]:
-    """
-    Batch retrieve multicall responses from the cache.
-
-    Parameters:
-        multicall_hashes (list[str]): List of multicall hash strings.
-
-    """
-    if len(multicall_hashes) == 0:
-        return {}
-
-    with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
-        cursor = conn.cursor()
-        placeholders = ",".join(["?"] * len(multicall_hashes))
-        query = f"SELECT multicall_hash, response FROM multicall_logs WHERE multicall_hash IN ({placeholders})"
-        cursor.execute(query, multicall_hashes)
-        rows = cursor.fetchall()
-        print(print(f"loaded {len(rows)} multicall responses of {len(multicall_hashes)} needed"))
-
-    # only valid jsons should be here so we should fail on trying to load one that does not work
-    cached_hash_to_response = {row[0]: json.loads((row[1])) for row in rows}
-    return cached_hash_to_response
-
-
 def _test_get_state_once():
-    print(ETH_CHAIN.client.eth.chainId)
-    calls = _make_calls()
+    calls = _build_default_block_and_timestamp_calls(ETH_CHAIN)
     block = 21238611 + random.randint(0, 10000)
 
     state1 = get_state_by_one_block(calls, block, ETH_CHAIN)
@@ -327,18 +212,24 @@ def _test_get_state_once():
 
 def _test_get_many_states():
     print(ETH_CHAIN.client.eth.chainId)
-    calls = _make_calls()
-    block = random.randint(10_000_000, 21_000_000)
-    blocks = [block + i for i in range(100)]
+    calls = _build_default_block_and_timestamp_calls(ETH_CHAIN)
+    blocks = [14211989 + i for i in range(1500)]
+    
+    # naive speed on 2k  blocks
+    # get_raw_state_by_blocks took 10.2173 seconds.
+    # get_raw_state_by_blocks took 0.1369 seconds.
 
     # intentionally slow to show speed up
-    df1 = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, semaphore_limits=(1, 1, 1))
+    df1 = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, semaphore_limits=(50, 50, 1), include_block_number=True)
 
-    df2 = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, semaphore_limits=(1, 1, 1))
+    df2 = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, semaphore_limits=(50, 50, 1), include_block_number=True)
+    print(df1.head())
+    print(df2.tail())
 
-    assert df1.equals(df2)
+    assert df1.equals(df2), 'returned dfs are differnet'
+    pass
 
 
 if __name__ == "__main__":
-    _test_get_state_once()
+    # _test_get_state_once()
     _test_get_many_states()

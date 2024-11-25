@@ -34,7 +34,7 @@ from multicall import Multicall, Call
 
 @lru_cache(maxsize=None)
 def _get_function_source(fn):
-    """get the plain ttext of a handling operation such as safe normalize"""
+    """get the plain text of a handling operation such as safe normalize"""
     return inspect.getsource(fn)
 
 
@@ -77,14 +77,7 @@ def _serialize_call(call: Call) -> bytes:
 
 def _serialize_multicall(multicall: Multicall) -> bytes:
     """
-    Serialize a Multicall object into bytes.
-    don't include the block id
-
-    Parameters:
-        multicall (Multicall): The Multicall object to serialize.
-
-    Returns:
-        bytes: The serialized byte representation of the Multicall object.
+    Serialize a Multicall object into bytes. Does not include the block id
     """
     parts = []
 
@@ -131,17 +124,17 @@ def _multicall_to_db_hash_optimized(static_hash: bytes, block_id: int) -> str:
     return final_hash
 
 
-def calls_and_blocks_to_db_hashes(calls: list[Call], blocks: list[int], chain: ChainData) -> list[str]:
+def calls_and_blocks_to_db_hashes(calls: list[Call], blocks: list[int], chain: ChainData):
     """
-    Efficiently compute the db_hashes for a list of multicalls
-
-    Note: requires (but does not check) that its the same set of calls on teh same chain at differn blocks
-
+    Efficiently compute the db_hashes for a list of multicalls calls, and blocks for a chain
     """
-
+    # todo consider adding block and call validation here
     multicalls = [Multicall(calls=calls, block_id=b, _w3=chain.client, require_success=False) for b in blocks]
     # one hash for all the info except the block info
-    serialized_static_multicall = _serialize_multicall(multicalls[0])
+    serialized_static_multicall = _serialize_multicall(multicalls[0])  # any multicall will do
     static_hash = hashlib.sha256(serialized_static_multicall).digest()
     db_hashes = [_multicall_to_db_hash_optimized(static_hash, mc.block_id) for mc in multicalls]
-    return db_hashes
+
+    # returns a dictionary or dbHash -> multicall, (later response)
+    db_hash_to_multicall_and_response = {d: {"multicall": m} for d, m in zip(db_hashes, multicalls)}
+    return db_hash_to_multicall_and_response
