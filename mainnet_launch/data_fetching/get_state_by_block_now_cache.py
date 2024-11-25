@@ -47,6 +47,7 @@ def _build_default_block_and_timestamp_calls(chain: ChainData):
     )
     return get_block_call, get_timestamp_call
 
+
 @time_decorator
 def get_raw_state_by_blocks(
     calls: list[Call],
@@ -211,22 +212,43 @@ def _test_get_state_once():
 
 
 def _test_get_many_states():
+    balance_of_calls = [
+        Call(
+            MULTICALL_V3(ETH_CHAIN),
+            ["bad_call(uint256)(uint256)", i],
+            [(str(i), identity_with_bool_success)],
+        )
+        for i in range(100)
+    ]
+
     print(ETH_CHAIN.client.eth.chainId)
     calls = _build_default_block_and_timestamp_calls(ETH_CHAIN)
-    blocks = [14211989 + i for i in range(1500)]
-    
+    blocks = [14211989 + i for i in range(2000)]
+
+    # 100 bad calls
+    # successfully read len(rows)= 0 of len(len(db_hashes_to_fetch)=2000)
+    # successfully wrote  len(hashes_to_insert)= 2000
+    # get_raw_state_by_blocks took 68.3048 seconds.
+    # successfully read len(rows)= 2000 of len(len(db_hashes_to_fetch)=2000)
+    # successfully wrote  len(hashes_to_insert)= 2000
+    # get_raw_state_by_blocks took 0.2380 seconds.
+
     # naive speed on 2k  blocks
     # get_raw_state_by_blocks took 10.2173 seconds.
     # get_raw_state_by_blocks took 0.1369 seconds.
 
     # intentionally slow to show speed up
-    df1 = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, semaphore_limits=(50, 50, 1), include_block_number=True)
+    df1 = get_raw_state_by_blocks(
+        [*balance_of_calls, *calls], blocks, ETH_CHAIN, semaphore_limits=(50, 25, 1), include_block_number=True
+    )
 
-    df2 = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, semaphore_limits=(50, 50, 1), include_block_number=True)
+    df2 = get_raw_state_by_blocks(
+        [*balance_of_calls, *calls], blocks, ETH_CHAIN, semaphore_limits=(50, 25, 1), include_block_number=True
+    )
     print(df1.head())
     print(df2.tail())
 
-    assert df1.equals(df2), 'returned dfs are differnet'
+    assert df1.equals(df2), "returned dfs are differnet"
     pass
 
 

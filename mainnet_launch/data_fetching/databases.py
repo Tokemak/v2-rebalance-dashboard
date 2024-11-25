@@ -10,17 +10,17 @@ TX_HASH_TO_GAS_INFO_DB = DB_DIR / "tx_hash_to_gas_info.db"
 MULTICALL_LOGS_DB = DB_DIR / "multicall_logs.db"
 
 
-def batch_insert_multicall_logs(db_hash_to_multicall_and_response, highest_finalized_block:int):
-    
+def batch_insert_multicall_logs(db_hash_to_multicall_and_response, highest_finalized_block: int):
+
     # all responses should not be None
-    
+
     hashes_to_insert = []
     responses_to_insert = []
     for db_hash, multicall_and_response in db_hash_to_multicall_and_response.items():
-        
-        if multicall_and_response['multicall'].block_id < highest_finalized_block:
+
+        if multicall_and_response["multicall"].block_id < highest_finalized_block:
             hashes_to_insert.append(db_hash)
-            responses_to_insert.append(multicall_and_response['response'])
+            responses_to_insert.append(multicall_and_response["response"])
 
     with sqlite3.connect(MULTICALL_LOGS_DB) as conn:
         cursor = conn.cursor()
@@ -32,7 +32,7 @@ def batch_insert_multicall_logs(db_hash_to_multicall_and_response, highest_final
             zip(hashes_to_insert, (json.dumps(response) for response in responses_to_insert)),
         )
         conn.commit()
-        print(f'successfully wrote { len(hashes_to_insert)= }')
+        print(f"successfully wrote { len(hashes_to_insert)= }")
 
 
 def batch_load_multicall_logs_if_exists(
@@ -47,7 +47,7 @@ def batch_load_multicall_logs_if_exists(
         query = f"SELECT multicall_hash, response FROM multicall_logs WHERE multicall_hash IN ({placeholders})"
         cursor.execute(query, db_hashes_to_fetch)
         rows = cursor.fetchall()
-        print(f'successfully read{ len(rows)= } of len({len(db_hashes_to_fetch)=})')
+        print(f"successfully read{ len(rows)= } of len({len(db_hashes_to_fetch)=})")
 
     # only valid jsons should be here so we should fail on trying to load one that does not work
     cached_hash_to_response = {row[0]: json.loads((row[1])) for row in rows}
