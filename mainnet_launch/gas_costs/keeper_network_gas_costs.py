@@ -64,10 +64,8 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
     # only count gas costs after mainnet launch on September 15
     our_upkeep_df = our_upkeep_df[our_upkeep_df.index >= pd.Timestamp("2024-09-15", tz="UTC")].copy()
 
+    our_upkeep_df["gasCostInETH_without_chainlink_overhead"] = our_upkeep_df["gasCostInETH"]
     our_upkeep_df["gasCostInETH_with_chainlink_premium"] = our_upkeep_df["gasCostInETH"] * 1.2  # 20% premium
-    our_upkeep_df["gasCostInETH_without_chainlink_overhead"] = our_upkeep_df["gas_price"].astype(int) * our_upkeep_df[
-        "gas_used"
-    ].apply(lambda x: int(x) / 1e18)
 
     return our_upkeep_df
 
@@ -106,7 +104,7 @@ def fetch_and_render_keeper_network_gas_costs():
 
 
 def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
-    calculator_df = our_upkeep_df[our_upkeep_df["id"].apply(str).isin([CALCULATOR_TOPIC_IDS])]
+    calculator_df = our_upkeep_df[our_upkeep_df["id"].apply(str).isin(CALCULATOR_TOPIC_IDS)]
     incentive_pricing_df = our_upkeep_df[our_upkeep_df["id"].apply(str) == INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 
     calculator_gas_costs_7, calculator_gas_costs_30, calculator_gas_costs_365 = get_gas_costs(
@@ -135,7 +133,6 @@ def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
 
 def get_gas_costs(df: pd.DataFrame, column: str):
     today = datetime.now(timezone.utc)
-
     return (
         df[df.index >= today - timedelta(days=7)][column].sum(),
         df[df.index >= today - timedelta(days=30)][column].sum(),
@@ -196,13 +193,22 @@ def fetch_solver_metrics():
     return cost_last_7_days, cost_last_30_days, cost_last_1_year
 
 
-@st.cache_data(ttl=CACHE_TIME)
+# @st.cache_data(ttl=CACHE_TIME)
+@time_decorator
 def fetch_solver_gas_costs() -> pd.DataFrame:
     """Returns a dataframe of all the rebalanc events along with the gas costs"""
-    # solver gas costs on base are near free
-    clean_rebalance_df = pd.concat(
-        [fetch_and_clean_rebalance_between_destination_events(a) for a in ALL_AUTOPOOLS if a.chain == ETH_CHAIN]
-    )
+    # rey slow
+
+    dfs = []
+    for autopool in ALL_AUTOPOOLS:
+        # solver gas costs on base are close to free
+        if autopool.chain == ETH_CHAIN:
+            df = fetch_and_clean_rebalance_between_destination_events(autopool)
+            print("fetched", autopool.name, df.shape)
+            dfs.append(df)
+
+    clean_rebalance_df = pd.concat(dfs)
+
     clean_rebalance_df = add_transaction_gas_info_to_df_with_tx_hash(clean_rebalance_df, ETH_CHAIN)
     clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, ETH_CHAIN)
     return clean_rebalance_df
@@ -223,6 +229,3 @@ def fetch_all_autopool_debt_reporting_events(chain: ChainData) -> pd.DataFrame:
     return destination_debt_reporting_df
 
 
-if __name__ == "__main__":
-    fetch_and_render_keeper_network_gas_costs()
-    pass

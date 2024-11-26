@@ -2,7 +2,6 @@ import pandas as pd
 import web3
 from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError
 from web3.contract import Contract, ContractEvent
-import time
 
 
 def _flatten_events(just_found_events: list[dict]) -> None:
@@ -71,7 +70,6 @@ def _recursive_helper_get_all_events_within_range(
             # If the range is too small to split further, raise an exception
             raise RuntimeError(f"Unable to fetch events for blocks {start_block}-{end_block}")
 
-        time.sleep(1)  # don't overwhelm api
         _recursive_helper_get_all_events_within_range(event, start_block, mid, found_events, argument_filters)
         _recursive_helper_get_all_events_within_range(event, mid + 1, end_block, found_events, argument_filters)
 
