@@ -1,7 +1,8 @@
 import pandas as pd
 import web3
-from requests.exceptions import ReadTimeout
+from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError
 from web3.contract import Contract, ContractEvent
+import time
 
 
 def _flatten_events(just_found_events: list[dict]) -> None:
@@ -58,10 +59,11 @@ def _recursive_helper_get_all_events_within_range(
         _flatten_events(just_found_events)
         found_events.extend(just_found_events)
 
-    except (TimeoutError, ValueError, ReadTimeout) as e:
+    except (TimeoutError, ValueError, ReadTimeout, HTTPError, ChunkedEncodingError) as e:
         if isinstance(e, ValueError) and e.args[0].get("code") != -32602:
             # Re-raise non "Log response size exceeded" errors
             raise e
+        # otherwise cut the blocks in half and try again
 
         # Timeout or "Log response size exceeded" error - split the range
         mid = (start_block + end_block) // 2
@@ -69,6 +71,7 @@ def _recursive_helper_get_all_events_within_range(
             # If the range is too small to split further, raise an exception
             raise RuntimeError(f"Unable to fetch events for blocks {start_block}-{end_block}")
 
+        time.sleep(1)  # don't overwhelm api
         _recursive_helper_get_all_events_within_range(event, start_block, mid, found_events, argument_filters)
         _recursive_helper_get_all_events_within_range(event, mid + 1, end_block, found_events, argument_filters)
 

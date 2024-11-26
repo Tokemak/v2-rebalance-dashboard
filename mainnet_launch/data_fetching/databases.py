@@ -47,7 +47,7 @@ def batch_load_multicall_logs_if_exists(
         query = f"SELECT multicall_hash, response FROM multicall_logs WHERE multicall_hash IN ({placeholders})"
         cursor.execute(query, db_hashes_to_fetch)
         rows = cursor.fetchall()
-        print(f"successfully read{ len(rows)= } of len({len(db_hashes_to_fetch)=})")
+        print(f"successfully read{ len(rows)= } of {len(db_hashes_to_fetch)=}")
 
     # only valid jsons should be here so we should fail on trying to load one that does not work
     cached_hash_to_response = {row[0]: json.loads((row[1])) for row in rows}
