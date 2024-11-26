@@ -60,7 +60,7 @@ def fetch_destination_summary_stats(blocks: list[int], autopool: AutopoolConstan
     """
 
     # blocks = build_blocks_to_use()
-    destination_details = [dest for dest in get_destination_details(autopool, blocks) if dest.autopool == autopool]
+    destination_details = get_destination_details(autopool, blocks)
 
     raw_summary_stats_df = _fetch_autopool_destination_df(
         blocks, destination_details, autopool
@@ -71,12 +71,16 @@ def fetch_destination_summary_stats(blocks: list[int], autopool: AutopoolConstan
     )  # it does not have idle at this points
 
     uwcr_df, priceReturn_df = _extract_unweighted_composite_return_df(summary_stats_df)
-
+    # rsETH and ETHx fail on balancer I suspect that we can't price rsETH
     allocation_df = _extract_allocation_df(summary_stats_df)
     compositeReturn_out_df = _extract_composite_return_out_df(summary_stats_df)
     total_nav_series = allocation_df.sum(axis=1)
     portion_df = allocation_df.div(total_nav_series, axis=0)
     uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
+    
+    
+    # getSummaryStats can fail if we revert when trying to price a token
+    # my opinion is that we should forward fill it 
 
     return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df
 
@@ -151,6 +155,10 @@ def _fetch_autopool_destination_df(
         summary_stats_df[dest.vaultAddress] = summary_stats_df[dest.vaultAddress].combine(
             points_df[dest.vaultAddress], _add_points_value_to_summary_stats
         )
+        
+    # getSummaryStats reverts if the it can't price one of the tokens
+    # in in that case, just use the value from right before as a stand in
+    summary_stats_df=  summary_stats_df.ffill()
 
     return summary_stats_df
 
