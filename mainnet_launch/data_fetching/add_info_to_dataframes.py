@@ -5,7 +5,9 @@ import pandas as pd
 from web3.exceptions import TransactionNotFound
 
 from mainnet_launch.constants import ChainData, ETH_CHAIN
-from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
+
+# from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
+from mainnet_launch.data_fetching.get_state_by_block_now_cache import get_raw_state_by_blocks
 from mainnet_launch.data_fetching.databases import TX_HASH_TO_GAS_INFO_DB
 
 
@@ -33,6 +35,10 @@ def _load_tx_hash_to_gas_info(hashes: list[str]) -> pd.DataFrame:
 
 def _save_tx_hash_to_gas_info(gas_df: pd.DataFrame) -> None:
     """Save tx_hash_to_gas_info DataFrame to SQLite database without updating existing records."""
+
+    if len(gas_df) == 0:
+        return
+
     if any([col not in gas_df.columns for col in ["hash", "gas_price", "gas_used"]]):
         raise ValueError(f"can't save gas_df because it does not have the correct columns {gas_df.columns=}")
     # Ensure 'hash' column is in lowercase
@@ -81,37 +87,75 @@ def fetch_missing_gas_costs(hashes_to_fetch: list[str], chain: ChainData) -> pd.
 
 
 def add_transaction_gas_info_to_df_with_tx_hash(df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
-    """Add gas_price and gas_used to the DataFrame."""
-    if ("gas_price" in df.columns) or ("gas_used" in df.columns) or ("gasCostInETH" in df.columns):
-        # if there are already gas columns here, feel free to drop them
-        df.drop(columns=["gas_price", "gas_used", "gasCostInETH"], inplace=True)
+    """Add gas_price and gas_used gasCostInETH to df"""
+    # Drop existing gas-related columns if they exist
+    gas_columns = ["gas_price", "gas_used", "gasCostInETH"]
+    existing_gas_columns = [col for col in gas_columns if col in df.columns]
+    if existing_gas_columns:
+        df = df.drop(columns=existing_gas_columns)
 
+    # Ensure 'hash' column exists
     if "hash" not in df.columns:
-        raise ValueError(f"'hash' must be in {df.columns=}")
+        raise ValueError(f"'hash' must be in the DataFrame columns. Current columns: {df.columns.tolist()}")
 
-    if len(df) == 0:
+    if df.empty:
         return df
 
     df["hash"] = df["hash"].str.lower()
     df_hashes = df["hash"].unique().tolist()
     existing_gas_info = _load_tx_hash_to_gas_info(df_hashes)
-    hashes_to_fetch = [h for h in df_hashes if h not in existing_gas_info["hash"]]
-    new_gas_info_df = fetch_missing_gas_costs(hashes_to_fetch, chain)
+    existing_hash_set = set(existing_gas_info["hash"].str.lower())
+    hashes_to_fetch = [h for h in df_hashes if h not in existing_hash_set]
 
-    _save_tx_hash_to_gas_info(new_gas_info_df)
-    gas_cost_df = pd.concat([existing_gas_info, new_gas_info_df], ignore_index=True)
-    try:
-        df = df.merge(gas_cost_df, how="left", on=["hash"])
-        df["gasCostInETH"] = df.apply(lambda row: (row["gas_price"] * row["gas_used"]) / 1e18, axis=1)
-    except Exception as e:
-        print(e)
-        print(df.head())
-        print(df.shape, df.columns)
-        print(gas_cost_df.shape)
-        print(gas_cost_df.columns)
+    if hashes_to_fetch:
+        new_gas_info_df = fetch_missing_gas_costs(hashes_to_fetch, chain)
+        _save_tx_hash_to_gas_info(new_gas_info_df)
+        gas_cost_df = pd.concat([existing_gas_info, new_gas_info_df], axis=0)
+    else:
+        gas_cost_df = existing_gas_info
 
-        pass
+    gas_cost_df = gas_cost_df.drop_duplicates()
+    gas_cost_df["hash"] = gas_cost_df["hash"].str.lower()
+    df = df.reset_index(drop=True).merge(gas_cost_df, how="left", on="hash", validate="many_to_one")
+
+    df["gasCostInETH"] = (df["gas_price"] * df["gas_used"]) / 1e18
     return df
+
+
+# def add_transaction_gas_info_to_df_with_tx_hash(df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
+#     """Add gas_price and gas_used to the DataFrame."""
+#     if ("gas_price" in df.columns) or ("gas_used" in df.columns) or ("gasCostInETH" in df.columns):
+#         # if there are already gas columns here, feel free to drop them
+#         df.drop(columns=["gas_price", "gas_used", "gasCostInETH"], inplace=True)
+
+#     if "hash" not in df.columns:
+#         raise ValueError(f"'hash' must be in {df.columns=}")
+
+#     if len(df) == 0:
+#         return df
+
+#     df["hash"] = df["hash"].str.lower()
+#     df_hashes = df["hash"].unique().tolist()
+#     existing_gas_info = _load_tx_hash_to_gas_info(df_hashes)
+#     hashes_to_fetch = [h for h in df_hashes if h not in set(existing_gas_info["hash"])]
+#     first_hash = existing_gas_info["hash"].values[0]
+#     print(first_hash in hashes_to_fetch)
+#     new_gas_info_df = fetch_missing_gas_costs(hashes_to_fetch, chain)
+
+#     _save_tx_hash_to_gas_info(new_gas_info_df)
+#     gas_cost_df = pd.concat([existing_gas_info, new_gas_info_df], axis=0)
+#     try:
+#         df = df.merge(gas_cost_df, how="left", on=["hash"])
+#         df["gasCostInETH"] = df.apply(lambda row: (row["gas_price"] * row["gas_used"]) / 1e18, axis=1)
+#     except Exception as e:
+#         print(e)
+#         print(df.head())
+#         print(df.shape, df.columns)
+#         print(gas_cost_df.shape)
+#         print(gas_cost_df.columns)
+
+#         pass
+#     return df
 
 
 def add_timestamp_to_df_with_block_column(df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:

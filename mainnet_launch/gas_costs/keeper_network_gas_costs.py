@@ -14,6 +14,7 @@ from mainnet_launch.constants import (
     WORKING_DATA_DIR,
     ETH_CHAIN,
     ChainData,
+    time_decorator,
 )
 
 
@@ -46,12 +47,11 @@ INCENTIVE_PRICING_TOPIC_IDS = [INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 
 def fetch_our_chainlink_upkeep_events() -> pd.DataFrame:
     contract = ETH_CHAIN.client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
-    upkeep_df = fetch_events(contract.events.UpkeepPerformed, ETH_CHAIN.block_autopool_first_deployed)
-    our_chainlink_upkeep_events = upkeep_df[
-        upkeep_df["id"].apply(str).isin([*CALCULATOR_TOPIC_IDS, *INCENTIVE_PRICING_TOPIC_IDS])
-    ].copy()
-
-    our_chainlink_upkeep_events = add_timestamp_to_df_with_block_column(our_chainlink_upkeep_events, ETH_CHAIN)
+    our_chainlink_upkeep_events = fetch_events(
+        contract.events.UpkeepPerformed,
+        20753178,
+        argument_filters={"id": [int(i) for i in [*CALCULATOR_TOPIC_IDS, *INCENTIVE_PRICING_TOPIC_IDS]]},
+    )
     return our_chainlink_upkeep_events
 
 
@@ -60,6 +60,7 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
     our_upkeep_df = fetch_our_chainlink_upkeep_events()
     our_upkeep_df = add_transaction_gas_info_to_df_with_tx_hash(our_upkeep_df, ETH_CHAIN)
     our_upkeep_df = add_timestamp_to_df_with_block_column(our_upkeep_df, ETH_CHAIN)
+
     # only count gas costs after mainnet launch on September 15
     our_upkeep_df = our_upkeep_df[our_upkeep_df.index >= pd.Timestamp("2024-09-15", tz="UTC")].copy()
 
@@ -71,6 +72,7 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
     return our_upkeep_df
 
 
+@time_decorator
 def fetch_and_render_keeper_network_gas_costs():
 
     our_upkeep_df = fetch_keeper_network_gas_costs()
@@ -223,3 +225,4 @@ def fetch_all_autopool_debt_reporting_events(chain: ChainData) -> pd.DataFrame:
 
 if __name__ == "__main__":
     fetch_and_render_keeper_network_gas_costs()
+    pass

@@ -147,11 +147,11 @@ async def async_safe_get_raw_state_by_blocks(
 
 
 async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData):
-    df = await async_safe_get_raw_state_by_blocks(calls, [block], chain)
-    response = df.to_records("orai")
+    df = await async_safe_get_raw_state_by_blocks(calls, [block], chain, include_block_number=True)
+    df.reset_index(inplace=True)
+    return df.to_dict(orient="records")[0]
 
 
-@time_decorator
 def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):
     return asyncio.run(safe_get_raw_state_by_block_one_block(calls, block, chain))
 
@@ -192,7 +192,7 @@ def build_blocks_to_use(
     """Returns a block approx once per day. by default between when autopool was first deployed to the highest finalized block"""
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
 
-    end_block = _get_highest_finalized_block() if end_block is None else end_block
+    end_block = _get_highest_finalized_block(chain) if end_block is None else end_block
     blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
     blocks = [b for b in range(start_block, end_block, blocks_hop)]
     return blocks
@@ -223,7 +223,8 @@ def _test_get_many_states():
 
     print(ETH_CHAIN.client.eth.chainId)
     calls = _build_default_block_and_timestamp_calls(ETH_CHAIN)
-    blocks = [14211989 + i for i in range(2000)]
+    blocks = [13211989 + i for i in range(2000)]
+
     # good enough, for what I'm trying to do
     # later can consider optimizing how the response jsons are stored
     # 100 bad calls
@@ -254,5 +255,5 @@ def _test_get_many_states():
 
 
 if __name__ == "__main__":
-    # _test_get_state_once()
-    _test_get_many_states()
+    _test_get_state_once()
+    # _test_get_many_states()
