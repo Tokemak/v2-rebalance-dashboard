@@ -154,7 +154,6 @@ def _fetch_autopool_destination_df(
             points_df[dest.vaultAddress], _add_points_value_to_summary_stats
         )
 
-    
     # TODO on revert, call the getSummary stats for the block -30 minute and forward fill it
     # getSummaryStats reverts if the it can't price one of the tokens
     # in in that case, just use the value from right before as a stand in
