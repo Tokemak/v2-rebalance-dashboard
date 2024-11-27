@@ -138,7 +138,8 @@ def fetch_filtered_upkeep_events():
             ]
         )
     ].copy()
-    return add_timestamp_to_df_with_block_column(filtered_upkeep_df)
+    filtered_upkeep_df = add_timestamp_to_df_with_block_column(filtered_upkeep_df)
+    return filtered_upkeep_df
 
 
 def fetch_missing_transaction_data(new_upkeep_df, hash_to_gas_cost_in_ETH, hash_to_gasPrice, has_to_gas_used):
@@ -194,7 +195,13 @@ def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
     calculator_df = our_upkeep_df[
         our_upkeep_df["id"]
         .apply(str)
-        .isin([OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID, NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID, NEW2_CALCULATOR_KEEPER_ORACLE_TOPIC_ID])
+        .isin(
+            [
+                OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+                NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+                NEW2_CALCULATOR_KEEPER_ORACLE_TOPIC_ID,
+            ]
+        )
     ]
     incentive_pricing_df = our_upkeep_df[our_upkeep_df["id"].apply(str) == INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 
@@ -340,4 +347,4 @@ def fetch_all_autopool_debt_reporting_events() -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    fetch_all_autopool_debt_reporting_events()
+    fetch_keeper_network_gas_costs()

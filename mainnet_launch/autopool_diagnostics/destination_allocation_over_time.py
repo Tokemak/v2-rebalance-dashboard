@@ -53,3 +53,7 @@ def fetch_and_render_destination_allocation_over_time_data(autopool: AutopoolCon
             - Percent of TVL by Destination: Shows the percent of capital deployed to each destination
             """
         )
+
+
+if __name__ == "__main__":
+    fetch_destination_allocation_over_time_data(ALL_AUTOPOOLS[0])
