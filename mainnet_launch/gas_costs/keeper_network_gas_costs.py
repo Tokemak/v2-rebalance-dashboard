@@ -227,5 +227,3 @@ def fetch_all_autopool_debt_reporting_events(chain: ChainData) -> pd.DataFrame:
     destination_debt_reporting_df = add_transaction_gas_info_to_df_with_tx_hash(destination_debt_reporting_df, chain)
     destination_debt_reporting_df = add_timestamp_to_df_with_block_column(destination_debt_reporting_df, chain)
     return destination_debt_reporting_df
-
-
