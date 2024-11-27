@@ -1,6 +1,7 @@
 import pandas as pd
 import web3
 from mainnet_launch.constants import CACHE_TIME, eth_client
+from requests.exceptions import ReadTimeout
 
 
 def _flatten_events(just_found_events: list[dict]) -> None:
@@ -36,22 +37,40 @@ def _flatten_events(just_found_events: list[dict]) -> None:
 
 
 def _recursive_helper_get_all_events_within_range(
-    event: "web3.contract.ContractEvent", start_block: int, end_block: int, found_events: list
+    event: "web3.contract.ContractEvent",
+    start_block: int,
+    end_block: int,
+    found_events: list,
+    argument_filters: dict | None,
 ):
-    """Recursively fetch all the `event` events between start_block and end_block"""
+    """
+    Recursively fetch all the `event` events between start_block and end_block.
+    Immediately splits the range into smaller chunks on timeout or large response issues.
+
+    TODO: consider usings eth.getLogs API calls like in
+
+    https://web3py.readthedocs.io/en/stable/filters.html
+    """
     try:
-        event_filter = event.createFilter(fromBlock=start_block, toBlock=end_block)
+        # Try fetching events in the given range
+        event_filter = event.createFilter(fromBlock=start_block, toBlock=end_block, argument_filters=argument_filters)
         just_found_events = event_filter.get_all_entries()
         _flatten_events(just_found_events)
         found_events.extend(just_found_events)
 
-    except ValueError as e:
-        if e.args[0]["code"] != -32602:  # error code "Log response size exceeded" from Alchemy
+    except (TimeoutError, ValueError, ReadTimeout) as e:
+        if isinstance(e, ValueError) and e.args[0].get("code") != -32602:
+            # Re-raise non "Log response size exceeded" errors
             raise e
 
+        # Timeout or "Log response size exceeded" error - split the range
         mid = (start_block + end_block) // 2
-        _recursive_helper_get_all_events_within_range(event, start_block, mid, found_events)
-        _recursive_helper_get_all_events_within_range(event, mid + 1, end_block, found_events)
+        if start_block == mid or mid + 1 > end_block:
+            # If the range is too small to split further, raise an exception
+            raise RuntimeError(f"Unable to fetch events for blocks {start_block}-{end_block}")
+
+        _recursive_helper_get_all_events_within_range(event, start_block, mid, found_events, argument_filters)
+        _recursive_helper_get_all_events_within_range(event, mid + 1, end_block, found_events, argument_filters)
 
 
 def events_to_df(found_events: list[web3.datastructures.AttributeDict]) -> pd.DataFrame:
@@ -63,11 +82,11 @@ def events_to_df(found_events: list[web3.datastructures.AttributeDict]) -> pd.Da
         cleaned_events.append(
             {
                 **event["args"],
-                "event": event["event"],
-                "block": event["blockNumber"],
-                "transaction_index": event["transactionIndex"],  # the position in the block
-                "log_index": event["logIndex"],
-                "hash": event["transactionHash"].hex(),
+                "event": str(event["event"]),
+                "block": int(event["blockNumber"]),
+                "transaction_index": int(event["transactionIndex"]),
+                "log_index": int(event["logIndex"]),
+                "hash": str(event["transactionHash"].hex()),
             }
         )
     return pd.DataFrame.from_records(cleaned_events).sort_values(["block", "log_index"])
@@ -77,18 +96,16 @@ def fetch_events(
     event: "web3.contract.ContractEvent",
     start_block: int = 15091387,
     end_block: int = None,
+    argument_filters: dict | None = None,
 ) -> pd.DataFrame:
     """
     Collect every `event` between start_block and end_block into a DataFrame.
-
-    start_block:  15091387 July 22, defaults to 10091387, the earliest block with a timestamp in block collector. May 18, 2020
-
-    include_timestamp: bool if you want to include the column timestamp
     """
     end_block = eth_client.eth.block_number if end_block is None else end_block
+    start_block, end_block = int(start_block), int(end_block)
 
-    found_events = list()
-    _recursive_helper_get_all_events_within_range(event, start_block, end_block, found_events)
+    found_events = []
+    _recursive_helper_get_all_events_within_range(event, start_block, end_block, found_events, argument_filters)
     event_df = events_to_df(found_events)
     return event_df
 

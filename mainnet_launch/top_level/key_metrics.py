@@ -128,13 +128,13 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
     nav_per_share_fig.update_layout(yaxis_title="NAV Per Share")
 
     # weighted price return
-    total_nav_series = key_metric_data['allocation_df'].sum(axis=1)
-    portion_df = key_metric_data['allocation_df'].div(total_nav_series, axis=0)
+    total_nav_series = key_metric_data["allocation_df"].sum(axis=1)
+    portion_df = key_metric_data["allocation_df"].div(total_nav_series, axis=0)
     # multiply by 100 to get % value
-    wpReturn = (key_metric_data['priceReturn_df'].fillna(0) * portion_df.fillna(0)).sum(axis=1) * 100
+    wpReturn = (key_metric_data["priceReturn_df"].fillna(0) * portion_df.fillna(0)).sum(axis=1) * 100
     wpReturn = wpReturn.resample("1D").last()
-    wpReturn = wpReturn.rename('wpr')
-    wpr_fig = px.line(wpReturn, y = 'wpr', title=" ")
+    wpReturn = wpReturn.rename("wpr")
+    wpr_fig = px.line(wpReturn, y="wpr", title=" ")
     _apply_default_style(wpr_fig)
     wpr_fig.update_layout(yaxis_title="Autopool Estimated Price Return (%)")
 
@@ -144,8 +144,6 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
     _apply_default_style(nav_fig)
     nav_fig.update_layout(yaxis_title="Total Nav")
     nav_fig.update_layout(showlegend=False)
-
-
 
     annualized_30d_return_fig = px.line(nav_per_share_df, y="30_day_annualized_return", title=" ")
     _apply_default_style(annualized_30d_return_fig)
