@@ -77,10 +77,8 @@ def fetch_destination_summary_stats(blocks: list[int], autopool: AutopoolConstan
     total_nav_series = allocation_df.sum(axis=1)
     portion_df = allocation_df.div(total_nav_series, axis=0)
     uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
-    
-    
-    # getSummaryStats can fail if we revert when trying to price a token
-    # my opinion is that we should forward fill it 
+
+    # getSummaryStats can fail if we revert when we can't get a validatedSafePrice of a LP token
 
     return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df
 
@@ -155,10 +153,10 @@ def _fetch_autopool_destination_df(
         summary_stats_df[dest.vaultAddress] = summary_stats_df[dest.vaultAddress].combine(
             points_df[dest.vaultAddress], _add_points_value_to_summary_stats
         )
-        
+
     # getSummaryStats reverts if the it can't price one of the tokens
     # in in that case, just use the value from right before as a stand in
-    summary_stats_df=  summary_stats_df.ffill()
+    summary_stats_df = summary_stats_df.ffill()
 
     return summary_stats_df
 
