@@ -1,7 +1,7 @@
 import pandas as pd
 import web3
 from mainnet_launch.constants import CACHE_TIME, eth_client
-from requests.exceptions import ReadTimeout
+from requests.exceptions import ReadTimeout, HTTPError
 
 
 def _flatten_events(just_found_events: list[dict]) -> None:
@@ -58,7 +58,7 @@ def _recursive_helper_get_all_events_within_range(
         _flatten_events(just_found_events)
         found_events.extend(just_found_events)
 
-    except (TimeoutError, ValueError, ReadTimeout) as e:
+    except (TimeoutError, ValueError, ReadTimeout, HTTPError) as e:
         if isinstance(e, ValueError) and e.args[0].get("code") != -32602:
             # Re-raise non "Log response size exceeded" errors
             raise e
