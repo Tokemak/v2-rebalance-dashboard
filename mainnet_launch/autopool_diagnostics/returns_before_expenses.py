@@ -151,46 +151,112 @@ def _compute_adjusted_nav(
     return df[["adjusted_nav_per_share", "actual_nav_per_share"]]
 
 
-def _create_apr_figs(df: pd.DataFrame):
-
-    df["actual_30_day_annualized_apr"] = (
+def _create_n_days_apr_fig(df: pd.DataFrame, n_days: int, title: str):
+    df[f"actual_{n_days}_days_annualized_apr"] = (
         100
-        * (365 / 30)
-        * ((df["actual_nav_per_share"] - df["actual_nav_per_share"].shift(30)) / df["actual_nav_per_share"].shift(30))
-    )
-    df["adjusted_30_annualized_day_apr"] = (
-        100
-        * (365 / 30)
+        * (365 / n_days)
         * (
-            (df["adjusted_nav_per_share"] - df["adjusted_nav_per_share"].shift(30))
-            / df["adjusted_nav_per_share"].shift(30)
+            (df["actual_nav_per_share"] - df["actual_nav_per_share"].shift(n_days))
+            / df["actual_nav_per_share"].shift(n_days)
+        )
+    )
+    df[f"adjusted_{n_days}_days_annualized_apr"] = (
+        100
+        * (365 / n_days)
+        * (
+            (df["adjusted_nav_per_share"] - df["adjusted_nav_per_share"].shift(n_days))
+            / df["adjusted_nav_per_share"].shift(n_days)
         )
     )
 
-    apr_30_day_fig = go.Figure()
-    apr_30_day_fig.add_trace(
+    apr_fig = go.Figure()
+    apr_fig.add_trace(
         go.Scatter(
             x=df.index,
-            y=df["actual_30_day_annualized_apr"],
+            y=df[f"actual_{n_days}_days_annualized_apr"],
             mode="lines+markers",
             name="Original APR",
         )
     )
-    apr_30_day_fig.add_trace(
+    apr_fig.add_trace(
         go.Scatter(
             x=df.index,
-            y=df["adjusted_30_annualized_day_apr"],
+            y=df[f"adjusted_{n_days}_days_annualized_apr"],
             mode="lines+markers",
             name="Adjusted APR",
         )
     )
-    apr_30_day_fig.update_layout(
-        title="30 Day Annualized APR",
+    apr_fig.update_layout(
+        title=title,
         xaxis_title="Date",
         yaxis_title="APR",
         legend_title="Legend",
     )
-    apr_30_day_fig.show()
+    return apr_fig
+
+
+def _make_bridge_figure(values: list[float], names: list[str], title: str):
+
+    measure = ["absolute", "relative", "total"]
+    fig = go.Figure(
+        go.Waterfall(
+            name="APR Comparison",
+            orientation="v",
+            measure=measure,  #
+            x=names,
+            y=values,
+            connector={"line": {"color": "rgb(63, 63, 63)"}},
+        )
+    )
+
+    fig.update_layout(
+        title=title,
+        waterfallgap=0.3,  # Gap between bars
+        showlegend=True,
+        xaxis_title="APR Components",
+        yaxis_title="Values",
+    )
+
+    return fig
+
+
+def _create_figs(df: pd.DataFrame):
+    apr_30_day_fig = _create_n_days_apr_fig(df, 30, "30 Day Annualized APR")
+    apr_7_day_fig = _create_n_days_apr_fig(df, 7, "7 Day Annualized APR")
+    n_days = len(df) - 1
+    since_inception_fig = _create_n_days_apr_fig(df, n_days, f"Since Inception Annualized APR")
+
+    last_row = df.tail(1).to_dict(orient="records")[0]
+
+    bridge_lifetime = _make_bridge_figure(
+        [
+            last_row[f"actual_{n_days}_days_annualized_apr"],
+            last_row[f"adjusted_{n_days}_days_annualized_apr"] - last_row[f"actual_{n_days}_days_annualized_apr"],
+            last_row[f"adjusted_{n_days}_days_annualized_apr"],
+        ],
+        ["Acutal APR", "Diff", "Adjusted APR"],
+        title="Since Inception Annualized APR",
+    )
+
+    bridge_30_days = _make_bridge_figure(
+        [
+            last_row["actual_30_days_annualized_apr"],
+            last_row["adjusted_30_days_annualized_apr"] - last_row["actual_30_days_annualized_apr"],
+            last_row["adjusted_30_days_annualized_apr"],
+        ],
+        ["Acutal APR", "Diff", "Adjusted APR"],
+        title="30 Day Annualized APR",
+    )
+
+    bridge_7_days = _make_bridge_figure(
+        [
+            last_row["actual_7_days_annualized_apr"],
+            last_row["adjusted_7_days_annualized_apr"] - last_row["actual_7_days_annualized_apr"],
+            last_row["adjusted_7_days_annualized_apr"],
+        ],
+        ["Acutal APR", "Diff", "Adjusted APR"],
+        title="7 Day Annualized APR",
+    )
 
     nav_per_share_fig = go.Figure()
     nav_per_share_fig.add_trace(
@@ -215,7 +281,7 @@ def _create_apr_figs(df: pd.DataFrame):
         yaxis_title="NAV Per Share",
         legend_title="Legend",
     )
-    return nav_per_share_fig, apr_30_day_fig
+    return apr_30_day_fig, apr_7_day_fig, nav_per_share_fig, bridge_lifetime, bridge_30_days, bridge_7_days
 
 
 def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants):
@@ -224,7 +290,7 @@ def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants):
 
 def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolConstants):
     df = fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool)
-    st.title("NAV Per Share Before Expenses")
+    st.title("APR Before Fees, Costs and Depegs")
     apply_periodic_fees = st.checkbox("Remove Periodic Fees")
     apply_streaming_fees = st.checkbox("Remove Streaming Fees")
     apply_rebalance_from_idle_swap_cost = st.checkbox("Remove Rebalance From Idle Swap Cost")
@@ -239,10 +305,30 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
         apply_rebalance_not_idle_swap_cost,
         apply_nav_lost_to_depeg,
     )
-    nav_per_share_fig, apr_30_day_fig = _create_apr_figs(df)
 
-    st.plotly_chart(apr_30_day_fig)
-    st.plotly_chart(nav_per_share_fig)
+    apr_30_day_fig, apr_7_day_fig, nav_per_share_fig, bridge_lifetime, bridge_30_days, bridge_7_days = _create_figs(df)
+
+    plot_height = 300
+
+    row1_cols = st.columns(2)
+    with row1_cols[0]:
+        st.plotly_chart(apr_30_day_fig, use_container_width=True, height=plot_height)
+    with row1_cols[1]:
+        st.plotly_chart(bridge_30_days, use_container_width=True, height=plot_height)
+
+    # Row 2
+    row2_cols = st.columns(2)
+    with row2_cols[0]:
+        st.plotly_chart(apr_7_day_fig, use_container_width=True, height=plot_height)
+    with row2_cols[1]:
+        st.plotly_chart(bridge_7_days, use_container_width=True, height=plot_height)
+
+    # Row 3
+    row3_cols = st.columns(2)
+    with row3_cols[0]:
+        st.plotly_chart(bridge_lifetime, use_container_width=True, height=plot_height)
+    with row3_cols[1]:
+        st.plotly_chart(nav_per_share_fig, use_container_width=True, height=plot_height)
 
 
 if __name__ == "__main__":
@@ -367,25 +453,6 @@ if __name__ == "__main__":
 #     daily_fee_share_df = fee_df.resample("1D").sum()
 #     cumulative_new_shares_df = daily_fee_share_df.cumsum()
 #     return cumulative_new_shares_df
-
-
-# def _make_bridge_plot(values: list[float], names: list[str], title: str):
-
-#     measure = ["absolute", "relative", "relative", "relative", "relative", "total"]
-
-#     fig = go.Figure(
-#         go.Waterfall(
-#             name="Annualized Return",
-#             orientation="v",
-#             measure=measure,
-#             x=names,
-#             y=values,
-#             connector={"line": {"color": "rgb(63, 63, 63)"}},
-#         )
-#     )
-
-#     fig.update_layout(title=title, waterfallgap=0.3, showlegend=True)
-#     return fig
 
 
 # #
