@@ -28,6 +28,8 @@ import random
 
 nest_asyncio.apply()  # needed to run these functions in a jupyter notebook
 
+##TODO can't write json bytes TypeError: Object of type bytes is not JSON serializable
+
 
 MULTICALL_V3 = TokemakAddress(
     eth="0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696", base="0xcA11bde05977b3631167028862bE2a173976CA11"
@@ -220,9 +222,16 @@ def _test_get_many_states():
         )
         for i in range(100)
     ]
+    get_pool_id_call = Call(
+        (
+            "0x3de27EFa2F1AA663Ae5D458857e731c129069F29",
+            ["getPoolId()(bytes32))"],
+            [("balancerPoolId", identity_with_bool_success)],
+        )
+    )
 
-    print(ETH_CHAIN.client.eth.chainId)
     calls = _build_default_block_and_timestamp_calls(ETH_CHAIN)
+    calls = [*calls, get_pool_id_call]
     blocks = [13211989 + i for i in range(2000)]
 
     # good enough, for what I'm trying to do
