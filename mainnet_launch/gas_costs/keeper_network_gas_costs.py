@@ -104,6 +104,7 @@ def fetch_and_render_keeper_network_gas_costs():
 
 
 def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
+    our_upkeep_df.to_csv("our_upkeep_df.csv")
     calculator_df = our_upkeep_df[our_upkeep_df["id"].apply(str).isin(CALCULATOR_TOPIC_IDS)]
     incentive_pricing_df = our_upkeep_df[our_upkeep_df["id"].apply(str) == INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 
@@ -194,7 +195,7 @@ def fetch_solver_metrics():
 
 
 # @st.cache_data(ttl=CACHE_TIME)
-@time_decorator
+# @time_decorator
 def fetch_solver_gas_costs() -> pd.DataFrame:
     """Returns a dataframe of all the rebalanc events along with the gas costs"""
     # rey slow
@@ -227,3 +228,7 @@ def fetch_all_autopool_debt_reporting_events(chain: ChainData) -> pd.DataFrame:
     destination_debt_reporting_df = add_transaction_gas_info_to_df_with_tx_hash(destination_debt_reporting_df, chain)
     destination_debt_reporting_df = add_timestamp_to_df_with_block_column(destination_debt_reporting_df, chain)
     return destination_debt_reporting_df
+
+
+if __name__ == "__main__":
+    fetch_and_render_keeper_network_gas_costs()
