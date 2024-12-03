@@ -29,7 +29,7 @@ import random
 nest_asyncio.apply()  # needed to run these functions in a jupyter notebook
 
 ##TODO can't write json bytes TypeError: Object of type bytes is not JSON serializable
-
+# TODO switch to pickle
 
 MULTICALL_V3 = TokemakAddress(
     eth="0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696", base="0xcA11bde05977b3631167028862bE2a173976CA11"

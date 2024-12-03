@@ -32,8 +32,9 @@ from mainnet_launch.destinations import (
 )
 
 
-@st.cache_data(ttl=CACHE_TIME)
-def fetch_destination_summary_stats(blocks: list[int], autopool: AutopoolConstants):
+def _get_earliest_raw_summary_stats_that_does_not_revert(
+    blocks: list[int], destination_details: list[DestinationDetails], autopool: AutopoolConstants
+) -> pd.DataFrame:
     """
     Returns a DataFrame where the columns are the destination vaultName,
     and the values are the destination summary stats
@@ -57,14 +58,42 @@ def fetch_destination_summary_stats(blocks: list[int], autopool: AutopoolConstan
         'pointsApr': .001
     }
 
+    if a call reverts try that same call 10 then 20 then 30 minutes in the past.
+
+    There is not a garentuee this works, but it should prevent most missing values
+
+    there is some small risk of conflict if a rebalance occurs with the destination we are looking at during between the minutes
+
+    that could cause errors, but it is unlikely
+
     """
 
-    # blocks = build_blocks_to_use()
+    current_df = _fetch_autopool_destination_df(blocks, destination_details, autopool)
+
+    # in 10 minute chunks look back and use the soonest value that does not revert
+    # since getValidatedSpotPrice(lpToken) ocassionally reverts for small windows
+
+    blocks_per_minute = round(60 / autopool.chain.approx_seconds_per_block)
+    for num_minutes in [10, 20, 30]:
+        # approx
+        blocks_in_the_past = [b - (blocks_per_minute * num_minutes) for b in blocks]
+        previous_df = _fetch_autopool_destination_df(blocks_in_the_past, destination_details, autopool)
+
+        # if current is nan and previous is not nan, use previous, else use current
+        replaced_values = np.where(
+            pd.isna(current_df.values) & ~pd.isna(previous_df.values), previous_df.values, current_df.values
+        )
+        current_df = pd.DataFrame(replaced_values, columns=current_df.columns)
+
+    return current_df
+
+
+@st.cache_data(ttl=CACHE_TIME)
+def fetch_destination_summary_stats(blocks: list[int], autopool: AutopoolConstants):
+
     destination_details = get_destination_details(autopool, blocks)
 
-    raw_summary_stats_df = _fetch_autopool_destination_df(
-        blocks, destination_details, autopool
-    )  # it does have idle at this point
+    raw_summary_stats_df = _get_earliest_raw_summary_stats_that_does_not_revert(blocks, destination_details, autopool)
 
     summary_stats_df = _combine_migrated_destinations(
         autopool, raw_summary_stats_df, destination_details
@@ -265,10 +294,10 @@ def _extract_allocation_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    blocks = build_blocks_to_use(BASE_ETH.chain, start_block=21241103)[::6]
+    blocks = build_blocks_to_use(AUTO_LRT.chain)
 
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
-        fetch_destination_summary_stats(blocks, BASE_ETH)
+        fetch_destination_summary_stats(blocks, AUTO_LRT)
     )
 
     print(uwcr_df.tail())

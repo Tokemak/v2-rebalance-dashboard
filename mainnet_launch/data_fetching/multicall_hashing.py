@@ -130,7 +130,7 @@ def calls_and_blocks_to_db_hashes(calls: list[Call], blocks: list[int], chain: C
     """
     # todo consider adding block and call validation here
     multicalls = [Multicall(calls=calls, block_id=b, _w3=chain.client, require_success=False) for b in blocks]
-    # one hash for all the info except the block info
+    # one hash for all the info except the block info # todo switch to pickle
     serialized_static_multicall = _serialize_multicall(multicalls[0])  # any multicall will do
     static_hash = hashlib.sha256(serialized_static_multicall).digest()
     db_hashes = [_multicall_to_db_hash_optimized(static_hash, mc.block_id) for mc in multicalls]
