@@ -104,7 +104,6 @@ def fetch_and_render_keeper_network_gas_costs():
 
 
 def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
-    our_upkeep_df.to_csv("our_upkeep_df.csv")
     calculator_df = our_upkeep_df[our_upkeep_df["id"].apply(str).isin(CALCULATOR_TOPIC_IDS)]
     incentive_pricing_df = our_upkeep_df[our_upkeep_df["id"].apply(str) == INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 

@@ -82,7 +82,7 @@ def log_and_time_function(page_name, func, autopool):
 def main():
     open_log_in_vscode("verify_all_pages_work.log")
 
-    autopools_to_check = [BASE_ETH, AUTO_LRT]
+    autopools_to_check = ALL_AUTOPOOLS  # [BASE_ETH, AUTO_LRT]
     testing_logger.info("First run of page view and caching")
 
     start_time = time.time()
