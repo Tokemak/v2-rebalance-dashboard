@@ -43,7 +43,22 @@ def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: Autopoo
     )
     df.iloc[0] = df.iloc[0].fillna(0)
     df = df.ffill()
-    df = df.resample("1D").last()
+    df = df.resample("1D").last() # just drop the tail
+    
+    # last full day, but we have a day lag
+    # this should be the last full day, 
+    # eg we could be sampling hour 6, or 12 or 18 instead of hour 24
+    # just ignore the current day since we could exculde it
+    # we have a day lag in the subgraph
+    
+    # if we resample for 1 day, last value in the day
+    # if we skip the last sample
+    # skip the current day
+    
+    # look through make we don't treat fractinal days as full days
+    
+    
+    
     return df
 
 
@@ -133,6 +148,9 @@ def _compute_adjusted_nav(
 ):
     adjusted_shares = df["actual_shares"].copy()
     adjusted_nav = df["actual_nav"].copy()
+    
+    # nav is really always 100, 
+    # we think at peg nav should be 105
 
     if apply_periodic_fees:
         adjusted_shares -= df["new_shares_from_periodic_fees"]
@@ -143,7 +161,7 @@ def _compute_adjusted_nav(
     if apply_rebalance_not_idle_swap_cost:
         adjusted_nav += df["rebalance_not_idle_swap_cost"]
     if apply_nav_lost_to_depeg:
-        adjusted_nav += df["additional_nav_if_price_return_was_0"]
+        adjusted_nav += df["additional_nav_if_price_return_was_0"] # +5
 
     df["adjusted_nav_per_share"] = adjusted_nav / adjusted_shares
     df["actual_nav_per_share"] = df["actual_nav"] / df["actual_shares"]
