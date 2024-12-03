@@ -80,7 +80,6 @@ def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants) -> pd.DataFr
 
     blocks = build_blocks_to_use(autopool.chain)
     df = get_raw_state_by_blocks(calls, blocks, autopool.chain)
-    df["actual_nav_per_share"] = df["actual_nav"] / df["actual_shares"]
     daily_nav_shares_df = df.resample("1D").last()
     return daily_nav_shares_df
 
@@ -147,6 +146,7 @@ def _compute_adjusted_nav(
         adjusted_nav += df["additional_nav_if_price_return_was_0"]
 
     df["adjusted_nav_per_share"] = adjusted_nav / adjusted_shares
+    df["actual_nav_per_share"] = df["actual_nav"] / df["actual_shares"]
 
     return df[["adjusted_nav_per_share", "actual_nav_per_share"]]
 
