@@ -58,7 +58,7 @@ def _get_earliest_raw_summary_stats_that_does_not_revert(
         'pointsApr': .001
     }
 
-    if a call reverts try that same call 10 then 20 then 30 minutes in the past.
+    if a call reverts try that same call [X minute in the past], now only 30 but could be more
 
     There is not a garentuee this works, but it should prevent most missing values
 
@@ -74,7 +74,7 @@ def _get_earliest_raw_summary_stats_that_does_not_revert(
     # since getValidatedSpotPrice(lpToken) ocassionally reverts for small windows
 
     blocks_per_minute = round(60 / autopool.chain.approx_seconds_per_block)
-    for num_minutes in [10, 20, 30]:
+    for num_minutes in [30]:
         # approx
         blocks_in_the_past = [b - (blocks_per_minute * num_minutes) for b in blocks]
         previous_df = _fetch_autopool_destination_df(blocks_in_the_past, destination_details, autopool)
@@ -83,7 +83,7 @@ def _get_earliest_raw_summary_stats_that_does_not_revert(
         replaced_values = np.where(
             pd.isna(current_df.values) & ~pd.isna(previous_df.values), previous_df.values, current_df.values
         )
-        current_df = pd.DataFrame(replaced_values, columns=current_df.columns)
+        current_df = pd.DataFrame(replaced_values, columns=current_df.columns, index=current_df.index)
 
     return current_df
 
