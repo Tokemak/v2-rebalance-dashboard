@@ -90,7 +90,6 @@ def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
         )
 
     # Calculate and plot total claimed over time
-    print(df.columns)
     total_claimed_data = df.groupby("timestamp").agg(total_claimed=("claimed", "sum")).reset_index()
     total_claimed_data["cumulative_claimed"] = total_claimed_data["total_claimed"].cumsum()
 

@@ -136,7 +136,7 @@ def _fetch_cumulative_fee_shares_minted_by_day(autopool: AutopoolConstants) -> p
     return cumulative_new_shares_df
 
 
-def _compute_adjusted_nav(
+def _compute_adjusted_nav_per_share(
     df: pd.DataFrame,
     apply_periodic_fees: bool,
     apply_streaming_fees: bool,
@@ -313,7 +313,7 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
     apply_rebalance_not_idle_swap_cost = st.checkbox("Remove Rebalance Not Idle Swap Cost")
     apply_nav_lost_to_depeg = st.checkbox("Add Back In Nav Lost To Depeg")
 
-    df = _compute_adjusted_nav(
+    df = _compute_adjusted_nav_per_share(
         df,
         apply_periodic_fees,
         apply_streaming_fees,
