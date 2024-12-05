@@ -193,8 +193,7 @@ def fetch_solver_metrics():
     return cost_last_7_days, cost_last_30_days, cost_last_1_year
 
 
-# @st.cache_data(ttl=CACHE_TIME)
-# @time_decorator
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_solver_gas_costs() -> pd.DataFrame:
     """Returns a dataframe of all the rebalanc events along with the gas costs"""
     # rey slow
@@ -204,7 +203,6 @@ def fetch_solver_gas_costs() -> pd.DataFrame:
         # solver gas costs on base are close to free
         if autopool.chain == ETH_CHAIN:
             df = fetch_and_clean_rebalance_between_destination_events(autopool)
-            print("fetched", autopool.name, df.shape)
             dfs.append(df)
 
     clean_rebalance_df = pd.concat(dfs)
