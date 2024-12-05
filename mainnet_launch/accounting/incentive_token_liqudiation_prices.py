@@ -28,60 +28,59 @@ from mainnet_launch.constants import (
     AutopoolConstants,
     ChainData,
     ETH_CHAIN,
+    BASE_CHAIN,
 )
 
-#TODO add base
 
 def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
-    chain = ETH_CHAIN
-    achieved_eth_price_df, incentive_stats_token_prices_df, oracle_price_df = (
-        fetch_reward_token_achieved_vs_incentive_token_price()
-    )
+    chain_to_dfs = fetch_reward_token_achieved_vs_incentive_token_price()
     today = datetime.now(timezone.utc)
     thirty_days_ago = today - timedelta(days=30)
 
-    st.plotly_chart(
-        _make_histogram_of_percent_diff(
-            achieved_eth_price_df[achieved_eth_price_df.index > thirty_days_ago],
-            incentive_stats_token_prices_df[incentive_stats_token_prices_df.index > thirty_days_ago],
-            "Previous 30 Days: Percent Difference Achieved vs Incentive Stats Price",
-        ),
-        use_container_width=True,
-    )
+    for chainName in [ETH_CHAIN.name, BASE_CHAIN.name]:
+        incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df = chain_to_dfs[chainName]
 
-    st.plotly_chart(
-        _make_histogram_of_percent_diff(
-            achieved_eth_price_df[achieved_eth_price_df.index > thirty_days_ago],
-            oracle_price_df[oracle_price_df.index > thirty_days_ago],
-            "Previous 30 Days: Percent Difference Achieved vs Oracle Price",
-        ),
-        use_container_width=True,
-    )
+        st.header(f"{chainName} Achieved vs Expected Token Price")
 
-    st.plotly_chart(
-        _make_histogram_of_percent_diff(
-            achieved_eth_price_df,
-            incentive_stats_token_prices_df,
-            "Since Inception: Percent Difference Achieved vs Incentive Stats Price",
-        ),
-        use_container_width=True,
-    )
+        st.plotly_chart(
+            _make_histogram_of_percent_diff(
+                achieved_eth_price_df[achieved_eth_price_df.index > thirty_days_ago],
+                incentive_stats_token_prices_df[incentive_stats_token_prices_df.index > thirty_days_ago],
+                "Previous 30 Days: Percent Difference Achieved vs Incentive Stats Price",
+            ),
+            use_container_width=True,
+        )
 
-    st.plotly_chart(
-        _make_histogram_of_percent_diff(
-            achieved_eth_price_df, oracle_price_df, "Since Inception: Percent Difference Achieved vs Oracle Price"
-        ),
-        use_container_width=True,
-    )
+        st.plotly_chart(
+            _make_histogram_of_percent_diff(
+                achieved_eth_price_df[achieved_eth_price_df.index > thirty_days_ago],
+                oracle_price_df[oracle_price_df.index > thirty_days_ago],
+                "Previous 30 Days: Percent Difference Achieved vs Oracle Price",
+            ),
+            use_container_width=True,
+        )
 
-    # todo add in base rewad liqudation
+        st.plotly_chart(
+            _make_histogram_of_percent_diff(
+                achieved_eth_price_df,
+                incentive_stats_token_prices_df,
+                "Since Inception: Percent Difference Achieved vs Incentive Stats Price",
+            ),
+            use_container_width=True,
+        )
+
+        st.plotly_chart(
+            _make_histogram_of_percent_diff(
+                achieved_eth_price_df, oracle_price_df, "Since Inception: Percent Difference Achieved vs Oracle Price"
+            ),
+            use_container_width=True,
+        )
 
     with st.expander("Description"):
         st.write(
             """
             ## Achieved Price
             - The actual ratio of tokens sold / WETH when selling reward tokens
-
             
             ## Achieved vs Incentive Stats Price
             - This metric uses the Incentive Stats contract to obtain the minimum of the fast and slow filtered incentive token prices. 
@@ -96,15 +95,18 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def fetch_reward_token_achieved_vs_incentive_token_price() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    chain = ETH_CHAIN
-    swapped_df = _build_swapped_df(chain)
+def fetch_reward_token_achieved_vs_incentive_token_price():
 
-    incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df = _fetch_incentive_token_price_df(
-        swapped_df, chain
-    )
+    chain_to_dfs = {}
 
-    return achieved_eth_price_df, incentive_stats_token_prices_df, oracle_price_df
+    for chain in [ETH_CHAIN, BASE_CHAIN]:
+        swapped_df = _build_swapped_df(chain)
+        incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df = _fetch_incentive_token_price_df(
+            swapped_df, chain
+        )
+        chain_to_dfs[chain.name] = (incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df)
+
+    return chain_to_dfs
 
 
 def _build_swapped_df(chain: ChainData):
@@ -116,17 +118,27 @@ def _build_swapped_df(chain: ChainData):
     # fmt: on
     contract = chain.client.eth.contract(LIQUIDATION_ROW(chain), abi=SWAPPED_EVENT_ABI)
     swapped_df = fetch_events(contract.events.Swapped)
+
+    token_addresses = list(swapped_df["sellTokenAddress"].unique())
+
+    decimals_calls = [
+        Call(
+            a,
+            ["decimals()(uint8)"],
+            [(a, identity_with_bool_success)],
+        )
+        for a in token_addresses
+    ]
+
+    # TODO have a more consistant way to pick a block here
+    address_to_decimals = get_state_by_one_block(decimals_calls, chain.client.eth.block_number, chain)
+
     swapped_df = add_timestamp_to_df_with_block_column(swapped_df, chain)
 
     def _get_achieved_price(row):
-        if (
-            row["sellTokenAddress"] == "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-        ):  # usdc #TODO swich to decimals check
-            normalized_sell_amount = row["sellAmount"] / 1e6
-        else:
-            normalized_sell_amount = row["sellAmount"] / 1e18
-
-        normalized_buy_amount = row["buyTokenAmountReceived"] / 1e18
+        decimals = address_to_decimals[row["sellTokenAddress"]]
+        normalized_sell_amount = row["sellAmount"] / (10**decimals)
+        normalized_buy_amount = row["buyTokenAmountReceived"] / 1e18  # always weth so always 1e18
 
         return normalized_buy_amount / normalized_sell_amount
 
