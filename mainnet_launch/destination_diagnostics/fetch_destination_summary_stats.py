@@ -14,17 +14,27 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     build_blocks_to_use,
 )
 from mainnet_launch.lens_contract import fetch_pools_and_destinations_df
-from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, eth_client, ALL_AUTOPOOLS, AUTO_LRT, time_decorator
+from mainnet_launch.constants import (
+    CACHE_TIME,
+    AutopoolConstants,
+    eth_client,
+    ALL_AUTOPOOLS,
+    AUTO_LRT,
+    time_decorator,
+    BASE_ETH,
+    ETH_CHAIN,
+    POINTS_HOOK,
+    ChainData,
+)
 from mainnet_launch.destinations import (
     get_destination_details,
     DestinationDetails,
 )
 
-POINTS_HOOK = "0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3"
 
-
-@st.cache_data(ttl=CACHE_TIME)
-def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants):
+def _get_earliest_raw_summary_stats_that_does_not_revert(
+    blocks: list[int], destination_details: list[DestinationDetails], autopool: AutopoolConstants
+) -> pd.DataFrame:
     """
     Returns a DataFrame where the columns are the destination vaultName,
     and the values are the destination summary stats
@@ -48,21 +58,57 @@ def fetch_destination_summary_stats(blocks, autopool: AutopoolConstants):
         'pointsApr': .001
     }
 
-    """
-    blocks = build_blocks_to_use()
-    destination_details = [dest for dest in get_destination_details() if dest.autopool == autopool]
+    if a call reverts try that same call [X minute in the past], now only 30 but could be more
 
-    raw_summary_stats_df = _fetch_autopool_destination_df(
-        blocks, destination_details, autopool
-    )  # it does have idle at this point
+    There is not a garentuee this works, but it should prevent most missing values
+
+    there is some small risk of conflict if a rebalance occurs with the destination we are looking at during between the minutes
+
+    that could cause errors, but it is unlikely
+
+    """
+
+    current_df = _fetch_autopool_destination_df(blocks, destination_details, autopool)
+
+    # in 10 minute chunks look back and use the soonest value that does not revert
+    # since getValidatedSpotPrice(lpToken) ocassionally reverts for small windows
+
+    blocks_per_minute = round(60 / autopool.chain.approx_seconds_per_block)
+    for num_minutes in [30]:
+        # approx
+        blocks_in_the_past = [b - (blocks_per_minute * num_minutes) for b in blocks]
+        previous_df = _fetch_autopool_destination_df(blocks_in_the_past, destination_details, autopool)
+
+        # if current is nan and previous is not nan, use previous, else use current
+        replaced_values = np.where(
+            pd.isna(current_df.values) & ~pd.isna(previous_df.values), previous_df.values, current_df.values
+        )
+        current_df = pd.DataFrame(replaced_values, columns=current_df.columns, index=current_df.index)
+
+    return current_df
+
+
+@st.cache_data(ttl=CACHE_TIME)
+def fetch_destination_summary_stats(blocks: list[int], autopool: AutopoolConstants):
+
+    destination_details = get_destination_details(autopool, blocks)
+
+    raw_summary_stats_df = _get_earliest_raw_summary_stats_that_does_not_revert(blocks, destination_details, autopool)
 
     summary_stats_df = _combine_migrated_destinations(
         autopool, raw_summary_stats_df, destination_details
     )  # it does not have idle at this points
 
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, priceReturn_df = _build_summary_stats_dfs(
-        summary_stats_df
-    )
+    uwcr_df, priceReturn_df = _extract_unweighted_composite_return_df(summary_stats_df)
+    # rsETH and ETHx fail on balancer I suspect that we can't price rsETH
+    allocation_df = _extract_allocation_df(summary_stats_df)
+    compositeReturn_out_df = _extract_composite_return_out_df(summary_stats_df)
+    total_nav_series = allocation_df.sum(axis=1)
+    portion_df = allocation_df.div(total_nav_series, axis=0)
+    uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
+
+    # getSummaryStats can fail if we revert when we can't get a validatedSafePrice of a LP token
+
     return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df
 
 
@@ -100,7 +146,7 @@ def _fetch_autopool_destination_df(
     blocks, destination_details: list[DestinationDetails], autopool: AutopoolConstants
 ) -> pd.DataFrame:
     calls = [_build_summary_stats_call(dest.autopool, dest) for dest in destination_details]
-    summary_stats_df = get_raw_state_by_blocks(calls, blocks)
+    summary_stats_df = get_raw_state_by_blocks(calls, blocks, autopool.chain)
 
     def get_current_destinations_by_block(
         autopool: AutopoolConstants, getPoolsAndDestinations: pd.DataFrame
@@ -111,14 +157,14 @@ def _fetch_autopool_destination_df(
             if a["poolAddress"].lower() == autopool.autopool_eth_addr.lower():
                 return [eth_client.toChecksumAddress(dest["vaultAddress"]) for dest in list_of_destinations]
 
-    pools_and_destinations_df = fetch_pools_and_destinations_df()
+    pools_and_destinations_df = fetch_pools_and_destinations_df(autopool.chain, blocks)
 
     summary_stats_df["current_destinations"] = pools_and_destinations_df.apply(
         lambda row: get_current_destinations_by_block(autopool, row["getPoolsAndDestinations"]), axis=1
     )
 
-    destination_points_calls = _build_destination_points_calls(destination_details)
-    points_df = get_raw_state_by_blocks(destination_points_calls, blocks)
+    destination_points_calls = _build_destination_points_calls(destination_details, autopool.chain)
+    points_df = get_raw_state_by_blocks(destination_points_calls, blocks, autopool.chain)
 
     def _add_points_value_to_summary_stats(summary_stats_cell, points_cell: float | None):
 
@@ -136,6 +182,11 @@ def _fetch_autopool_destination_df(
         summary_stats_df[dest.vaultAddress] = summary_stats_df[dest.vaultAddress].combine(
             points_df[dest.vaultAddress], _add_points_value_to_summary_stats
         )
+
+    # TODO on revert, call the getSummary stats for the block -30 minute and forward fill it
+    # getSummaryStats reverts if the it can't price one of the tokens
+    # in in that case, just use the value from right before as a stand in
+    # summary_stats_df = summary_stats_df.ffill()
 
     return summary_stats_df
 
@@ -193,11 +244,11 @@ def _build_summary_stats_call(
     )
 
 
-def _build_destination_points_calls(destination_details: set[DestinationDetails]) -> list[Call]:
+def _build_destination_points_calls(destination_details: set[DestinationDetails], chain: ChainData) -> list[Call]:
 
     destination_points_calls = [
         Call(
-            POINTS_HOOK,
+            POINTS_HOOK(chain),
             ["destinationBoosts(address)(uint256)", dest.vaultAddress],
             [(dest.vaultAddress, safe_normalize_with_bool_success)],
         )
@@ -205,16 +256,6 @@ def _build_destination_points_calls(destination_details: set[DestinationDetails]
     ]
 
     return destination_points_calls
-
-
-def _build_summary_stats_dfs(summary_stats_df: pd.DataFrame):
-    uwcr_df, priceReturn = _extract_unweighted_composite_return_df(summary_stats_df)
-    allocation_df = _extract_allocation_df(summary_stats_df)
-    compositeReturn_out_df = _extract_composite_return_out_df(summary_stats_df)
-    total_nav_series = allocation_df.sum(axis=1)
-    portion_df = allocation_df.div(total_nav_series, axis=0)
-    uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
-    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, priceReturn
 
 
 def _extract_composite_return_out_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
@@ -252,14 +293,31 @@ def _extract_allocation_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
     return allocation_df
 
 
-@time_decorator
-def tester():
-    blocks = build_blocks_to_use()[::8]
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df = (
+if __name__ == "__main__":
+    blocks = build_blocks_to_use(AUTO_LRT.chain)
+
+    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
         fetch_destination_summary_stats(blocks, AUTO_LRT)
     )
-    ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else 0).astype(float)
 
+    print(uwcr_df.tail())
+    print(allocation_df.tail())
+    print(compositeReturn_out_df.tail())
+    print(total_nav_series.tail())
+    print(priceReturn_df.tail())
 
-if __name__ == "__main__":
-    tester()
+    # mainnet works, but base does not
+    # blocks = build_blocks_to_use(
+    #     ETH_CHAIN,
+    # )[::6]
+    # print(len(blocks))
+    # uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
+    #     fetch_destination_summary_stats(blocks, AUTO_LRT)
+    # )
+
+    # print(uwcr_df.head())
+    # print(allocation_df.head())
+    # print(compositeReturn_out_df.head())
+    # print(total_nav_series.head())
+    # print(priceReturn_df.head())
+    # pass

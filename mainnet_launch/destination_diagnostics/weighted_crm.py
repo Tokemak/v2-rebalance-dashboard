@@ -11,7 +11,6 @@ from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats impo
 
 def fetch_and_render_weighted_crm_data(autopool: AutopoolConstants):
     key_metric_data = fetch_weighted_crm_data(autopool)
-    # must make the figures on render because the destination APR components has a drop down
     composite_return_fig = _make_all_destination_composite_return_df(autopool, key_metric_data)
     st.plotly_chart(composite_return_fig, use_container_width=True)
 
@@ -40,7 +39,7 @@ def fetch_and_render_destination_apr_data(autopool: AutopoolConstants):
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_weighted_crm_data(autopool: AutopoolConstants) -> dict[str, pd.DataFrame]:
-    blocks = build_blocks_to_use()
+    blocks = build_blocks_to_use(autopool.chain)
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )

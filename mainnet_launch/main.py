@@ -91,16 +91,29 @@ atexit.register(cleanup)
 
 def log_and_time_function(page_name, func, autopool):
     start_time = time.time()
+    error = None
     if autopool is None:
-        func()
+        try:
+            func()
+        except Exception as e:
+            error = e
     else:
-        func(autopool)
-
+        try:
+            func(autopool)
+        except Exception as e:
+            error = e
     time_taken = time.time() - start_time
-    if autopool is None:
-        production_logger.info(f"{time_taken:.2f} seconds | {func.__name__} |  {page_name}")
+    autopool_name = None
+    if autopool is not None:
+        autopool_name = autopool.name
+    if error is not None:
+        production_logger.info(
+            f"Error: {time_taken:.2f} seconds | {func.__name__} |  {page_name} {autopool_name} {error}"
+        )
     else:
-        production_logger.info(f"{time_taken:.2f} seconds | {func.__name__} |  {page_name} | {autopool.name}")
+        production_logger.info(
+            f"Success: {time_taken:.2f} seconds | {func.__name__} |  {page_name} {autopool_name} {error}"
+        )
 
 
 def _cache_autopool_data():
@@ -137,7 +150,7 @@ def cache_data_loop():
             time.sleep(CACHE_TIME + (60 * 5))  # + 5 minutes
             production_logger.info("Finished Sleeping")
     except Exception as e:
-        production_logger.exception("Exception occurred in cache_data_loop." + str(e) + type(e))
+        production_logger.exception(str(e))
         production_logger.info(f"Cache data loop ended at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         raise e
     finally:

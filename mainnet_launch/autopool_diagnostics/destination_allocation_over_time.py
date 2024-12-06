@@ -13,17 +13,17 @@ st.cache_data(ttl=CACHE_TIME)
 
 
 def fetch_destination_allocation_over_time_data(autopool: AutopoolConstants):
-    blocks = build_blocks_to_use()
+    blocks = build_blocks_to_use(autopool.chain)
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
 
     percent_allocation_df = 100 * allocation_df.div(total_nav_series, axis=0)
-    laster_percent_allocation = percent_allocation_df.tail(1)
+    latest_percent_allocation = percent_allocation_df.tail(1)
 
     pie_allocation_fig = px.pie(
-        values=laster_percent_allocation.iloc[0],
-        names=laster_percent_allocation.columns,
+        values=latest_percent_allocation.iloc[0],
+        names=latest_percent_allocation.columns,
         title=f"{autopool.name}% Allocation by Destination",
     )
 
@@ -56,4 +56,5 @@ def fetch_and_render_destination_allocation_over_time_data(autopool: AutopoolCon
 
 
 if __name__ == "__main__":
-    fetch_destination_allocation_over_time_data(ALL_AUTOPOOLS[0])
+    for a in ALL_AUTOPOOLS:
+        fetch_destination_allocation_over_time_data(a)

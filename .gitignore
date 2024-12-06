@@ -17,3 +17,4 @@ cache_thread_already_running.lock
 
 
 tx_hash_to_gas_info.db
+multicall_logs.db

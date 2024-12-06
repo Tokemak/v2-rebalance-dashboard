@@ -2,14 +2,9 @@ from multicall import Call
 import streamlit as st
 import pandas as pd
 from mainnet_launch.data_fetching.get_state_by_block import (
-    get_state_by_one_block,
-    identity_with_bool_success,
-    identity_function,
-    build_blocks_to_use,
     get_raw_state_by_blocks,
 )
-from mainnet_launch.abis.abis import LENS_CONTRACT_ABI
-from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, eth_client, LENS_CONTRACT
+from mainnet_launch.constants import CACHE_TIME, LENS_CONTRACT, ChainData
 
 block_number = 20929842
 
@@ -117,9 +112,9 @@ def _handle_get_pools_and_destinations(success, response):
         return {"autopools": parsed_autopools, "destinations": parsed_destinations}
 
 
-def get_pools_and_destinations_call() -> Call:
+def get_pools_and_destinations_call(chain: ChainData) -> Call:
     return Call(
-        LENS_CONTRACT,
+        LENS_CONTRACT(chain),
         [GET_POOLS_AND_DESTINATIONS_SIGNATURE],
         [["getPoolsAndDestinations", _handle_get_pools_and_destinations]],
     )
@@ -169,10 +164,9 @@ def build_proxyGetDestinationSummaryStats_call(
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def fetch_pools_and_destinations_df() -> pd.DataFrame:
-    blocks = build_blocks_to_use()
-    calls = [get_pools_and_destinations_call()]
-    pools_and_destinations_df = get_raw_state_by_blocks(calls, blocks, include_block_number=True)
+def fetch_pools_and_destinations_df(chain: ChainData, blocks: list[int]) -> pd.DataFrame:
+    calls = [get_pools_and_destinations_call(chain)]
+    pools_and_destinations_df = get_raw_state_by_blocks(calls, blocks, chain=chain, include_block_number=True)
     return pools_and_destinations_df
 
     # # Process and return results
