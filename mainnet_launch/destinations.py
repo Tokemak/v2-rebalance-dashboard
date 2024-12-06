@@ -68,7 +68,7 @@ def make_idle_destination_details(chain: ChainData) -> set[DestinationDetails]:
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def get_destination_details(autopool: AutopoolConstants, blocks: list[int]) -> list[DestinationDetails]:
+def get_destination_details(autopool: AutopoolConstants, blocks: list[int]) -> tuple[DestinationDetails]:
     # retuns a list of all destinations along with their autopools even if the destinations have been replaced
     pools_and_destinations_df = fetch_pools_and_destinations_df(autopool.chain, blocks)
     all_destination_details: set[DestinationDetails] = make_idle_destination_details(autopool.chain)
@@ -118,7 +118,7 @@ def get_destination_details(autopool: AutopoolConstants, blocks: list[int]) -> l
         dest.vault_name = f"{symbol} ({dest.exchangeName})"
 
     destination_details = [dest for dest in all_destination_details if dest.autopool == autopool]
-    return destination_details
+    return tuple(destination_details)
 
 
 if __name__ == "__main__":
