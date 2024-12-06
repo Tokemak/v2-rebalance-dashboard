@@ -67,7 +67,7 @@ def _fetch_implied_extra_nav_if_price_return_is_zero(autopool: AutopoolConstants
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
         fetch_destination_summary_stats(blocks, autopool)
     )
-    implied_extra_nav_if_price_return_is_zero = (allocation_df * priceReturn_df).sum(axis=1)
+    implied_extra_nav_if_price_return_is_zero = (allocation_df * priceReturn_df).sum(axis=1).resample("1D").last()
     implied_extra_nav_if_price_return_is_zero.name = "additional_nav_if_price_return_was_0"
     return implied_extra_nav_if_price_return_is_zero
 
@@ -212,22 +212,22 @@ def _make_nav_per_share_figure(nav_per_share_df: pd.DataFrame, n_days: int) -> g
         )
     )
 
-    nav_per_share_fig.add_trace(
-        go.Scatter(
-            x=nav_per_share_df.index,
-            y=nav_per_share_df[f"adjusted_nav_per_share"] - nav_per_share_df[f"actual_nav_per_share"],
-            mode="lines+markers",
-            name="Adjusted - Actual NAV Per Share",
-            yaxis="y2",
-        )
-    )
+    # nav_per_share_fig.add_trace(
+    #     go.Scatter(
+    #         x=nav_per_share_df.index,
+    #         y=nav_per_share_df[f"adjusted_nav_per_share"] - nav_per_share_df[f"actual_nav_per_share"],
+    #         mode="lines+markers",
+    #         name="Adjusted - Actual NAV Per Share",
+    #         yaxis="y2",
+    #     )
+    # )
 
     nav_per_share_fig.update_layout(
         title=f"{n_days} Days Nav Per Share",
         xaxis_title="Date",
         yaxis_title="NAV Per Share",
-        legend_title="Legend",
-        yaxis2=dict(title="Difference (Adjusted - Actual) Nav Per Share", overlaying="y", side="right"),
+        # legend_title="Legend",
+        # yaxis2=dict(title="Difference (Adjusted - Actual) Nav Per Share", overlaying="y", side="right"),
     )
     return nav_per_share_fig
 
@@ -253,23 +253,23 @@ def _make_apr_figure(nav_per_share_df: pd.DataFrame, n_days: int) -> go.Figure:
         )
     )
 
-    apr_fig.add_trace(
-        go.Scatter(
-            x=nav_per_share_df.index,
-            y=nav_per_share_df[f"adjusted_{n_days}_days_annualized_apr"]
-            - nav_per_share_df[f"actual_{n_days}_days_annualized_apr"],
-            mode="lines+markers",
-            name="Adjusted - Original APR Difference",
-            yaxis="y2",
-        )
-    )
+    # apr_fig.add_trace(
+    #     go.Scatter(
+    #         x=nav_per_share_df.index,
+    #         y=nav_per_share_df[f"adjusted_{n_days}_days_annualized_apr"]
+    #         - nav_per_share_df[f"actual_{n_days}_days_annualized_apr"],
+    #         mode="lines+markers",
+    #         name="Adjusted - Original APR Difference",
+    #         yaxis="y2",
+    #     )
+    # )
 
     apr_fig.update_layout(
         title=f"{n_days} Days Annualized APR",
         xaxis_title="Date",
         yaxis_title="APR",
-        legend_title="Legend",
-        yaxis2=dict(title="Difference (Adjusted - Original APR)", overlaying="y", side="right"),
+        # legend_title="Legend",
+        # yaxis2=dict(title="Difference (Adjusted - Original APR)", overlaying="y", side="right"),
     )
     return apr_fig
 
@@ -343,7 +343,6 @@ def _create_figs(
     apply_rebalance_not_idle_swap_cost: bool,
     apply_nav_lost_to_depeg: bool,
 ):
-
     nav_per_share_fig_30_days, apr_fig_30_day, bridge_fig_30_day = _create_n_days_apr_fig(
         df=df,
         n_days=30,
@@ -352,7 +351,6 @@ def _create_figs(
         apply_rebalance_from_idle_swap_cost=apply_rebalance_from_idle_swap_cost,
         apply_rebalance_not_idle_swap_cost=apply_rebalance_not_idle_swap_cost,
         apply_nav_lost_to_depeg=apply_nav_lost_to_depeg,
-        title="30 Day",
     )
 
     nav_per_share_fig_7_days, apr_fig_7_day, bridge_fig_7_day = _create_n_days_apr_fig(
@@ -363,7 +361,6 @@ def _create_figs(
         apply_rebalance_from_idle_swap_cost=apply_rebalance_from_idle_swap_cost,
         apply_rebalance_not_idle_swap_cost=apply_rebalance_not_idle_swap_cost,
         apply_nav_lost_to_depeg=apply_nav_lost_to_depeg,
-        title="7 Day",
     )
 
     n_days = len(df) - 1
@@ -378,14 +375,9 @@ def _create_figs(
         apply_nav_lost_to_depeg=apply_nav_lost_to_depeg,
     )
 
-    del all_time_apr_fig  # only has one point, same info as bridge fig
-    del all_time_nav_per_share_fig  # I don't like this one
-
     return (
-        nav_per_share_fig_30_days,
         apr_fig_30_day,
         bridge_fig_30_day,
-        nav_per_share_fig_7_days,
         apr_fig_7_day,
         bridge_fig_7_day,
         all_time_bridge_fig,
@@ -406,10 +398,8 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
     apply_nav_lost_to_depeg = st.checkbox("Add Back In Nav Lost To Depeg")
 
     (
-        nav_per_share_fig_30_days,
         apr_fig_30_day,
         bridge_fig_30_day,
-        nav_per_share_fig_7_days,
         apr_fig_7_day,
         bridge_fig_7_day,
         all_time_bridge_fig,
@@ -422,26 +412,21 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
         apply_nav_lost_to_depeg,
     )
 
-    plot_height = 300
-
     row1_cols = st.columns(2)
 
     with row1_cols[0]:
-        st.plotly_chart(nav_per_share_fig_7_days, use_container_width=True, height=plot_height)
+        st.plotly_chart(apr_fig_7_day, width=500, height=500)
     with row1_cols[1]:
-        st.plotly_chart(apr_fig_7_day, use_container_width=True, height=plot_height)
-    with row1_cols[2]:
-        st.plotly_chart(bridge_fig_7_day, use_container_width=True, height=plot_height)
+        st.plotly_chart(bridge_fig_7_day, width=500, height=500)
 
     row2_cols = st.columns(2)
-    with row2_cols[0]:
-        st.plotly_chart(nav_per_share_fig_30_days, use_container_width=True, height=plot_height)
-    with row2_cols[1]:
-        st.plotly_chart(apr_fig_30_day, use_container_width=True, height=plot_height)
-    with row2_cols[2]:
-        st.plotly_chart(bridge_fig_30_day, use_container_width=True, height=plot_height)
 
-    st.plotly_chart(all_time_bridge_fig, use_container_width=True)
+    with row2_cols[0]:
+        st.plotly_chart(apr_fig_30_day, width=500, height=500)
+    with row2_cols[1]:
+        st.plotly_chart(bridge_fig_30_day, width=500, height=500)
+
+    st.plotly_chart(all_time_bridge_fig, width=500, height=500)
 
 
 if __name__ == "__main__":
@@ -449,11 +434,12 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import AUTO_LRT, BASE_ETH, AUTO_ETH, BAL_ETH
 
-    st.title("Autopool Diagnostics")
+    # st.title("Autopool Diagnostics")
+    fetch_and_render_autopool_return_and_expenses_metrics(AUTO_LRT)
 
-    name_to_autopool = {a.name: a for a in [AUTO_LRT, BASE_ETH, AUTO_ETH, BAL_ETH]}
-    autopool_option = st.radio("Select Autopool to Analyze:", list(name_to_autopool.keys()))
+    # name_sto_autopool = {a.name: a for a in [AUTO_LRT, BASE_ETH, AUTO_ETH, BAL_ETH]}
+    # autopool_option = st.radio("Select Autopool to Analyze:", list(name_to_autopool.keys()))
 
-    selected_autopool = name_to_autopool[autopool_option]
+    # selected_autopool = name_to_autopool[autopool_option]
 
-    fetch_and_render_autopool_return_and_expenses_metrics(selected_autopool)
+    # fetch_and_render_autopool_return_and_expenses_metrics(selected_autopool)
