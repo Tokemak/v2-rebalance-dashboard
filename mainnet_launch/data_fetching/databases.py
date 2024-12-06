@@ -1,5 +1,5 @@
 import sqlite3
-import json
+import pickle
 
 from multicall import Multicall
 
@@ -29,7 +29,7 @@ def batch_insert_multicall_logs(db_hash_to_multicall_and_response, highest_final
             INSERT OR REPLACE INTO multicall_logs (multicall_hash, response)
             VALUES (?, ?)
             """,
-            zip(hashes_to_insert, (json.dumps(response) for response in responses_to_insert)),
+            zip(hashes_to_insert, (pickle.dumps(response) for response in responses_to_insert)),
         )
         conn.commit()
         print(f"successfully wrote { len(hashes_to_insert)= }")
@@ -50,7 +50,7 @@ def batch_load_multicall_logs_if_exists(
         print(f"successfully read{ len(rows)= } of {len(db_hashes_to_fetch)=}")
 
     # only valid jsons should be here so we should fail on trying to load one that does not work
-    cached_hash_to_response = {row[0]: json.loads((row[1])) for row in rows}
+    cached_hash_to_response = {row[0]: pickle.loads((row[1])) for row in rows}
 
     for db_hash_found_cached, cached_response in cached_hash_to_response.items():
         db_hash_to_multicall_and_response[db_hash_found_cached]["response"] = cached_response

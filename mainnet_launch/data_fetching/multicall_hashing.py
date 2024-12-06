@@ -53,12 +53,23 @@ def _serialize_call(call: Call) -> bytes:
     function_bytes = call.function.encode("utf-8")
 
     # Serialize returns_functions: list of (name, source) tuples
-    returns_functions_bytes = b"".join(
-        [
-            name.encode("utf-8") + b"\x00" + _get_function_source(fn).encode("utf-8") + b"\x00"
-            for name, fn in call.returns
-        ]
-    )
+
+    particual_call_id = []
+    for name, fn in call.returns:
+        function_source_code = _get_function_source(fn)
+        function_as_bytes = function_source_code.encode("utf-8")
+        name_as_bytes = name.encode("utf-8")
+        name_function_as_bytes = name_as_bytes + function_as_bytes
+        particual_call_id.append(name_function_as_bytes)
+
+    returns_functions_bytes = b"".join(particual_call_id)
+
+    # returns_functions_bytes = b"".join(
+    #     [
+    #         name.encode("utf-8") + b"\x00" +function_source_code.encode("utf-8") + b"\x00"
+    #         for name, fn in call.returns
+    #     ]
+    # )
 
     # Combine all parts with clear separators or fixed lengths
     serialized = (
@@ -129,7 +140,7 @@ def calls_and_blocks_to_db_hashes(calls: list[Call], blocks: list[int], chain: C
     Efficiently compute the db_hashes for a list of multicalls calls, and blocks for a chain
     """
     # todo consider adding block and call validation here
-    multicalls = [Multicall(calls=calls, block_id=b, _w3=chain.client, require_success=False) for b in blocks]
+    multicalls = [Multicall(calls=calls, block_id=int(b), _w3=chain.client, require_success=False) for b in blocks]
     # one hash for all the info except the block info # todo switch to pickle
     serialized_static_multicall = _serialize_multicall(multicalls[0])  # any multicall will do
     static_hash = hashlib.sha256(serialized_static_multicall).digest()

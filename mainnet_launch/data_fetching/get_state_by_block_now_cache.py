@@ -5,7 +5,7 @@ import streamlit as st
 import nest_asyncio
 import asyncio
 import hashlib
-import json
+import pickle
 
 import inspect
 from mainnet_launch.constants import CACHE_TIME, ChainData, TokemakAddress, time_decorator, ETH_CHAIN, BASE_CHAIN
@@ -50,7 +50,7 @@ def _build_default_block_and_timestamp_calls(chain: ChainData):
     return get_block_call, get_timestamp_call
 
 
-@time_decorator
+# @time_decorator
 def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
@@ -223,11 +223,11 @@ def _test_get_many_states():
         for i in range(100)
     ]
     get_pool_id_call = Call(
-        (
-            "0x3de27EFa2F1AA663Ae5D458857e731c129069F29",
-            ["getPoolId()(bytes32))"],
-            [("balancerPoolId", identity_with_bool_success)],
-        )
+        "0x3de27EFa2F1AA663Ae5D458857e731c129069F29",
+        [
+            "getPoolId()(bytes32)",
+        ],
+        [("balancerPoolId", identity_with_bool_success)],
     )
 
     calls = _build_default_block_and_timestamp_calls(ETH_CHAIN)
@@ -265,4 +265,4 @@ def _test_get_many_states():
 
 if __name__ == "__main__":
     _test_get_state_once()
-    # _test_get_many_states()
+    _test_get_many_states()
