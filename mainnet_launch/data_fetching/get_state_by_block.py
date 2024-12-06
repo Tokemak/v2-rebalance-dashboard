@@ -66,6 +66,9 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
     return _fetch_data
 
 
+# from mainnet_launch.data_fetching.get_state_by_block_now_cache import get_raw_state_by_blocks
+
+
 def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
@@ -73,6 +76,13 @@ def get_raw_state_by_blocks(
     semaphore_limits: int = (500, 200, 50, 20, 2),  # Increased limits
     include_block_number: bool = False,
 ) -> pd.DataFrame:
+
+    # try:
+    #     return get_raw_state_by_blocks(calls, blocks, chain, semaphore_limits, include_block_number)
+    # except Exception as e:
+    #     print("caching version failed for ", blocks[:2], calls[0])
+    #     print(e, type(e))
+    #     print("doing non caching version")
     return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, chain, semaphore_limits, include_block_number))
 
 
