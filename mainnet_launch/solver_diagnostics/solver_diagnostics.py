@@ -269,7 +269,7 @@ def _make_hours_between_fig(solver_df):
 
 def _add_add_rank_count(solver_df):
     solver_df["len_addRank"] = solver_df["addRank"].apply(lambda x: len(x))
-    fig = px.bar(solver_df, x="date", y="len_addRank", title="Candidate Destinations Size")
+    fig = px.line(solver_df, x="date", y="len_addRank", title="Candidate Destinations Size")
     return fig
 
 

@@ -77,10 +77,11 @@ class AutopoolConstants:
 ETH_CHAIN: ChainData = ChainData(
     name="eth", block_autopool_first_deployed=20752910, approx_seconds_per_block=12.0, chain_id=1
 )
+# real start date was 21241103
+# but only has assets after 21901103
 BASE_CHAIN: ChainData = ChainData(
-    name="base", block_autopool_first_deployed=21241103, approx_seconds_per_block=2.0, chain_id=8453
+    name="base", block_autopool_first_deployed=21901103, approx_seconds_per_block=2.0, chain_id=8453
 )
-
 
 AUTO_ETH: AutopoolConstants = AutopoolConstants(
     name="autoETH",  #  "Tokemak autoETH",

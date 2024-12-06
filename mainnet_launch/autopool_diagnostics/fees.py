@@ -34,7 +34,7 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def fetch_autopool_rewardliq_plot(autopool: AutopoolConstants):
+def fetch_autopool_rewardliq_df(autopool: AutopoolConstants):
     vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
     rewardsliq_events_df = fetch_events(
         vault_contract.events.DestinationDebtReporting, start_block=autopool.chain.block_autopool_first_deployed
@@ -44,7 +44,7 @@ def fetch_autopool_rewardliq_plot(autopool: AutopoolConstants):
 
 
 def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
-    df = fetch_autopool_rewardliq_plot(autopool)
+    df = fetch_autopool_rewardliq_df(autopool)
     df.reset_index(inplace=True)
 
     # Generate distinct colors for each destination
@@ -116,7 +116,12 @@ def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
 
 
 def fetch_and_render_autopool_fee_data(autopool: AutopoolConstants):
+
     fee_df, sfee_df = fetch_autopool_fee_data(autopool)
+    if (len(fee_df) == 0) and (len(sfee_df) == 0):
+        # the fee plots don't stop loading if for baseETH I suspect it is because there are no fees
+        # if there are no fees then we don't need to plot anything
+        return
     st.header(f"{autopool.name} Autopool Fees")
 
     _display_fee_metrics(autopool, fee_df, True)
@@ -232,3 +237,8 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
     )
 
     return daily_fee_fig, cumulative_fee_fig, weekly_fee_fig
+
+
+if __name__ == "__main__":
+    df = fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
+    pass
