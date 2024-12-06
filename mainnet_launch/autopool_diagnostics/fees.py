@@ -36,10 +36,28 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_rewardliq_df(autopool: AutopoolConstants):
     vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+    # event DestinationDebtReporting(
+    #     address destination, AutopoolDebt.IdleDebtUpdates debtInfo, uint256 claimed, uint256 claimGasUsed
+    # );
+
+    #  AutopoolDebt.IdleDebtUpdates
+    #     struct IdleDebtUpdates {
+    #     bool pricesWereSafe;
+    #     uint256 totalIdleDecrease;
+    #     uint256 totalIdleIncrease;
+    #     uint256 totalDebtIncrease;
+    #     uint256 totalDebtDecrease;
+    #     uint256 totalMinDebtIncrease;
+    #     uint256 totalMinDebtDecrease;
+    #     uint256 totalMaxDebtIncrease;
+    #     uint256 totalMaxDebtDecrease;
+    # }
     rewardsliq_events_df = fetch_events(
         vault_contract.events.DestinationDebtReporting, start_block=autopool.chain.block_autopool_first_deployed
     )
     rewardsliq_events_df = add_timestamp_to_df_with_block_column(rewardsliq_events_df, autopool.chain)
+    # claimed is in ETH
+    rewardsliq_events_df["eth_claimed"] = rewardsliq_events_df["claimed"] / 1e18
     return rewardsliq_events_df
 
 
@@ -71,18 +89,18 @@ def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
         fig.add_trace(
             go.Scatter(
                 x=df_dest["timestamp"],
-                y=df_dest["claimed"],
+                y=df_dest["eth_claimed"],
                 mode="markers",
                 name=destination,
                 marker=dict(
-                    size=df_dest["claimed"] * 2,
+                    size=df_dest["eth_claimed"] * 2,
                     color=color_map[destination],
                     sizemode="area",
                     sizemin=4,
-                    sizeref=2.0 * max(df["claimed"]) / (40.0**2),
+                    sizeref=2.0 * max(df["eth_claimed"]) / (40.0**2),
                     line=dict(width=0),
                 ),
-                text=df_dest["claimed"].apply(lambda x: f"{x:.4f} ETH"),
+                text=df_dest["eth_claimed"].apply(lambda x: f"{x:.4f} ETH"),
                 hoverinfo="text+name",
             ),
             row=1,
@@ -90,7 +108,7 @@ def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
         )
 
     # Calculate and plot total claimed over time
-    total_claimed_data = df.groupby("timestamp").agg(total_claimed=("claimed", "sum")).reset_index()
+    total_claimed_data = df.groupby("timestamp").agg(total_claimed=("eth_claimed", "sum")).reset_index()
     total_claimed_data["cumulative_claimed"] = total_claimed_data["total_claimed"].cumsum()
 
     fig.add_trace(
@@ -241,4 +259,3 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
 
 if __name__ == "__main__":
     df = fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
-    pass
