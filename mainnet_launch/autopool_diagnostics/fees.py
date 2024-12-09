@@ -6,6 +6,9 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta, timezone
 import colorsys
 
+
+from mainnet_launch.destinations import get_destination_details
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS, BASE_ETH, AUTO_LRT
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
@@ -34,7 +37,7 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
 
 
 @st.cache_data(ttl=CACHE_TIME)
-def fetch_autopool_rewardliq_df(autopool: AutopoolConstants):
+def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants) -> pd.DataFrame:
     vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
     # event DestinationDebtReporting(
     #     address destination, AutopoolDebt.IdleDebtUpdates debtInfo, uint256 claimed, uint256 claimGasUsed
@@ -52,85 +55,41 @@ def fetch_autopool_rewardliq_df(autopool: AutopoolConstants):
     #     uint256 totalMaxDebtIncrease;
     #     uint256 totalMaxDebtDecrease;
     # }
-    rewardsliq_events_df = fetch_events(
+    debt_reporting_events_df = fetch_events(
         vault_contract.events.DestinationDebtReporting, start_block=autopool.chain.block_autopool_first_deployed
     )
-    rewardsliq_events_df = add_timestamp_to_df_with_block_column(rewardsliq_events_df, autopool.chain)
-    # claimed is in ETH
-    rewardsliq_events_df["eth_claimed"] = rewardsliq_events_df["claimed"] / 1e18
-    return rewardsliq_events_df
+    debt_reporting_events_df = add_timestamp_to_df_with_block_column(debt_reporting_events_df, autopool.chain)
+    debt_reporting_events_df["eth_claimed"] = debt_reporting_events_df["claimed"] / 1e18  # claimed is in ETH
+    blocks = build_blocks_to_use(autopool.chain)
+    vault_to_name = {d.vaultAddress: d.vault_name for d in get_destination_details(autopool, blocks)}
+    debt_reporting_events_df["destinationName"] = debt_reporting_events_df["destination"].apply(
+        lambda x: vault_to_name[x]
+    )
+    return debt_reporting_events_df
 
 
 def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
-    df = fetch_autopool_rewardliq_df(autopool)
-    df.reset_index(inplace=True)
-
-    # Generate distinct colors for each destination
-    unique_destinations = df["destination"].unique()
-    n = len(unique_destinations)
-    colors = [
-        f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
-        for r, g, b in [colorsys.hsv_to_rgb(i / n, 0.8, 0.8) for i in range(n)]
-    ]
-    color_map = dict(zip(unique_destinations, colors))
-
-    # Create subplots
-    fig = make_subplots(
-        rows=2,
-        cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.1,
-        subplot_titles=("Destination Debt Reporting: Claimed ETH over Time", "Total Claimed ETH for Autopool"),
+    debt_reporting_events_df = fetch_autopool_destination_debt_reporting_events(autopool)
+    destination_cumulative_sum = (
+        debt_reporting_events_df.pivot_table(values="eth_claimed", columns="destinationName", index="timestamp")
+        .fillna(0)
+        .sort_index()
+        .cumsum()
     )
-
-    # Plot for individual destinations
-    for destination in unique_destinations:
-        df_dest = df[df["destination"] == destination]
-        fig.add_trace(
-            go.Scatter(
-                x=df_dest["timestamp"],
-                y=df_dest["eth_claimed"],
-                mode="markers",
-                name=destination,
-                marker=dict(
-                    size=df_dest["eth_claimed"] * 2,
-                    color=color_map[destination],
-                    sizemode="area",
-                    sizemin=4,
-                    sizeref=2.0 * max(df["eth_claimed"]) / (40.0**2),
-                    line=dict(width=0),
-                ),
-                text=df_dest["eth_claimed"].apply(lambda x: f"{x:.4f} ETH"),
-                hoverinfo="text+name",
-            ),
-            row=1,
-            col=1,
-        )
-
-    # Calculate and plot total claimed over time
-    total_claimed_data = df.groupby("timestamp").agg(total_claimed=("eth_claimed", "sum")).reset_index()
-    total_claimed_data["cumulative_claimed"] = total_claimed_data["total_claimed"].cumsum()
-
-    fig.add_trace(
-        go.Scatter(
-            x=total_claimed_data["timestamp"],
-            y=total_claimed_data["cumulative_claimed"],
-            mode="lines+markers",
-            name="Total Claimed",
-            line=dict(color="blue", width=2),
-            marker=dict(color="blue", size=8),
-        ),
-        row=2,
-        col=1,
+    cumulative_eth_claimed_area_plot = px.area(
+        destination_cumulative_sum, title="Cumulative ETH value of rewards claimed by destination"
     )
-
-    # Customize the layout
-    fig.update_layout(height=800, hovermode="closest", showlegend=True)
-
-    fig.update_xaxes(title_text="Time", row=2, col=1)
-    fig.update_yaxes(title_text="Claimed (ETH)", row=1, col=1)
-    fig.update_yaxes(title_text="Total Claimed (ETH)", row=2, col=1)
-    st.plotly_chart(fig, use_container_width=True)
+    individual_reward_claim_events_fig = px.scatter(
+        debt_reporting_events_df,
+        x="timestamp",
+        y="eth_claimed",
+        color="destinationName",
+        size="eth_claimed",
+        size_max=40,
+        title="Individual reward claim and liquidation events",
+    )
+    st.plotly_chart(cumulative_eth_claimed_area_plot, use_container_width=True)
+    st.plotly_chart(individual_reward_claim_events_fig, use_container_width=True)
 
 
 def fetch_and_render_autopool_fee_data(autopool: AutopoolConstants):
@@ -258,4 +217,4 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
 
 
 if __name__ == "__main__":
-    df = fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
+    fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
