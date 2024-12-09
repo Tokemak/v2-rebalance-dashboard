@@ -6,8 +6,9 @@ from web3.exceptions import TransactionNotFound
 
 from mainnet_launch.constants import ChainData, ETH_CHAIN
 
-# from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
-from mainnet_launch.data_fetching.get_state_by_block_now_cache import get_raw_state_by_blocks
+from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
+
+# from mainnet_launch.data_fetching.get_state_by_block_now_cache import get_raw_state_by_blocks
 from mainnet_launch.data_fetching.databases import TX_HASH_TO_GAS_INFO_DB
 
 
