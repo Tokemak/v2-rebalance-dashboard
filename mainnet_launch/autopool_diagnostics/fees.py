@@ -70,23 +70,20 @@ def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants
 
 def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
     debt_reporting_events_df = fetch_autopool_destination_debt_reporting_events(autopool)
-    destination_cumulative_sum = (
-        debt_reporting_events_df.pivot_table(values="eth_claimed", columns="destinationName", index="timestamp")
-        .fillna(0)
-        .sort_index()
-        .cumsum()
-    )
+    destination_cumulative_sum = debt_reporting_events_df.pivot_table(
+        values="eth_claimed", columns="destinationName", index="timestamp", fill_value=0
+    ).cumsum()
     cumulative_eth_claimed_area_plot = px.area(
         destination_cumulative_sum, title="Cumulative ETH value of rewards claimed by destination"
     )
     individual_reward_claim_events_fig = px.scatter(
         debt_reporting_events_df,
-        x="timestamp",
+        x=debt_reporting_events_df.index,
         y="eth_claimed",
         color="destinationName",
         size="eth_claimed",
         size_max=40,
-        title="Individual reward claim and liquidation events",
+        title="Individual reward claiming and liquidation events",
     )
     st.plotly_chart(cumulative_eth_claimed_area_plot, use_container_width=True)
     st.plotly_chart(individual_reward_claim_events_fig, use_container_width=True)
