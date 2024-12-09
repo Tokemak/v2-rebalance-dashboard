@@ -9,7 +9,7 @@ from mainnet_launch.constants import ChainData, ETH_CHAIN
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
 
 # from mainnet_launch.data_fetching.get_state_by_block_now_cache import get_raw_state_by_blocks
-from mainnet_launch.data_fetching.databases import TX_HASH_TO_GAS_INFO_DB
+from mainnet_launch.data_fetching.databases import TX_HASH_TO_GAS_INFO_DB, _initalize_tx_hash_to_gas_info_db
 
 
 def _load_tx_hash_to_gas_info(hashes: list[str]) -> pd.DataFrame:
@@ -90,6 +90,8 @@ def fetch_missing_gas_costs(hashes_to_fetch: list[str], chain: ChainData) -> pd.
 def add_transaction_gas_info_to_df_with_tx_hash(df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
     """Add gas_price and gas_used gasCostInETH to df"""
     # Drop existing gas-related columns if they exist
+    _initalize_tx_hash_to_gas_info_db()
+
     gas_columns = ["gas_price", "gas_used", "gasCostInETH"]
     existing_gas_columns = [col for col in gas_columns if col in df.columns]
     if existing_gas_columns:
