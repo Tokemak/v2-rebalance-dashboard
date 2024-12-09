@@ -4,7 +4,7 @@ import streamlit as st
 from mainnet_launch.autopool_diagnostics.fees import (
     fetch_autopool_fee_data,
     fetch_and_render_autopool_fee_data,
-    fetch_autopool_rewardliq_df,
+    fetch_autopool_destination_debt_reporting_events,
     fetch_and_render_autopool_rewardliq_plot,
 )
 from mainnet_launch.autopool_diagnostics.deposits_and_withdrawals import (
@@ -30,7 +30,7 @@ def fetch_autopool_diagnostics_data(autopool: AutopoolConstants):
     fetch_autopool_deposit_and_withdraw_stats_data(autopool)
     fetch_autopool_destination_counts_data(autopool)
     fetch_autopool_return_and_expenses_metrics(autopool)
-    fetch_autopool_rewardliq_df(autopool)
+    fetch_autopool_destination_debt_reporting_events(autopool)
 
 
 def fetch_and_render_autopool_diagnostics_data(autopool: AutopoolConstants):
