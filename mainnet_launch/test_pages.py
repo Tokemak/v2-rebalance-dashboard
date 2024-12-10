@@ -7,7 +7,7 @@ import psutil
 import traceback
 
 from mainnet_launch.ui_config_setup import config_plotly_and_streamlit
-from mainnet_launch.constants import ALL_AUTOPOOLS
+from mainnet_launch.constants import ALL_AUTOPOOLS, BASE_ETH, AUTO_LRT
 from mainnet_launch.page_functions import CONTENT_FUNCTIONS, PAGES_WITHOUT_AUTOPOOL
 
 # run this with `$poetry run test-pages`
@@ -81,6 +81,8 @@ def log_and_time_function(page_name, func, autopool):
 
 def main():
     open_log_in_vscode("verify_all_pages_work.log")
+
+    autopools_to_check = ALL_AUTOPOOLS  # [BASE_ETH, AUTO_LRT]
     testing_logger.info("First run of page view and caching")
 
     start_time = time.time()
@@ -88,7 +90,7 @@ def main():
         if page_name in PAGES_WITHOUT_AUTOPOOL:
             log_and_time_function(page_name, func, autopool=None)
         else:
-            for autopool in ALL_AUTOPOOLS:
+            for autopool in autopools_to_check:
                 log_and_time_function(page_name, func, autopool=autopool)
 
     time_taken = time.time() - start_time
@@ -102,9 +104,13 @@ def main():
         if page_name in PAGES_WITHOUT_AUTOPOOL:
             log_and_time_function(page_name, func, autopool=None)
         else:
-            for autopool in ALL_AUTOPOOLS:
+            for autopool in autopools_to_check:
                 log_and_time_function(page_name, func, autopool=autopool)
 
     time_taken = time.time() - start_time
     usage = get_memory_usage()
     testing_logger.info(f"Fetched and Cached all pages {time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB")
+
+
+if __name__ == "__main__":
+    main()
