@@ -13,5 +13,5 @@ def test_s3_bucket_access():
             response = s3_client.list_objects_v2(Bucket=bucket_name)
             assert response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 200
         except Exception as e:
-            print(autopool.name, 'failed')
+            print(autopool.name, "failed")
             raise e
