@@ -1,7 +1,10 @@
+from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError
+
 import pandas as pd
 import web3
-from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError
 from web3.contract import Contract, ContractEvent
+
+from mainnet_launch.constants import CACHE_TIME, eth_client
 
 
 def _flatten_events(just_found_events: list[dict]) -> None:
