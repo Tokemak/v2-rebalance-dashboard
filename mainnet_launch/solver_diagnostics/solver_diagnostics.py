@@ -274,5 +274,7 @@ def _add_add_rank_count(solver_df):
 
 
 if __name__ == "__main__":
-    # fetch_and_render_solver_diagnositics_data(ALL_AUTOPOOLS[0])
-    fetch_solver_diagnostics_data(BASE_ETH)
+    # # fetch_and_render_solver_diagnositics_data(ALL_AUTOPOOLS[0])
+    # fetch_solver_diagnostics_data(BASE_ETH)
+
+    ensure_all_rebalance_plans_are_loaded()
