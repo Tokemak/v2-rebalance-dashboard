@@ -7,7 +7,6 @@ import psutil
 
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, AUTO_LRT
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
-
 from mainnet_launch.autopool_diagnostics.fetch_nav_per_share import fetch_nav_per_share
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 from mainnet_launch.destinations import get_destination_details
@@ -216,6 +215,8 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
         - Expected Annualized Return: Projected percent annual return based on current allocations of the Autopool.
         """
         )
+
+    st.text("highest block and time used" + str(allocation_df.index[-1]) + str(key_metric_data["blocks"][-1]))
 
 
 if __name__ == "__main__":

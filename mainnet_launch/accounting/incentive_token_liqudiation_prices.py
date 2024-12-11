@@ -152,7 +152,8 @@ def _fetch_incentive_token_price_df(swapped_df: pd.DataFrame, chain: ChainData):
         Call(addr, ["symbol()(string)"], [(addr, identity_with_bool_success)])
         for addr in swapped_df["sellTokenAddress"].unique()
     ]
-    token_address_to_symbol = get_state_by_one_block(symbol_calls, chain.client.eth.block_number, chain=chain)
+    block = max(swapped_df["block"])
+    token_address_to_symbol = get_state_by_one_block(symbol_calls, block, chain=chain)
 
     def _min_of_low_and_high_price(success, data):
         if success:
