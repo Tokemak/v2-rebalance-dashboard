@@ -28,13 +28,13 @@ def fetch_and_render_autopool_deposit_and_withdraw_stats_data(autopool: Autopool
 
 
 def _fetch_raw_deposit_and_withdrawal_dfs(autopool: AutopoolConstants) -> tuple[pd.DataFrame, pd.DataFrame]:
-    contract = eth_client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+    contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
 
     deposit_df = fetch_events(contract.events.Deposit, start_block=start_block)
     withdraw_df = fetch_events(contract.events.Withdraw, start_block=start_block)
 
-    deposit_df = add_timestamp_to_df_with_block_column(deposit_df)
-    withdraw_df = add_timestamp_to_df_with_block_column(withdraw_df)
+    deposit_df = add_timestamp_to_df_with_block_column(deposit_df, autopool.chain)
+    withdraw_df = add_timestamp_to_df_with_block_column(withdraw_df, autopool.chain)
 
     deposit_df["normalized_assets"] = deposit_df["assets"].apply(lambda x: int(x) / 1e18)
     withdraw_df["normalized_assets"] = withdraw_df["assets"].apply(lambda x: int(x) / 1e18)

@@ -9,7 +9,6 @@ import time
 import logging
 import os
 import psutil
-import signal
 
 from mainnet_launch.constants import ALL_AUTOPOOLS, ROOT_DIR
 from mainnet_launch.page_functions import (
@@ -22,9 +21,43 @@ from mainnet_launch.page_functions import (
 from mainnet_launch.constants import (
     CACHE_TIME,
     ALL_AUTOPOOLS,
-    AUTOPOOL_NAME_TO_CONSTANTS,
-    STREAMLIT_MARKDOWN_HTML,
 )
+
+
+STREAMLIT_MARKDOWN_HTML = """
+        <style>
+        .main {
+            max-width: 85%;
+            margin: 0 auto;
+            padding-top: 40px;
+        }
+        .stPlotlyChart {
+            width: 100%;
+            height: auto;
+            min-height: 300px;
+            max-height: 600px;
+            background-color: #f0f2f6;
+            border-radius: 5px;
+            padding: 20px;
+        }
+        @media (max-width: 768px) {
+            .stPlotlyChart {
+                min-height: 250px;
+                max-height: 450px;
+            }
+        }
+        .stPlotlyChart {
+            background-color: #f0f2f6;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        .stExpander {
+            background-color: #e6e9ef;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        </style>
+        """
 
 
 def get_memory_usage():
@@ -58,16 +91,29 @@ atexit.register(cleanup)
 
 def log_and_time_function(page_name, func, autopool):
     start_time = time.time()
+    error = None
     if autopool is None:
-        func()
+        try:
+            func()
+        except Exception as e:
+            error = e
     else:
-        func(autopool)
-
+        try:
+            func(autopool)
+        except Exception as e:
+            error = e
     time_taken = time.time() - start_time
-    if autopool is None:
-        production_logger.info(f"{time_taken:.2f} seconds | {func.__name__} |  {page_name}")
+    autopool_name = None
+    if autopool is not None:
+        autopool_name = autopool.name
+    if error is not None:
+        production_logger.info(
+            f"Error: {time_taken:.2f} seconds | {func.__name__} |  {page_name} {autopool_name} {error}"
+        )
     else:
-        production_logger.info(f"{time_taken:.2f} seconds | {func.__name__} |  {page_name} | {autopool.name}")
+        production_logger.info(
+            f"Success: {time_taken:.2f} seconds | {func.__name__} |  {page_name} {autopool_name} {error}"
+        )
 
 
 def _cache_autopool_data():
@@ -104,7 +150,7 @@ def cache_data_loop():
             time.sleep(CACHE_TIME + (60 * 5))  # + 5 minutes
             production_logger.info("Finished Sleeping")
     except Exception as e:
-        production_logger.exception("Exception occurred in cache_data_loop." + str(e) + type(e))
+        production_logger.exception(str(e))
         production_logger.info(f"Cache data loop ended at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         raise e
     finally:
@@ -121,7 +167,8 @@ def main():
 
     names = [autopool.name for autopool in ALL_AUTOPOOLS]
     pool_name = st.sidebar.selectbox("Select Pool", names)
-    autopool = AUTOPOOL_NAME_TO_CONSTANTS[pool_name]
+    autopool_name_to_constants = {a.name: a for a in ALL_AUTOPOOLS}
+    autopool = autopool_name_to_constants[pool_name]
 
     page = st.sidebar.radio("Go to", CONTENT_FUNCTIONS.keys())
 
