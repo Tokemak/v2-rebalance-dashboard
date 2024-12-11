@@ -1,10 +1,12 @@
 from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError
+import datetime
 
 import pandas as pd
 import web3
 from web3.contract import Contract, ContractEvent
 
-from mainnet_launch.constants import CACHE_TIME, eth_client
+from mainnet_launch.constants import BASE_CHAIN, ETH_CHAIN
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use, get_raw_state_by_blocks
 
 
 def _flatten_events(just_found_events: list[dict]) -> None:
@@ -105,7 +107,16 @@ def fetch_events(
     """
     Collect every `event` between start_block and end_block into a DataFrame.
     """
-    end_block = event.web3.eth.block_number if end_block is None else end_block
+
+    if event.web3.eth.chain_id == BASE_CHAIN.chain_id:
+        chain = BASE_CHAIN
+    elif event.web3.eth.chain_id == ETH_CHAIN.chain_id:
+        chain = ETH_CHAIN
+    else:
+        raise ValueError(f"{event.web3.eth.chain_id=} not recognized")
+
+    end_block = max(build_blocks_to_use(chain)) if end_block is None else end_block
+
     found_events = []
     _recursive_helper_get_all_events_within_range(event, start_block, end_block, found_events, argument_filters)
     event_df = events_to_df(found_events)
@@ -122,7 +133,6 @@ def fetch_events(
 
 
 def get_each_event_in_contract(contract: Contract, end_block: int = None) -> dict[str, pd.DataFrame]:
-    end_block = contract.web3.eth.block_number if end_block is None else end_block
     events_dict = dict()
     for event in contract.events:
         # add http fail retries?
