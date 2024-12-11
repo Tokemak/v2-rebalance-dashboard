@@ -1,5 +1,6 @@
 import pandas as pd
 from multicall import Multicall, Call
+import datetime
 import streamlit as st
 
 import nest_asyncio
@@ -142,6 +143,12 @@ async def async_safe_get_raw_state_by_block(
     df["block"] = df["block"].astype(int)
     if not include_block_number:
         df.drop(columns="block", inplace=True)
+    if len(df) > 0:
+        current_date = datetime.datetime.now(datetime.timezone.utc).date()
+        current_utc_datetime = datetime.datetime.combine(
+            current_date, datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
+        )
+        df = df[df.index < current_utc_datetime].copy()
     return df
 
 
@@ -177,9 +184,18 @@ def identity_function(value):
 def build_blocks_to_use(
     chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 4
 ) -> list[int]:
-    """Returns a block approx every 4 hours. by default between when autopool was first deployed to the current block"""
+    """Returns a block approx every 6 hours. by default between when autopool was first deployed to the current block"""
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
+    first_minute_of_curent_day = datetime.datetime.combine(
+        datetime.datetime.now(datetime.timezone.utc).date(), datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
+    )
+
     end_block = chain.client.eth.block_number if end_block is None else end_block
+    end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
     blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
+
+    while end_block_date_time > first_minute_of_curent_day:
+        end_block = end_block - blocks_hop
+        end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
     blocks = [b for b in range(start_block, end_block, blocks_hop)]
     return blocks
