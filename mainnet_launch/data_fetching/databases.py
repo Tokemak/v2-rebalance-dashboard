@@ -1,6 +1,6 @@
 import sqlite3
 import pickle
-
+import pandas as pd
 from multicall import Multicall
 
 from mainnet_launch.constants import DB_DIR
@@ -91,6 +91,78 @@ def _initalize_tx_hash_to_gas_info_db():
         )
         conn.commit()
 
+
+db_file = DB_DIR /"autopool_dashboard.db"
+
+
+def write_df_to_table(df: pd.DataFrame, table_name: str) -> None:
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
+
+        cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
+        table_exists = cursor.fetchone() is not None
+
+        if not table_exists:
+            # Create table if it doesn't exist
+            df.to_sql(table_name, conn, index=False, if_exists="replace")
+            print(f"Table '{table_name}' created and data inserted.")
+        else:
+            # Load existing table into a DataFrame
+            existing_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+
+            # Find rows in df not in existing_df
+            new_rows = df[~df.apply(tuple, axis=1).isin(existing_df.apply(tuple, axis=1))]
+
+            if not new_rows.empty:
+                # Append new rows to the table
+                new_rows.to_sql(table_name, conn, index=False, if_exists="append")
+                print(f"Added {len(new_rows)} new rows to '{table_name}'.")
+            else:
+                print(f"No new rows to add to '{table_name}'.")
+
+        full_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+        if 'timestamp' in full_df.columns:
+            full_df['timestamp'] = pd.to_datetime(full_df['timestamp'], utc=True)
+        
+        df_is_a_subset_of_full_df = df.apply(tuple, axis=1).isin(full_df.apply(tuple, axis=1))
+   
+        if not df_is_a_subset_of_full_df.all():
+            raise ValueError(
+                f"Data inconsistency detected between the DataFrame and the table '{table_name}'. Rolling back."
+            )
+        else:
+            print(f"Data consistency verified for table '{table_name}'.")
+
+
+def load_table_if_exists(table_name: str, where_clause: str | None) -> pd.DataFrame | None:
+    """
+    Loads data from the specified table if it exists and applies the given WHERE clause.
+
+    Parameters:
+        table_name (str): Name of the table to load.
+        where_clause (str): SQL WHERE clause to filter the data. example: f"autopool_eth_addr = '{auotpool.autopool_eth_addr}'"
+
+    Returns:
+        pd.DataFrame | None: DataFrame containing the queried data or None if the table doesn't exist.
+    """
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+        table_exists = cursor.fetchone() is not None
+        if not table_exists:
+            return None
+
+        if where_clause is None:
+            query = f"SELECT * FROM {table_name}"
+        else:
+            query = f"SELECT * FROM {table_name} WHERE {where_clause}"
+
+        df = pd.read_sql_query(query, conn)
+        
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+        return df
 
 def _initalize_all_databases():
     _initalize_tx_hash_to_gas_info_db()

@@ -5,12 +5,7 @@ import streamlit as st
 import pandas as pd
 from multicall import Call
 
-from mainnet_launch.constants import (
-    CACHE_TIME,
-    AutopoolConstants,
-    ROOT_PRICE_ORACLE,
-    ChainData,
-)
+from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ROOT_PRICE_ORACLE, ChainData
 from mainnet_launch.abis.abis import ROOT_PRICE_ORACLE_ABI
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import (
@@ -29,6 +24,12 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import (
 from mainnet_launch.autopool_diagnostics.compute_rebalance_cost import fetch_rebalance_events_actual_amounts
 
 
+def fetch_rebalance_events_df_from_disk(autopool: AutopoolConstants):
+
+    #
+    pass
+
+
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
@@ -39,11 +40,12 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
     clean_rebalance_df = _add_solver_profit_cols(clean_rebalance_df, autopool)
     clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, autopool.chain)
+    clean_rebalance_df["autopool_eth_addr"] = autopool.autopool_eth_addr
     return clean_rebalance_df
 
 
 # very slow
-# @st.cache_data(ttl=CACHE_TIME)
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_and_clean_rebalance_between_destination_events(
     autopool: AutopoolConstants,
 ) -> pd.DataFrame:  # TODO rename, this is all reblances
@@ -197,8 +199,12 @@ def _add_solver_profit_cols_by_flash_borrower(
         balance_of_calls, price_calls, limited_clean_rebalance_df["block"], chain
     )
 
-    limited_clean_rebalance_df["before_rebalance_eth_value_of_solver"] = value_before_df["total_eth_value"].values
-    limited_clean_rebalance_df["after_rebalance_eth_value_of_solver"] = value_after_df["total_eth_value"].values
+    limited_clean_rebalance_df["before_rebalance_eth_value_of_solver"] = value_before_df[
+        "total_eth_value"
+    ].values.astype(float)
+    limited_clean_rebalance_df["after_rebalance_eth_value_of_solver"] = value_after_df["total_eth_value"].values.astype(
+        float
+    )
     limited_clean_rebalance_df["solver_profit"] = (
         limited_clean_rebalance_df["after_rebalance_eth_value_of_solver"]
         - limited_clean_rebalance_df["before_rebalance_eth_value_of_solver"]
