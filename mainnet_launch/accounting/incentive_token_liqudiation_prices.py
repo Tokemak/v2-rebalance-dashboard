@@ -6,7 +6,6 @@ import plotly.subplots as sp
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, timezone
 
-
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     get_state_by_one_block,
@@ -14,8 +13,8 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     build_blocks_to_use,
 )
-from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.data_fetching.databases import write_df_to_table, load_table_if_exists
+
 from mainnet_launch.data_fetching.get_events import fetch_events
 
 from mainnet_launch.constants import (
@@ -28,16 +27,132 @@ from mainnet_launch.constants import (
     ChainData,
     ETH_CHAIN,
     BASE_CHAIN,
+    time_decorator,
 )
+
 from mainnet_launch.abis.abis import DESTINATION_DEBT_REPORTING_SWAPPED_ABI
 
 
+INCENTIVE_TOKEN_PRICES_TABLE_NAME = "INCENTIVE_TOKEN_PRICES_AT_LIQUIDATION"
+
+
+def _add_acheived_price_column(swapped_df: pd.DataFrame, token_address_to_decimals: dict):
+    def _compute_achieved_price(row):
+        sell_token_decimals = token_address_to_decimals[row["sellTokenAddress"]]
+        normalized_sell_amount = row["sellAmount"] / (10**sell_token_decimals)
+
+        buy_token_decimals = token_address_to_decimals[row["buyTokenAddress"]]
+        normalized_buy_amount = row["buyTokenAmountReceived"] / (10**buy_token_decimals)
+
+        achieved_price = normalized_buy_amount / normalized_sell_amount
+        return achieved_price
+
+    swapped_df["achieved_price"] = swapped_df.apply(lambda row: _compute_achieved_price(row), axis=1)
+
+    return swapped_df
+
+
+def _fetch_oracle_price_df(swapped_df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
+    token_addresses = [*swapped_df["sellTokenAddress"].unique(), *swapped_df["buyTokenAddress"].unique()]
+    oracle_price_calls = [
+        Call(
+            ROOT_PRICE_ORACLE(chain),
+            ["getPriceInEth(address)(uint256)", addr],
+            [(addr, safe_normalize_with_bool_success)],
+        )
+        for addr in token_addresses
+    ]
+
+    blocks = swapped_df["block"].unique()
+    oracle_price_df = get_raw_state_by_blocks(oracle_price_calls, blocks, chain, include_block_number=True)
+    return oracle_price_df
+
+
+def _fetch_incentive_calculator_price_df(swapped_df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
+    token_addresses = [*swapped_df["sellTokenAddress"].unique(), *swapped_df["buyTokenAddress"].unique()]
+
+    def _min_of_low_and_high_price(success, data):
+        if success:
+            fast, slow = data
+            return min(fast, slow) / 1e18
+        return None
+
+    oracle_price_calls = [
+        Call(
+            INCENTIVE_PRICNIG_STATS(chain),
+            ["getPrice(address,uint40)((uint256,uint256))", addr, 2 * 86400],  # 2 days of latency
+            [(addr, _min_of_low_and_high_price)],
+        )
+        for addr in token_addresses
+    ]
+
+    blocks = swapped_df["block"].unique()
+    incentive_calculator_price_df = get_raw_state_by_blocks(
+        oracle_price_calls, blocks, chain, include_block_number=True
+    )
+    return incentive_calculator_price_df
+
+
+def _fetch_reward_token_price_during_liquidation(chain: ChainData, start_block: int) -> pd.DataFrame:
+    contract = chain.client.eth.contract(LIQUIDATION_ROW(chain), abi=DESTINATION_DEBT_REPORTING_SWAPPED_ABI)
+
+    swapped_df = fetch_events(contract.events.Swapped, start_block=start_block)
+    oracle_price_df = _fetch_oracle_price_df(swapped_df, chain)
+    incentive_calculator_price_df = _fetch_incentive_calculator_price_df(swapped_df, chain)
+
+    token_addresses = [*swapped_df["sellTokenAddress"].unique(), *swapped_df["buyTokenAddress"].unique()]
+    symbol_calls = [Call(addr, ["symbol()(string)"], [(addr, identity_with_bool_success)]) for addr in token_addresses]
+    token_address_to_symbol = get_state_by_one_block(symbol_calls, swapped_df["block"].max(), chain)
+
+    decimals_calls = [
+        Call(addr, ["decimals()(uint8)"], [(addr, identity_with_bool_success)]) for addr in token_addresses
+    ]
+
+    token_address_to_decimals = get_state_by_one_block(decimals_calls, swapped_df["block"].max(), chain)
+
+    swapped_df = _add_acheived_price_column(swapped_df, token_address_to_decimals)
+
+    long_oracle_prices_df = pd.melt(
+        oracle_price_df,
+        id_vars=["block"],
+        var_name="sellTokenAddress",
+        value_name="oracle_price",
+    )
+    long_swapped_df = swapped_df[["block", "sellTokenAddress", "achieved_price"]].copy()
+
+    long_incentive_calculator_prices = pd.melt(
+        incentive_calculator_price_df,
+        id_vars=["block"],
+        var_name="sellTokenAddress",
+        value_name="incentive_calculator_price",
+    )
+
+    long_swapped_df = swapped_df[["block", "sellTokenAddress", "achieved_price"]].copy()
+    long_swapped_df = pd.merge(long_swapped_df, long_oracle_prices_df, on=["block", "sellTokenAddress"], how="left")
+    long_swapped_df = pd.merge(
+        long_swapped_df, long_incentive_calculator_prices, on=["block", "sellTokenAddress"], how="left"
+    )
+
+    timestamp_df = oracle_price_df.reset_index()[["timestamp", "block"]]
+
+    long_swapped_df = pd.merge(long_swapped_df, timestamp_df, on=["block"], how="left")
+    long_swapped_df["tokenSymbol"] = long_swapped_df["sellTokenAddress"].apply(lambda x: token_address_to_symbol[x])
+    long_swapped_df["chain"] = chain.name
+
+    return long_swapped_df
+
+
 def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
-    chain_to_dfs = fetch_reward_token_achieved_vs_incentive_token_price()
+    fetch_reward_token_achieved_vs_incentive_token_price()
+    swapped_df = load_table_if_exists(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+    if swapped_df is None:
+        raise ValueError('Failed to read swapped df from disk because the table does not exist')
+    
     today = datetime.now(timezone.utc)
     thirty_days_ago = today - timedelta(days=30)
 
     for chainName in [ETH_CHAIN.name, BASE_CHAIN.name]:
+        # do some pivot tables here
         incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df = chain_to_dfs[chainName]
 
         st.header(f"{chainName} Achieved vs Expected Token Price")
@@ -94,120 +209,29 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
         )
 
 
-@st.cache_data(ttl=CACHE_TIME)
+def _update_swapped_df():
+    """Refresh the swapped_df on disk"""
+    swapped_df = load_table_if_exists(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+    # I suspect that the USDC prices on base are wrong, TODO use identiy functions and clean them up in memory
+
+    if swapped_df is None:
+        highest_eth_block_already_fetched = ETH_CHAIN.block_autopool_first_deployed
+        highest_base_block_already_fetched = BASE_CHAIN.block_autopool_first_deployed
+    else:
+        highest_eth_block_already_fetched = int(swapped_df[swapped_df["chain"] == ETH_CHAIN.name]["block"].max())
+        highest_base_block_already_fetched = int(swapped_df[swapped_df["chain"] == BASE_CHAIN.name]["block" ].max())
+            
+       
+    eth_swapped_df = _fetch_reward_token_price_during_liquidation(ETH_CHAIN, highest_eth_block_already_fetched)
+    write_df_to_table(eth_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+    
+    base_swapped_df = _fetch_reward_token_price_during_liquidation(BASE_CHAIN, highest_base_block_already_fetched)
+    write_df_to_table(base_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+    
+
+
 def fetch_reward_token_achieved_vs_incentive_token_price():
-
-    chain_to_dfs = {}
-
-    for chain in [ETH_CHAIN, BASE_CHAIN]:
-        swapped_df = _build_swapped_df(chain)
-        incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df = _fetch_incentive_token_price_df(
-            swapped_df, chain
-        )
-
-        incentive_stats_token_prices_df["block"] = swapped_df["block"]
-        incentive_stats_token_prices_df["chain_id"] = chain.chain_id
-
-        oracle_price_df["block"] = swapped_df["block"].values
-        oracle_price_df["chain_id"] = chain.chain_id
-
-        achieved_eth_price_df["block"] = swapped_df["block"].values
-        achieved_eth_price_df["chain_id"] = chain.chain_id
-
-        for df in (incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df):
-            print(df.shape)
-            print(df.columns)
-
-        # merge these togheter inot a single table
-
-        chain_to_dfs[chain.name] = (incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df)
-
-    return chain_to_dfs
-
-
-def _build_swapped_df(chain: ChainData):
-    # This ABI is ABI is not on etherscan, you have to get it from the v2-core repo foundry contracts when it makes the ABIs
-    # fmt: off
-    SWAPPED_EVENT_ABI = """[{"inputs":[{"internalType":"address","name":"aggregator","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"uint256","name":"balanceNeeded","type":"uint256"},{"internalType":"uint256","name":"balanceAvailable","type":"uint256"}],"type":"error","name":"InsufficientBalance"},{"inputs":[],"type":"error","name":"InsufficientBuyAmount"},{"inputs":[{"internalType":"uint256","name":"buyTokenAmountReceived","type":"uint256"},{"internalType":"uint256","name":"buyAmount","type":"uint256"}],"type":"error","name":"InsufficientBuyAmountReceived"},{"inputs":[],"type":"error","name":"InsufficientSellAmount"},{"inputs":[],"type":"error","name":"SwapFailed"},{"inputs":[],"type":"error","name":"TokenAddressZero"},{"inputs":[{"internalType":"address","name":"sellTokenAddress","type":"address","indexed":true},{"internalType":"address","name":"buyTokenAddress","type":"address","indexed":true},{"internalType":"uint256","name":"sellAmount","type":"uint256","indexed":false},{"internalType":"uint256","name":"buyAmount","type":"uint256","indexed":false},{"internalType":"uint256","name":"buyTokenAmountReceived","type":"uint256","indexed":false}],"type":"event","name":"Swapped","anonymous":false},{"inputs":[],"stateMutability":"view","type":"function","name":"AGGREGATOR","outputs":[{"internalType":"address","name":"","type":"address"}]},{"inputs":[{"internalType":"struct SwapParams","name":"swapParams","type":"tuple","components":[{"internalType":"address","name":"sellTokenAddress","type":"address"},{"internalType":"uint256","name":"sellAmount","type":"uint256"},{"internalType":"address","name":"buyTokenAddress","type":"address"},{"internalType":"uint256","name":"buyAmount","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"},{"internalType":"bytes","name":"extraData","type":"bytes"},{"internalType":"uint256","name":"deadline","type":"uint256"}]}],"stateMutability":"nonpayable","type":"function","name":"swap","outputs":[{"internalType":"uint256","name":"buyTokenAmountReceived","type":"uint256"}]}]"""
-    # fmt: on
-    contract = chain.client.eth.contract(LIQUIDATION_ROW(chain), abi=SWAPPED_EVENT_ABI)
-    swapped_df = fetch_events(contract.events.Swapped)
-
-    token_addresses = list(swapped_df["sellTokenAddress"].unique())
-
-    decimals_calls = [
-        Call(
-            a,
-            ["decimals()(uint8)"],
-            [(a, identity_with_bool_success)],
-        )
-        for a in token_addresses
-    ]
-
-    # TODO have a more consistant way to pick a block here
-    address_to_decimals = get_state_by_one_block(decimals_calls, chain.client.eth.block_number, chain)
-
-    swapped_df = add_timestamp_to_df_with_block_column(swapped_df, chain)
-
-    def _get_achieved_price(row):
-        decimals = address_to_decimals[row["sellTokenAddress"]]
-        normalized_sell_amount = row["sellAmount"] / (10**decimals)
-        normalized_buy_amount = row["buyTokenAmountReceived"] / 1e18  # always weth so always 1e18
-
-        return normalized_buy_amount / normalized_sell_amount
-
-    swapped_df["achieved_token_price_in_eth"] = swapped_df.apply(lambda row: _get_achieved_price(row), axis=1)
-    swapped_df["date"] = swapped_df.index
-    return swapped_df
-
-
-def _fetch_incentive_token_price_df(swapped_df: pd.DataFrame, chain: ChainData):
-    symbol_calls = [
-        Call(addr, ["symbol()(string)"], [(addr, identity_with_bool_success)])
-        for addr in swapped_df["sellTokenAddress"].unique()
-    ]
-    block = max(swapped_df["block"])
-    token_address_to_symbol = get_state_by_one_block(symbol_calls, block, chain=chain)
-
-    def _min_of_low_and_high_price(success, data):
-        if success:
-            fast, slow = data
-            return min(fast, slow) / 1e18
-        return None
-
-    def getIncentiveTokenPrice(name: str, token_address: str) -> Call:
-        return Call(
-            INCENTIVE_PRICNIG_STATS(chain),
-            ["getPrice(address,uint40)((uint256,uint256))", token_address, 2 * 86400],  # 2 days
-            [(name, _min_of_low_and_high_price)],
-        )
-
-    def getOraclePrice(name: str, token_address: str) -> Call:
-        return Call(
-            ROOT_PRICE_ORACLE(chain),
-            ["getPriceInEth(address)(uint256)", token_address],
-            [(name, safe_normalize_with_bool_success)],
-        )
-
-    blocks_to_get_incentive_token_prices = swapped_df["block"].unique()
-
-    incentive_stats_calls = [getIncentiveTokenPrice(symbol, addr) for addr, symbol in token_address_to_symbol.items()]
-    incentive_stats_token_prices_df = get_raw_state_by_blocks(
-        incentive_stats_calls, blocks_to_get_incentive_token_prices, chain, include_block_number=True
-    )
-
-    oracle_price_calls = [getOraclePrice(symbol, addr) for addr, symbol in token_address_to_symbol.items()]
-    oracle_price_df = get_raw_state_by_blocks(
-        oracle_price_calls, blocks_to_get_incentive_token_prices, chain, include_block_number=True
-    )
-
-    achieved_eth_price_df = pd.pivot(
-        swapped_df, index="block", columns="sellTokenAddress", values="achieved_token_price_in_eth"
-    )
-
-    achieved_eth_price_df.columns = [token_address_to_symbol[c] for c in achieved_eth_price_df.columns]
-
-    return incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df
+    _update_swapped_df()
 
 
 def _make_histogram_of_percent_diff(
