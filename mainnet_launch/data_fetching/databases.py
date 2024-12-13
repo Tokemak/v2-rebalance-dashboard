@@ -113,7 +113,7 @@ def _add_new_rows_to_already_existing_table(df: pd.DataFrame, table_name: str, c
 
 
 def _verify_all_rows_in_df_are_properly_saved(df: pd.DataFrame, table_name: str, conn):
-    #TODO: consider rewriting this in pure sql
+    # TODO: consider rewriting this in pure sql
     full_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
     if "timestamp" in full_df.columns:
         full_df["timestamp"] = pd.to_datetime(full_df["timestamp"], utc=True)
@@ -139,48 +139,10 @@ def write_df_to_table(df: pd.DataFrame, table_name: str) -> None:
             _add_new_rows_to_already_existing_table(df, table_name, conn, cursor)
 
         _verify_all_rows_in_df_are_properly_saved(df, table_name, conn)
+        # TODO consider adding a check that there are no duplicate rows in the table, and raising an error if so
 
 
-# def write_df_to_table(df: pd.DataFrame, table_name: str) -> None:
-#     with sqlite3.connect(db_file) as conn:
-#         cursor = conn.cursor()
-
-#         cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
-#         table_exists = cursor.fetchone() is not None
-
-#         if not table_exists:
-#             # Create table if it doesn't exist
-#             df.to_sql(table_name, conn, index=False, if_exists="replace")
-#             print(f"Table '{table_name}' created and data inserted.")
-#         else:
-#             # Load existing table into a DataFrame
-#             existing_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
-
-#             # Find rows in df not in existing_df
-#             new_rows = df[~df.apply(tuple, axis=1).isin(existing_df.apply(tuple, axis=1))]
-
-#             if not new_rows.empty:
-#                 # Append new rows to the table
-#                 new_rows.to_sql(table_name, conn, index=False, if_exists="append")
-#                 print(f"Added {len(new_rows)} new rows to '{table_name}'.")
-#             else:
-#                 print(f"No new rows to add to '{table_name}'.")
-
-#         full_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
-#         if "timestamp" in full_df.columns:
-#             full_df["timestamp"] = pd.to_datetime(full_df["timestamp"], utc=True)
-
-#         df_is_a_subset_of_full_df = df.apply(tuple, axis=1).isin(full_df.apply(tuple, axis=1))
-
-#         if not df_is_a_subset_of_full_df.all():
-#             raise ValueError(
-#                 f"Data inconsistency detected between the DataFrame and the table '{table_name}'. Rolling back."
-#             )
-#         else:
-#             print(f"Data consistency verified for table '{table_name}'.")
-
-
-def load_table_if_exists(table_name: str, where_clause: str | None) -> pd.DataFrame | None:
+def load_table_if_exists(table_name: str, where_clause: str | None = None) -> pd.DataFrame | None:
     """
     Loads data from the specified table if it exists and applies the given WHERE clause.
 
