@@ -95,6 +95,36 @@ def _initalize_tx_hash_to_gas_info_db():
 db_file = DB_DIR / "autopool_dashboard.db"
 
 
+def _create_new_table_if_it_does_not_exist(df: pd.DataFrame, table_name: str, conn):
+    df.to_sql(table_name, conn, index=False, if_exists="fail")
+    print(f"Table '{table_name}' Does not exist so it is created and data inserted.")
+
+
+def _add_new_rows_to_already_existing_table(df: pd.DataFrame, table_name: str, conn, cursor):
+    temp_table_name = "temp_table"
+    df.to_sql(temp_table_name, conn, index=False, if_exists="append")
+    cursor.execute(
+        f"""
+    INSERT OR IGNORE INTO {table_name}
+    SELECT * FROM {temp_table_name}
+    """
+    )
+    cursor.execute(f"DROP TABLE {temp_table_name}")
+
+
+def _verify_all_rows_in_df_are_properly_saved(df: pd.DataFrame, table_name: str, conn):
+    #TODO: consider rewriting this in pure sql
+    full_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+    if "timestamp" in full_df.columns:
+        full_df["timestamp"] = pd.to_datetime(full_df["timestamp"], utc=True)
+
+    df_is_a_subset_of_full_df = df.apply(tuple, axis=1).isin(full_df.apply(tuple, axis=1))
+    if not df_is_a_subset_of_full_df.all():
+        raise ValueError(
+            f"Data inconsistency detected between the DataFrame and the table '{table_name}'. Rolling back."
+        )
+
+
 def write_df_to_table(df: pd.DataFrame, table_name: str) -> None:
     with sqlite3.connect(db_file) as conn:
         cursor = conn.cursor()
@@ -103,35 +133,51 @@ def write_df_to_table(df: pd.DataFrame, table_name: str) -> None:
         table_exists = cursor.fetchone() is not None
 
         if not table_exists:
-            # Create table if it doesn't exist
-            df.to_sql(table_name, conn, index=False, if_exists="replace")
-            print(f"Table '{table_name}' created and data inserted.")
+            _create_new_table_if_it_does_not_exist(df, table_name, conn)
+
         else:
-            # Load existing table into a DataFrame
-            existing_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+            _add_new_rows_to_already_existing_table(df, table_name, conn, cursor)
 
-            # Find rows in df not in existing_df
-            new_rows = df[~df.apply(tuple, axis=1).isin(existing_df.apply(tuple, axis=1))]
+        _verify_all_rows_in_df_are_properly_saved(df, table_name, conn)
 
-            if not new_rows.empty:
-                # Append new rows to the table
-                new_rows.to_sql(table_name, conn, index=False, if_exists="append")
-                print(f"Added {len(new_rows)} new rows to '{table_name}'.")
-            else:
-                print(f"No new rows to add to '{table_name}'.")
 
-        full_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
-        if "timestamp" in full_df.columns:
-            full_df["timestamp"] = pd.to_datetime(full_df["timestamp"], utc=True)
+# def write_df_to_table(df: pd.DataFrame, table_name: str) -> None:
+#     with sqlite3.connect(db_file) as conn:
+#         cursor = conn.cursor()
 
-        df_is_a_subset_of_full_df = df.apply(tuple, axis=1).isin(full_df.apply(tuple, axis=1))
+#         cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
+#         table_exists = cursor.fetchone() is not None
 
-        if not df_is_a_subset_of_full_df.all():
-            raise ValueError(
-                f"Data inconsistency detected between the DataFrame and the table '{table_name}'. Rolling back."
-            )
-        else:
-            print(f"Data consistency verified for table '{table_name}'.")
+#         if not table_exists:
+#             # Create table if it doesn't exist
+#             df.to_sql(table_name, conn, index=False, if_exists="replace")
+#             print(f"Table '{table_name}' created and data inserted.")
+#         else:
+#             # Load existing table into a DataFrame
+#             existing_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+
+#             # Find rows in df not in existing_df
+#             new_rows = df[~df.apply(tuple, axis=1).isin(existing_df.apply(tuple, axis=1))]
+
+#             if not new_rows.empty:
+#                 # Append new rows to the table
+#                 new_rows.to_sql(table_name, conn, index=False, if_exists="append")
+#                 print(f"Added {len(new_rows)} new rows to '{table_name}'.")
+#             else:
+#                 print(f"No new rows to add to '{table_name}'.")
+
+#         full_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+#         if "timestamp" in full_df.columns:
+#             full_df["timestamp"] = pd.to_datetime(full_df["timestamp"], utc=True)
+
+#         df_is_a_subset_of_full_df = df.apply(tuple, axis=1).isin(full_df.apply(tuple, axis=1))
+
+#         if not df_is_a_subset_of_full_df.all():
+#             raise ValueError(
+#                 f"Data inconsistency detected between the DataFrame and the table '{table_name}'. Rolling back."
+#             )
+#         else:
+#             print(f"Data consistency verified for table '{table_name}'.")
 
 
 def load_table_if_exists(table_name: str, where_clause: str | None) -> pd.DataFrame | None:
