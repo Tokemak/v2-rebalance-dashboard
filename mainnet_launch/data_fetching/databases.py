@@ -92,7 +92,7 @@ def _initalize_tx_hash_to_gas_info_db():
         conn.commit()
 
 
-db_file = DB_DIR /"autopool_dashboard.db"
+db_file = DB_DIR / "autopool_dashboard.db"
 
 
 def write_df_to_table(df: pd.DataFrame, table_name: str) -> None:
@@ -121,11 +121,11 @@ def write_df_to_table(df: pd.DataFrame, table_name: str) -> None:
                 print(f"No new rows to add to '{table_name}'.")
 
         full_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
-        if 'timestamp' in full_df.columns:
-            full_df['timestamp'] = pd.to_datetime(full_df['timestamp'], utc=True)
-        
+        if "timestamp" in full_df.columns:
+            full_df["timestamp"] = pd.to_datetime(full_df["timestamp"], utc=True)
+
         df_is_a_subset_of_full_df = df.apply(tuple, axis=1).isin(full_df.apply(tuple, axis=1))
-   
+
         if not df_is_a_subset_of_full_df.all():
             raise ValueError(
                 f"Data inconsistency detected between the DataFrame and the table '{table_name}'. Rolling back."
@@ -159,10 +159,11 @@ def load_table_if_exists(table_name: str, where_clause: str | None) -> pd.DataFr
             query = f"SELECT * FROM {table_name} WHERE {where_clause}"
 
         df = pd.read_sql_query(query, conn)
-        
-        if 'timestamp' in df.columns:
-            df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+
+        if "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
         return df
+
 
 def _initalize_all_databases():
     _initalize_tx_hash_to_gas_info_db()

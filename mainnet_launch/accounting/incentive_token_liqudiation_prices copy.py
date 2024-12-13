@@ -29,7 +29,6 @@ from mainnet_launch.constants import (
     ETH_CHAIN,
     BASE_CHAIN,
 )
-from mainnet_launch.abis.abis import DESTINATION_DEBT_REPORTING_SWAPPED_ABI
 
 
 def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
