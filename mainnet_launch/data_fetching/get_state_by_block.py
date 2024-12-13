@@ -20,7 +20,7 @@ MULTICALL_V3 = TokemakAddress(
 
 
 def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):
-    return asyncio.run(safe_get_raw_state_by_block_one_block(calls, block, chain))
+    return asyncio.run(safe_get_raw_state_by_block_one_block(calls, int(block), chain))
 
 
 async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData):
