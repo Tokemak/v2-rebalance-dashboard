@@ -28,7 +28,6 @@ from mainnet_launch.gas_costs.keeper_network_gas_costs import (
 )
 
 from mainnet_launch.accounting.incentive_token_liqudiation_prices import (
-    fetch_reward_token_achieved_vs_incentive_token_price,
     fetch_and_render_reward_token_achieved_vs_incentive_token_price,
 )
 
@@ -52,7 +51,6 @@ PER_AUTOPOOOL_DATA_CACHING_FUNCTIONS = [
 
 NOT_PER_AUTOPOOL_DATA_CACHING_FUNCTIONS = [
     fetch_keeper_network_gas_costs,
-    fetch_reward_token_achieved_vs_incentive_token_price,
     fetch_protocol_level_profit_and_loss_data,
 ]
 
