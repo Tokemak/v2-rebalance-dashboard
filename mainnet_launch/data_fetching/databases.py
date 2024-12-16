@@ -143,7 +143,16 @@ def write_df_to_table(df: pd.DataFrame, table_name: str) -> None:
             _add_new_rows_to_already_existing_table(df, table_name, conn, cursor)
 
         _verify_all_rows_in_df_are_properly_saved(df, table_name, conn)
-        update_last_updated(table_name)
+
+        current_time = datetime.now(timezone.utc)
+        upsert_query = f"""
+        INSERT INTO {TABLE_NAME_TO_LAST_UPDATED} ({TABLE_NAME_COLUMN}, {LAST_UPDATED_COLUMN})
+        VALUES (?, ?)
+        ON CONFLICT({TABLE_NAME_COLUMN}) DO UPDATE SET
+            {LAST_UPDATED_COLUMN}=excluded.{LAST_UPDATED_COLUMN};
+        """
+
+        cursor.execute(upsert_query, (table_name, current_time))
         # TODO consider adding a check that there are no duplicate rows in the table, and raising an error if so
 
 
@@ -205,7 +214,7 @@ def create_last_updated_table():
         conn.commit()
 
 
-def update_last_updated(table_name: str):
+def update_last_updated(cursor, table_name: str):
     """
     Updates the last_updated timestamp for the given table name.
     If the table name does not exist in the table, it inserts a new record.
@@ -213,17 +222,6 @@ def update_last_updated(table_name: str):
     Args:
         table_name (str): The name of the table to update.
     """
-    current_time = datetime.now(timezone.utc)
-    upsert_query = f"""
-    INSERT INTO {TABLE_NAME_TO_LAST_UPDATED} ({TABLE_NAME_COLUMN}, {LAST_UPDATED_COLUMN})
-    VALUES (?, ?)
-    ON CONFLICT({TABLE_NAME_COLUMN}) DO UPDATE SET
-        {LAST_UPDATED_COLUMN}=excluded.{LAST_UPDATED_COLUMN};
-    """
-    with sqlite3.connect(db_file) as conn:
-        cursor = conn.cursor()
-        cursor.execute(upsert_query, (table_name, current_time))
-        conn.commit()
 
 
 def get_last_updated(table_name: str):
