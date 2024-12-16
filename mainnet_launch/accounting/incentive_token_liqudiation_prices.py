@@ -13,7 +13,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     build_blocks_to_use,
 )
-from mainnet_launch.data_fetching.databases import write_df_to_table, load_table_if_exists
+from mainnet_launch.data_fetching.databases import write_df_to_table, load_table_if_exists, get_last_updated
 
 from mainnet_launch.data_fetching.get_events import fetch_events
 
@@ -112,13 +112,17 @@ def _fetch_reward_token_price_during_liquidation(chain: ChainData, start_block: 
 
     swapped_df = _add_acheived_price_column(swapped_df, token_address_to_decimals)
 
+    # not used in plots, but could be useful to see size later
+    swapped_df["weth_received"] = swapped_df["buyTokenAmountReceived"] / 1e18
+
+    long_swapped_df = swapped_df[["block", "sellTokenAddress", "achieved_price", "weth_received"]].copy()
+
     long_oracle_prices_df = pd.melt(
         oracle_price_df,
         id_vars=["block"],
         var_name="sellTokenAddress",
         value_name="oracle_price",
     )
-    long_swapped_df = swapped_df[["block", "sellTokenAddress", "achieved_price"]].copy()
 
     long_incentive_calculator_prices = pd.melt(
         incentive_calculator_price_df,
@@ -127,7 +131,6 @@ def _fetch_reward_token_price_during_liquidation(chain: ChainData, start_block: 
         value_name="incentive_calculator_price",
     )
 
-    long_swapped_df = swapped_df[["block", "sellTokenAddress", "achieved_price"]].copy()
     long_swapped_df = pd.merge(long_swapped_df, long_oracle_prices_df, on=["block", "sellTokenAddress"], how="left")
     long_swapped_df = pd.merge(
         long_swapped_df, long_incentive_calculator_prices, on=["block", "sellTokenAddress"], how="left"
@@ -142,51 +145,129 @@ def _fetch_reward_token_price_during_liquidation(chain: ChainData, start_block: 
     return long_swapped_df
 
 
+def _update_swapped_df():
+    """Refresh the swapped_df on disk"""
+    swapped_df = load_table_if_exists(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+
+    if swapped_df is None:
+        # if the df does not exist fetch it from the start
+        highest_eth_block_already_fetched = ETH_CHAIN.block_autopool_first_deployed
+        highest_base_block_already_fetched = BASE_CHAIN.block_autopool_first_deployed
+    else:
+        highest_eth_block_already_fetched = int(swapped_df[swapped_df["chain"] == ETH_CHAIN.name]["block"].max())
+        highest_base_block_already_fetched = int(swapped_df[swapped_df["chain"] == BASE_CHAIN.name]["block"].max())
+
+    eth_swapped_df = _fetch_reward_token_price_during_liquidation(ETH_CHAIN, highest_eth_block_already_fetched)
+    write_df_to_table(eth_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+
+    base_swapped_df = _fetch_reward_token_price_during_liquidation(BASE_CHAIN, highest_base_block_already_fetched)
+    write_df_to_table(base_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+
+
+def _should_update() -> bool:
+    current_time = datetime.now(timezone.utc)
+    last_updated = get_last_updated(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+
+    diff = current_time - last_updated
+
+    if diff > pd.Timedelta("6 hours"):
+        return True
+    else:
+        return False
+
+
+def make_histogram_subplots(df: pd.DataFrame, col: str, title: str):
+    # this makes sure that the charts are in the same order
+    sold_reward_tokens = sorted(list(df["tokenSymbol"].unique()))
+    num_cols = 3
+    num_rows = (len(sold_reward_tokens) // num_cols) + 1  # not certain on this math
+    fig = sp.make_subplots(
+        rows=num_rows,
+        cols=num_cols,
+        subplot_titles=sold_reward_tokens,
+        x_title="Percent Difference Achieved vs Expected",
+        y_title="Percent of Reward Liqudations",
+    )
+
+    bin_range = [df[col].min(), df[col].max()]
+    bin_range = [int(bin_range[0]) - 1, int(bin_range[1]) + 1]
+    bin_width = 1  # 1% width per bin
+
+    for i, token in enumerate(sold_reward_tokens):
+        token_series = df[df["tokenSymbol"] == token][col]
+        this_row = (i // num_rows) + 1
+        this_col = (i % num_cols) + 1
+
+        hist = go.Histogram(
+            histnorm="percent", x=token_series, xbins=dict(start=bin_range[0], end=bin_range[1], size=bin_width)
+        )
+
+        fig.add_trace(hist, row=this_row, col=this_col)
+        fig.update_xaxes(range=bin_range, row=this_row, col=this_col, autorange=False)
+
+    fig.update_layout(height=600, width=900, showlegend=False, title=title)
+    return fig
+
+
 def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
-    fetch_reward_token_achieved_vs_incentive_token_price()
+
+    if _should_update():
+        _update_swapped_df()
+
     swapped_df = load_table_if_exists(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
     if swapped_df is None:
-        raise ValueError('Failed to read swapped df from disk because the table does not exist')
-    
+        raise ValueError("Failed to read swapped df from disk because the table does not exist")
+
+    swapped_df["incentive percent diff to achieved"] = (
+        100
+        * (swapped_df["incentive_calculator_price"] - swapped_df["achieved_price"])
+        / swapped_df["incentive_calculator_price"]
+    )
+    swapped_df["oracle percent diff to achieved"] = (
+        100 * (swapped_df["oracle_price"] - swapped_df["achieved_price"]) / swapped_df["oracle_price"]
+    )
+
     today = datetime.now(timezone.utc)
     thirty_days_ago = today - timedelta(days=30)
 
-    for chainName in [ETH_CHAIN.name, BASE_CHAIN.name]:
-        # do some pivot tables here
-        incentive_stats_token_prices_df, oracle_price_df, achieved_eth_price_df = chain_to_dfs[chainName]
-
-        st.header(f"{chainName} Achieved vs Expected Token Price")
-
+    for chain in [ETH_CHAIN, BASE_CHAIN]:
+        st.subheader(f"Since Inception {chain.name} Achieved vs Expected Token Price")
         st.plotly_chart(
-            _make_histogram_of_percent_diff(
-                achieved_eth_price_df[achieved_eth_price_df.index > thirty_days_ago],
-                incentive_stats_token_prices_df[incentive_stats_token_prices_df.index > thirty_days_ago],
-                "Previous 30 Days: Percent Difference Achieved vs Incentive Stats Price",
+            make_histogram_subplots(
+                swapped_df[swapped_df["chain"] == chain.name],
+                col="incentive percent diff to achieved",
+                title=f"{chain.name} Pecent Difference Between Incentive Calculator and Achieved",
             ),
             use_container_width=True,
         )
 
         st.plotly_chart(
-            _make_histogram_of_percent_diff(
-                achieved_eth_price_df[achieved_eth_price_df.index > thirty_days_ago],
-                oracle_price_df[oracle_price_df.index > thirty_days_ago],
-                "Previous 30 Days: Percent Difference Achieved vs Oracle Price",
+            make_histogram_subplots(
+                swapped_df[swapped_df["chain"] == chain.name],
+                col="oracle percent diff to achieved",
+                title=f"{chain.name} Pecent Difference Between Oracle and Achieved",
+            ),
+            use_container_width=True,
+        )
+
+    recent_df = swapped_df[swapped_df["timestamp"] > thirty_days_ago].copy()
+    for chain in [ETH_CHAIN, BASE_CHAIN]:
+
+        st.subheader(f"last 30 days {chain.name} Achieved vs Expected Token Price")
+        st.plotly_chart(
+            make_histogram_subplots(
+                recent_df[recent_df["chain"] == chain.name],
+                col="incentive percent diff to achieved",
+                title=f"{chain.name}  Pecent Difference Between Incentive Calculator and Achieved",
             ),
             use_container_width=True,
         )
 
         st.plotly_chart(
-            _make_histogram_of_percent_diff(
-                achieved_eth_price_df,
-                incentive_stats_token_prices_df,
-                "Since Inception: Percent Difference Achieved vs Incentive Stats Price",
-            ),
-            use_container_width=True,
-        )
-
-        st.plotly_chart(
-            _make_histogram_of_percent_diff(
-                achieved_eth_price_df, oracle_price_df, "Since Inception: Percent Difference Achieved vs Oracle Price"
+            make_histogram_subplots(
+                recent_df[recent_df["chain"] == chain.name],
+                col="oracle percent diff to achieved",
+                title=f"{chain.name} Pecent Difference Between Oracle and Achieved",
             ),
             use_container_width=True,
         )
@@ -196,79 +277,14 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
             """
             ## Achieved Price
             - The actual ratio of tokens sold / WETH when selling reward tokens
-            
+
             ## Achieved vs Incentive Stats Price
-            - This metric uses the Incentive Stats contract to obtain the minimum of the fast and slow filtered incentive token prices. 
+            - This metric uses the Incentive Stats contract to obtain the minimum of the fast and slow filtered incentive token prices.
             - This provides a conservative estimate of the incentive token's value.
             - Positive values indicate that we sold the incentive token for more than the Incentive Stats Price at that block
 
             ## Achieved vs Oracle Price
             - This metric uses the Root Price Oracle to fetch the current price of the incentive token (typically via Chainlink)
-            - Positive values indicate that we sold the incentive token for more than the oracle price at that block.
+            - Positive values indicate that we sold the incentive token for more than the Oracle Price at that block.
             """
         )
-
-
-def _update_swapped_df():
-    """Refresh the swapped_df on disk"""
-    swapped_df = load_table_if_exists(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
-    # I suspect that the USDC prices on base are wrong, TODO use identiy functions and clean them up in memory
-
-    if swapped_df is None:
-        highest_eth_block_already_fetched = ETH_CHAIN.block_autopool_first_deployed
-        highest_base_block_already_fetched = BASE_CHAIN.block_autopool_first_deployed
-    else:
-        highest_eth_block_already_fetched = int(swapped_df[swapped_df["chain"] == ETH_CHAIN.name]["block"].max())
-        highest_base_block_already_fetched = int(swapped_df[swapped_df["chain"] == BASE_CHAIN.name]["block" ].max())
-            
-       
-    eth_swapped_df = _fetch_reward_token_price_during_liquidation(ETH_CHAIN, highest_eth_block_already_fetched)
-    write_df_to_table(eth_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
-    
-    base_swapped_df = _fetch_reward_token_price_during_liquidation(BASE_CHAIN, highest_base_block_already_fetched)
-    write_df_to_table(base_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
-    
-
-
-def fetch_reward_token_achieved_vs_incentive_token_price():
-    _update_swapped_df()
-
-
-def _make_histogram_of_percent_diff(
-    incentive_token_prices_df: pd.DataFrame, achieved_eth_price_df: pd.DataFrame, title: str
-):
-    percent_diff = 100 * ((incentive_token_prices_df - achieved_eth_price_df) / incentive_token_prices_df)
-
-    num_columns = int(len(percent_diff.columns) / 3) + 1
-    num_rows = int(len(percent_diff.columns) / 3) + 1
-    fig = sp.make_subplots(
-        rows=num_rows,
-        cols=num_columns,
-        subplot_titles=percent_diff.columns,
-        x_title="Percent Difference Achieved vs Expected",
-        y_title="Percent of Reward Liqudations",
-    )
-
-    # makes the histograms have the same scale
-    all_data = percent_diff.fillna(0).values.flatten()
-    bin_range = [all_data.min(), all_data.max()]
-    bin_range = [int(bin_range[0]) - 1, int(bin_range[1]) + 1]
-    bin_width = 1
-
-    for i, column in enumerate(percent_diff.columns):
-        row = (i // num_columns) + 1
-        col = (i % num_columns) + 1
-
-        hist = go.Histogram(
-            histnorm="percent", x=percent_diff[column], xbins=dict(start=bin_range[0], end=bin_range[1], size=bin_width)
-        )
-
-        fig.add_trace(hist, row=row, col=col)
-        fig.update_xaxes(range=bin_range, row=row, col=col, autorange=False)
-
-    fig.update_layout(height=600, width=900, showlegend=False, title=title)
-    return fig
-
-
-if __name__ == "__main__":
-    fetch_and_render_reward_token_achieved_vs_incentive_token_price()

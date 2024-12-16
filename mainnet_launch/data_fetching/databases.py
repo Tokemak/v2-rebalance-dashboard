@@ -1,5 +1,7 @@
 import sqlite3
 import pickle
+from datetime import datetime, timezone
+
 import pandas as pd
 from multicall import Multicall
 
@@ -93,6 +95,7 @@ def _initalize_tx_hash_to_gas_info_db():
 
 
 db_file = DB_DIR / "autopool_dashboard.db"
+TABLE_NAME_TO_LAST_UPDATED = "TABLE_NAME_TO_LAST_UPDATED"
 
 
 def _create_new_table_if_it_does_not_exist(df: pd.DataFrame, table_name: str, conn):
@@ -126,6 +129,7 @@ def _verify_all_rows_in_df_are_properly_saved(df: pd.DataFrame, table_name: str,
 
 
 def write_df_to_table(df: pd.DataFrame, table_name: str) -> None:
+    # note this should be the only external method that writes new data to any table
     with sqlite3.connect(db_file) as conn:
         cursor = conn.cursor()
 
@@ -139,6 +143,7 @@ def write_df_to_table(df: pd.DataFrame, table_name: str) -> None:
             _add_new_rows_to_already_existing_table(df, table_name, conn, cursor)
 
         _verify_all_rows_in_df_are_properly_saved(df, table_name, conn)
+        update_last_updated(table_name)
         # TODO consider adding a check that there are no duplicate rows in the table, and raising an error if so
 
 
@@ -173,10 +178,85 @@ def load_table_if_exists(table_name: str, where_clause: str | None = None) -> pd
         return df
 
 
+def run_query(query: str):
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        return cursor.fetchall()
+
+
+# Table and column names
+TABLE_NAME_TO_LAST_UPDATED = "TABLE_NAME_TO_LAST_UPDATED"
+TABLE_NAME_COLUMN = "table_name"
+LAST_UPDATED_COLUMN = "last_updated"
+
+
+def create_last_updated_table():
+    """Creates the TABLE_NAME_TO_LAST_UPDATED table if it doesn't exist."""
+    create_table_query = f"""
+    CREATE TABLE IF NOT EXISTS {TABLE_NAME_TO_LAST_UPDATED} (
+        {TABLE_NAME_COLUMN} TEXT PRIMARY KEY,
+        {LAST_UPDATED_COLUMN} TEXT
+    );
+    """
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
+        cursor.execute(create_table_query)
+        conn.commit()
+
+
+def update_last_updated(table_name: str):
+    """
+    Updates the last_updated timestamp for the given table name.
+    If the table name does not exist in the table, it inserts a new record.
+
+    Args:
+        table_name (str): The name of the table to update.
+    """
+    current_time = datetime.now(timezone.utc)
+    upsert_query = f"""
+    INSERT INTO {TABLE_NAME_TO_LAST_UPDATED} ({TABLE_NAME_COLUMN}, {LAST_UPDATED_COLUMN})
+    VALUES (?, ?)
+    ON CONFLICT({TABLE_NAME_COLUMN}) DO UPDATE SET
+        {LAST_UPDATED_COLUMN}=excluded.{LAST_UPDATED_COLUMN};
+    """
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
+        cursor.execute(upsert_query, (table_name, current_time))
+        conn.commit()
+
+
+def get_last_updated(table_name: str):
+    """
+    Retrieves the last_updated UTC timestamp for the given table name.
+
+    Args:
+        table_name (str): The name of the table to query.
+
+    Returns:
+        Optional[str]: The last updated timestamp in ISO 8601 format, or None if not found.
+    """
+    select_query = f"""
+    SELECT {LAST_UPDATED_COLUMN} FROM {TABLE_NAME_TO_LAST_UPDATED}
+    WHERE {TABLE_NAME_COLUMN} = ?;
+    """
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
+        cursor.execute(select_query, (table_name,))
+        result = cursor.fetchone()
+        if result:
+            return pd.to_datetime(result[0], utc=True)  # Return the last_updated timestamp
+        return None
+
+
 def _initalize_all_databases():
     _initalize_tx_hash_to_gas_info_db()
     _initialize_multicall_hash_response_db()
+    create_last_updated_table()
 
+
+_initalize_all_databases()
+# on import ensure the tables exist
 
 if __name__ == "__main__":
     _initalize_all_databases()
