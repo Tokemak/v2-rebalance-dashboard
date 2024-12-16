@@ -13,7 +13,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     build_blocks_to_use,
 )
-from mainnet_launch.data_fetching.databases import write_df_to_table, load_table_if_exists, get_last_updated
+from mainnet_launch.data_fetching.new_databases import write_df_to_table, load_table_if_exists, get_last_updated
 
 from mainnet_launch.data_fetching.get_events import fetch_events
 
