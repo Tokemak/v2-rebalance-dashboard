@@ -164,13 +164,16 @@ def _update_swapped_df():
     write_df_to_table(base_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
 
 
-def _should_update() -> bool:
+def _should_update(max_latency: str = "6 hours") -> bool:
     current_time = datetime.now(timezone.utc)
     last_updated = get_last_updated(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
 
+    if last_updated is None:
+        return True
+
     diff = current_time - last_updated
 
-    if diff > pd.Timedelta("6 hours"):
+    if diff > pd.Timedelta(max_latency):
         return True
     else:
         return False
@@ -211,10 +214,14 @@ def make_histogram_subplots(df: pd.DataFrame, col: str, title: str):
 
 def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
 
-    if _should_update():
+    if _should_update(max_latency="6 hours"):
+        # if we haven't tried to update the incentive toekn prices in the last 6 hours, try to do so
         _update_swapped_df()
 
     swapped_df = load_table_if_exists(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+    # exclude the cases where the incentive calculator returns a 0 price
+    swapped_df = swapped_df[swapped_df["incentive_calculator_price"] != 0].copy()
+
     if swapped_df is None:
         raise ValueError("Failed to read swapped df from disk because the table does not exist")
 
@@ -226,9 +233,6 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
     swapped_df["oracle percent diff to achieved"] = (
         100 * (swapped_df["oracle_price"] - swapped_df["achieved_price"]) / swapped_df["oracle_price"]
     )
-
-    today = datetime.now(timezone.utc)
-    thirty_days_ago = today - timedelta(days=30)
 
     for chain in [ETH_CHAIN, BASE_CHAIN]:
         st.subheader(f"Since Inception {chain.name} Achieved vs Expected Token Price")
@@ -250,15 +254,17 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
             use_container_width=True,
         )
 
+    today = datetime.now(timezone.utc)
+    thirty_days_ago = today - timedelta(days=30)
     recent_df = swapped_df[swapped_df["timestamp"] > thirty_days_ago].copy()
-    for chain in [ETH_CHAIN, BASE_CHAIN]:
 
-        st.subheader(f"last 30 days {chain.name} Achieved vs Expected Token Price")
+    for chain in [ETH_CHAIN, BASE_CHAIN]:
+        st.subheader(f"Last 30 days {chain.name} Achieved vs Expected Token Price")
         st.plotly_chart(
             make_histogram_subplots(
                 recent_df[recent_df["chain"] == chain.name],
                 col="incentive percent diff to achieved",
-                title=f"{chain.name}  Pecent Difference Between Incentive Calculator and Achieved",
+                title=f"{chain.name} Pecent Difference Between Incentive Calculator and Achieved",
             ),
             use_container_width=True,
         )
@@ -288,3 +294,7 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
             - Positive values indicate that we sold the incentive token for more than the Oracle Price at that block.
             """
         )
+
+
+if __name__ == "__main__":
+    fetch_and_render_reward_token_achieved_vs_incentive_token_price()
