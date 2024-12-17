@@ -52,7 +52,7 @@ def get_timestamp_table_was_last_updated(table_name: str) -> None | pd.Timestamp
             cursor.execute(select_query, (table_name,))
             result = cursor.fetchone()
             if result is not None:
-                return pd.to_datetime(result[0], utc=True, unit='s')
+                return pd.to_datetime(result[0], utc=True, unit="s")
             return None
     except sqlite3.Error as e:
         print(f"An error occurred while fetching the timestamp for '{table_name}': {e}")
@@ -66,6 +66,7 @@ def write_timestamp_table_was_last_updated(table_name: str, cursor) -> None:
     Parameters:
         table_name (str): The name of the table to update.
     """
+    ensure_table_to_last_updated_exists()  # only needs to run once,
     current_unix_time = int(datetime.now(timezone.utc).timestamp())
     upsert_query = f"""
     INSERT INTO {TABLE_NAME_TO_LAST_UPDATED} (table_name, last_updated_unix_timestamp)
@@ -79,4 +80,3 @@ def write_timestamp_table_was_last_updated(table_name: str, cursor) -> None:
     except sqlite3.Error as e:
         print(f"An error occurred while updating '{table_name}': {e}")
         raise e
-

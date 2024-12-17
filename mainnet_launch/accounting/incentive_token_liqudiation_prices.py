@@ -13,7 +13,8 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     build_blocks_to_use,
 )
-from mainnet_launch.data_fetching.new_databases import write_df_to_table, load_table_if_exists, get_last_updated
+from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, load_table
+from mainnet_launch.data_fetching.should_update_database import get_timestamp_table_was_last_updated
 
 from mainnet_launch.data_fetching.get_events import fetch_events
 
@@ -147,7 +148,7 @@ def _fetch_reward_token_price_during_liquidation(chain: ChainData, start_block: 
 
 def _update_swapped_df():
     """Refresh the swapped_df on disk"""
-    swapped_df = load_table_if_exists(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+    swapped_df = load_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
 
     if swapped_df is None:
         # if the df does not exist fetch it from the start
@@ -158,25 +159,20 @@ def _update_swapped_df():
         highest_base_block_already_fetched = int(swapped_df[swapped_df["chain"] == BASE_CHAIN.name]["block"].max())
 
     eth_swapped_df = _fetch_reward_token_price_during_liquidation(ETH_CHAIN, highest_eth_block_already_fetched)
-    write_df_to_table(eth_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+    write_dataframe_to_table(eth_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
 
     base_swapped_df = _fetch_reward_token_price_during_liquidation(BASE_CHAIN, highest_base_block_already_fetched)
-    write_df_to_table(base_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+    write_dataframe_to_table(base_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
 
 
 def _should_update(max_latency: str = "6 hours") -> bool:
     current_time = datetime.now(timezone.utc)
-    last_updated = get_last_updated(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+    last_updated = get_timestamp_table_was_last_updated(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
 
     if last_updated is None:
         return True
 
-    diff = current_time - last_updated
-
-    if diff > pd.Timedelta(max_latency):
-        return True
-    else:
-        return False
+    return (current_time - last_updated) > pd.Timedelta(max_latency)
 
 
 def make_histogram_subplots(df: pd.DataFrame, col: str, title: str):
@@ -218,7 +214,7 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
         # if we haven't tried to update the incentive toekn prices in the last 6 hours, try to do so
         _update_swapped_df()
 
-    swapped_df = load_table_if_exists(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+    swapped_df = load_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
     # exclude the cases where the incentive calculator returns a 0 price
     swapped_df = swapped_df[swapped_df["incentive_calculator_price"] != 0].copy()
 
@@ -298,4 +294,3 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
 
 if __name__ == "__main__":
     fetch_and_render_reward_token_achieved_vs_incentive_token_price()
-
