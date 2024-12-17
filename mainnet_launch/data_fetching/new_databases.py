@@ -9,7 +9,7 @@ from mainnet_launch.data_fetching.should_update_database import (
     get_timestamp_table_was_last_updated,
     write_timestamp_table_was_last_updated,
     TABLE_NAME_TO_LAST_UPDATED,
-    ensure_table_to_last_updated_exists
+    ensure_table_to_last_updated_exists,
 )
 
 
@@ -62,9 +62,7 @@ def verify_rows_saved(df: pd.DataFrame, table_name: str, conn: sqlite3.Connectio
 
         missing_rows = df_tuples - full_df_tuples
         if missing_rows:
-            raise ValueError(
-                f"Data inconsistency detected in table '{table_name}'. Missing rows: {missing_rows}"
-            )
+            raise ValueError(f"Data inconsistency detected in table '{table_name}'. Missing rows: {missing_rows}")
         print(f"All rows from DataFrame are successfully saved to '{table_name}'.")
     except sqlite3.Error as e:
         print(f"Error verifying rows in table '{table_name}': {e}")
@@ -115,9 +113,7 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str) -> None:
         raise
 
 
-def load_table(
-    table_name: str, where_clause: Optional[str] = None
-) -> Optional[pd.DataFrame]:
+def load_table(table_name: str, where_clause: Optional[str] = None) -> Optional[pd.DataFrame]:
     """
     Loads data from the specified table if it exists and applies the given WHERE clause.
 
@@ -194,8 +190,7 @@ def main():
             print(loaded_df)
     except Exception as e:
         print(f"Failed to load data from table '{table_name}': {e}")
-        
-    
+
     pass
 
 
