@@ -298,3 +298,4 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
 
 if __name__ == "__main__":
     fetch_and_render_reward_token_achieved_vs_incentive_token_price()
+
