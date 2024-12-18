@@ -1,7 +1,6 @@
 import pandas as pd
 import streamlit as st
 from multicall import Call
-import plotly.express as px
 import plotly.subplots as sp
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, timezone
@@ -11,7 +10,6 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,
     safe_normalize_with_bool_success,
-    build_blocks_to_use,
 )
 from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, load_table
 from mainnet_launch.data_fetching.should_update_database import get_timestamp_table_was_last_updated
@@ -21,14 +19,10 @@ from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.constants import (
     INCENTIVE_PRICNIG_STATS,
     LIQUIDATION_ROW,
-    eth_client,
-    CACHE_TIME,
     ROOT_PRICE_ORACLE,
-    AutopoolConstants,
     ChainData,
     ETH_CHAIN,
     BASE_CHAIN,
-    time_decorator,
 )
 
 from mainnet_launch.abis.abis import DESTINATION_DEBT_REPORTING_SWAPPED_ABI
