@@ -81,8 +81,8 @@ def write_timestamp_table_was_last_updated(table_name: str, cursor) -> None:
         raise e
 
 
-
 def setup_database():
     ensure_table_to_last_updated_exists()
+
 
 setup_database()
