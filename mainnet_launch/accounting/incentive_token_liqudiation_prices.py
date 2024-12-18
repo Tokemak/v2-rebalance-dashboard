@@ -20,9 +20,9 @@ from mainnet_launch.constants import (
     INCENTIVE_PRICNIG_STATS,
     LIQUIDATION_ROW,
     ROOT_PRICE_ORACLE,
-    ChainData,
     ETH_CHAIN,
     BASE_CHAIN,
+    ChainData,
 )
 
 from mainnet_launch.abis.abis import DESTINATION_DEBT_REPORTING_SWAPPED_ABI
@@ -205,7 +205,7 @@ def make_histogram_subplots(df: pd.DataFrame, col: str, title: str):
 def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
 
     if _should_update(max_latency="6 hours"):
-        # if we haven't tried to update the incentive toekn prices in the last 6 hours, try to do so
+        # if we haven't tried to update the incentive token prices in the last 6 hours, try to do so
         _update_swapped_df()
 
     swapped_df = load_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
