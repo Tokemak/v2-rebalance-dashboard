@@ -1,6 +1,8 @@
 import sqlite3
 import pickle
+from datetime import datetime, timezone
 
+import pandas as pd
 from multicall import Multicall
 
 from mainnet_launch.constants import DB_DIR
@@ -97,5 +99,5 @@ def _initalize_all_databases():
     _initialize_multicall_hash_response_db()
 
 
-if __name__ == "__main__":
-    _initalize_all_databases()
+_initalize_all_databases()
+# on import ensure the tables exist

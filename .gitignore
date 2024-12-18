@@ -15,3 +15,4 @@ verify_all_pages_work.log
 cache_thread_already_running.lock
 tx_hash_to_gas_info.db
 multicall_logs.db
+mainnet_launch/databases/autopool_dashboard.db
