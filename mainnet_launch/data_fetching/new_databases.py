@@ -4,11 +4,9 @@ from typing import Optional
 
 import pandas as pd
 
-from mainnet_launch.constants import DB_FILE
+from mainnet_launch.constants import DB_FILE, time_decorator
 from mainnet_launch.data_fetching.should_update_database import (
-    get_timestamp_table_was_last_updated,
     write_timestamp_table_was_last_updated,
-    TABLE_NAME_TO_LAST_UPDATED,
     ensure_table_to_last_updated_exists,
 )
 
@@ -69,7 +67,8 @@ def verify_rows_saved(df: pd.DataFrame, table_name: str, conn: sqlite3.Connectio
         raise
 
 
-def write_dataframe_to_table(df: pd.DataFrame, table_name: str) -> None:
+@time_decorator
+def write_dataframe_to_table(df: pd.DataFrame, table_name: str, verify_data_stored_properly: bool = True) -> None:
     """
     Writes a DataFrame to the specified table in the database.
     If the table does not exist, it is created. Otherwise, new rows are added.
@@ -78,8 +77,6 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str) -> None:
         df (pd.DataFrame): DataFrame containing data to be written.
         table_name (str): Name of the target table.
     """
-    ensure_table_to_last_updated_exists()
-
     try:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
@@ -93,14 +90,15 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str) -> None:
 
             if not table_exists:
                 # Create the table and insert data
-                df.to_sql(table_name, conn, index=False, if_exists="fail")
+                df.to_sql(table_name, conn, index=False, if_exists="fail", method="multi", chunksize=10_000)
                 print(f"Table '{table_name}' created and data inserted.")
             else:
                 # Insert new rows into the existing table
                 add_new_rows(df, table_name, conn)
 
-            # Verify that all rows are saved
-            verify_rows_saved(df, table_name, conn)
+            if verify_data_stored_properly:
+                # Verify that all rows are saved
+                verify_rows_saved(df, table_name, conn)
 
             # Update the last updated timestamp
             write_timestamp_table_was_last_updated(table_name, cursor)
@@ -113,6 +111,7 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str) -> None:
         raise
 
 
+@time_decorator
 def load_table(table_name: str, where_clause: Optional[str] = None) -> Optional[pd.DataFrame]:
     """
     Loads data from the specified table if it exists and applies the given WHERE clause.
@@ -156,43 +155,4 @@ def load_table(table_name: str, where_clause: Optional[str] = None) -> Optional[
 
     except sqlite3.Error as e:
         print(f"Error loading data from table '{table_name}': {e}")
-        return None
-
-
-def main():
-    """
-    Main function to demonstrate writing and loading data.
-    """
-    # Example DataFrame
-    data = {
-        "id": [1, 2, 3],
-        "name": ["Alice", "Bob", "Charlie"],
-        "timestamp": [
-            datetime.now(timezone.utc),
-            datetime.now(timezone.utc),
-            datetime.now(timezone.utc),
-        ],
-    }
-    df = pd.DataFrame(data)
-
-    table_name = "users"
-
-    # Write DataFrame to table
-    try:
-        write_dataframe_to_table(df, table_name)
-    except Exception as e:
-        print(f"Failed to write DataFrame to table '{table_name}': {e}")
-
-    # Load data from table
-    try:
-        loaded_df = load_table(table_name, where_clause="id = 1")
-        if loaded_df is not None:
-            print(loaded_df)
-    except Exception as e:
-        print(f"Failed to load data from table '{table_name}': {e}")
-
-    pass
-
-
-if __name__ == "__main__":
-    main()
+        raise e
