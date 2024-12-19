@@ -81,6 +81,15 @@ def write_timestamp_table_was_last_updated(table_name: str, cursor) -> None:
         raise e
 
 
+def should_update_table(table_name:str, max_latency: str = "6 hours") -> bool:
+    current_time = datetime.now(timezone.utc)
+    last_updated = get_timestamp_table_was_last_updated(table_name)
+
+    if last_updated is None:
+        return True
+
+    return (current_time - last_updated) > pd.Timedelta(max_latency)    
+
 def setup_database():
     ensure_table_to_last_updated_exists()
 
