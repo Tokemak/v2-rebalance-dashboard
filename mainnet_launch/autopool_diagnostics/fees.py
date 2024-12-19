@@ -202,11 +202,11 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
     shifted_fee_df = fee_df.shift(-16, freq="h")
     weekly_fees_df = shifted_fee_df.resample("W-WED").sum()
     weekly_fees_df.index = weekly_fees_df.index + pd.Timedelta(hours=16)
-    
+
     weekly_fee_fig = px.bar(weekly_fees_df)
     weekly_fee_fig.update_layout(
         title=f"{autopool.name} Total Weekly Fees",
-        xaxis_tickformat="%Y-%m-%d",
+        xaxis_tickformat="%Y-%m-%d %H:%M",
         xaxis_title="Date",
         yaxis_title="ETH",
         xaxis_tickangle=-45,
