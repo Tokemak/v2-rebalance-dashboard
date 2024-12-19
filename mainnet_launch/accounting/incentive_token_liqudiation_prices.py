@@ -12,7 +12,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
 )
 from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, load_table, run_query
-from mainnet_launch.data_fetching.should_update_database import get_timestamp_table_was_last_updated
+from mainnet_launch.data_fetching.should_update_database import should_update_table
 
 from mainnet_launch.data_fetching.get_events import fetch_events
 
@@ -159,16 +159,6 @@ def _update_swapped_df():
     write_dataframe_to_table(base_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
 
 
-def _should_update(max_latency: str = "6 hours") -> bool:
-    current_time = datetime.now(timezone.utc)
-    last_updated = get_timestamp_table_was_last_updated(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
-
-    if last_updated is None:
-        return True
-
-    return (current_time - last_updated) > pd.Timedelta(max_latency)
-
-
 def make_histogram_subplots(df: pd.DataFrame, col: str, title: str):
     # this makes sure that the charts are in the same order
     sold_reward_tokens = sorted(list(df["tokenSymbol"].unique()))
@@ -230,7 +220,7 @@ def _get_only_some_incentive_tokens_prices(
 
 def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
 
-    if _should_update(max_latency="6 hours"):
+    if should_update_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME):
         # if we haven't tried to update the incentive token prices in the last 6 hours, try to do so
         _update_swapped_df()
 
