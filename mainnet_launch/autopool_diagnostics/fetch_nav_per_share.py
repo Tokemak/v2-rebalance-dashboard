@@ -4,9 +4,10 @@ from multicall import Call
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
+    build_blocks_to_use,
 )
 
-from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, AutopoolConstants
+from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, AutopoolConstants, AUTO_ETH
 
 
 def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
@@ -56,3 +57,8 @@ def fetch_nav_per_share(blocks: list[int], autopool: AutopoolConstants) -> pd.Da
     nav_per_share_df["30_day_MA_annualized_return"] = nav_per_share_df["30_day_MA_return"] * 365 * 100
 
     return nav_per_share_df
+
+
+if __name__ == "__main__":
+    blocks = build_blocks_to_use(AUTO_ETH.chain)
+    df = fetch_nav_per_share(blocks, AUTO_ETH)

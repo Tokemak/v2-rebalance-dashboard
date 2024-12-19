@@ -27,7 +27,7 @@ SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "rebalance_plans"
 WORKING_DATA_DIR = ROOT_DIR / "working_data"
 TX_HASH_TO_GAS_COSTS_PATH = WORKING_DATA_DIR / "tx_hash_to_gas_info.json"
 DB_DIR = ROOT_DIR / "databases"
-
+DB_FILE = DB_DIR / "autopool_dashboard.db"
 
 os.makedirs(SOLVER_REBALANCE_PLANS_DIR, exist_ok=True)
 os.makedirs(WORKING_DATA_DIR, exist_ok=True)
