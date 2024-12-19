@@ -11,6 +11,22 @@ from mainnet_launch.data_fetching.should_update_database import (
 )
 
 
+def convert_timestamps_to_iso(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Converts the 'timestamp' column in the DataFrame to ISO8601 string format.
+
+    Parameters:
+        df (pd.DataFrame): DataFrame containing a 'timestamp' column.
+
+    Returns:
+        pd.DataFrame: DataFrame with 'timestamp' column converted to strings.
+    """
+    if "timestamp" in df.columns:
+        df = df.copy()  # To avoid SettingWithCopyWarning
+        df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    return df
+
+
 def add_new_rows(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) -> None:
     """
     Adds new rows from the DataFrame to an existing table using INSERT OR IGNORE.
@@ -21,7 +37,10 @@ def add_new_rows(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) ->
         conn (sqlite3.Connection): SQLite database connection.
     """
     try:
-        df.to_sql("temp_table", conn, index=False, if_exists="replace")
+        # Convert 'timestamp' to ISO8601 format before writing
+        df_to_insert = convert_timestamps_to_iso(df)
+
+        df_to_insert.to_sql("temp_table", conn, index=False, if_exists="replace", method="multi", chunksize=10_000)
         insert_query = f"""
         INSERT OR IGNORE INTO {table_name}
         SELECT * FROM temp_table
@@ -52,7 +71,13 @@ def verify_rows_saved(df: pd.DataFrame, table_name: str, conn: sqlite3.Connectio
         full_df = pd.read_sql_query(query, conn)
 
         if "timestamp" in full_df.columns:
-            full_df["timestamp"] = pd.to_datetime(full_df["timestamp"], utc=True)
+            # Parse 'timestamp' back to datetime
+            full_df["timestamp"] = pd.to_datetime(full_df["timestamp"], format="%Y-%m-%d %H:%M:%S", utc=True)
+
+        # Ensure the original DataFrame has 'timestamp' as datetime for accurate comparison
+        if "timestamp" in df.columns:
+            df = df.copy()
+            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
         # Convert both DataFrames to sets of tuples for efficient comparison
         df_tuples = set([tuple(row) for row in df.itertuples(index=False, name=None)])
@@ -89,8 +114,11 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str, verify_data_stor
             table_exists = cursor.fetchone() is not None
 
             if not table_exists:
+                # Convert 'timestamp' to ISO8601 format before writing
+                df_to_write = convert_timestamps_to_iso(df)
+
                 # Create the table and insert data
-                df.to_sql(table_name, conn, index=False, if_exists="fail", method="multi", chunksize=10_000)
+                df_to_write.to_sql(table_name, conn, index=False, if_exists="fail", method="multi", chunksize=10_000)
                 print(f"Table '{table_name}' created and data inserted.")
             else:
                 # Insert new rows into the existing table
@@ -148,7 +176,7 @@ def load_table(table_name: str, where_clause: Optional[str] = None) -> Optional[
 
             # Convert 'timestamp' column to datetime if it exists
             if "timestamp" in df.columns:
-                df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+                df["timestamp"] = pd.to_datetime(df["timestamp"], format="%Y-%m-%d %H:%M:%S", utc=True)
 
             print(f"Data loaded from table '{table_name}'.")
             return df
@@ -156,3 +184,9 @@ def load_table(table_name: str, where_clause: Optional[str] = None) -> Optional[
     except sqlite3.Error as e:
         print(f"Error loading data from table '{table_name}': {e}")
         raise e
+
+
+def run_query(query, params):
+    with sqlite3.connect(DB_FILE) as conn:
+        df = pd.read_sql_query(query, conn, params=params)
+        return df

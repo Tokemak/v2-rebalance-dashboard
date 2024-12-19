@@ -11,7 +11,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
     safe_normalize_with_bool_success,
 )
-from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, load_table
+from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, load_table, run_query
 from mainnet_launch.data_fetching.should_update_database import get_timestamp_table_was_last_updated
 
 from mainnet_launch.data_fetching.get_events import fetch_events
@@ -202,18 +202,20 @@ def make_histogram_subplots(df: pd.DataFrame, col: str, title: str):
     return fig
 
 
-def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
+def _get_only_some_incentive_tokens_prices(
+    chain: ChainData,
+    start_time: pd.Timestamp,
+) -> pd.DataFrame:
+    query = f"""
+    SELECT *
+    FROM {INCENTIVE_TOKEN_PRICES_TABLE_NAME}
+    WHERE chain = ?
+      AND timestamp > ?
+      AND incentive_calculator_price != 0;
+    """
+    formatted_start_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
 
-    if _should_update(max_latency="6 hours"):
-        # if we haven't tried to update the incentive token prices in the last 6 hours, try to do so
-        _update_swapped_df()
-
-    swapped_df = load_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
-    # exclude the cases where the incentive calculator returns a 0 price
-    swapped_df = swapped_df[swapped_df["incentive_calculator_price"] != 0].copy()
-
-    if swapped_df is None:
-        raise ValueError("Failed to read swapped df from disk because the table does not exist")
+    swapped_df = run_query(query, params=(chain.name, formatted_start_time))
 
     swapped_df["incentive percent diff to achieved"] = (
         100
@@ -223,50 +225,40 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
     swapped_df["oracle percent diff to achieved"] = (
         100 * (swapped_df["oracle_price"] - swapped_df["achieved_price"]) / swapped_df["oracle_price"]
     )
+    return swapped_df
 
-    for chain in [ETH_CHAIN, BASE_CHAIN]:
-        st.subheader(f"Since Inception {chain.name} Achieved vs Expected Token Price")
-        st.plotly_chart(
-            make_histogram_subplots(
-                swapped_df[swapped_df["chain"] == chain.name],
-                col="incentive percent diff to achieved",
-                title=f"{chain.name} Pecent Difference Between Incentive Calculator and Achieved",
-            ),
-            use_container_width=True,
-        )
 
-        st.plotly_chart(
-            make_histogram_subplots(
-                swapped_df[swapped_df["chain"] == chain.name],
-                col="oracle percent diff to achieved",
-                title=f"{chain.name} Pecent Difference Between Oracle and Achieved",
-            ),
-            use_container_width=True,
-        )
+def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
+
+    if _should_update(max_latency="6 hours"):
+        # if we haven't tried to update the incentive token prices in the last 6 hours, try to do so
+        _update_swapped_df()
 
     today = datetime.now(timezone.utc)
     thirty_days_ago = today - timedelta(days=30)
-    recent_df = swapped_df[swapped_df["timestamp"] > thirty_days_ago].copy()
+    year_ago = today - timedelta(days=365)
 
-    for chain in [ETH_CHAIN, BASE_CHAIN]:
-        st.subheader(f"Last 30 days {chain.name} Achieved vs Expected Token Price")
-        st.plotly_chart(
-            make_histogram_subplots(
-                recent_df[recent_df["chain"] == chain.name],
-                col="incentive percent diff to achieved",
-                title=f"{chain.name} Pecent Difference Between Incentive Calculator and Achieved",
-            ),
-            use_container_width=True,
-        )
+    for start_time in [thirty_days_ago, year_ago]:
+        for chain in [ETH_CHAIN, BASE_CHAIN]:
+            st.subheader(f"Since {start_time.strftime('%Y-%m-%d')} {chain.name} Achieved vs Expected Token Price")
+            chain_swapped_df = _get_only_some_incentive_tokens_prices(chain, start_time)
+            st.plotly_chart(
+                make_histogram_subplots(
+                    chain_swapped_df,
+                    col="incentive percent diff to achieved",
+                    title=f"{chain.name} Pecent Difference Between Incentive Calculator and Achieved",
+                ),
+                use_container_width=True,
+            )
 
-        st.plotly_chart(
-            make_histogram_subplots(
-                recent_df[recent_df["chain"] == chain.name],
-                col="oracle percent diff to achieved",
-                title=f"{chain.name} Pecent Difference Between Oracle and Achieved",
-            ),
-            use_container_width=True,
-        )
+            st.plotly_chart(
+                make_histogram_subplots(
+                    chain_swapped_df,
+                    col="oracle percent diff to achieved",
+                    title=f"{chain.name} Pecent Difference Between Oracle and Achieved",
+                ),
+                use_container_width=True,
+            )
 
     with st.expander("Description"):
         st.write(
