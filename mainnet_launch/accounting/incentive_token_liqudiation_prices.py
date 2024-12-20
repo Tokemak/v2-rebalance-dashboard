@@ -11,7 +11,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
     safe_normalize_with_bool_success,
 )
-from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, load_table, run_query
+from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, load_table, run_read_only_query
 from mainnet_launch.data_fetching.should_update_database import should_update_table
 
 from mainnet_launch.data_fetching.get_events import fetch_events
@@ -205,7 +205,7 @@ def _get_only_some_incentive_tokens_prices(
     """
     formatted_start_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
 
-    swapped_df = run_query(query, params=(chain.name, formatted_start_time))
+    swapped_df = run_read_only_query(query, params=(chain.name, formatted_start_time))
 
     swapped_df["incentive percent diff to achieved"] = (
         100
