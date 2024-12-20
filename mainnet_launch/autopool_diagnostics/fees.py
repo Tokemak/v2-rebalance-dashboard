@@ -27,7 +27,7 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
 
     periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
     streaming_fee_df["normalized_fees"] = streaming_fee_df["fees"].apply(lambda x: int(x) / 1e18)
-    periodic_fee_df = periodic_fee_df[["normalized_fees", "block"]].copy()
+    periodic_fee_df = periodic_fee_df[["normalized_fees"]].copy()
     streaming_fee_df = streaming_fee_df[["normalized_fees"]].copy()
 
     periodic_fee_df.columns = [f"{autopool.name}_periodic"]
@@ -219,3 +219,4 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
 
 if __name__ == "__main__":
     fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
+    fetch_autopool_fee_data(AUTO_LRT)

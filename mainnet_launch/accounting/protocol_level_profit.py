@@ -3,25 +3,36 @@ from datetime import datetime, timedelta, timezone
 import streamlit as st
 import pandas as pd
 
-from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, ETH_CHAIN, BASE_CHAIN, AutopoolConstants, ChainData
+from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, ETH_CHAIN, BASE_CHAIN, ChainData
 from mainnet_launch.gas_costs.keeper_network_gas_costs import (
     fetch_solver_gas_costs,
     fetch_keeper_network_gas_costs,
     fetch_all_autopool_debt_reporting_events,
 )
-
-from mainnet_launch.autopool_diagnostics.fees import fetch_autopool_fee_data
-from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
+from mainnet_launch.accounting.fee_data_for_profit_and_loss import fetch_fee_df
 
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_protocol_level_profit_and_loss_data():
     gas_cost_df = fetch_gas_cost_df()
-    eth_fee_df = fetch_fee_df(ETH_CHAIN)
-    base_fee_df = fetch_fee_df(BASE_CHAIN)
-    fee_df = pd.concat([eth_fee_df, base_fee_df]).fillna(0.0)
-    fee_df.sort_index(inplace=True)
+    fee_df = fetch_fee_df_normalized_fees()
     return gas_cost_df, fee_df
+
+
+def fetch_fee_df_normalized_fees() -> pd.DataFrame:
+    fee_df = fetch_fee_df()
+    periodic_fee_events_df = fee_df[fee_df["event"] == "PeriodicFeeCollected"].pivot_table(
+        columns="autopool", values="normalized_fees", index="timestamp"
+    )
+    periodic_fee_events_df.columns = [f"{autopool_name}_periodic" for autopool_name in periodic_fee_events_df.columns]
+    streaming_fee_events_df = fee_df[fee_df["event"] == "FeeCollected"].pivot_table(
+        columns="autopool", values="normalized_fees", index="timestamp"
+    )
+    streaming_fee_events_df.columns = [
+        f"{autopool_name}_streaming" for autopool_name in streaming_fee_events_df.columns
+    ]
+    flat_fee_df = pd.concat([streaming_fee_events_df, periodic_fee_events_df]).fillna(0).sort_index()
+    return flat_fee_df
 
 
 def fetch_and_render_protocol_level_profit_and_loss_data():
@@ -122,21 +133,7 @@ def fetch_gas_cost_df() -> pd.DataFrame:
     return gas_cost_df
 
 
-def fetch_fee_df(chain: ChainData) -> pd.DataFrame:
-    """
-    Fetch all the the fees in ETH from the feeCollected and PeriodicFeeCollected events for each autopool
-    """
-    fee_dfs = []
-    for autopool in ALL_AUTOPOOLS:
-        if autopool.chain == chain:
-
-            periodic_fee_df, streaming_fee_df = fetch_autopool_fee_data(autopool)
-            fee_dfs.extend([periodic_fee_df, streaming_fee_df])
-    fee_df = pd.concat(fee_dfs).fillna(0.0)
-    fee_df.sort_index(inplace=True)
-    return fee_df
-
-
 if __name__ == "__main__":
-    fetch_and_render_protocol_level_profit_and_loss_data()
-    pass
+    df = fetch_fee_df_normalized_fees()
+    print(df.head())
+    print(df.tail())
