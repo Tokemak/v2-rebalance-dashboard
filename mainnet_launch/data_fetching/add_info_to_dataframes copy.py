@@ -11,19 +11,6 @@ from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blo
 from mainnet_launch.data_fetching.databases import TX_HASH_TO_GAS_INFO_DB, _initalize_tx_hash_to_gas_info_db
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 def _load_tx_hash_to_gas_info(hashes: list[str]) -> pd.DataFrame:
     """Load gas info from SQLite database for specified hashes and return as a DataFrame."""
     if len(hashes) == 0:
@@ -173,13 +160,7 @@ def add_transaction_gas_info_to_df_with_tx_hash(df: pd.DataFrame, chain: ChainDa
 #     return df
 
 
-
-TIMESTAMP_BLOCK_CHAIN_TABLE = 'TIMESTAMP_BLOCK_CHAIN_TABLE'
-
-
-from 
-
-
+TIMESTAMP_BLOCK_CHAIN_TABLE = "TIMESTAMP_BLOCK_CHAIN_TABLE"
 
 
 def add_timestamp_to_df_with_block_column(df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
