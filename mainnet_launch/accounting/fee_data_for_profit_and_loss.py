@@ -31,7 +31,7 @@ def fetch_fee_events_from_autopool(autopool: AutopoolConstants, start_block: int
         pass
     fee_df["autopool"] = autopool.name
     fee_df["chain"] = autopool.chain.name
-    fee_df = add_timestamp_to_df_with_block_column(fee_df, autopool.chain)
+    fee_df = add_timestamp_to_df_with_block_column(fee_df, autopool.chain).reset_index()
     return fee_df
 
 
