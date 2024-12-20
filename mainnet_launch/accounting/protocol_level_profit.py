@@ -129,6 +129,7 @@ def fetch_fee_df(chain: ChainData) -> pd.DataFrame:
     fee_dfs = []
     for autopool in ALL_AUTOPOOLS:
         if autopool.chain == chain:
+
             periodic_fee_df, streaming_fee_df = fetch_autopool_fee_data(autopool)
             fee_dfs.extend([periodic_fee_df, streaming_fee_df])
     fee_df = pd.concat(fee_dfs).fillna(0.0)
