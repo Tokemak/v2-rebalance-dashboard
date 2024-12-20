@@ -25,7 +25,7 @@ def ensure_table_to_last_updated_exists() -> None:
             cursor = conn.cursor()
             cursor.execute(create_table_query)
             conn.commit()
-            print(f"Table '{TABLE_NAME_TO_LAST_UPDATED}' is ready.")
+            # print(f"Table '{TABLE_NAME_TO_LAST_UPDATED}' is ready.")
     except sqlite3.Error as e:
         print(f"An error occurred while creating the table: {e}")
         raise e
@@ -75,7 +75,7 @@ def write_timestamp_table_was_last_updated(table_name: str, cursor) -> None:
     """
     try:
         cursor.execute(upsert_query, (table_name, current_unix_time))
-        print(f"Successfully updated '{table_name}' with timestamp {current_unix_time}.")
+        print(f"Successfully updated {table_name=} {current_unix_time=}.")
     except sqlite3.Error as e:
         print(f"An error occurred while updating '{table_name}': {e}")
         raise e

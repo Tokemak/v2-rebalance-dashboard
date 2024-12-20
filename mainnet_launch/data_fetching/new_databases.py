@@ -23,13 +23,13 @@ def convert_timestamps_to_iso(df: pd.DataFrame) -> pd.DataFrame:
     """
     if "timestamp" in df.columns:
         df = df.copy()  # To avoid SettingWithCopyWarning
-        df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
+        df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
     return df
 
 
 def add_new_rows(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) -> None:
     """
-    Adds new rows from the DataFrame to an existing table using INSERT OR IGNORE.
+    Adds new rows from the DataFrame to an existing table using INSERT with NOT EXISTS to avoid duplicates.
 
     Parameters:
         df (pd.DataFrame): DataFrame containing new data to be inserted.
@@ -37,43 +37,84 @@ def add_new_rows(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) ->
         conn (sqlite3.Connection): SQLite database connection.
     """
     try:
-        # Convert 'timestamp' to ISO8601 format before writing
-        df_to_insert = convert_timestamps_to_iso(df)
+        # Write the DataFrame to a temporary table
+        df.to_sql("temp_table", conn, index=False, if_exists="replace", method="multi", chunksize=10_000)
 
-        # Write to a temporary table
-        df_to_insert.to_sql("temp_table", conn, index=False, if_exists="replace", method="multi", chunksize=10_000)
-
-        # Insert only unique rows from the temporary table
+        # Build the INSERT query using NOT EXISTS to prevent duplicates
+        columns = ", ".join(df.columns)
         insert_query = f"""
-        INSERT INTO {table_name}
-        SELECT *
+        INSERT INTO {table_name} ({columns})
+        SELECT {columns}
         FROM temp_table
         WHERE NOT EXISTS (
-            SELECT 1
-            FROM {table_name}
-            WHERE {table_name}.rowid = temp_table.rowid
+            SELECT 1 
+            FROM {table_name} 
+            WHERE {" AND ".join([f"{table_name}.{col} = temp_table.{col}" for col in df.columns])}
         )
         """
+
+        # Execute the INSERT query
         conn.execute(insert_query)
 
-        # Drop duplicates from the table based on all columns
-        cleanup_query = f"""
-        DELETE FROM {table_name}
-        WHERE rowid NOT IN (
-            SELECT MIN(rowid)
-            FROM {table_name}
-            GROUP BY *
-        )
-        """
-        conn.execute(cleanup_query)
+        # Drop the temporary table
+        conn.execute("DROP TABLE IF EXISTS temp_table")
 
         # Commit the transaction
         conn.commit()
-        print(f"Inserted new rows into '{table_name}' and removed duplicates based on all columns.")
+        print(f"Inserted new rows into '{table_name}' while avoiding duplicates.")
+
     except sqlite3.Error as e:
         conn.rollback()
         print(f"Error inserting new rows into '{table_name}': {e}")
         raise
+
+
+# def add_new_rows(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) -> None:
+#     """
+#     Adds new rows from the DataFrame to an existing table using INSERT OR IGNORE.
+
+#     Parameters:
+#         df (pd.DataFrame): DataFrame containing new data to be inserted.
+#         table_name (str): Name of the target table.
+#         conn (sqlite3.Connection): SQLite database connection.
+#     """
+#     try:
+
+#         # Write to a temporary table
+#         df.to_sql("temp_table", conn, index=False, if_exists="replace", method="multi", chunksize=10_000)
+
+#         # Insert only unique rows from the temporary table
+#         insert_query = f"""
+#         INSERT INTO {table_name}
+#         SELECT *
+#         FROM temp_table
+#         WHERE NOT EXISTS (
+#             SELECT 1
+#             FROM {table_name}
+#             WHERE {table_name}.rowid = temp_table.rowid
+#         )
+#         """
+#         conn.execute(insert_query)
+#         columns = str([col for col in df.columns])[1:-1].replace("'", "")
+
+#         # Drop duplicates from the table based on all columns
+#         cleanup_query = f"""
+#         DELETE FROM {table_name}
+#         WHERE rowid NOT IN (
+#             SELECT MIN(rowid)
+#             FROM {table_name}
+#             GROUP BY {columns}
+#         )
+#         """
+#         conn.execute(cleanup_query)
+
+#         # Commit the transaction
+#         conn.commit()
+#         print(f"Inserted new rows into '{table_name}' and removed duplicates based on all columns.")
+#     except sqlite3.Error as e:
+#         conn.rollback()
+#         print(f"Error inserting new rows into '{table_name}': {e}")
+#         raise
 
 
 def verify_rows_saved(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) -> None:
@@ -89,26 +130,27 @@ def verify_rows_saved(df: pd.DataFrame, table_name: str, conn: sqlite3.Connectio
         ValueError: If any row in the DataFrame is not found in the table.
     """
     try:
+
         query = f"SELECT * FROM {table_name}"
         full_df = pd.read_sql_query(query, conn)
+        local_df = df.copy()
 
         if "timestamp" in full_df.columns:
-            # Parse 'timestamp' back to datetime
-            full_df["timestamp"] = pd.to_datetime(full_df["timestamp"], format="%Y-%m-%d %H:%M:%S", utc=True)
+            full_df["timestamp"] = pd.to_datetime(full_df["timestamp"], format="ISO8601", utc=True)
+            local_df["timestamp"] = pd.to_datetime(local_df["timestamp"], format="ISO8601", utc=True)
 
-        # Ensure the original DataFrame has 'timestamp' as datetime for accurate comparison
-        if "timestamp" in df.columns:
-            df = df.copy()
-            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+        is_subset = local_df.apply(tuple, axis=1).isin(full_df.apply(tuple, axis=1)).all()
+        if not is_subset:
+            print(local_df.head())
+            print(local_df.dtypes)
+            print(local_df.shape)
+            print(full_df.head())
+            print(full_df.dtypes)
+            print(full_df.shape)
+            pass
 
-        # Convert both DataFrames to sets of tuples for efficient comparison
-        df_tuples = set([tuple(row) for row in df.itertuples(index=False, name=None)])
-        full_df_tuples = set([tuple(row) for row in full_df.itertuples(index=False, name=None)])
-
-        missing_rows = df_tuples - full_df_tuples
-        if missing_rows:
-            raise ValueError(f"Data inconsistency detected in table '{table_name}'. Missing rows: {missing_rows}")
-        print(f"All rows from DataFrame are successfully saved to '{table_name}'.")
+            raise ValueError(f"Data inconsistency detected in table '{table_name}'")
+        # print(f"All rows from DataFrame are successfully saved to '{table_name}'.")
     except sqlite3.Error as e:
         print(f"Error verifying rows in table '{table_name}': {e}")
         raise
@@ -136,6 +178,9 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str, verify_data_stor
         df (pd.DataFrame): DataFrame containing data to be written.
         table_name (str): Name of the target table.
     """
+    if df is None:
+        raise ValueError("df cannot be None")
+
     table_exists = does_table_exist(table_name)
     try:
         with sqlite3.connect(DB_FILE) as conn:
@@ -147,13 +192,12 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str, verify_data_stor
                 print(f"Table '{table_name}' created and data inserted.")
             else:
                 # Insert new rows into the existing table
-                add_new_rows(df, table_name, conn)
+                add_new_rows(df_to_write, table_name, conn)
                 print(f"Table '{table_name}' Already exists and data inserted.")
 
             if verify_data_stored_properly:
                 # Verify that all rows are saved
-                verify_rows_saved(df, table_name, conn)
-            # this does not properly update to drop duplicates
+                verify_rows_saved(df_to_write, table_name, conn)
             # Update the last updated timestamp
             cursor = conn.cursor()
             write_timestamp_table_was_last_updated(table_name, cursor)
@@ -166,7 +210,7 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str, verify_data_stor
         raise
 
 
-def load_table(table_name: str, where_clause: Optional[str] = None) -> Optional[pd.DataFrame]:
+def load_table(table_name: str, where_clause: Optional[str] = None, params=None) -> Optional[pd.DataFrame]:
     """
     Loads data from the specified table if it exists and applies the given WHERE clause.
 
@@ -180,7 +224,7 @@ def load_table(table_name: str, where_clause: Optional[str] = None) -> Optional[
     """
     table_exists = does_table_exist(table_name)
     try:
-        with sqlite3.connect(DB_FILE) as conn:
+        with sqlite3.connect(DB_FILE, uri=True) as conn:
             if not table_exists:
                 print(f"Table '{table_name}' does not exist.")
                 return None
@@ -191,11 +235,11 @@ def load_table(table_name: str, where_clause: Optional[str] = None) -> Optional[
             else:
                 query = base_query
 
-            df = pd.read_sql_query(query, conn)
+            df = pd.read_sql_query(query, conn, params)
 
             # Convert 'timestamp' column to datetime if it exists
             if "timestamp" in df.columns:
-                df["timestamp"] = pd.to_datetime(df["timestamp"], format="%Y-%m-%d %H:%M:%S", utc=True)
+                df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
 
             print(f"Data loaded from table '{table_name}'.")
             return df
@@ -206,15 +250,10 @@ def load_table(table_name: str, where_clause: Optional[str] = None) -> Optional[
 
 
 def run_read_only_query(query, params) -> pd.DataFrame:
-    # might want to require that timestamp and block are in df
     # are there any tables without a block? sovler diagnoistics?
     with sqlite3.connect(DB_FILE) as conn:
-        df = pd.read_sql_query(
-            query,
-            conn,
-            params=params,
-        )
+        df = pd.read_sql_query(query, conn, params=params)
         if "timestamp" in df.columns:
-            df["timestamp"] = pd.to_datetime(df["timestamp"], format="%Y-%m-%d %H:%M:%S", utc=True)
+            df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
 
         return df
