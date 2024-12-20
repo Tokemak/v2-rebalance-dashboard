@@ -1,13 +1,11 @@
 import sqlite3
-from datetime import datetime, timezone
 from typing import Optional
 
 import pandas as pd
 
-from mainnet_launch.constants import DB_FILE, time_decorator
+from mainnet_launch.constants import DB_FILE
 from mainnet_launch.data_fetching.should_update_database import (
     write_timestamp_table_was_last_updated,
-    ensure_table_to_last_updated_exists,
 )
 
 
@@ -53,13 +51,8 @@ def add_new_rows(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) ->
         )
         """
 
-        # Execute the INSERT query
         conn.execute(insert_query)
-
-        # Drop the temporary table
         conn.execute("DROP TABLE IF EXISTS temp_table")
-
-        # Commit the transaction
         conn.commit()
         print(f"Inserted new rows into '{table_name}' while avoiding duplicates.")
 
@@ -67,54 +60,6 @@ def add_new_rows(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) ->
         conn.rollback()
         print(f"Error inserting new rows into '{table_name}': {e}")
         raise
-
-
-# def add_new_rows(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) -> None:
-#     """
-#     Adds new rows from the DataFrame to an existing table using INSERT OR IGNORE.
-
-#     Parameters:
-#         df (pd.DataFrame): DataFrame containing new data to be inserted.
-#         table_name (str): Name of the target table.
-#         conn (sqlite3.Connection): SQLite database connection.
-#     """
-#     try:
-
-#         # Write to a temporary table
-#         df.to_sql("temp_table", conn, index=False, if_exists="replace", method="multi", chunksize=10_000)
-
-#         # Insert only unique rows from the temporary table
-#         insert_query = f"""
-#         INSERT INTO {table_name}
-#         SELECT *
-#         FROM temp_table
-#         WHERE NOT EXISTS (
-#             SELECT 1
-#             FROM {table_name}
-#             WHERE {table_name}.rowid = temp_table.rowid
-#         )
-#         """
-#         conn.execute(insert_query)
-#         columns = str([col for col in df.columns])[1:-1].replace("'", "")
-
-#         # Drop duplicates from the table based on all columns
-#         cleanup_query = f"""
-#         DELETE FROM {table_name}
-#         WHERE rowid NOT IN (
-#             SELECT MIN(rowid)
-#             FROM {table_name}
-#             GROUP BY {columns}
-#         )
-#         """
-#         conn.execute(cleanup_query)
-
-#         # Commit the transaction
-#         conn.commit()
-#         print(f"Inserted new rows into '{table_name}' and removed duplicates based on all columns.")
-#     except sqlite3.Error as e:
-#         conn.rollback()
-#         print(f"Error inserting new rows into '{table_name}': {e}")
-#         raise
 
 
 def verify_rows_saved(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) -> None:
@@ -147,10 +92,7 @@ def verify_rows_saved(df: pd.DataFrame, table_name: str, conn: sqlite3.Connectio
             print(full_df.head())
             print(full_df.dtypes)
             print(full_df.shape)
-            pass
-
             raise ValueError(f"Data inconsistency detected in table '{table_name}'")
-        # print(f"All rows from DataFrame are successfully saved to '{table_name}'.")
     except sqlite3.Error as e:
         print(f"Error verifying rows in table '{table_name}': {e}")
         raise
@@ -160,7 +102,6 @@ def does_table_exist(table_name: str) -> bool:
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
 
-        # Check if the target table exists
         cursor.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
             (table_name,),
