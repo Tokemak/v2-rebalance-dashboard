@@ -11,6 +11,19 @@ from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blo
 from mainnet_launch.data_fetching.databases import TX_HASH_TO_GAS_INFO_DB, _initalize_tx_hash_to_gas_info_db
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 def _load_tx_hash_to_gas_info(hashes: list[str]) -> pd.DataFrame:
     """Load gas info from SQLite database for specified hashes and return as a DataFrame."""
     if len(hashes) == 0:
@@ -160,48 +173,16 @@ def add_transaction_gas_info_to_df_with_tx_hash(df: pd.DataFrame, chain: ChainDa
 #     return df
 
 
-from mainnet_launch.data_fetching.should_update_database import should_update_table
-from mainnet_launch.data_fetching.new_databases import run_read_only_query, write_dataframe_to_table, load_table
+
+TIMESTAMP_BLOCK_CHAIN_TABLE = 'TIMESTAMP_BLOCK_CHAIN_TABLE'
 
 
-TIMESTAMP_BLOCK_CHAIN_TABLE = "TIMESTAMP_BLOCK_CHAIN_TABLE"
+from 
+
+
 
 
 def add_timestamp_to_df_with_block_column(df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
-    """Add the timestamp to the df at the index if block is in the columns"""
-    if "block" not in df.columns:
-        raise ValueError(f"block must be in {df.columns=}")
-    if len(df) == 0:
-        df.index = pd.DatetimeIndex([], name="timestamp", tz="UTC")
-        return df
-    blocks = list(set(df["block"]))
-    # calling with empty calls gets the block:timestamp
-    placeholders = ", ".join("?" for _ in blocks)
-
-    # Pass the list of values (`blocks`) as `params`
-    query = f"""
-    SELECT * 
-    FROM {TIMESTAMP_BLOCK_CHAIN_TABLE} 
-    WHERE block IN ({placeholders}) AND chain = ?
-    """
-    params = blocks + [chain.name]  # Add chain.name to the parameters
-
-    # Execute the query
-    block_and_timestamp_df = run_read_only_query(query, params=params)
-    pass
-    write_dataframe_to_table(block_and_timestamp_df, TIMESTAMP_BLOCK_CHAIN_TABLE)
-    pass
-    # block_and_timestamp_df = get_raw_state_by_blocks([], blocks, chain=chain, include_block_number=True).reset_index()
-
-    # write_dataframe_to_table(block_and_timestamp_df, TIMESTAMP_BLOCK_CHAIN_TABLE)
-
-    # df = pd.merge(df, block_and_timestamp_df, on="block", how="left")
-    # df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    # df.set_index("timestamp", inplace=True)
-    # return df
-
-
-def add_timestamp_to_df_with_block_column2(df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
     """Add the timestamp to the df at the index if block is in the columns"""
     if "block" not in df.columns:
         raise ValueError(f"block must be in {df.columns=}")
@@ -218,40 +199,22 @@ def add_timestamp_to_df_with_block_column2(df: pd.DataFrame, chain: ChainData) -
 
 
 if __name__ == "__main__":
+    from mainnet_launch.data_fetching.get_events import get_each_event_in_contract, fetch_events
+    from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, ETH_CHAIN, BASE_CHAIN
+    from mainnet_launch.abis.abis import DESTINATION_VAULT_REGISTRY_ABI
 
-    df = pd.DataFrame()
-    df["block"] = [19_000_000, 20_000_000]
-
-    df = add_timestamp_to_df_with_block_column(df, ETH_CHAIN)
-    df["chain"] = ETH_CHAIN.name
-
+    eth_contract = ETH_CHAIN.client.eth.contract(
+        DESTINATION_VAULT_REGISTRY(ETH_CHAIN), abi=DESTINATION_VAULT_REGISTRY_ABI
+    )
+    df = fetch_events(eth_contract.events.DestinationVaultRegistered)
     print(df.head())
-    print(df.dtypes)
+    df = add_transaction_gas_info_to_df_with_tx_hash(df, ETH_CHAIN)
+    print(df.head(1).values)
 
-    df = df.reset_index()
-    write_dataframe_to_table(df, TIMESTAMP_BLOCK_CHAIN_TABLE)
-
-    loaded_df = load_table(TIMESTAMP_BLOCK_CHAIN_TABLE)
-    print(loaded_df.head())
-    print(loaded_df.dtypes)
-    pass
-
-    # from mainnet_launch.data_fetching.get_events import get_each_event_in_contract, fetch_events
-    # from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, ETH_CHAIN, BASE_CHAIN
-    # from mainnet_launch.abis.abis import DESTINATION_VAULT_REGISTRY_ABI
-
-    # eth_contract = ETH_CHAIN.client.eth.contract(
-    #     DESTINATION_VAULT_REGISTRY(ETH_CHAIN), abi=DESTINATION_VAULT_REGISTRY_ABI
-    # )
-    # df = fetch_events(eth_contract.events.DestinationVaultRegistered)
-    # print(df.head())
-    # df = add_transaction_gas_info_to_df_with_tx_hash(df, ETH_CHAIN)
-    # print(df.head(1).values)
-
-    # base_contract = BASE_CHAIN.client.eth.contract(
-    #     DESTINATION_VAULT_REGISTRY(BASE_CHAIN), abi=DESTINATION_VAULT_REGISTRY_ABI
-    # )
-    # df = fetch_events(base_contract.events.DestinationVaultRegistered)
-    # print(df.head())
-    # df = add_transaction_gas_info_to_df_with_tx_hash(df, BASE_CHAIN)
-    # print(df.head(1).values)
+    base_contract = BASE_CHAIN.client.eth.contract(
+        DESTINATION_VAULT_REGISTRY(BASE_CHAIN), abi=DESTINATION_VAULT_REGISTRY_ABI
+    )
+    df = fetch_events(base_contract.events.DestinationVaultRegistered)
+    print(df.head())
+    df = add_transaction_gas_info_to_df_with_tx_hash(df, BASE_CHAIN)
+    print(df.head(1).values)

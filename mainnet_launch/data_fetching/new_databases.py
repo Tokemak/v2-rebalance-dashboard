@@ -40,14 +40,36 @@ def add_new_rows(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) ->
         # Convert 'timestamp' to ISO8601 format before writing
         df_to_insert = convert_timestamps_to_iso(df)
 
+        # Write to a temporary table
         df_to_insert.to_sql("temp_table", conn, index=False, if_exists="replace", method="multi", chunksize=10_000)
+
+        # Insert only unique rows from the temporary table
         insert_query = f"""
-        INSERT OR IGNORE INTO {table_name}
-        SELECT * FROM temp_table
+        INSERT INTO {table_name}
+        SELECT *
+        FROM temp_table
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM {table_name}
+            WHERE {table_name}.rowid = temp_table.rowid
+        )
         """
         conn.execute(insert_query)
+
+        # Drop duplicates from the table based on all columns
+        cleanup_query = f"""
+        DELETE FROM {table_name}
+        WHERE rowid NOT IN (
+            SELECT MIN(rowid)
+            FROM {table_name}
+            GROUP BY *
+        )
+        """
+        conn.execute(cleanup_query)
+
+        # Commit the transaction
         conn.commit()
-        print(f"Inserted new rows into '{table_name}'.")
+        print(f"Inserted new rows into '{table_name}' and removed duplicates based on all columns.")
     except sqlite3.Error as e:
         conn.rollback()
         print(f"Error inserting new rows into '{table_name}': {e}")
@@ -92,7 +114,19 @@ def verify_rows_saved(df: pd.DataFrame, table_name: str, conn: sqlite3.Connectio
         raise
 
 
-@time_decorator
+def does_table_exist(table_name: str) -> bool:
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+
+        # Check if the target table exists
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        )
+        table_exists = cursor.fetchone() is not None
+        return table_exists
+
+
 def write_dataframe_to_table(df: pd.DataFrame, table_name: str, verify_data_stored_properly: bool = True) -> None:
     """
     Writes a DataFrame to the specified table in the database.
@@ -102,33 +136,26 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str, verify_data_stor
         df (pd.DataFrame): DataFrame containing data to be written.
         table_name (str): Name of the target table.
     """
+    table_exists = does_table_exist(table_name)
     try:
         with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-
-            # Check if the target table exists
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                (table_name,),
-            )
-            table_exists = cursor.fetchone() is not None
+            df_to_write = convert_timestamps_to_iso(df)
 
             if not table_exists:
-                # Convert 'timestamp' to ISO8601 format before writing
-                df_to_write = convert_timestamps_to_iso(df)
-
                 # Create the table and insert data
                 df_to_write.to_sql(table_name, conn, index=False, if_exists="fail", method="multi", chunksize=10_000)
                 print(f"Table '{table_name}' created and data inserted.")
             else:
                 # Insert new rows into the existing table
                 add_new_rows(df, table_name, conn)
+                print(f"Table '{table_name}' Already exists and data inserted.")
 
             if verify_data_stored_properly:
                 # Verify that all rows are saved
                 verify_rows_saved(df, table_name, conn)
-
+            # this does not properly update to drop duplicates
             # Update the last updated timestamp
+            cursor = conn.cursor()
             write_timestamp_table_was_last_updated(table_name, cursor)
 
     except sqlite3.Error as e:
@@ -139,7 +166,6 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str, verify_data_stor
         raise
 
 
-@time_decorator
 def load_table(table_name: str, where_clause: Optional[str] = None) -> Optional[pd.DataFrame]:
     """
     Loads data from the specified table if it exists and applies the given WHERE clause.
@@ -152,20 +178,13 @@ def load_table(table_name: str, where_clause: Optional[str] = None) -> Optional[
     Returns:
         Optional[pd.DataFrame]: DataFrame containing the queried data or None if the table doesn't exist.
     """
+    table_exists = does_table_exist(table_name)
     try:
         with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-
-            # Check if the table exists
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                (table_name,),
-            )
-            if cursor.fetchone() is None:
+            if not table_exists:
                 print(f"Table '{table_name}' does not exist.")
                 return None
 
-            # Construct the query with optional WHERE clause
             base_query = f"SELECT * FROM {table_name}"
             if where_clause:
                 query = f"{base_query} WHERE {where_clause}"
@@ -186,7 +205,16 @@ def load_table(table_name: str, where_clause: Optional[str] = None) -> Optional[
         raise e
 
 
-def run_query(query, params):
+def run_read_only_query(query, params) -> pd.DataFrame:
+    # might want to require that timestamp and block are in df
+    # are there any tables without a block? sovler diagnoistics?
     with sqlite3.connect(DB_FILE) as conn:
-        df = pd.read_sql_query(query, conn, params=params)
+        df = pd.read_sql_query(
+            query,
+            conn,
+            params=params,
+        )
+        if "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["timestamp"], format="%Y-%m-%d %H:%M:%S", utc=True)
+
         return df
