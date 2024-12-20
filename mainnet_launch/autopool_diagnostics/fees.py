@@ -30,7 +30,7 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
     periodic_fee_df = periodic_fee_df[["normalized_fees", "block"]].copy()
     streaming_fee_df = streaming_fee_df[["normalized_fees"]].copy()
 
-    periodic_fee_df.columns = [f"{autopool.name}_periodic", "block"]
+    periodic_fee_df.columns = [f"{autopool.name}_periodic"]
     streaming_fee_df.columns = [f"{autopool.name}_streaming"]
 
     return periodic_fee_df, streaming_fee_df

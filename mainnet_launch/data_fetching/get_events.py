@@ -122,10 +122,10 @@ def fetch_events(
     event_df = events_to_df(found_events)
 
     if len(event_df) == 0:
-        # make sure that the df returned as the expected columns
+        # make sure that the df returned has the expected columns
         event_field_names = [i["name"] for i in event._get_event_abi()["inputs"]]
         event_df = pd.DataFrame(
-            columns=[*event_field_names, str(event), "block", "transaction_index", "log_index", "hash"]
+            columns=[*event_field_names, "event", "block", "transaction_index", "log_index", "hash"]
         )
         pass
 
