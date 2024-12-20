@@ -46,7 +46,7 @@ def get_timestamp_table_was_last_updated(table_name: str) -> None | pd.Timestamp
             cursor.execute(select_query, (table_name,))
             result = cursor.fetchone()
             if result is not None:
-                return pd.to_datetime(result[0], utc=True,  unit="s")
+                return pd.to_datetime(result[0], utc=True, unit="s")
             return None
     except sqlite3.Error as e:
         print(f"An error occurred while fetching the timestamp for '{table_name}': {e}")
