@@ -20,7 +20,7 @@ from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI, AUTOPOOL_ETH_STRATEGY_A
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.destinations import get_destination_details
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
-    fetch_and_clean_rebalance_between_destination_events,
+    fetch_rebalance_events_df,
 )
 from mainnet_launch.solver_diagnostics.rebalance_events import fetch_and_render_solver_profit_data
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
@@ -46,7 +46,7 @@ def fetch_solver_diagnostics_data(autopool: AutopoolConstants):
     proposed_rebalances_df = solver_df[solver_df["sodOnly"] == False].copy()
     proposed_rebalances_df.set_index("date", inplace=True)
 
-    rebalance_event_df = fetch_and_clean_rebalance_between_destination_events(autopool)
+    rebalance_event_df = fetch_rebalance_events_df(autopool)
     proposed_vs_actual_rebalance_scatter_plot_fig = _make_proposed_vs_actual_rebalance_scatter_plot(
         proposed_rebalances_df, rebalance_event_df
     )

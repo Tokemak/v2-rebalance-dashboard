@@ -74,10 +74,10 @@ def _fetch_cumulative_nav_lost_to_rebalances(autopool: AutopoolConstants) -> pd.
     rebalance_df = fetch_rebalance_events_actual_amounts(autopool)
 
     rebalance_from_idle_df = rebalance_df[
-        rebalance_df["outDestinationVault"].str.lower() == autopool.autopool_eth_addr.lower()
+        rebalance_df["out_destination"].str.lower() == autopool.autopool_eth_addr.lower()
     ].copy()
     rebalance_not_from_idle_df = rebalance_df[
-        ~(rebalance_df["outDestinationVault"].str.lower() == autopool.autopool_eth_addr.lower())
+        ~(rebalance_df["out_destination"].str.lower() == autopool.autopool_eth_addr.lower())
     ].copy()
 
     cumulative_rebalance_from_idle_swap_cost = rebalance_from_idle_df["swap_cost"].resample("1D").sum().cumsum()

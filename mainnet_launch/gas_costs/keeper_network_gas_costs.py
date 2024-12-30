@@ -25,7 +25,7 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import (
 )
 
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
-    fetch_and_clean_rebalance_between_destination_events,
+    fetch_rebalance_events_df,
 )
 
 KEEPER_REGISTRY_CONTRACT_ADDRESS = "0x6593c7De001fC8542bB1703532EE1E5aA0D458fD"
@@ -193,7 +193,8 @@ def fetch_solver_metrics():
     return cost_last_7_days, cost_last_30_days, cost_last_1_year
 
 
-@st.cache_data(ttl=CACHE_TIME)
+# @st.cache_data(ttl=CACHE_TIME)
+@time_decorator
 def fetch_solver_gas_costs() -> pd.DataFrame:
     """Returns a dataframe of all the rebalanc events along with the gas costs"""
     # rey slow
@@ -202,16 +203,17 @@ def fetch_solver_gas_costs() -> pd.DataFrame:
     for autopool in ALL_AUTOPOOLS:
         # solver gas costs on base are close to free
         if autopool.chain == ETH_CHAIN:
-            df = fetch_and_clean_rebalance_between_destination_events(autopool)
+            df = fetch_rebalance_events_df(autopool)
             dfs.append(df)
 
     clean_rebalance_df = pd.concat(dfs)
-
-    clean_rebalance_df = add_transaction_gas_info_to_df_with_tx_hash(clean_rebalance_df, ETH_CHAIN)
-    clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, ETH_CHAIN)
+    # should not be needed
+    # clean_rebalance_df = add_transaction_gas_info_to_df_with_tx_hash(clean_rebalance_df, ETH_CHAIN)
+    # clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, ETH_CHAIN)
     return clean_rebalance_df
 
 
+# 5 seconds
 def fetch_all_autopool_debt_reporting_events(chain: ChainData) -> pd.DataFrame:
     debt_reporting_dfs = []
 
@@ -224,8 +226,9 @@ def fetch_all_autopool_debt_reporting_events(chain: ChainData) -> pd.DataFrame:
     destination_debt_reporting_df = pd.concat(debt_reporting_dfs)
     destination_debt_reporting_df = add_transaction_gas_info_to_df_with_tx_hash(destination_debt_reporting_df, chain)
     destination_debt_reporting_df = add_timestamp_to_df_with_block_column(destination_debt_reporting_df, chain)
+
     return destination_debt_reporting_df
 
 
 if __name__ == "__main__":
-    fetch_and_render_keeper_network_gas_costs()
+    fetch_solver_gas_costs()
