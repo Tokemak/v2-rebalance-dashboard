@@ -8,7 +8,7 @@ import streamlit as st
 
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
-    fetch_and_clean_rebalance_between_destination_events,
+    fetch_rebalance_events_df,
 )
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
@@ -26,7 +26,7 @@ def fetch_and_render_turnover_data(autopool: AutopoolConstants):
 def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
     # I suspect this is not correct because it may be using the in and out eth value from the rebalance events
     blocks = build_blocks_to_use(autopool.chain)
-    clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool)
+    clean_rebalance_df = fetch_rebalance_events_df(autopool)
     # not sure why this is needed it should be done in fetch_and_clean_rebalance_between_destination_events
     clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, autopool.chain)
     uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, pR_df = (

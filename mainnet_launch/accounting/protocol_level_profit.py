@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import streamlit as st
 import pandas as pd
 
-from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, ETH_CHAIN, BASE_CHAIN, ChainData
+from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, ETH_CHAIN, BASE_CHAIN, ChainData, time_decorator
 from mainnet_launch.gas_costs.keeper_network_gas_costs import (
     fetch_solver_gas_costs,
     fetch_keeper_network_gas_costs,
@@ -134,6 +134,4 @@ def fetch_gas_cost_df() -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    df = fetch_fee_df_normalized_fees()
-    print(df.head())
-    print(df.tail())
+    fetch_gas_cost_df()
