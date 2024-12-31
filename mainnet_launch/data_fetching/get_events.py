@@ -58,7 +58,13 @@ def _recursive_helper_get_all_events_within_range(
     """
     try:
         # Try fetching events in the given range
-        event_filter = event.createFilter(fromBlock=start_block, toBlock=end_block, argument_filters=argument_filters)
+        try:
+            event_filter = event.createFilter(
+                fromBlock=start_block, toBlock=end_block, argument_filters=argument_filters
+            )
+        except Exception as e:
+            pass
+            raise e
         just_found_events = event_filter.get_all_entries()
         _flatten_events(just_found_events)
         found_events.extend(just_found_events)
@@ -117,9 +123,12 @@ def fetch_events(
 
     end_block = max(build_blocks_to_use(chain)) if end_block is None else end_block
 
-    found_events = []
-    _recursive_helper_get_all_events_within_range(event, start_block, end_block, found_events, argument_filters)
-    event_df = events_to_df(found_events)
+    if end_block > start_block:
+        found_events = []
+        _recursive_helper_get_all_events_within_range(event, start_block, end_block, found_events, argument_filters)
+        event_df = events_to_df(found_events)
+    else:
+        event_df = pd.DataFrame()
 
     if len(event_df) == 0:
         # make sure that the df returned has the expected columns
