@@ -196,5 +196,6 @@ def run_read_only_query(query, params) -> pd.DataFrame:
         df = pd.read_sql_query(query, conn, params=params)
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
+            # df = df.set_index("timestamp")
 
         return df
