@@ -506,7 +506,6 @@ if __name__ == "__main__":
 
     small_df = fetch_rebalance_events_df(AUTO_ETH)
 
-
     # df = fetch_rebalance_events_df_from_external_source(AUTO_LRT, 21_000_000)
     # pass
 
