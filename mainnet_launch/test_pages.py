@@ -87,6 +87,9 @@ def main():
 
     start_time = time.time()
     for page_name, func in CONTENT_FUNCTIONS.items():
+        if page_name != "Rebalance Events":
+            continue
+
         if page_name in PAGES_WITHOUT_AUTOPOOL:
             log_and_time_function(page_name, func, autopool=None)
         else:
