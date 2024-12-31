@@ -76,22 +76,19 @@ def _get_earliest_block_to_fetch_for_rebalance_events(autopool: AutopoolConstant
         return autopool.chain.block_autopool_first_deployed
 
 
+def _add_new_rebalance_events_for_each_autopool_to_table():
+    for autopool_to_fetch in ALL_AUTOPOOLS:
+        highest_block_already_fetched = _get_earliest_block_to_fetch_for_rebalance_events(autopool_to_fetch)
+        new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
+            autopool_to_fetch, highest_block_already_fetched
+        )
+        write_dataframe_to_table(new_rebalance_events_df, REBALANCE_EVENTS_TABLE)
+
+
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
     if should_update_table(REBALANCE_EVENTS_TABLE):
-        # update all the autopool at the same time
-        for autopool_to_fetch in ALL_AUTOPOOLS:
-            highest_block_already_fetched = _get_earliest_block_to_fetch_for_rebalance_events(autopool_to_fetch)
-
-            new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
-                autopool_to_fetch, highest_block_already_fetched
-            )
-            print(new_rebalance_events_df.columns)
-            print(autopool_to_fetch.name)
-            print(new_rebalance_events_df.head(2))
-            print(new_rebalance_events_df.tail(2))
-            pass
-            write_dataframe_to_table(new_rebalance_events_df, REBALANCE_EVENTS_TABLE)
+        _add_new_rebalance_events_for_each_autopool_to_table()
 
     query = f"""
         SELECT * from {REBALANCE_EVENTS_TABLE}
@@ -104,6 +101,7 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     return rebalance_events_df
 
 
+@time_decorator
 def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
     clean_rebalance_df = fetch_and_clean_rebalance_between_destination_events(autopool, start_block)
 
@@ -116,7 +114,6 @@ def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, 
     # clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, autopool.chain)
 
     clean_rebalance_df["autopool"] = autopool.name
-
     # these columns are currently being used at least one plot the dashboard
     used_cols = [
         "event",
@@ -135,9 +132,13 @@ def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, 
         "offset_period",
         "solver_profit",
         "predicted_increase_after_swap_cost",
-        "out_destination",
+        "out_destination",  # TODO this is a duplicate
         "in_destination",
+        "outDestinationVault",
+        "inDestinationVault",
         "autopool",
+        "gas_price",
+        "gas_used",
     ]
 
     return clean_rebalance_df[used_cols]
@@ -146,7 +147,7 @@ def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, 
 def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
     rebalance_df = fetch_rebalance_events_and_actual_weth_and_lp_tokens_moved(autopool, start_block)
     blocks = build_blocks_to_use(autopool.chain)
-    destination_details = get_destination_details(autopool, blocks)  # this sis cached so it is fast
+    destination_details = get_destination_details(autopool, blocks)
     destination_vault_address_to_symbol = {dest.vaultAddress: dest.vault_name for dest in destination_details}
 
     def _make_rebalance_between_destination_human_readable(
@@ -174,7 +175,6 @@ def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConst
             offset_period = row["swapOffsetPeriod"]
 
             return {
-                "block": row["block"],
                 "break_even_days": break_even_days,
                 "swapCost": swapCost,
                 "swapCostIdle": 0,
@@ -192,7 +192,6 @@ def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConst
                 "slippage": slippage,
                 "hash": row["hash"],
                 "moveName": moveName,
-                "event": row["event"],
             }
 
         elif row["event"] == "RebalanceToIdle":
@@ -201,7 +200,6 @@ def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConst
             in_compositeReturn = 0
             apr_delta = in_compositeReturn - out_compositeReturn
             return {
-                "block": row["block"],
                 "break_even_days": None,
                 "swapCost": swapCost,
                 "swapCostIdle": swapCost,
@@ -219,14 +217,15 @@ def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConst
                 "slippage": slippage,
                 "hash": row["hash"],
                 "moveName": moveName,
-                "event": row["event"],
             }
         else:
             raise ValueError("Unexpected event name", row["event"])
 
-    clean_rebalance_df = pd.DataFrame.from_records(
+    clean_rebalance_df = pd.DataFrame.from_records(  # here is wheree it it lost
         rebalance_df.apply(lambda row: _make_rebalance_between_destination_human_readable(row), axis=1)
     )
+    clean_rebalance_df = pd.merge(rebalance_df, clean_rebalance_df, on="hash")
+
     # the order here seems to matter, not sure why
     clean_rebalance_df = add_transaction_gas_info_to_df_with_tx_hash(clean_rebalance_df, autopool.chain)
     clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, autopool.chain)
@@ -312,7 +311,7 @@ def _add_solver_profit_cols_by_flash_borrower(
 def _build_value_held_by_solver(
     balance_of_calls: list[Call], price_calls: list[Call], blocks: list[int], chain: ChainData
 ) -> pd.DataFrame:
-    balance_of_df = get_raw_state_by_blocks(balance_of_calls, blocks, chain)
+    balance_of_df = get_raw_state_by_blocks(balance_of_calls, blocks, chain)  # duplicate calls when not needed
     price_df = get_raw_state_by_blocks(price_calls, blocks, chain)
     price_df["ETH"] = 1.0
     # ensure the columns are in the right order
@@ -402,6 +401,7 @@ def _fetch_weth_transfers_to_or_from_autopool_vault(autopool: AutopoolConstants,
     return weth_to_autopool, weth_from_autopool
 
 
+@time_decorator
 def fetch_rebalance_events_and_actual_weth_and_lp_tokens_moved(
     autopool: AutopoolConstants, start_block: int
 ) -> pd.DataFrame:
@@ -503,8 +503,12 @@ def _add_spot_value_of_rebalance_events(rebalance_df: pd.DataFrame, autopool: Au
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, BAL_ETH, AUTO_LRT
 
-    clean_rebalance_df = fetch_rebalance_events_df(AUTO_LRT)
+    _add_new_rebalance_events_for_each_autopool_to_table()
+    # from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, BAL_ETH, AUTO_LRT
 
-    pass
+    # small_df = fetch_rebalance_events_df_from_external_source(AUTO_LRT, 21407410)
+
+    # print(small_df.dtypes)
+
+    # pass
