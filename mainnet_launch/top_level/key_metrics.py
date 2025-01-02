@@ -215,12 +215,12 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
         - Expected Annualized Return: Projected percent annual return based on current allocations of the Autopool.
         """
         )
-
-    st.text("highest block and time used" + str(allocation_df.index[-1]) + str(key_metric_data["blocks"][-1]))
+    highest_block_used = key_metric_data["blocks"][-1]
+    highest_timestamp = allocation_df.index[-1]
+    st.text(f"Highest block and time used {highest_timestamp=} {highest_block_used=} {autopool.chain.name=}")
 
 
 if __name__ == "__main__":
     from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS, AUTO_ETH, BASE_ETH
 
-    # fetch_and_render_key_metrics_data(BASE_ETH)
     fetch_and_render_key_metrics_data(AUTO_LRT)

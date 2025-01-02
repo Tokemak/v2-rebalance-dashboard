@@ -128,18 +128,15 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str, verify_data_stor
             df_to_write = convert_timestamps_to_iso(df)
 
             if not table_exists:
-                # Create the table and insert data
                 df_to_write.to_sql(table_name, conn, index=False, if_exists="fail", method="multi", chunksize=10_000)
                 print(f"Table '{table_name}' created and data inserted.")
             else:
-                # Insert new rows into the existing table
                 add_new_rows(df_to_write, table_name, conn)
-                print(f"Table '{table_name}' Already exists and data inserted.")
+                print(f"Table '{table_name}'already exists and data inserted.")
 
             if verify_data_stored_properly:
-                # Verify that all rows are saved
                 verify_rows_saved(df_to_write, table_name, conn)
-            # Update the last updated timestamp
+
             cursor = conn.cursor()
             write_timestamp_table_was_last_updated(table_name, cursor)
 
@@ -178,7 +175,6 @@ def load_table(table_name: str, where_clause: Optional[str] = None, params=None)
 
             df = pd.read_sql_query(query, conn, params)
 
-            # Convert 'timestamp' column to datetime if it exists
             if "timestamp" in df.columns:
                 df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
 
@@ -190,12 +186,9 @@ def load_table(table_name: str, where_clause: Optional[str] = None, params=None)
         raise e
 
 
-def run_read_only_query(query, params) -> pd.DataFrame:
-    # are there any tables without a block? sovler diagnoistics?
+def run_read_only_query(query: str, params: tuple) -> pd.DataFrame:
     with sqlite3.connect(DB_FILE) as conn:
         df = pd.read_sql_query(query, conn, params=params)
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
-            # df = df.set_index("timestamp")
-
         return df
