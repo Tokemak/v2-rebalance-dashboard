@@ -189,7 +189,7 @@ def _fetch_destination_details_from_external_source(
     return destination_details_df, max(blocks)
 
 
-def get_destination_details(autopool: AutopoolConstants, blocks: list[int]) -> tuple[DestinationDetails]:
+def get_destination_details(autopool: AutopoolConstants) -> tuple[DestinationDetails]:
     if should_update_table(DESTINATION_DETAILS_TABLE):
         _add_new_destination_details_for_each_chain_to_table()
 

@@ -108,7 +108,7 @@ def _get_earliest_raw_summary_stats_that_does_not_revert(
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_destination_summary_stats(blocks: list[int], autopool: AutopoolConstants):
 
-    destination_details = get_destination_details(autopool, blocks)
+    destination_details = get_destination_details(autopool)
 
     raw_summary_stats_df = _get_earliest_raw_summary_stats_that_does_not_revert(blocks, destination_details, autopool)
 
