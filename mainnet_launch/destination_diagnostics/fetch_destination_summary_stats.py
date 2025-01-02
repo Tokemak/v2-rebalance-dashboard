@@ -32,6 +32,23 @@ from mainnet_launch.destinations import (
 )
 
 
+#
+
+# option 1
+
+# have a single summaryStatsTable
+
+# where the columns are the destinations
+
+#
+
+
+#
+
+# this issue is that the different autopools can have the same destination
+#
+
+
 def _get_earliest_raw_summary_stats_that_does_not_revert(
     blocks: list[int], destination_details: list[DestinationDetails], autopool: AutopoolConstants
 ) -> pd.DataFrame:
@@ -99,6 +116,9 @@ def fetch_destination_summary_stats(blocks: list[int], autopool: AutopoolConstan
         autopool, raw_summary_stats_df, destination_details
     )  # it does not have idle at this points
 
+    print(summary_stats_df.head())
+    pass
+
     uwcr_df, priceReturn_df = _extract_unweighted_composite_return_df(summary_stats_df)
     # rsETH and ETHx fail on balancer I suspect that we can't price rsETH
     allocation_df = _extract_allocation_df(summary_stats_df)
@@ -108,8 +128,14 @@ def fetch_destination_summary_stats(blocks: list[int], autopool: AutopoolConstan
     uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
 
     # getSummaryStats can fail if we revert when we can't get a validatedSafePrice of a LP token
+    print(uwcr_df.head())
 
     return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df
+
+
+# columns as destinations,
+
+# some options,
 
 
 def _combine_migrated_destinations(
