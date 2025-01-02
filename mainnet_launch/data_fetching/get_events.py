@@ -63,7 +63,6 @@ def _recursive_helper_get_all_events_within_range(
                 fromBlock=start_block, toBlock=end_block, argument_filters=argument_filters
             )
         except Exception as e:
-            pass
             raise e
         just_found_events = event_filter.get_all_entries()
         _flatten_events(just_found_events)

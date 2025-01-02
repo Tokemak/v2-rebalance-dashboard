@@ -85,8 +85,5 @@ def should_update_table(table_name: str, max_latency: str = "6 hours") -> bool:
     return (current_time - last_updated) > pd.Timedelta(max_latency)
 
 
-def setup_database():
-    ensure_table_to_last_updated_exists()
-
-
-setup_database()
+# runs on import, TODO move to a central setup place
+ensure_table_to_last_updated_exists()
