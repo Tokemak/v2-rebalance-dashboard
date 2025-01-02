@@ -65,24 +65,31 @@ def _get_earliest_block_to_fetch_for_rebalance_events(autopool: AutopoolConstant
         """
         params = (autopool.name,)
         df = run_read_only_query(query, params)
-
-        if len(df) == 1:
-            return df["highest_found_block"].values[0]
-        elif len(df) == 0:
+        
+        possible_highest_block = df["highest_found_block"].values[0]
+        if possible_highest_block is None:
             return autopool.chain.block_autopool_first_deployed
         else:
-            raise ValueError("expected a table with 0 or 1 rows")
+            return int(df["highest_found_block"].values[0])
     else:
         return autopool.chain.block_autopool_first_deployed
 
 
 def _add_new_rebalance_events_for_each_autopool_to_table():
-    for autopool_to_fetch in ALL_AUTOPOOLS:
-        highest_block_already_fetched = _get_earliest_block_to_fetch_for_rebalance_events(autopool_to_fetch)
-        new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
-            autopool_to_fetch, highest_block_already_fetched
+    for autopool in ALL_AUTOPOOLS:
+        highest_block_already_fetched = _get_earliest_block_to_fetch_for_rebalance_events(autopool)
+        print(
+            f" in _add_new_rebalance_events_for_each_autopool_to_table {autopool.name=} {highest_block_already_fetched=}"
         )
+        new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
+            autopool, highest_block_already_fetched
+        )
+        print(
+            f" in _add_new_rebalance_events_for_each_autopool_to_table {autopool.name=} {highest_block_already_fetched=}"
+        )
+        print(new_rebalance_events_df.shape)
         write_dataframe_to_table(new_rebalance_events_df, REBALANCE_EVENTS_TABLE)
+        pass
 
 
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
@@ -407,7 +414,11 @@ def fetch_rebalance_events_and_actual_weth_and_lp_tokens_moved(
     strategy_contract = autopool.chain.client.eth.contract(
         autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI
     )
-
+    # only in test pages
+    #         rebalance_between_destinations_df = fetch_events(
+    #   File "/home/parker/Documents/Tokemak/v2-rebalance-dashboard/mainnet_launch/data_fetching/get_events.py", line 126, in fetch_events
+    #     if end_block > start_block:
+    # TypeError: '>' not supported between instances of 'int' and 'NoneType'
     rebalance_between_destinations_df = fetch_events(
         strategy_contract.events.RebalanceBetweenDestinations, start_block=start_block
     )
@@ -500,15 +511,27 @@ def _add_spot_value_of_rebalance_events(rebalance_df: pd.DataFrame, autopool: Au
 
 
 if __name__ == "__main__":
-
-    # _add_new_rebalance_events_for_each_autopool_to_table()
-    from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, BAL_ETH, AUTO_LRT, AUTO_ETH
-
-    small_df = fetch_rebalance_events_df(AUTO_ETH)
-
-    # df = fetch_rebalance_events_df_from_external_source(AUTO_LRT, 21_000_000)
+    
+    
+    _add_new_rebalance_events_for_each_autopool_to_table()
+    query = f"""
+        SELECT * from {REBALANCE_EVENTS_TABLE}
+        
+        """
+    rebalance_events_df = run_read_only_query(query, ())
+    print(rebalance_events_df["autopool"].value_counts())
+    
+    
+    pass
     # pass
+    # # _add_new_rebalance_events_for_each_autopool_to_table()
+    # from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, BAL_ETH, AUTO_LRT, AUTO_ETH
 
-    # print(small_df.dtypes)
+    # small_df = fetch_rebalance_events_df(AUTO_ETH)
 
-    # pass
+    # # df = fetch_rebalance_events_df_from_external_source(AUTO_LRT, 21_000_000)
+    # # pass
+
+    # # print(small_df.dtypes)
+
+    # # pass

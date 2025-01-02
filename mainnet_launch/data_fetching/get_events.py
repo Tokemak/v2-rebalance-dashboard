@@ -125,7 +125,9 @@ def fetch_events(
 
     if end_block > start_block:
         found_events = []
-        _recursive_helper_get_all_events_within_range(event, start_block, end_block, found_events, argument_filters)
+        _recursive_helper_get_all_events_within_range(
+            event, int(start_block), int(end_block), found_events, argument_filters
+        )
         event_df = events_to_df(found_events)
     else:
         event_df = pd.DataFrame()
