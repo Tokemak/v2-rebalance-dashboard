@@ -98,8 +98,7 @@ def ensure_all_rebalance_plans_are_loaded():
 
 def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
     autopool_plans = [p for p in SOLVER_REBALANCE_PLANS_DIR.glob("*.json") if autopool.autopool_eth_addr in str(p)]
-    blocks = build_blocks_to_use(autopool.chain)
-    destination_details = get_destination_details(autopool, blocks)
+    destination_details = get_destination_details(autopool)
     destination_vault_address_to_symbol = {dest.vaultAddress: dest.vault_name for dest in destination_details}
     all_data = []
     for plan_json in autopool_plans:

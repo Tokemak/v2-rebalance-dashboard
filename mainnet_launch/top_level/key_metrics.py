@@ -67,12 +67,10 @@ def _diffReturn(x: list):
     return round(x.iloc[-1] - x.iloc[-2], 4)
 
 
-def _get_percent_deployed(
-    allocation_df: pd.DataFrame, autopool: AutopoolConstants, blocks: list[int]
-) -> tuple[float, float]:
+def _get_percent_deployed(allocation_df: pd.DataFrame, autopool: AutopoolConstants) -> tuple[float, float]:
 
     daily_allocation_df = allocation_df.resample("1D").last()
-    destinations = get_destination_details(autopool, blocks)
+    destinations = get_destination_details(autopool)
     autopool_name = [dest.vault_name for dest in destinations if dest.vaultAddress == autopool.autopool_eth_addr][0]
 
     tvl_according_to_allocation_df = float(daily_allocation_df.iloc[-1].sum())
@@ -119,9 +117,7 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
         _diffReturn(uwcr_df["Expected_Return"]),
     )
 
-    percent_deployed_yesterday, percent_deployed_today = _get_percent_deployed(
-        allocation_df, autopool, key_metric_data["blocks"]
-    )
+    percent_deployed_yesterday, percent_deployed_today = _get_percent_deployed(allocation_df, autopool)
 
     col6.metric(
         "Percent Deployed", percent_deployed_today, round(percent_deployed_today - percent_deployed_yesterday, 2)

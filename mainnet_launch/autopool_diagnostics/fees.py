@@ -60,8 +60,7 @@ def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants
     )
     debt_reporting_events_df = add_timestamp_to_df_with_block_column(debt_reporting_events_df, autopool.chain)
     debt_reporting_events_df["eth_claimed"] = debt_reporting_events_df["claimed"] / 1e18  # claimed is in ETH
-    blocks = build_blocks_to_use(autopool.chain)
-    vault_to_name = {d.vaultAddress: d.vault_name for d in get_destination_details(autopool, blocks)}
+    vault_to_name = {d.vaultAddress: d.vault_name for d in get_destination_details(autopool)}
     debt_reporting_events_df["destinationName"] = debt_reporting_events_df["destination"].apply(
         lambda x: vault_to_name[x]
     )
