@@ -86,7 +86,7 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     query = f"""
         SELECT * from {REBALANCE_EVENTS_TABLE}
         
-        where autopool = ?
+        WHERE autopool = ?
         
         """
     params = (autopool.name,)
