@@ -8,9 +8,10 @@ from web3 import Web3
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,
+    build_blocks_to_use,
 )
 
-from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, AutopoolConstants, ChainData
+from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, ChainData, ETH_CHAIN, BASE_CHAIN
 from mainnet_launch.lens_contract import fetch_pools_and_destinations_df
 from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, does_table_exist, run_read_only_query
 from mainnet_launch.data_fetching.should_update_database import should_update_table
@@ -209,5 +210,7 @@ if __name__ == "__main__":
 
     blocks = build_blocks_to_use(ETH_CHAIN)
 
-    details2 = get_destination_details(BAL_ETH, blocks)
-    details3 = get_destination_details(AUTO_ETH, blocks)
+    details2 = get_destination_details(BAL_ETH)
+    details3 = get_destination_details(AUTO_ETH)
+
+    pass
