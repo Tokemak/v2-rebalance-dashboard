@@ -27,6 +27,9 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import (
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_rebalance_events_df,
 )
+from mainnet_launch.autopool_diagnostics.fees import DESTINATION_DEBT_REPORTING_EVENTS_TABLE
+from mainnet_launch.data_fetching.new_databases import run_read_only_query
+
 
 KEEPER_REGISTRY_CONTRACT_ADDRESS = "0x6593c7De001fC8542bB1703532EE1E5aA0D458fD"
 
@@ -70,7 +73,6 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
     return our_upkeep_df
 
 
-@time_decorator
 def fetch_and_render_keeper_network_gas_costs():
 
     our_upkeep_df = fetch_keeper_network_gas_costs()
@@ -193,40 +195,25 @@ def fetch_solver_metrics():
     return cost_last_7_days, cost_last_30_days, cost_last_1_year
 
 
-# @st.cache_data(ttl=CACHE_TIME)
-@time_decorator
 def fetch_solver_gas_costs() -> pd.DataFrame:
-    """Returns a dataframe of all the rebalanc events along with the gas costs"""
-    # rey slow
+    """Returns a dataframe of all the rebalance events along with the gas costs"""
 
     dfs = []
     for autopool in ALL_AUTOPOOLS:
-        # solver gas costs on base are close to free
         if autopool.chain == ETH_CHAIN:
-            df = fetch_rebalance_events_df(autopool)
+            df = fetch_rebalance_events_df(autopool)  # fast is reading from disk, could only be one query
             dfs.append(df)
 
     clean_rebalance_df = pd.concat(dfs)
-    # should not be needed
-    # clean_rebalance_df = add_transaction_gas_info_to_df_with_tx_hash(clean_rebalance_df, ETH_CHAIN)
-    # clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, ETH_CHAIN)
+
     return clean_rebalance_df
 
 
-# 5 seconds
-def fetch_all_autopool_debt_reporting_events(chain: ChainData) -> pd.DataFrame:
-    debt_reporting_dfs = []
-
-    for autopool in ALL_AUTOPOOLS:
-        if autopool.chain == chain:
-            vault_contract = chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-            destination_debt_reporting_df = fetch_events(vault_contract.events.DestinationDebtReporting)
-            debt_reporting_dfs.append(destination_debt_reporting_df)
-
-    destination_debt_reporting_df = pd.concat(debt_reporting_dfs)
-    destination_debt_reporting_df = add_transaction_gas_info_to_df_with_tx_hash(destination_debt_reporting_df, chain)
-    destination_debt_reporting_df = add_timestamp_to_df_with_block_column(destination_debt_reporting_df, chain)
-
+def fetch_all_autopool_debt_reporting_events() -> pd.DataFrame:
+    destination_debt_reporting_df = run_read_only_query(
+        f"""SELECT * FROM {DESTINATION_DEBT_REPORTING_EVENTS_TABLE}""", params=None
+    )
+    destination_debt_reporting_df = destination_debt_reporting_df.set_index("timestamp")
     return destination_debt_reporting_df
 
 

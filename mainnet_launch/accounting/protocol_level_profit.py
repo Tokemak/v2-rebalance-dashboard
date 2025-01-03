@@ -9,22 +9,29 @@ from mainnet_launch.gas_costs.keeper_network_gas_costs import (
     fetch_keeper_network_gas_costs,
     fetch_all_autopool_debt_reporting_events,
 )
-from mainnet_launch.accounting.fee_data_for_profit_and_loss import fetch_fee_df
+
+# from mainnet_launch.accounting.fee_data_for_profit_and_loss import fetch_fee_df
+from mainnet_launch.autopool_diagnostics.fees import AUTOPOOL_FEE_EVENTS_TABLE
+from mainnet_launch.data_fetching.new_databases import run_read_only_query
 
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_protocol_level_profit_and_loss_data():
     gas_cost_df = fetch_gas_cost_df()
-    fee_df = fetch_fee_df_normalized_fees()
+    fee_df = fetch_fees_by_autopool_by_type()
     return gas_cost_df, fee_df
 
 
-def fetch_fee_df_normalized_fees() -> pd.DataFrame:
-    fee_df = fetch_fee_df()
+def fetch_fees_by_autopool_by_type() -> pd.DataFrame:
+    query = f"""SELECT event, autopool, normalized_fees, timestamp from {AUTOPOOL_FEE_EVENTS_TABLE}"""
+    fee_df = run_read_only_query(query, params=None)
+    fee_df = fee_df.set_index("timestamp")
+
     periodic_fee_events_df = fee_df[fee_df["event"] == "PeriodicFeeCollected"].pivot_table(
         columns="autopool", values="normalized_fees", index="timestamp"
     )
     periodic_fee_events_df.columns = [f"{autopool_name}_periodic" for autopool_name in periodic_fee_events_df.columns]
+
     streaming_fee_events_df = fee_df[fee_df["event"] == "FeeCollected"].pivot_table(
         columns="autopool", values="normalized_fees", index="timestamp"
     )

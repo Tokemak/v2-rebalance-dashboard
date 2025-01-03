@@ -39,7 +39,7 @@ def _make_all_destination_composite_return_df(autopool: AutopoolConstants) -> go
     ownedShares_df = fetch_destination_summary_stats(autopool, "ownedShares")
     allocation_df = pricePerShare_df * ownedShares_df
     portion_allocation_df = allocation_df.div(allocation_df.sum(axis=1), axis=0)
-    autopool_weighted_expected_return = (compositeReturn_out_df * portion_allocation_df).sum(axis=1)
+    autopool_weighted_expected_return = 100 * (compositeReturn_out_df * portion_allocation_df).sum(axis=1)
     compositeReturn_out_df[f"{autopool.name} CR"] = autopool_weighted_expected_return
 
     composite_return_fig = px.line(compositeReturn_out_df, title=f"{autopool.name} Destinations and composite Return")
@@ -53,11 +53,11 @@ def _make_all_destination_composite_return_df(autopool: AutopoolConstants) -> go
 
 
 def _make_apr_components_fig(autopool: AutopoolConstants) -> go.Figure:
-    priceReturn_df = fetch_destination_summary_stats(autopool, "priceReturn")
-    baseApr_df = fetch_destination_summary_stats(autopool, "baseApr")
-    feeApr_df = fetch_destination_summary_stats(autopool, "feeApr")
-    incentiveApr_df = fetch_destination_summary_stats(autopool, "incentiveApr")
-    pointsApr_df = fetch_destination_summary_stats(autopool, "pointsApr")
+    priceReturn_df = 100 * fetch_destination_summary_stats(autopool, "priceReturn")
+    baseApr_df = 100 * fetch_destination_summary_stats(autopool, "baseApr")
+    feeApr_df = 100 * fetch_destination_summary_stats(autopool, "feeApr")
+    incentiveApr_df = 100 * fetch_destination_summary_stats(autopool, "incentiveApr")
+    pointsApr_df = 100 * fetch_destination_summary_stats(autopool, "pointsApr")
 
     st.title("Destination APR Components")
 
