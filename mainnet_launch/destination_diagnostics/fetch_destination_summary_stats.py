@@ -311,10 +311,11 @@ def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_f
         """
     params = (autopool.name,)
     long_summary_stats_df = run_read_only_query(query, params)
-    summary_stats_df = pd.pivot(long_summary_stats_df, columns=['destination'], values=summary_stats_field, index='block')
+    summary_stats_df = pd.pivot(
+        long_summary_stats_df, columns=["destination"], values=summary_stats_field, index="block"
+    )
     summary_stats_df = summary_stats_df.reset_index()
     summary_stats_df = add_timestamp_to_df_with_block_column(summary_stats_df, autopool.chain)
-    
 
     return summary_stats_df
 
