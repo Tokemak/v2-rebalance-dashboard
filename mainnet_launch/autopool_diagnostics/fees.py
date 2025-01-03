@@ -1,10 +1,7 @@
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
 from datetime import datetime, timedelta, timezone
-import colorsys
 
 
 from mainnet_launch.destinations import get_destination_details
@@ -27,6 +24,7 @@ from mainnet_launch.data_fetching.should_update_database import (
 
 
 AUTOPOOL_FEE_EVENTS_TABLE = "AUTOPOOL_FEE_EVENTS_TABLE"
+DESTINATION_DEBT_REPORTING_EVENTS_TABLE = "DESTINATION_DEBT_REPORTING_EVENTS_TABLE"
 
 
 def _add_new_fee_events_to_table():
@@ -60,7 +58,6 @@ def _add_new_fee_events_to_table():
         fee_df = fee_df[cols_to_keep].copy()
         fee_df["autopool"] = autopool.name
         fee_df = add_timestamp_to_df_with_block_column(fee_df, autopool.chain).reset_index()
-        print(fee_df.head())
         write_dataframe_to_table(fee_df, AUTOPOOL_FEE_EVENTS_TABLE)
 
 
@@ -100,25 +97,8 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
     return periodic_fee_df, streaming_fee_df
 
 
-@st.cache_data(ttl=CACHE_TIME)  # TODO cache this
-def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants) -> pd.DataFrame:
+def fetch_autopool_destination_debt_reporting_events_OLD(autopool: AutopoolConstants) -> pd.DataFrame:
     vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    # event DestinationDebtReporting(
-    #     address destination, AutopoolDebt.IdleDebtUpdates debtInfo, uint256 claimed, uint256 claimGasUsed
-    # );
-
-    #  AutopoolDebt.IdleDebtUpdates
-    #     struct IdleDebtUpdates {
-    #     bool pricesWereSafe;
-    #     uint256 totalIdleDecrease;
-    #     uint256 totalIdleIncrease;
-    #     uint256 totalDebtIncrease;
-    #     uint256 totalDebtDecrease;
-    #     uint256 totalMinDebtIncrease;
-    #     uint256 totalMinDebtDecrease;
-    #     uint256 totalMaxDebtIncrease;
-    #     uint256 totalMaxDebtDecrease;
-    # }
     debt_reporting_events_df = fetch_events(
         vault_contract.events.DestinationDebtReporting, start_block=autopool.chain.block_autopool_first_deployed
     )
@@ -128,6 +108,47 @@ def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants
     debt_reporting_events_df["destinationName"] = debt_reporting_events_df["destination"].apply(
         lambda x: vault_to_name[x]
     )
+    return debt_reporting_events_df
+
+
+def _update_debt_reporting_table():
+    for autopool in ALL_AUTOPOOLS:
+        highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
+            DESTINATION_DEBT_REPORTING_EVENTS_TABLE, autopool
+        )
+        vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+        debt_reporting_events_df = fetch_events(
+            vault_contract.events.DestinationDebtReporting, start_block=highest_block_already_fetched
+        )
+
+        debt_reporting_events_df = add_timestamp_to_df_with_block_column(
+            debt_reporting_events_df, autopool.chain
+        ).reset_index()
+        debt_reporting_events_df["eth_claimed"] = debt_reporting_events_df["claimed"] / 1e18  # claimed is in ETH
+        vault_to_name = {d.vaultAddress: d.vault_name for d in get_destination_details(autopool)}
+        debt_reporting_events_df["destinationName"] = debt_reporting_events_df["destination"].apply(
+            lambda x: vault_to_name[x]
+        )
+        debt_reporting_events_df["autopool"] = autopool.name
+        cols = ["eth_claimed", "hash", "destinationName", "autopool", "timestamp", "block"]
+        write_dataframe_to_table(debt_reporting_events_df[cols], DESTINATION_DEBT_REPORTING_EVENTS_TABLE)
+
+
+def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants) -> pd.DataFrame:
+    if should_update_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE):
+        _update_debt_reporting_table()
+
+    params = (autopool.name,)
+
+    query = f"""
+    
+    SELECT * from {DESTINATION_DEBT_REPORTING_EVENTS_TABLE}
+    
+    WHERE autopool = ?
+    """
+    debt_reporting_events_df = run_read_only_query(query, params)
+    debt_reporting_events_df = debt_reporting_events_df.set_index("timestamp")
+
     return debt_reporting_events_df
 
 
@@ -281,5 +302,5 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
 
 
 if __name__ == "__main__":
-    # fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
-    fetch_and_render_autopool_fee_data(AUTO_LRT)
+    fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
+    # fetch_and_render_autopool_fee_data(AUTO_LRT)
