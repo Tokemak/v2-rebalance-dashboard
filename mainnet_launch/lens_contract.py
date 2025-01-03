@@ -163,8 +163,8 @@ def build_proxyGetDestinationSummaryStats_call(
     )
 
 
-# TODO this should be cached too?
-@st.cache_data(ttl=CACHE_TIME)
+# I am leaning towards not to saving this this because it is cached where it is used instead
+# @st.cache_data(ttl=CACHE_TIME)
 def fetch_pools_and_destinations_df(chain: ChainData, blocks: list[int]) -> pd.DataFrame:
     calls = [get_pools_and_destinations_call(chain)]
     pools_and_destinations_df = get_raw_state_by_blocks(calls, blocks, chain=chain, include_block_number=True)

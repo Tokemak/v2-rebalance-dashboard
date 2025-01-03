@@ -219,7 +219,6 @@ def ensure_block_timestamp_chain_df_contains_all_wanted_blocks(blocks, chain):
 def load_blocks_timestamp_chain_df(blocks, chain) -> pd.DataFrame:
     placeholders = ", ".join("?" for _ in blocks)
     params = blocks + [chain.name]
-    # todo consider if we should have chain here?
     query = f"SELECT block, timestamp FROM {TIMESTAMP_BLOCK_CHAIN_TABLE} WHERE block IN ({placeholders}) AND chain = ?"
     block_timestamp_chain_df = run_read_only_query(query, params=params)
     return block_timestamp_chain_df

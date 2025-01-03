@@ -7,12 +7,16 @@ from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, ETH_CHAIN, BASE_
 from mainnet_launch.gas_costs.keeper_network_gas_costs import (
     fetch_solver_gas_costs,
     fetch_keeper_network_gas_costs,
-    fetch_all_autopool_debt_reporting_events,
 )
 
 # from mainnet_launch.accounting.fee_data_for_profit_and_loss import fetch_fee_df
-from mainnet_launch.autopool_diagnostics.fees import AUTOPOOL_FEE_EVENTS_TABLE
+from mainnet_launch.autopool_diagnostics.fees import (
+    AUTOPOOL_FEE_EVENTS_TABLE,
+    DESTINATION_DEBT_REPORTING_EVENTS_TABLE,
+    _update_debt_reporting_table,
+)
 from mainnet_launch.data_fetching.new_databases import run_read_only_query
+from mainnet_launch.data_fetching.should_update_database import should_update_table
 
 
 @st.cache_data(ttl=CACHE_TIME)
@@ -102,9 +106,15 @@ def _render_protocol_level_profit_and_loss_tables(
 
 def fetch_gas_cost_df() -> pd.DataFrame:
     """Fetch the gas costs for running the solver, reward token liqudation / debt reporting, and calculators (chainlink keeper network)"""
-    # only tracking gas costs of ethereum mainnet, not Base because gas is near free on Base
-    destination_debt_reporting_df = fetch_all_autopool_debt_reporting_events(ETH_CHAIN)
-    rebalance_gas_cost_df = fetch_solver_gas_costs()
+
+    if should_update_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE):
+        _update_debt_reporting_table()  # I don't really like this pattern here
+
+    destination_debt_reporting_df = run_read_only_query(
+        f"""SELECT * FROM {DESTINATION_DEBT_REPORTING_EVENTS_TABLE}""", params=None
+    ).set_index("timestamp")
+
+    rebalance_gas_cost_df = fetch_solver_gas_costs()  # is reading from cache
     keeper_gas_costs_df = fetch_keeper_network_gas_costs()
 
     gas_cost_columns = ["hash", "gas_price", "gas_used", "gasCostInETH"]

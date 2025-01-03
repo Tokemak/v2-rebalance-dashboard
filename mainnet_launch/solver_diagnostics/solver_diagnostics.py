@@ -121,7 +121,7 @@ def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
 def _make_proposed_vs_actual_rebalance_scatter_plot(
     proposed_rebalances_df: pd.DataFrame, rebalance_event_df: pd.DataFrame
 ) -> go.Figure:
-    # TODO update this to use the real rebalance sizes
+    # TODO update this to use the real rebalance sizes.
     proposed_rebalances_fig = go.Scatter(
         x=proposed_rebalances_df.index,
         y=proposed_rebalances_df["moveName"],
