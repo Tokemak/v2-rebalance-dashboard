@@ -7,7 +7,6 @@ from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import
     fetch_and_render_destination_allocation_over_time_data,
 )
 from mainnet_launch.destination_diagnostics.weighted_crm import (
-    fetch_weighted_crm_data,
     fetch_and_render_weighted_crm_data,
     fetch_and_render_destination_apr_data,
 )
@@ -45,7 +44,6 @@ PER_AUTOPOOOL_DATA_CACHING_FUNCTIONS = [
     fetch_key_metrics_data,
     fetch_autopool_diagnostics_data,
     fetch_destination_allocation_over_time_data,
-    fetch_weighted_crm_data,
     fetch_rebalance_events_data,
 ]
 

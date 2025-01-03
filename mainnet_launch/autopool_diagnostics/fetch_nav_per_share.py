@@ -18,6 +18,7 @@ def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
     )
 
 
+@st.cache_data(ttl=CACHE_TIME)
 def fetch_nav_per_share(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
 
     nav_per_share_df = get_raw_state_by_blocks(
