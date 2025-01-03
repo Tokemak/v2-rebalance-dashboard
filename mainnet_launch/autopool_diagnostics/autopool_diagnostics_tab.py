@@ -42,8 +42,43 @@ def fetch_and_render_autopool_diagnostics_data(autopool: AutopoolConstants):
     fetch_and_render_autopool_rewardliq_plot(autopool)
 
 
+import time
+from typing import Callable
+
+
+def time_function(func: Callable, *args, **kwargs):
+    start_time = time.time()
+    result = func(*args, **kwargs)
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"Function {func.__name__} took {elapsed_time:.4f} seconds.")
+    return result, elapsed_time
+
+
+def fetch_and_render_autopool_diagnostics_data_time(autopool):
+    timings = {}
+
+    # Timing each function call
+    _, timings["autopool_fee_data"] = time_function(fetch_and_render_autopool_fee_data, autopool)
+    _, timings["turnover_data"] = time_function(fetch_and_render_turnover_data, autopool)
+    _, timings["deposit_withdraw_stats_data"] = time_function(
+        fetch_and_render_autopool_deposit_and_withdraw_stats_data, autopool
+    )
+    _, timings["destination_counts_data"] = time_function(fetch_and_render_autopool_destination_counts_data, autopool)
+    _, timings["return_and_expenses_metrics"] = time_function(
+        fetch_and_render_autopool_return_and_expenses_metrics, autopool
+    )
+    _, timings["rewardliq_plot"] = time_function(fetch_and_render_autopool_rewardliq_plot, autopool)
+
+    # Print overall timings
+    print("\nTiming Summary:")
+    for key, value in timings.items():
+        print(f"{key}: {value:.4f} seconds")
+
+    return timings
+
+
 if __name__ == "__main__":
     from mainnet_launch.constants import AUTO_ETH
 
-    fetch_and_render_autopool_diagnostics_data(AUTO_ETH)
-    pass
+    fetch_and_render_autopool_diagnostics_data_time(AUTO_ETH)
