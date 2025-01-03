@@ -7,7 +7,10 @@ from datetime import datetime, timedelta, timezone
 from mainnet_launch.destinations import get_destination_details
 from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS, BASE_ETH, AUTO_LRT
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
+from mainnet_launch.data_fetching.add_info_to_dataframes import (
+    add_timestamp_to_df_with_block_column,
+    add_transaction_gas_info_to_df_with_tx_hash,
+)
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 
 
@@ -15,6 +18,7 @@ from mainnet_launch.data_fetching.new_databases import (
     write_dataframe_to_table,
     run_read_only_query,
     get_earliest_block_from_table_with_autopool,
+    drop_table,
 )
 
 
@@ -97,20 +101,6 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
     return periodic_fee_df, streaming_fee_df
 
 
-def fetch_autopool_destination_debt_reporting_events_OLD(autopool: AutopoolConstants) -> pd.DataFrame:
-    vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    debt_reporting_events_df = fetch_events(
-        vault_contract.events.DestinationDebtReporting, start_block=autopool.chain.block_autopool_first_deployed
-    )
-    debt_reporting_events_df = add_timestamp_to_df_with_block_column(debt_reporting_events_df, autopool.chain)
-    debt_reporting_events_df["eth_claimed"] = debt_reporting_events_df["claimed"] / 1e18  # claimed is in ETH
-    vault_to_name = {d.vaultAddress: d.vault_name for d in get_destination_details(autopool)}
-    debt_reporting_events_df["destinationName"] = debt_reporting_events_df["destination"].apply(
-        lambda x: vault_to_name[x]
-    )
-    return debt_reporting_events_df
-
-
 def _update_debt_reporting_table():
     for autopool in ALL_AUTOPOOLS:
         highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
@@ -131,10 +121,14 @@ def _update_debt_reporting_table():
         )
         debt_reporting_events_df["autopool"] = autopool.name
         cols = ["eth_claimed", "hash", "destinationName", "autopool", "timestamp", "block"]
+        debt_reporting_events_df = debt_reporting_events_df[cols].copy()
+        debt_reporting_events_df = add_transaction_gas_info_to_df_with_tx_hash(debt_reporting_events_df, autopool.chain)
+
         write_dataframe_to_table(debt_reporting_events_df[cols], DESTINATION_DEBT_REPORTING_EVENTS_TABLE)
 
 
 def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants) -> pd.DataFrame:
+    # drop_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE)
     if should_update_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE):
         _update_debt_reporting_table()
 
@@ -303,4 +297,4 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
 
 if __name__ == "__main__":
     fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
-    # fetch_and_render_autopool_fee_data(AUTO_LRT)
+    fetch_and_render_autopool_fee_data(AUTO_LRT)
