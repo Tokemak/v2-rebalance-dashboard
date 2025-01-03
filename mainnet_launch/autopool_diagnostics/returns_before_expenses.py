@@ -63,10 +63,12 @@ def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: Autopoo
 
 
 def _fetch_implied_extra_nav_if_price_return_is_zero(autopool: AutopoolConstants) -> pd.DataFrame:
-    blocks = build_blocks_to_use(autopool.chain)
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
-        fetch_destination_summary_stats(blocks, autopool)
-    )
+    pricePerShare_df = fetch_destination_summary_stats(autopool, "pricePerShare")
+    ownedShares_df = fetch_destination_summary_stats(autopool, "ownedShares")
+    allocation_df = pricePerShare_df * ownedShares_df
+
+    priceReturn_df = fetch_destination_summary_stats(autopool, "priceReturn")
+
     implied_extra_nav_if_price_return_is_zero = (allocation_df * priceReturn_df).sum(axis=1).resample("1D").last()
     implied_extra_nav_if_price_return_is_zero.name = "additional_nav_if_price_return_was_0"
     return implied_extra_nav_if_price_return_is_zero
