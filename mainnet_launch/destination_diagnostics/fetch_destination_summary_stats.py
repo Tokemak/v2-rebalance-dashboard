@@ -316,11 +316,10 @@ def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_f
     )
     summary_stats_df = summary_stats_df.reset_index()
     summary_stats_df = add_timestamp_to_df_with_block_column(summary_stats_df, autopool.chain)
+    summary_stats_df = summary_stats_df.drop(columns=["block"])
 
     return summary_stats_df
 
 
 if __name__ == "__main__":
-    summary_stats_df = fetch_destination_summary_stats(AUTO_LRT)
-
-    pass
+    summary_stats_df = fetch_destination_summary_stats(AUTO_LRT, "baseApr")
