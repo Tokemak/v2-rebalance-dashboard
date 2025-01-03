@@ -14,7 +14,7 @@ from mainnet_launch.destinations import get_destination_details
 
 def fetch_key_metrics_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use(autopool.chain)
-    nav_per_share_df = fetch_nav_per_share(blocks, autopool)  # TODO add caching
+    nav_per_share_df = fetch_nav_per_share(autopool)
 
     compositeReturn_out_df = fetch_destination_summary_stats(autopool, "compositeReturn")
     priceReturn_df = fetch_destination_summary_stats(autopool, "priceReturn")

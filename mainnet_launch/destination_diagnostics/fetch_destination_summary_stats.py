@@ -83,6 +83,7 @@ def _flatten_summary_stats_df(summary_stats_df: pd.DataFrame, autopool: Autopool
     return merged_df
 
 
+# TODO this should be made generic
 def _get_highest_block_to_fetch_for_destination_summary_stats(autopool: AutopoolConstants) -> int:
     if does_table_exist(DESTINATION_SUMMARY_STATS_TABLE):
         query = f"""
