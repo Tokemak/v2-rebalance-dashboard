@@ -86,7 +86,7 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     query = f"""
         SELECT * from {REBALANCE_EVENTS_TABLE}
         
-        where autopool = ?
+        WHERE autopool = ?
         
         """
     params = (autopool.name,)
@@ -139,8 +139,7 @@ def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, 
 
 def fetch_and_clean_rebalance_between_destination_events(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
     rebalance_df = fetch_rebalance_events_and_actual_weth_and_lp_tokens_moved(autopool, start_block)
-    blocks = build_blocks_to_use(autopool.chain)
-    destination_details = get_destination_details(autopool, blocks)
+    destination_details = get_destination_details(autopool)
     destination_vault_address_to_symbol = {dest.vaultAddress: dest.vault_name for dest in destination_details}
 
     def _make_rebalance_between_destination_human_readable(
@@ -313,8 +312,7 @@ def _build_value_held_by_solver(
 
 
 def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
-    blocks = build_blocks_to_use(autopool.chain)
-    destinations = get_destination_details(autopool, blocks)
+    destinations = get_destination_details(autopool)
 
     vaultAddresses = list(set([d.vaultAddress for d in destinations]))
     dfs = []
@@ -332,8 +330,7 @@ def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants, start_bl
 
 
 def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
-    blocks = build_blocks_to_use(autopool.chain)
-    destinations = get_destination_details(autopool, blocks)
+    destinations = get_destination_details(autopool)
     vaultAddresses = list(set([d.vaultAddress for d in destinations]))
     dfs = []
 
@@ -351,7 +348,7 @@ def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants, start_blo
 
 def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
 
-    destinations = get_destination_details(autopool, blocks)
+    destinations = get_destination_details(autopool)
 
     get_validated_spot_price_calls = []
     for dest in destinations:

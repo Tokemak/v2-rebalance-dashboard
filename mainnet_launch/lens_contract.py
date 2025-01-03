@@ -163,6 +163,7 @@ def build_proxyGetDestinationSummaryStats_call(
     )
 
 
+# TODO this should be cached too?
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_pools_and_destinations_df(chain: ChainData, blocks: list[int]) -> pd.DataFrame:
     calls = [get_pools_and_destinations_call(chain)]
