@@ -16,10 +16,6 @@ from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.constants import AutopoolConstants, CACHE_TIME
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 
-from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
-    fetch_rebalance_events_actual_amounts,
-)
-
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
