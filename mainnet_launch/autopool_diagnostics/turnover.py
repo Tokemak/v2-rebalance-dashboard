@@ -22,16 +22,15 @@ def fetch_and_render_turnover_data(autopool: AutopoolConstants):
     st.table(turnover_summary)
 
 
-@st.cache_data(ttl=CACHE_TIME)
 def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
-    # I suspect this is not correct because it may be using the in and out eth value from the rebalance events
-    blocks = build_blocks_to_use(autopool.chain)
+    # TODO I suspect this can be slightly off because it may be using the in and out eth value from the rebalance events
     clean_rebalance_df = fetch_rebalance_events_df(autopool)
-    # not sure why this is needed it should be done in fetch_and_clean_rebalance_between_destination_events
-    clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, autopool.chain)
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, pR_df = (
-        fetch_destination_summary_stats(blocks, autopool)
-    )
+
+    pricePerShare_df = fetch_destination_summary_stats(autopool, "pricePerShare")
+    ownedShares_df = fetch_destination_summary_stats(autopool, "ownedShares")
+    allocation_df = pricePerShare_df * ownedShares_df
+    total_nav_series = allocation_df.sum(axis=1)
+
     today = datetime.now(timezone.utc)
 
     seven_days_ago = today - timedelta(days=7)
@@ -72,8 +71,4 @@ def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
 if __name__ == "__main__":
 
     for a in ALL_AUTOPOOLS:
-        print(a)
-        turnover_summary = fetch_turnover_data(a)
-
-        print(turnover_summary)
-        pass
+        fetch_and_render_turnover_data(a)
