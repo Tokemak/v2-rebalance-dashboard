@@ -5,7 +5,6 @@ import pandas as pd
 
 from mainnet_launch.constants import DB_FILE
 
-
 TABLE_NAME_TO_LAST_UPDATED = "TABLE_NAME_TO_LAST_UPDATED"
 
 

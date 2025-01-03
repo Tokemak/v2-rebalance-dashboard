@@ -8,25 +8,89 @@ import colorsys
 
 
 from mainnet_launch.destinations import get_destination_details
-from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS, BASE_ETH, AUTO_LRT
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 
 
-@st.cache_data(ttl=CACHE_TIME)
-def fetch_autopool_fee_data(autopool: AutopoolConstants):
-    vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    streaming_fee_df = add_timestamp_to_df_with_block_column(
-        fetch_events(vault_contract.events.FeeCollected), autopool.chain
-    )
-    periodic_fee_df = add_timestamp_to_df_with_block_column(
-        fetch_events(vault_contract.events.PeriodicFeeCollected), autopool.chain
-    )
+from mainnet_launch.data_fetching.new_databases import (
+    write_dataframe_to_table,
+    run_read_only_query,
+    get_earliest_block_from_table_with_autopool,
+)
 
-    periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
-    streaming_fee_df["normalized_fees"] = streaming_fee_df["fees"].apply(lambda x: int(x) / 1e18)
+
+from mainnet_launch.data_fetching.should_update_database import (
+    should_update_table,
+)
+
+
+AUTOPOOL_FEE_EVENTS_TABLE = "AUTOPOOL_FEE_EVENTS_TABLE"
+
+
+def _add_new_fee_events_to_table():
+    for autopool in ALL_AUTOPOOLS:
+        highest_block_already_fetched = get_earliest_block_from_table_with_autopool(AUTOPOOL_FEE_EVENTS_TABLE, autopool)
+        vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+
+        streaming_fee_df = fetch_events(vault_contract.events.FeeCollected, start_block=highest_block_already_fetched)
+
+        streaming_fee_df["normalized_fees"] = streaming_fee_df["fees"].apply(lambda x: int(x) / 1e18)
+        streaming_fee_df["new_shares_from_streaming_fees"] = streaming_fee_df["mintedShares"] / 1e18
+        streaming_fee_df["new_shares_from_periodic_fees"] = 0.0  # so that the columns line up
+
+        periodic_fee_df = fetch_events(
+            vault_contract.events.PeriodicFeeCollected, start_block=highest_block_already_fetched
+        )
+
+        periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
+        periodic_fee_df["new_shares_from_streaming_fees"] = 0  # so the columns line up
+        periodic_fee_df["new_shares_from_periodic_fees"] = periodic_fee_df["mintedShares"] / 1e18
+
+        cols_to_keep = [
+            "event",
+            "block",
+            "hash",
+            "normalized_fees",
+            "new_shares_from_streaming_fees",
+            "new_shares_from_periodic_fees",
+        ]
+        fee_df = pd.concat([streaming_fee_df, periodic_fee_df], axis=0)
+        fee_df = fee_df[cols_to_keep].copy()
+        fee_df["autopool"] = autopool.name
+        fee_df = add_timestamp_to_df_with_block_column(fee_df, autopool.chain).reset_index()
+        print(fee_df.head())
+        write_dataframe_to_table(fee_df, AUTOPOOL_FEE_EVENTS_TABLE)
+
+
+def fetch_autopool_fee_data(autopool: AutopoolConstants):
+    if should_update_table(AUTOPOOL_FEE_EVENTS_TABLE):
+        _add_new_fee_events_to_table()
+
+    params = (autopool.name,)
+
+    get_streaming_fee_events_query = f"""
+    
+    SELECT * from {AUTOPOOL_FEE_EVENTS_TABLE}
+    
+    WHERE autopool = ? and event = "FeeCollected"
+    
+    """
+    streaming_fee_df = run_read_only_query(get_streaming_fee_events_query, params)
+    streaming_fee_df = streaming_fee_df.set_index("timestamp")
+
+    get_periodic_fee_events_query = f"""
+    
+    SELECT * from {AUTOPOOL_FEE_EVENTS_TABLE}
+    
+    WHERE autopool = ? and event = "PeriodicFeeCollected"
+    
+    """
+
+    periodic_fee_df = run_read_only_query(get_periodic_fee_events_query, params)
+    periodic_fee_df = periodic_fee_df.set_index("timestamp")
+
     periodic_fee_df = periodic_fee_df[["normalized_fees"]].copy()
     streaming_fee_df = streaming_fee_df[["normalized_fees"]].copy()
 
@@ -36,7 +100,7 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
     return periodic_fee_df, streaming_fee_df
 
 
-@st.cache_data(ttl=CACHE_TIME)
+@st.cache_data(ttl=CACHE_TIME)  # TODO cache this
 def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants) -> pd.DataFrame:
     vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
     # event DestinationDebtReporting(
@@ -217,5 +281,5 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
 
 
 if __name__ == "__main__":
-    fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
-    fetch_autopool_fee_data(AUTO_LRT)
+    # fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
+    fetch_and_render_autopool_fee_data(AUTO_LRT)

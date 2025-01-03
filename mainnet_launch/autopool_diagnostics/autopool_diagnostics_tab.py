@@ -82,3 +82,15 @@ if __name__ == "__main__":
     from mainnet_launch.constants import AUTO_ETH
 
     fetch_and_render_autopool_diagnostics_data_time(AUTO_ETH)
+
+    pass
+
+
+# this is accurate
+# Timing Summary:
+# autopool_fee_data: 2.6717 seconds
+# turnover_data: 0.0722 seconds
+# deposit_withdraw_stats_data: 3.0261 seconds
+# destination_counts_data: 0.0851 seconds
+# return_and_expenses_metrics: 7.2554 seconds
+# rewardliq_plot: 2.6525 seconds

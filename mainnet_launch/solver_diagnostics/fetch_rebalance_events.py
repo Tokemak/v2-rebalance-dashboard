@@ -37,7 +37,7 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import (
 from mainnet_launch.data_fetching.new_databases import (
     write_dataframe_to_table,
     run_read_only_query,
-    does_table_exist,
+    get_earliest_block_from_table_with_autopool,
 )
 
 
@@ -49,29 +49,9 @@ from mainnet_launch.data_fetching.should_update_database import (
 REBALANCE_EVENTS_TABLE = "REBALANCE_EVENTS_TABLE"
 
 
-def _get_earliest_block_to_fetch_for_rebalance_events(autopool: AutopoolConstants) -> int:
-    if does_table_exist(REBALANCE_EVENTS_TABLE):
-        query = f"""
-        SELECT max(block) as highest_found_block from {REBALANCE_EVENTS_TABLE}
-        
-        where autopool = ?
-        
-        """
-        params = (autopool.name,)
-        df = run_read_only_query(query, params)
-
-        possible_highest_block = df["highest_found_block"].values[0]
-        if possible_highest_block is None:
-            return autopool.chain.block_autopool_first_deployed
-        else:
-            return int(df["highest_found_block"].values[0])
-    else:
-        return autopool.chain.block_autopool_first_deployed
-
-
 def _add_new_rebalance_events_for_each_autopool_to_table():
     for autopool in ALL_AUTOPOOLS:
-        highest_block_already_fetched = _get_earliest_block_to_fetch_for_rebalance_events(autopool)
+        highest_block_already_fetched = get_earliest_block_from_table_with_autopool(REBALANCE_EVENTS_TABLE, autopool)
         new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
             autopool, highest_block_already_fetched
         )

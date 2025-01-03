@@ -23,7 +23,11 @@ from mainnet_launch.destinations import (
 )
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 
-from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, does_table_exist, run_read_only_query
+from mainnet_launch.data_fetching.new_databases import (
+    write_dataframe_to_table,
+    get_earliest_block_from_table_with_autopool,
+    run_read_only_query,
+)
 from mainnet_launch.data_fetching.should_update_database import should_update_table
 
 
@@ -45,7 +49,9 @@ SUMMARY_STATS_FIELDS = [
 
 def _add_new_destination_summary_stats_to_table() -> None:
     for autopool in ALL_AUTOPOOLS:
-        highest_block_already_fetched = _get_highest_block_to_fetch_for_destination_summary_stats(autopool)
+        highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
+            DESTINATION_SUMMARY_STATS_TABLE, autopool
+        )
         blocks = [b for b in build_blocks_to_use(autopool.chain) if b >= highest_block_already_fetched]
 
         flat_summary_stats_df = _fetch_destination_summary_stats_from_external_source(autopool, blocks)
@@ -81,25 +87,6 @@ def _flatten_summary_stats_df(summary_stats_df: pd.DataFrame, autopool: Autopool
 
     merged_df["autopool"] = autopool.name
     return merged_df
-
-
-# TODO this should be made generic
-def _get_highest_block_to_fetch_for_destination_summary_stats(autopool: AutopoolConstants) -> int:
-    if does_table_exist(DESTINATION_SUMMARY_STATS_TABLE):
-        query = f"""
-        SELECT max(block) as highest_found_block from {DESTINATION_SUMMARY_STATS_TABLE}
-        where autopool = ?
-        """
-        params = (autopool.name,)
-        df = run_read_only_query(query, params)
-
-        possible_highest_block = df["highest_found_block"].values[0]
-        if possible_highest_block is None:
-            return autopool.chain.block_autopool_first_deployed
-        else:
-            return int(possible_highest_block)
-    else:
-        return autopool.chain.block_autopool_first_deployed
 
 
 def _get_earliest_raw_summary_stats_that_does_not_revert(

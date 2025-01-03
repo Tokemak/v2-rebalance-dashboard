@@ -3,7 +3,7 @@ from typing import Optional
 
 import pandas as pd
 
-from mainnet_launch.constants import DB_FILE
+from mainnet_launch.constants import DB_FILE, AutopoolConstants, ChainData
 from mainnet_launch.data_fetching.should_update_database import (
     write_timestamp_table_was_last_updated,
 )
@@ -192,3 +192,43 @@ def run_read_only_query(query: str, params: tuple) -> pd.DataFrame:
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
         return df
+
+
+def get_earliest_block_from_table_with_autopool(table_name: str, autopool: AutopoolConstants) -> int:
+    if does_table_exist(table_name):
+        query = f"""
+        SELECT max(block) as highest_found_block from {table_name}
+        
+        WHERE autopool = ?
+        
+        """
+        params = (autopool.name,)
+        df = run_read_only_query(query, params)
+
+        possible_highest_block = df["highest_found_block"].values[0]
+        if possible_highest_block is None:
+            return autopool.chain.block_autopool_first_deployed
+        else:
+            return int(df["highest_found_block"].values[0])
+    else:
+        return autopool.chain.block_autopool_first_deployed
+
+
+def get_earliest_block_from_table_with_chain(table_name: str, chain: ChainData) -> int:
+    if does_table_exist(table_name):
+        query = f"""
+        SELECT max(block) as highest_found_block from {table_name}
+        
+        WHERE chain = ?
+        
+        """
+        params = (chain.name,)
+        df = run_read_only_query(query, params)
+
+        possible_highest_block = df["highest_found_block"].values[0]
+        if possible_highest_block is None:
+            return chain.block_autopool_first_deployed
+        else:
+            return int(df["highest_found_block"].values[0])
+    else:
+        return chain.block_autopool_first_deployed
