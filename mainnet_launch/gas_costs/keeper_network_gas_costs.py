@@ -48,6 +48,7 @@ CALCULATOR_TOPIC_IDS = [
 INCENTIVE_PRICING_TOPIC_IDS = [INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 
 
+# TODO consider caching these, it takes 2 seconds to load the data from on chain
 def fetch_our_chainlink_upkeep_events() -> pd.DataFrame:
     contract = ETH_CHAIN.client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
     our_chainlink_upkeep_events = fetch_events(
@@ -207,14 +208,6 @@ def fetch_solver_gas_costs() -> pd.DataFrame:
     clean_rebalance_df = pd.concat(dfs)
 
     return clean_rebalance_df
-
-
-def fetch_all_autopool_debt_reporting_events() -> pd.DataFrame:
-    destination_debt_reporting_df = run_read_only_query(
-        f"""SELECT * FROM {DESTINATION_DEBT_REPORTING_EVENTS_TABLE}""", params=None
-    )
-    destination_debt_reporting_df = destination_debt_reporting_df.set_index("timestamp")
-    return destination_debt_reporting_df
 
 
 if __name__ == "__main__":

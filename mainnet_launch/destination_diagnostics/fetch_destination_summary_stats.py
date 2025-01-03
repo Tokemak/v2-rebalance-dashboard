@@ -252,7 +252,7 @@ def _build_summary_stats_call(
     # function getValidatedSafePrice() external returns (uint256 price);
     # getDestinationSummaryStats uses getValidatedSafePrice. So when prices are outside tolerance this function reverts
 
-    # TODO find a version of this function that won't revert,
+    # consider finding a version of this function that won't revert, (follow up, I am pretty sure that does not exist)
     if direction == "in":
         direction_enum = 0
     elif direction == "out":
