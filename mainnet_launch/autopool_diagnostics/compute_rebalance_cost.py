@@ -22,8 +22,7 @@ from mainnet_launch.destinations import get_destination_details
 
 
 def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
-    blocks = build_blocks_to_use(autopool.chain)
-    destinations = get_destination_details(autopool, blocks)
+    destinations = get_destination_details(autopool)
     # keeping as is because it is cached, using the st.cache_data, this is faster
 
     vaultAddresses = list(set([d.vaultAddress for d in destinations]))
@@ -42,8 +41,7 @@ def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants, start_bl
 
 
 def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
-    blocks = build_blocks_to_use(autopool.chain)
-    destinations = get_destination_details(autopool, blocks)
+    destinations = get_destination_details(autopool)
     # keeping as is because it is cached, using the st.cache_data, this is faster
     vaultAddresses = list(set([d.vaultAddress for d in destinations]))
     dfs = []
@@ -62,7 +60,7 @@ def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants, start_blo
 
 def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
 
-    destinations = get_destination_details(autopool, blocks)
+    destinations = get_destination_details(autopool)
 
     get_validated_spot_price_calls = []
     for dest in destinations:

@@ -12,13 +12,25 @@ from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats impo
 from mainnet_launch.destinations import get_destination_details
 
 
-@st.cache_data(ttl=CACHE_TIME)
 def fetch_key_metrics_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use(autopool.chain)
-    nav_per_share_df = fetch_nav_per_share(blocks, autopool)
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
-        fetch_destination_summary_stats(blocks, autopool)
-    )
+    nav_per_share_df = fetch_nav_per_share(autopool)
+
+    compositeReturn_out_df = fetch_destination_summary_stats(autopool, "compositeReturn")
+    priceReturn_df = fetch_destination_summary_stats(autopool, "priceReturn")
+
+    pricePerShare_df = fetch_destination_summary_stats(autopool, "pricePerShare")
+    ownedShares_df = fetch_destination_summary_stats(autopool, "ownedShares")
+    allocation_df = pricePerShare_df * ownedShares_df
+    total_nav_series = allocation_df.sum(axis=1)
+
+    baseApr_df = fetch_destination_summary_stats(autopool, "baseApr")
+    feeApr_df = fetch_destination_summary_stats(autopool, "feeApr")
+    incentiveApr_df = fetch_destination_summary_stats(autopool, "incentiveApr")
+    portion_df = allocation_df.div(total_nav_series, axis=0)
+
+    uwcr_df = 100 * (baseApr_df + feeApr_df + incentiveApr_df)
+    uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
 
     key_metric_data = {
         "nav_per_share_df": nav_per_share_df,
@@ -26,7 +38,6 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         "allocation_df": allocation_df,
         "compositeReturn_df": compositeReturn_out_df,
         "total_nav_df": total_nav_series,
-        "summary_stats_df": summary_stats_df,
         "priceReturn_df": priceReturn_df,
         "blocks": blocks,
     }
@@ -67,12 +78,10 @@ def _diffReturn(x: list):
     return round(x.iloc[-1] - x.iloc[-2], 4)
 
 
-def _get_percent_deployed(
-    allocation_df: pd.DataFrame, autopool: AutopoolConstants, blocks: list[int]
-) -> tuple[float, float]:
+def _get_percent_deployed(allocation_df: pd.DataFrame, autopool: AutopoolConstants) -> tuple[float, float]:
 
     daily_allocation_df = allocation_df.resample("1D").last()
-    destinations = get_destination_details(autopool, blocks)
+    destinations = get_destination_details(autopool)
     autopool_name = [dest.vault_name for dest in destinations if dest.vaultAddress == autopool.autopool_eth_addr][0]
 
     tvl_according_to_allocation_df = float(daily_allocation_df.iloc[-1].sum())
@@ -119,9 +128,7 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
         _diffReturn(uwcr_df["Expected_Return"]),
     )
 
-    percent_deployed_yesterday, percent_deployed_today = _get_percent_deployed(
-        allocation_df, autopool, key_metric_data["blocks"]
-    )
+    percent_deployed_yesterday, percent_deployed_today = _get_percent_deployed(allocation_df, autopool)
 
     col6.metric(
         "Percent Deployed", percent_deployed_today, round(percent_deployed_today - percent_deployed_yesterday, 2)

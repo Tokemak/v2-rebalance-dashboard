@@ -4,21 +4,16 @@ import pandas as pd
 import streamlit as st
 
 
-from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS
-from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
+from mainnet_launch.constants import AutopoolConstants
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
 
-st.cache_data(ttl=CACHE_TIME)
-
-
 def fetch_destination_allocation_over_time_data(autopool: AutopoolConstants):
-    blocks = build_blocks_to_use(autopool.chain)
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
-        fetch_destination_summary_stats(blocks, autopool)
-    )
+    pricePerShare_df = fetch_destination_summary_stats(autopool, "pricePerShare")
+    ownedShares_df = fetch_destination_summary_stats(autopool, "ownedShares")
+    allocation_df = pricePerShare_df * ownedShares_df
+    percent_allocation_df = 100 * allocation_df.div(allocation_df.sum(axis=1), axis=0)
 
-    percent_allocation_df = 100 * allocation_df.div(total_nav_series, axis=0)
     latest_percent_allocation = percent_allocation_df.tail(1)
 
     pie_allocation_fig = px.pie(
@@ -53,8 +48,3 @@ def fetch_and_render_destination_allocation_over_time_data(autopool: AutopoolCon
             - Percent of TVL by Destination: Shows the percent of capital deployed to each destination
             """
         )
-
-
-if __name__ == "__main__":
-    for a in ALL_AUTOPOOLS:
-        fetch_destination_allocation_over_time_data(a)

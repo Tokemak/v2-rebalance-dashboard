@@ -1,28 +1,19 @@
 import pandas as pd
-import streamlit as st
-from datetime import timedelta
 from multicall import Call
-import plotly.express as px
 import numpy as np
+from web3 import Web3
 
 
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
-    get_state_by_one_block,
-    identity_with_bool_success,
     safe_normalize_with_bool_success,
     build_blocks_to_use,
 )
 from mainnet_launch.lens_contract import fetch_pools_and_destinations_df
 from mainnet_launch.constants import (
-    CACHE_TIME,
     AutopoolConstants,
-    eth_client,
     ALL_AUTOPOOLS,
     AUTO_LRT,
-    time_decorator,
-    BASE_ETH,
-    ETH_CHAIN,
     POINTS_HOOK,
     ChainData,
 )
@@ -30,6 +21,85 @@ from mainnet_launch.destinations import (
     get_destination_details,
     DestinationDetails,
 )
+from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
+
+from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, does_table_exist, run_read_only_query
+from mainnet_launch.data_fetching.should_update_database import should_update_table
+
+
+DESTINATION_SUMMARY_STATS_TABLE = "DESTINATION_SUMMARY_STATS_TABLE"
+SUMMARY_STATS_FIELDS = [
+    "baseApr",
+    "feeApr",
+    "incentiveApr",
+    "safeTotalSupply",
+    "priceReturn",
+    "maxDiscount",
+    "maxPremium",
+    "ownedShares",
+    "compositeReturn",
+    "pricePerShare",
+    "pointsApr",
+]
+
+
+def _add_new_destination_summary_stats_to_table() -> None:
+    for autopool in ALL_AUTOPOOLS:
+        highest_block_already_fetched = _get_highest_block_to_fetch_for_destination_summary_stats(autopool)
+        blocks = [b for b in build_blocks_to_use(autopool.chain) if b >= highest_block_already_fetched]
+
+        flat_summary_stats_df = _fetch_destination_summary_stats_from_external_source(autopool, blocks)
+        write_dataframe_to_table(flat_summary_stats_df, DESTINATION_SUMMARY_STATS_TABLE)
+
+
+def _fetch_destination_summary_stats_from_external_source(
+    autopool: AutopoolConstants, blocks: list[int]
+) -> pd.DataFrame:
+    destination_details = get_destination_details(autopool)
+    raw_summary_stats_df = _get_earliest_raw_summary_stats_that_does_not_revert(blocks, destination_details, autopool)
+    summary_stats_df = _combine_migrated_destinations(autopool, raw_summary_stats_df, destination_details)
+    # note the blocks here are not exactly accurate, but are approximatly accurate
+    # if the getDestinationsummaryStats() call reverts we get the price upto 30 minutes in the past, in 10 minute chunks
+    # so the block and timestamp can be up to 30 minute old.
+    # note this is only a very small amount of data
+    summary_stats_df["block"] = blocks
+    flat_summary_stats_df = _flatten_summary_stats_df(summary_stats_df, autopool)
+    return flat_summary_stats_df
+
+
+def _flatten_summary_stats_df(summary_stats_df: pd.DataFrame, autopool: AutopoolConstants) -> pd.DataFrame:
+    merged_df = None
+    for col in SUMMARY_STATS_FIELDS:
+        df = summary_stats_df.map(lambda row: row[col] if isinstance(row, dict) else 0).astype(float)
+        df["block"] = summary_stats_df["block"]
+
+        long_form_df = pd.melt(df, id_vars=["block"], var_name="destination", value_name=col)
+        if merged_df is None:
+            merged_df = long_form_df.copy()
+        else:
+            merged_df = pd.merge(merged_df, long_form_df, how="inner", on=["block", "destination"])
+
+    merged_df["autopool"] = autopool.name
+    return merged_df
+
+
+# TODO this should be made generic
+def _get_highest_block_to_fetch_for_destination_summary_stats(autopool: AutopoolConstants) -> int:
+    if does_table_exist(DESTINATION_SUMMARY_STATS_TABLE):
+        query = f"""
+        SELECT max(block) as highest_found_block from {DESTINATION_SUMMARY_STATS_TABLE}
+        where autopool = ?
+        """
+        params = (autopool.name,)
+        df = run_read_only_query(query, params)
+
+        possible_highest_block = df["highest_found_block"].values[0]
+        if possible_highest_block is None:
+            return autopool.chain.block_autopool_first_deployed
+        else:
+            return int(possible_highest_block)
+    else:
+        return autopool.chain.block_autopool_first_deployed
 
 
 def _get_earliest_raw_summary_stats_that_does_not_revert(
@@ -88,30 +158,6 @@ def _get_earliest_raw_summary_stats_that_does_not_revert(
     return current_df
 
 
-@st.cache_data(ttl=CACHE_TIME)
-def fetch_destination_summary_stats(blocks: list[int], autopool: AutopoolConstants):
-
-    destination_details = get_destination_details(autopool, blocks)
-
-    raw_summary_stats_df = _get_earliest_raw_summary_stats_that_does_not_revert(blocks, destination_details, autopool)
-
-    summary_stats_df = _combine_migrated_destinations(
-        autopool, raw_summary_stats_df, destination_details
-    )  # it does not have idle at this points
-
-    uwcr_df, priceReturn_df = _extract_unweighted_composite_return_df(summary_stats_df)
-    # rsETH and ETHx fail on balancer I suspect that we can't price rsETH
-    allocation_df = _extract_allocation_df(summary_stats_df)
-    compositeReturn_out_df = _extract_composite_return_out_df(summary_stats_df)
-    total_nav_series = allocation_df.sum(axis=1)
-    portion_df = allocation_df.div(total_nav_series, axis=0)
-    uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
-
-    # getSummaryStats can fail if we revert when we can't get a validatedSafePrice of a LP token
-
-    return uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df
-
-
 def _combine_migrated_destinations(
     autopool: AutopoolConstants, summary_stats_df: pd.DataFrame, destination_details: set[DestinationDetails]
 ) -> pd.DataFrame:
@@ -146,7 +192,7 @@ def _fetch_autopool_destination_df(
     blocks, destination_details: list[DestinationDetails], autopool: AutopoolConstants
 ) -> pd.DataFrame:
     calls = [_build_summary_stats_call(dest.autopool, dest) for dest in destination_details]
-    summary_stats_df = get_raw_state_by_blocks(calls, blocks, autopool.chain)
+    summary_stats_df = get_raw_state_by_blocks(calls, blocks, autopool.chain, include_block_number=True)
 
     def get_current_destinations_by_block(
         autopool: AutopoolConstants, getPoolsAndDestinations: pd.DataFrame
@@ -155,7 +201,7 @@ def _fetch_autopool_destination_df(
             getPoolsAndDestinations["autopools"], getPoolsAndDestinations["destinations"]
         ):
             if a["poolAddress"].lower() == autopool.autopool_eth_addr.lower():
-                return [eth_client.toChecksumAddress(dest["vaultAddress"]) for dest in list_of_destinations]
+                return [Web3.toChecksumAddress(dest["vaultAddress"]) for dest in list_of_destinations]
 
     pools_and_destinations_df = fetch_pools_and_destinations_df(autopool.chain, blocks)
 
@@ -182,11 +228,6 @@ def _fetch_autopool_destination_df(
         summary_stats_df[dest.vaultAddress] = summary_stats_df[dest.vaultAddress].combine(
             points_df[dest.vaultAddress], _add_points_value_to_summary_stats
         )
-
-    # TODO on revert, call the getSummary stats for the block -30 minute and forward fill it
-    # getSummaryStats reverts if the it can't price one of the tokens
-    # in in that case, just use the value from right before as a stand in
-    # summary_stats_df = summary_stats_df.ffill()
 
     return summary_stats_df
 
@@ -258,66 +299,28 @@ def _build_destination_points_calls(destination_details: set[DestinationDetails]
     return destination_points_calls
 
 
-def _extract_composite_return_out_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
-    compositeReturn_out_df = summary_stats_df.map(
-        lambda row: row["compositeReturn"] if isinstance(row, dict) else None
-    ).astype(float)
-    # If we dont have an estimate for safeTotalSupply the Composite Return Out can be very large
-    # clip all CR >100% to None.
-    compositeReturn_out_df = 100 * (compositeReturn_out_df.clip(upper=1).replace(1, np.nan).astype(float))
-    return compositeReturn_out_df
+def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_field: str):
+    if summary_stats_field not in SUMMARY_STATS_FIELDS:
+        raise ValueError(f"Can only fetch {SUMMARY_STATS_FIELDS=} you tried to fetch {summary_stats_field=}")
 
+    if should_update_table(DESTINATION_SUMMARY_STATS_TABLE):
+        _add_new_destination_summary_stats_to_table()
 
-def _extract_unweighted_composite_return_df(summary_stats_df: pd.DataFrame):
-    """Returns a dataframe of base + fee + incentive + price return + pointsApr for each destination in summary_stats_df"""
-    base = summary_stats_df.map(lambda row: row["baseApr"] if isinstance(row, dict) else None).astype(float)
-    fee = summary_stats_df.map(lambda row: row["feeApr"] if isinstance(row, dict) else None).astype(float)
-    incentive = summary_stats_df.map(lambda row: row["incentiveApr"] if isinstance(row, dict) else None).astype(float)
-    priceReturn = summary_stats_df.map(lambda row: row["priceReturn"] if isinstance(row, dict) else None).astype(float)
-    points = summary_stats_df.map(lambda row: row["pointsApr"] if isinstance(row, dict) else None).astype(float)
-    # uwcr_df = 100 * (base + fee + incentive + priceReturn + points)
-    # zero out price return & points
-    # points are not realizable directly
-    # price return assumes we will see depeg compression which is not predictable
-    uwcr_df = 100 * (base + fee + incentive)
-    return uwcr_df, priceReturn
-
-
-def _extract_allocation_df(summary_stats_df: pd.DataFrame) -> pd.DataFrame:
-    """Returns eth present ETH value in each destination"""
-    pricePerShare_df = summary_stats_df.map(lambda row: row["pricePerShare"] if isinstance(row, dict) else 0).astype(
-        float
+    query = f"""
+        SELECT destination, block, {summary_stats_field} from {DESTINATION_SUMMARY_STATS_TABLE}
+        WHERE autopool = ?
+        """
+    params = (autopool.name,)
+    long_summary_stats_df = run_read_only_query(query, params)
+    summary_stats_df = pd.pivot(
+        long_summary_stats_df, columns=["destination"], values=summary_stats_field, index="block"
     )
-    ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else 0).astype(float)
-    allocation_df = pricePerShare_df * ownedShares_df
-    return allocation_df
+    summary_stats_df = summary_stats_df.reset_index()
+    summary_stats_df = add_timestamp_to_df_with_block_column(summary_stats_df, autopool.chain)
+    summary_stats_df = summary_stats_df.drop(columns=["block"])
+
+    return summary_stats_df
 
 
 if __name__ == "__main__":
-    blocks = build_blocks_to_use(AUTO_LRT.chain)
-
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
-        fetch_destination_summary_stats(blocks, AUTO_LRT)
-    )
-
-    print(uwcr_df.tail())
-    print(allocation_df.tail())
-    print(compositeReturn_out_df.tail())
-    print(total_nav_series.tail())
-    print(priceReturn_df.tail())
-
-    # mainnet works, but base does not
-    # blocks = build_blocks_to_use(
-    #     ETH_CHAIN,
-    # )[::6]
-    # print(len(blocks))
-    # uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
-    #     fetch_destination_summary_stats(blocks, AUTO_LRT)
-    # )
-
-    # print(uwcr_df.head())
-    # print(allocation_df.head())
-    # print(compositeReturn_out_df.head())
-    # print(total_nav_series.head())
-    # print(priceReturn_df.head())
-    # pass
+    summary_stats_df = fetch_destination_summary_stats(AUTO_LRT, "baseApr")

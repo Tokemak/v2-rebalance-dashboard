@@ -11,16 +11,10 @@ from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
 
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
-start_block = 20759126  # Sep 15, 2024
 
-
-@st.cache_data(ttl=CACHE_TIME)
 def fetch_autopool_destination_counts_data(autopool: AutopoolConstants):
-    blocks = build_blocks_to_use(autopool.chain)
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, pR_df = (
-        fetch_destination_summary_stats(blocks, autopool)
-    )
-    destination_count_figure = _make_destination_count_figure(autopool, summary_stats_df)
+    ownedShares_df = fetch_destination_summary_stats(autopool, "ownedShares")
+    destination_count_figure = _make_destination_count_figure(autopool, ownedShares_df)
     return destination_count_figure
 
 
@@ -30,10 +24,8 @@ def fetch_and_render_autopool_destination_counts_data(autopool: AutopoolConstant
     st.plotly_chart(destination_count_figure, use_container_width=True)
 
 
-def _make_destination_count_figure(autopool: AutopoolConstants, summary_stats_df: pd.DataFrame) -> go.Figure:
-    ownedShares_df = summary_stats_df.map(lambda row: row["ownedShares"] if isinstance(row, dict) else None).astype(
-        float
-    )
+def _make_destination_count_figure(autopool: AutopoolConstants, ownedShares_df: pd.DataFrame) -> go.Figure:
+
     daily_owned_shares_df = ownedShares_df.resample("1D").last()
     destination_count_df = pd.DataFrame(index=daily_owned_shares_df.index)
     destination_count_df["Count of Destinations Allocated"] = daily_owned_shares_df.apply(
@@ -78,3 +70,8 @@ def _make_destination_count_figure(autopool: AutopoolConstants, summary_stats_df
     )
 
     return destination_count_figure
+
+
+if __name__ == "__main__":
+    for a in ALL_AUTOPOOLS:
+        fetch_and_render_autopool_destination_counts_data(a)
