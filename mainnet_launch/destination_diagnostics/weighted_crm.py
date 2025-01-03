@@ -4,14 +4,12 @@ import pandas as pd
 import streamlit as st
 
 
-from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS, AUTO_LRT
-from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
+from mainnet_launch.constants import AutopoolConstants
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
 
 def fetch_and_render_weighted_crm_data(autopool: AutopoolConstants):
-    key_metric_data = fetch_weighted_crm_data(autopool)
-    composite_return_fig = _make_all_destination_composite_return_df(autopool, key_metric_data)
+    composite_return_fig = _make_all_destination_composite_return_df(autopool)
     st.plotly_chart(composite_return_fig, use_container_width=True)
 
     with st.expander("See explanation"):
@@ -24,9 +22,7 @@ def fetch_and_render_weighted_crm_data(autopool: AutopoolConstants):
 
 
 def fetch_and_render_destination_apr_data(autopool: AutopoolConstants):
-    key_metric_data = fetch_weighted_crm_data(autopool)
-
-    apr_components_fig = _make_apr_components_fig(key_metric_data)
+    apr_components_fig = _make_apr_components_fig(autopool)
     st.plotly_chart(apr_components_fig, use_container_width=True)
 
     with st.expander("See explanation"):
@@ -37,33 +33,15 @@ def fetch_and_render_destination_apr_data(autopool: AutopoolConstants):
         )
 
 
-@st.cache_data(ttl=CACHE_TIME)
-def fetch_weighted_crm_data(autopool: AutopoolConstants) -> dict[str, pd.DataFrame]:
-    blocks = build_blocks_to_use(autopool.chain)
-    uwcr_df, allocation_df, compositeReturn_out_df, total_nav_series, summary_stats_df, priceReturn_df = (
-        fetch_destination_summary_stats(blocks, autopool)
-    )
-    points_df = summary_stats_df.map(lambda row: row["pointsApr"] if isinstance(row, dict) else 0).astype(float)
-
-    key_metric_data = {
-        "uwcr_df": uwcr_df,
-        "allocation_df": allocation_df,
-        "compositeReturn_out_df": compositeReturn_out_df,
-        "total_nav_df": total_nav_series,
-        "summary_stats_df": summary_stats_df,
-        "points_df": points_df,
-    }
-
-    return key_metric_data
-
-
-def _make_all_destination_composite_return_df(autopool: AutopoolConstants, key_metric_data: dict) -> go.Figure:
-    allocation_df = key_metric_data["allocation_df"]
-    total_nav_df = key_metric_data["total_nav_df"]
-    compositeReturn_out_df = key_metric_data["compositeReturn_out_df"]
-    portion_allocation_df = allocation_df.div(total_nav_df, axis=0)
+def _make_all_destination_composite_return_df(autopool: AutopoolConstants) -> go.Figure:
+    compositeReturn_out_df = fetch_destination_summary_stats(autopool, "compositeReturn")
+    pricePerShare_df = fetch_destination_summary_stats(autopool, "pricePerShare")
+    ownedShares_df = fetch_destination_summary_stats(autopool, "ownedShares")
+    allocation_df = pricePerShare_df * ownedShares_df
+    portion_allocation_df = allocation_df.div(allocation_df.sum(axis=1), axis=0)
     autopool_weighted_expected_return = (compositeReturn_out_df * portion_allocation_df).sum(axis=1)
     compositeReturn_out_df[f"{autopool.name} CR"] = autopool_weighted_expected_return
+
     composite_return_fig = px.line(compositeReturn_out_df, title=f"{autopool.name} Destinations and composite Return")
     _apply_default_style(composite_return_fig)
     composite_return_fig.update_layout(yaxis_title="Composite Return (%)")
@@ -74,36 +52,26 @@ def _make_all_destination_composite_return_df(autopool: AutopoolConstants, key_m
     return composite_return_fig
 
 
-def _make_apr_components_fig(key_metric_data: dict) -> go.Figure:
-    summary_stats_df = key_metric_data["summary_stats_df"]
-    # summary_stats_df.columns = [attempt_destination_address_to_vault_name(c) for c in summary_stats_df.columns]
-    price_return_df = 100 * summary_stats_df.map(
-        lambda row: row["priceReturn"] if isinstance(row, dict) else None
-    ).astype(float)
-
-    baseApr_df = 100 * summary_stats_df.map(lambda row: row["baseApr"] if isinstance(row, dict) else None).astype(float)
-
-    incentiveApr_df = 100 * summary_stats_df.map(
-        lambda row: row["incentiveApr"] if isinstance(row, dict) else None
-    ).astype(float)
-
-    feeApr_df = 100 * summary_stats_df.map(lambda row: row["feeApr"] if isinstance(row, dict) else None).astype(float)
+def _make_apr_components_fig(autopool: AutopoolConstants) -> go.Figure:
+    priceReturn_df = fetch_destination_summary_stats(autopool, "priceReturn")
+    baseApr_df = fetch_destination_summary_stats(autopool, "baseApr")
+    feeApr_df = fetch_destination_summary_stats(autopool, "feeApr")
+    incentiveApr_df = fetch_destination_summary_stats(autopool, "incentiveApr")
+    pointsApr_df = fetch_destination_summary_stats(autopool, "pointsApr")
 
     st.title("Destination APR Components")
 
-    destination = st.selectbox("Select a destination", summary_stats_df.columns)
-
-    points_df = 100 * key_metric_data["points_df"]
+    destination = st.selectbox("Select a destination", pointsApr_df.columns)
 
     plot_data = pd.DataFrame(
         {
-            "Price Return": price_return_df[destination],
+            "Price Return": priceReturn_df[destination],
             "Base APR": baseApr_df[destination],
             "Incentive APR": incentiveApr_df[destination],
             "Fee APR": feeApr_df[destination],
-            "Points APR": points_df[destination],
+            "Points APR": pointsApr_df[destination],
         },
-        index=summary_stats_df.index,
+        index=pointsApr_df.index,
     )
 
     apr_components_fig = px.line(plot_data, title=f"APR Components for {destination}")
