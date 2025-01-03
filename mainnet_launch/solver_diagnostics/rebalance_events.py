@@ -9,7 +9,6 @@ from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOL
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import fetch_rebalance_events_df
 
 
-@st.cache_data(ttl=CACHE_TIME)
 def fetch_rebalance_events_data(autopool: AutopoolConstants):
     clean_rebalance_df = fetch_rebalance_events_df(autopool)
     rebalance_figures = _make_plots(clean_rebalance_df, False)

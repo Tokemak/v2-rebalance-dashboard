@@ -13,7 +13,11 @@ from mainnet_launch.constants import (
     ETH_CHAIN,
     BASE_CHAIN,
 )
-from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, does_table_exist, run_read_only_query
+from mainnet_launch.data_fetching.new_databases import (
+    write_dataframe_to_table,
+    get_earliest_block_from_table_with_chain,
+    run_read_only_query,
+)
 from mainnet_launch.data_fetching.should_update_database import should_update_table
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 
@@ -21,27 +25,9 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to
 NAV_PER_SHARE_TABLE = "NAV_PER_SHARE_TABLE"
 
 
-def _get_highest_block_to_fetch_for_nav_per_share(chain: ChainData) -> int:
-    if does_table_exist(NAV_PER_SHARE_TABLE):
-        query = f"""
-        SELECT max(block) as highest_found_block from {NAV_PER_SHARE_TABLE}
-        where chain = ?
-        """
-        params = (chain.name,)
-        df = run_read_only_query(query, params)
-
-        possible_highest_block = df["highest_found_block"].values[0]
-        if possible_highest_block is None:
-            return chain.block_autopool_first_deployed
-        else:
-            return int(possible_highest_block)
-    else:
-        return chain.block_autopool_first_deployed
-
-
 def _add_new_nav_per_share_to_table():
     for chain in [ETH_CHAIN, BASE_CHAIN]:
-        highest_block_already_fetched = _get_highest_block_to_fetch_for_nav_per_share(chain)
+        highest_block_already_fetched = get_earliest_block_from_table_with_chain(NAV_PER_SHARE_TABLE, chain)
         blocks = [b for b in build_blocks_to_use(chain) if b >= highest_block_already_fetched]
         nav_per_share_df = _fetch_nav_per_share_from_external_source(chain, blocks)
         write_dataframe_to_table(nav_per_share_df, NAV_PER_SHARE_TABLE)
