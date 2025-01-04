@@ -118,6 +118,7 @@ def fetch_gas_cost_df() -> pd.DataFrame:
     keeper_gas_costs_df = fetch_keeper_network_gas_costs()
 
     gas_cost_columns = ["hash", "gas_price", "gas_used", "gasCostInETH"]
+    print(destination_debt_reporting_df.columns)
 
     debt_reporting_costs = destination_debt_reporting_df[gas_cost_columns].copy().drop_duplicates()
     debt_reporting_costs.columns = [

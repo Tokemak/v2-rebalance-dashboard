@@ -18,7 +18,6 @@ from mainnet_launch.data_fetching.new_databases import (
     write_dataframe_to_table,
     run_read_only_query,
     get_earliest_block_from_table_with_autopool,
-    drop_table,
 )
 
 
@@ -124,11 +123,10 @@ def _update_debt_reporting_table():
         debt_reporting_events_df = debt_reporting_events_df[cols].copy()
         debt_reporting_events_df = add_transaction_gas_info_to_df_with_tx_hash(debt_reporting_events_df, autopool.chain)
 
-        write_dataframe_to_table(debt_reporting_events_df[cols], DESTINATION_DEBT_REPORTING_EVENTS_TABLE)
+        write_dataframe_to_table(debt_reporting_events_df, DESTINATION_DEBT_REPORTING_EVENTS_TABLE)
 
 
 def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants) -> pd.DataFrame:
-    # drop_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE)
     if should_update_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE):
         _update_debt_reporting_table()
 
