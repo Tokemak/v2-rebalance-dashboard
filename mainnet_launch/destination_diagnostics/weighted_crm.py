@@ -34,12 +34,12 @@ def fetch_and_render_destination_apr_data(autopool: AutopoolConstants):
 
 
 def _make_all_destination_composite_return_df(autopool: AutopoolConstants) -> go.Figure:
-    compositeReturn_out_df = fetch_destination_summary_stats(autopool, "compositeReturn")
-    pricePerShare_df = fetch_destination_summary_stats(autopool, "pricePerShare")
-    ownedShares_df = fetch_destination_summary_stats(autopool, "ownedShares")
+    compositeReturn_out_df = 100 * fetch_destination_summary_stats(autopool, "compositeReturn")
+    pricePerShare_df = 100 * fetch_destination_summary_stats(autopool, "pricePerShare")
+    ownedShares_df = 100 * fetch_destination_summary_stats(autopool, "ownedShares")
     allocation_df = pricePerShare_df * ownedShares_df
     portion_allocation_df = allocation_df.div(allocation_df.sum(axis=1), axis=0)
-    autopool_weighted_expected_return = 100 * (compositeReturn_out_df * portion_allocation_df).sum(axis=1)
+    autopool_weighted_expected_return = (compositeReturn_out_df * portion_allocation_df).sum(axis=1)
     compositeReturn_out_df[f"{autopool.name} CR"] = autopool_weighted_expected_return
 
     composite_return_fig = px.line(compositeReturn_out_df, title=f"{autopool.name} Destinations and composite Return")
