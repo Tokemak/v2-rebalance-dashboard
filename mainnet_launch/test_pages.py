@@ -7,7 +7,7 @@ import psutil
 import traceback
 
 from mainnet_launch.ui_config_setup import config_plotly_and_streamlit
-from mainnet_launch.constants import ALL_AUTOPOOLS, BASE_ETH, AUTO_LRT
+from mainnet_launch.constants import ALL_AUTOPOOLS
 from mainnet_launch.page_functions import CONTENT_FUNCTIONS, PAGES_WITHOUT_AUTOPOOL
 
 # run this with `$poetry run test-pages`

@@ -221,7 +221,6 @@ def _get_only_some_incentive_tokens_prices(
 def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
 
     if should_update_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME):
-        # if we haven't tried to update the incentive token prices in the last 6 hours, try to do so
         _update_swapped_df()
 
     today = datetime.now(timezone.utc)
@@ -259,11 +258,11 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
             ## Achieved vs Incentive Stats Price
             - This metric uses the Incentive Stats contract to obtain the minimum of the fast and slow filtered incentive token prices.
             - This provides a conservative estimate of the incentive token's value.
-            - Positive values indicate that we sold the incentive token for more than the Incentive Stats Price at that block
+            - Positive values indicate that we sold the incentive token for more than the Incentive Stats Price at that block. Eg there was price movement in our favor
 
             ## Achieved vs Oracle Price
             - This metric uses the Root Price Oracle to fetch the current price of the incentive token (typically via Chainlink)
-            - Positive values indicate that we sold the incentive token for more than the Oracle Price at that block.
+            - Positive values indicate that we sold the incentive token for more than the Oracle Price at that block. 
             """
         )
 
