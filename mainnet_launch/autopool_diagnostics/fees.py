@@ -105,6 +105,7 @@ def _update_debt_reporting_table():
         highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
             DESTINATION_DEBT_REPORTING_EVENTS_TABLE, autopool
         )
+        highest_block_already_fetched = autopool.chain.block_autopool_first_deployed
         vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
         debt_reporting_events_df = fetch_events(
             vault_contract.events.DestinationDebtReporting, start_block=highest_block_already_fetched
@@ -119,10 +120,9 @@ def _update_debt_reporting_table():
             lambda x: vault_to_name[x]
         )
         debt_reporting_events_df["autopool"] = autopool.name
-        cols = ["eth_claimed", "hash", "destinationName", "autopool", "timestamp", "block"]
+        cols = ["eth_claimed", "hash", "destinationName", "autopool", "timestamp", "block", "log_index"]
         debt_reporting_events_df = debt_reporting_events_df[cols].copy()
         debt_reporting_events_df = add_transaction_gas_info_to_df_with_tx_hash(debt_reporting_events_df, autopool.chain)
-
         write_dataframe_to_table(debt_reporting_events_df, DESTINATION_DEBT_REPORTING_EVENTS_TABLE)
 
 
