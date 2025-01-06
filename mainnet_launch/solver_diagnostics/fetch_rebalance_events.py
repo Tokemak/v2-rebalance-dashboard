@@ -1,7 +1,3 @@
-import plotly.express as px
-import plotly.graph_objects as go
-import pandas as pd
-import streamlit as st
 import pandas as pd
 from multicall import Call
 from web3 import Web3
@@ -22,7 +18,6 @@ from mainnet_launch.abis.abis import (
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
-    build_blocks_to_use,
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
     identity_with_bool_success,

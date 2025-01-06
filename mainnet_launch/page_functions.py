@@ -11,17 +11,14 @@ from mainnet_launch.destination_diagnostics.weighted_crm import (
 )
 
 from mainnet_launch.solver_diagnostics.rebalance_events import (
-    fetch_rebalance_events_data,
     fetch_and_render_rebalance_events_data,
 )
 from mainnet_launch.solver_diagnostics.solver_diagnostics import (
     fetch_and_render_solver_diagnositics_data,
-    fetch_solver_diagnostics_data,
 )
 
-from mainnet_launch.top_level.key_metrics import fetch_key_metrics_data, fetch_and_render_key_metrics_data
+from mainnet_launch.top_level.key_metrics import fetch_and_render_key_metrics_data
 from mainnet_launch.gas_costs.keeper_network_gas_costs import (
-    fetch_keeper_network_gas_costs,
     fetch_and_render_keeper_network_gas_costs,
 )
 
@@ -30,7 +27,6 @@ from mainnet_launch.accounting.incentive_token_liqudiation_prices import (
 )
 
 from mainnet_launch.accounting.protocol_level_profit import (
-    fetch_protocol_level_profit_and_loss_data,
     fetch_and_render_protocol_level_profit_and_loss_data,
 )
 
@@ -38,28 +34,15 @@ from mainnet_launch.accounting.protocol_level_profit import (
 from mainnet_launch.constants import AutopoolConstants
 
 
-# PER_AUTOPOOOL_DATA_CACHING_FUNCTIONS = [
-#     fetch_solver_diagnostics_data,
-#     fetch_key_metrics_data,
-#     fetch_destination_allocation_over_time_data,
-#     fetch_rebalance_events_data,
-# ]
-
-# NOT_PER_AUTOPOOL_DATA_CACHING_FUNCTIONS = [
-#     fetch_keeper_network_gas_costs,
-#     fetch_protocol_level_profit_and_loss_data,
-# ]
-
-
 def display_destination_diagnostics(autopool: AutopoolConstants):
     fetch_and_render_destination_apr_data(autopool)
-    # a chart of
+    # TODO add a chart of
 
     # composite return out
 
-    # composite retun in
+    # composite return in
 
-    # price, fee, incentive points points
+    # price, fee, incentive points
     # for all the destinations
 
 

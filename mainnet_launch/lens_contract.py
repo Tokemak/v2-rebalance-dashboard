@@ -1,10 +1,9 @@
 from multicall import Call
-import streamlit as st
 import pandas as pd
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
 )
-from mainnet_launch.constants import CACHE_TIME, LENS_CONTRACT, ChainData
+from mainnet_launch.constants import LENS_CONTRACT, ChainData
 
 block_number = 20929842
 
@@ -163,8 +162,9 @@ def build_proxyGetDestinationSummaryStats_call(
     )
 
 
-# I am leaning towards not to saving this this because it is cached where it is used instead
-# @st.cache_data(ttl=CACHE_TIME)
+# I am leaning towards not to saving this. It is saved where it is needed in other tables
+
+
 def fetch_pools_and_destinations_df(chain: ChainData, blocks: list[int]) -> pd.DataFrame:
     calls = [get_pools_and_destinations_call(chain)]
     pools_and_destinations_df = get_raw_state_by_blocks(calls, blocks, chain=chain, include_block_number=True)
