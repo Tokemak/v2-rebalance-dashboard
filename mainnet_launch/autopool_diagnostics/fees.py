@@ -169,7 +169,6 @@ def fetch_and_render_autopool_fee_data(autopool: AutopoolConstants):
 
     fee_df, sfee_df = fetch_autopool_fee_data(autopool)
     if (len(fee_df) == 0) and (len(sfee_df) == 0):
-        # the fee plots don't stop loading if for baseETH I suspect it is because there are no fees
         # if there are no fees then we don't need to plot anything
         return
     st.header(f"{autopool.name} Autopool Fees")
@@ -295,6 +294,4 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
 
 if __name__ == "__main__":
     # fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
-    # fetch_and_render_autopool_fee_data(AUTO_LRT)
-
-    _update_debt_reporting_table()
+    fetch_and_render_autopool_fee_data(AUTO_LRT)

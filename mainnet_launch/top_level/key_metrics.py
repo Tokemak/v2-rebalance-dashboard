@@ -3,6 +3,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st
 import psutil
+import os
 
 
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, AUTO_LRT
@@ -225,6 +226,29 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
     highest_block_used = key_metric_data["blocks"][-1]
     highest_timestamp = allocation_df.index[-1]
     st.text(f"Highest block and time used {highest_timestamp=} {highest_block_used=} {autopool.chain.name=}")
+
+    st.markdown("---")  # Add a horizontal line for separation
+
+    # Section for Log File Download
+    st.header("Download Logs")
+    log_file_path = "data_caching.log"
+
+    if os.path.exists(log_file_path):
+        try:
+            with open(log_file_path, "r") as log_file:
+                log_content = log_file.read()
+
+            st.download_button(
+                label="📥 Download Log File",
+                data=log_content,
+                file_name="data_caching.log",
+                mime="text/plain",
+                key="download_log",
+            )
+        except Exception as e:
+            st.error(f"An error occurred while reading the log file: {e}")
+    else:
+        st.warning("Log file not found. Please ensure that logging is properly configured.")
 
 
 if __name__ == "__main__":
