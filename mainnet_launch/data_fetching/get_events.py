@@ -1,12 +1,11 @@
 from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError
-import datetime
 
 import pandas as pd
 import web3
 from web3.contract import Contract, ContractEvent
 
 from mainnet_launch.constants import BASE_CHAIN, ETH_CHAIN
-from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use, get_raw_state_by_blocks
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 
 def _flatten_events(just_found_events: list[dict]) -> None:

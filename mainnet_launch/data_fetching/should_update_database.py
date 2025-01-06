@@ -5,6 +5,7 @@ import pandas as pd
 
 from mainnet_launch.constants import DB_FILE
 
+
 TABLE_NAME_TO_LAST_UPDATED = "TABLE_NAME_TO_LAST_UPDATED"
 
 
@@ -85,5 +86,5 @@ def should_update_table(table_name: str, max_latency: str = "6 hours") -> bool:
     return (current_time - last_updated) > pd.Timedelta(max_latency)
 
 
-# runs on import, TODO move to a central setup place
+# runs on import
 ensure_table_to_last_updated_exists()

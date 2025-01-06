@@ -240,29 +240,3 @@ def get_earliest_block_from_table_with_chain(table_name: str, chain: ChainData) 
             return int(df["highest_found_block"].values[0])
     else:
         return chain.block_autopool_first_deployed
-
-
-# used to only remove one table during development
-def drop_table(table_name: str) -> None:
-    """
-    Drops a specified table from the database if it exists.
-
-    Parameters:
-        table_name (str): Name of the table to be dropped.
-    """
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-
-            # Check if the table exists
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
-            if cursor.fetchone() is None:
-                print(f"Table '{table_name}' does not exist.")
-                return
-
-            # Drop the table
-            cursor.execute(f"DROP TABLE {table_name}")
-            print(f"Table '{table_name}' has been dropped successfully.")
-    except sqlite3.Error as e:
-        print(f"Error dropping table '{table_name}': {e}")
-        raise

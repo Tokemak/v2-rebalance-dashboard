@@ -1,20 +1,13 @@
-from concurrent.futures import ThreadPoolExecutor
-import threading
-import numpy as np
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta, timezone
 
-from mainnet_launch.abis.abis import CHAINLINK_KEEPER_REGISTRY_ABI, AUTOPOOL_VAULT_ABI
+from mainnet_launch.abis.abis import CHAINLINK_KEEPER_REGISTRY_ABI
 from mainnet_launch.constants import (
     CACHE_TIME,
     ALL_AUTOPOOLS,
-    AutopoolConstants,
-    WORKING_DATA_DIR,
-    ETH_CHAIN,
-    ChainData,
-    time_decorator,
+    ETH_CHAIN
 )
 
 
@@ -27,8 +20,7 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import (
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_rebalance_events_df,
 )
-from mainnet_launch.autopool_diagnostics.fees import DESTINATION_DEBT_REPORTING_EVENTS_TABLE
-from mainnet_launch.data_fetching.new_databases import run_read_only_query
+
 
 
 KEEPER_REGISTRY_CONTRACT_ADDRESS = "0x6593c7De001fC8542bB1703532EE1E5aA0D458fD"
@@ -202,7 +194,7 @@ def fetch_solver_gas_costs() -> pd.DataFrame:
     dfs = []
     for autopool in ALL_AUTOPOOLS:
         if autopool.chain == ETH_CHAIN:
-            df = fetch_rebalance_events_df(autopool)  # fast is reading from disk, could only be one query
+            df = fetch_rebalance_events_df(autopool)  # this is reading from disk, could only be one query
             dfs.append(df)
 
     clean_rebalance_df = pd.concat(dfs)

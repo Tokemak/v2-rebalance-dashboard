@@ -12,6 +12,9 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
+from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
+    fetch_rebalance_events_df,
+)
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.constants import AutopoolConstants, CACHE_TIME
 from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
@@ -67,7 +70,7 @@ def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants) -> pd.DataFr
 
 
 def _fetch_cumulative_nav_lost_to_rebalances(autopool: AutopoolConstants) -> pd.DataFrame:
-    rebalance_df = fetch_rebalance_events_actual_amounts(autopool)
+    rebalance_df = fetch_rebalance_events_df(autopool)
 
     rebalance_from_idle_df = rebalance_df[
         rebalance_df["outDestinationVault"].str.lower() == autopool.autopool_eth_addr.lower()
