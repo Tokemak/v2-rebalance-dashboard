@@ -1,19 +1,13 @@
-import plotly.express as px
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
-import pandas as pd
 from datetime import datetime, timedelta, timezone
 
+import pandas as pd
 import streamlit as st
 
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_rebalance_events_df,
 )
-from mainnet_launch.constants import CACHE_TIME, AutopoolConstants
-from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
-from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 
 
 def fetch_and_render_turnover_data(autopool: AutopoolConstants):

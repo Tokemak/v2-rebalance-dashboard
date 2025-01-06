@@ -42,7 +42,7 @@ def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: Autopoo
         axis=1,
     ).fillna(0)
 
-    # handle fractinal day sin blokcs
+    # handle fractinal days in blocks
     # df.iloc[0] = df.iloc[0].fillna(0)
     # df = df.ffill()
     # df = df.resample("1D").last()  # just drop the tail

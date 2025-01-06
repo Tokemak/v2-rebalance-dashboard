@@ -1,7 +1,6 @@
 from dataclasses import dataclass, asdict
 
 from multicall import Call
-import streamlit as st
 import pandas as pd
 from web3 import Web3
 
@@ -205,12 +204,9 @@ def get_destination_details(autopool: AutopoolConstants) -> tuple[DestinationDet
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import BASE_CHAIN, ETH_CHAIN, BAL_ETH, BASE_ETH, AUTO_ETH
-    from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
+    from mainnet_launch.constants import BASE_CHAIN, ETH_CHAIN, BAL_ETH, AUTO_ETH
 
-    blocks = build_blocks_to_use(ETH_CHAIN)
-
-    details2 = get_destination_details(BAL_ETH)
-    details3 = get_destination_details(AUTO_ETH)
+    details1 = get_destination_details(BAL_ETH)
+    details2 = get_destination_details(AUTO_ETH)
 
     pass

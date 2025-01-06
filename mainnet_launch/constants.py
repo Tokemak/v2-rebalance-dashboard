@@ -34,7 +34,7 @@ os.makedirs(WORKING_DATA_DIR, exist_ok=True)
 os.makedirs(DB_DIR, exist_ok=True)
 
 if not os.path.exists(TX_HASH_TO_GAS_COSTS_PATH):
-    open(TX_HASH_TO_GAS_COSTS_PATH, "x").close()  # create an empty file if it does not exist
+    open(TX_HASH_TO_GAS_COSTS_PATH, "x").close()
 
 
 @dataclass(frozen=True)

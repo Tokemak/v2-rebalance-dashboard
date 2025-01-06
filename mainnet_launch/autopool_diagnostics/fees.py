@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 
 from mainnet_launch.destinations import get_destination_details
-from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants, ALL_AUTOPOOLS, BASE_ETH, AUTO_LRT
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, AUTO_LRT
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.add_info_to_dataframes import (
     add_timestamp_to_df_with_block_column,
@@ -293,5 +293,4 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
 
 
 if __name__ == "__main__":
-    # fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
     fetch_and_render_autopool_fee_data(AUTO_LRT)
