@@ -3,13 +3,11 @@ from datetime import datetime, timedelta, timezone
 import streamlit as st
 import pandas as pd
 
-from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, ETH_CHAIN, BASE_CHAIN, ChainData, time_decorator
 from mainnet_launch.gas_costs.keeper_network_gas_costs import (
     fetch_solver_gas_costs,
     fetch_keeper_network_gas_costs,
 )
 
-# from mainnet_launch.accounting.fee_data_for_profit_and_loss import fetch_fee_df
 from mainnet_launch.autopool_diagnostics.fees import (
     AUTOPOOL_FEE_EVENTS_TABLE,
     DESTINATION_DEBT_REPORTING_EVENTS_TABLE,
@@ -19,7 +17,6 @@ from mainnet_launch.data_fetching.new_databases import run_read_only_query
 from mainnet_launch.data_fetching.should_update_database import should_update_table
 
 
-@st.cache_data(ttl=CACHE_TIME)
 def fetch_protocol_level_profit_and_loss_data():
     gas_cost_df = fetch_gas_cost_df()
     fee_df = fetch_fees_by_autopool_by_type()
@@ -108,7 +105,7 @@ def fetch_gas_cost_df() -> pd.DataFrame:
     """Fetch the gas costs for running the solver, reward token liqudation / debt reporting, and calculators (chainlink keeper network)"""
 
     if should_update_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE):
-        _update_debt_reporting_table()  # I don't really like this pattern here
+        _update_debt_reporting_table()
 
     destination_debt_reporting_df = run_read_only_query(
         f"""SELECT * FROM {DESTINATION_DEBT_REPORTING_EVENTS_TABLE}""", params=None

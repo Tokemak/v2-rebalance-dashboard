@@ -1,6 +1,5 @@
 from mainnet_launch.autopool_diagnostics.autopool_diagnostics_tab import (
     fetch_and_render_autopool_diagnostics_data,
-    fetch_autopool_diagnostics_data,
 )
 from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import (
     fetch_destination_allocation_over_time_data,
@@ -39,18 +38,17 @@ from mainnet_launch.accounting.protocol_level_profit import (
 from mainnet_launch.constants import AutopoolConstants
 
 
-PER_AUTOPOOOL_DATA_CACHING_FUNCTIONS = [
-    fetch_solver_diagnostics_data,
-    fetch_key_metrics_data,
-    fetch_autopool_diagnostics_data,
-    fetch_destination_allocation_over_time_data,
-    fetch_rebalance_events_data,
-]
+# PER_AUTOPOOOL_DATA_CACHING_FUNCTIONS = [
+#     fetch_solver_diagnostics_data,
+#     fetch_key_metrics_data,
+#     fetch_destination_allocation_over_time_data,
+#     fetch_rebalance_events_data,
+# ]
 
-NOT_PER_AUTOPOOL_DATA_CACHING_FUNCTIONS = [
-    fetch_keeper_network_gas_costs,
-    fetch_protocol_level_profit_and_loss_data,
-]
+# NOT_PER_AUTOPOOL_DATA_CACHING_FUNCTIONS = [
+#     fetch_keeper_network_gas_costs,
+#     fetch_protocol_level_profit_and_loss_data,
+# ]
 
 
 def display_destination_diagnostics(autopool: AutopoolConstants):
