@@ -294,5 +294,7 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
 
 
 if __name__ == "__main__":
-    fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
-    fetch_and_render_autopool_fee_data(AUTO_LRT)
+    # fetch_and_render_autopool_rewardliq_plot(AUTO_LRT)
+    # fetch_and_render_autopool_fee_data(AUTO_LRT)
+
+    _update_debt_reporting_table()

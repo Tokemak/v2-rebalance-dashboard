@@ -59,7 +59,8 @@ def write_timestamp_table_was_last_updated(table_name: str, cursor) -> None:
     Parameters:
         table_name (str): The name of the table to update.
     """
-    current_unix_time = int(datetime.now(timezone.utc).timestamp())
+    current_time = datetime.now(timezone.utc)
+    current_unix_time = int(current_time.timestamp())
     upsert_query = f"""
     INSERT INTO {TABLE_NAME_TO_LAST_UPDATED} (table_name, last_updated_unix_timestamp)
     VALUES (?, ?)
@@ -68,7 +69,7 @@ def write_timestamp_table_was_last_updated(table_name: str, cursor) -> None:
     """
     try:
         cursor.execute(upsert_query, (table_name, current_unix_time))
-        print(f"Successfully updated {table_name=} {current_unix_time=}.")
+        print(f"Successfully updated {table_name=} {current_time=}.")
     except sqlite3.Error as e:
         print(f"An error occurred while updating '{table_name}': {e}")
         raise e

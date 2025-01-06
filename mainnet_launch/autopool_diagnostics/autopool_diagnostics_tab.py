@@ -1,6 +1,3 @@
-import streamlit as st
-
-
 from mainnet_launch.autopool_diagnostics.fees import (
     fetch_autopool_fee_data,
     fetch_and_render_autopool_fee_data,
