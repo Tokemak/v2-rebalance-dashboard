@@ -4,11 +4,7 @@ import plotly.express as px
 from datetime import datetime, timedelta, timezone
 
 from mainnet_launch.abis.abis import CHAINLINK_KEEPER_REGISTRY_ABI
-from mainnet_launch.constants import (
-    CACHE_TIME,
-    ALL_AUTOPOOLS,
-    ETH_CHAIN
-)
+from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, ETH_CHAIN
 
 
 from mainnet_launch.data_fetching.get_events import fetch_events
@@ -20,7 +16,6 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import (
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_rebalance_events_df,
 )
-
 
 
 KEEPER_REGISTRY_CONTRACT_ADDRESS = "0x6593c7De001fC8542bB1703532EE1E5aA0D458fD"

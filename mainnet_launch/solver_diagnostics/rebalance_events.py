@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 
-from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS, AUTO_LRT
+from mainnet_launch.constants import AutopoolConstants
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import fetch_rebalance_events_df
 
 
@@ -251,15 +251,6 @@ def _add_solver_cumulative_profit(clean_rebalance_df: pd.DataFrame) -> go.Figure
 
 
 if __name__ == "__main__":
-    # streamlit run mainnet_launch/solver_diagnostics/rebalance_events.py
-    from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS, AUTO_LRT, AUTO_ETH
+    from mainnet_launch.constants import AUTO_LRT
 
     fetch_and_render_rebalance_events_data(AUTO_LRT)
-    # only autoETH works here
-
-    # for a in ALL_AUTOPOOLS:
-
-    #     st.title("Only Rebalance Events", a.name)
-    # # fetch_and_render_solver_profit_data(AUTO_LRT)  # narror bar plots
-
-    #     fetch_and_render_rebalance_events_data(a)
