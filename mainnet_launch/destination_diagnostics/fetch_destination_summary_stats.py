@@ -74,19 +74,25 @@ def _fetch_destination_summary_stats_from_external_source(
 
 
 def _flatten_summary_stats_df(summary_stats_df: pd.DataFrame, autopool: AutopoolConstants) -> pd.DataFrame:
-    merged_df = None
+    flat_summary_stats_df = None
     for col in SUMMARY_STATS_FIELDS:
         df = summary_stats_df.map(lambda row: row[col] if isinstance(row, dict) else 0).astype(float)
         df["block"] = summary_stats_df["block"]
 
         long_form_df = pd.melt(df, id_vars=["block"], var_name="destination", value_name=col)
-        if merged_df is None:
-            merged_df = long_form_df.copy()
+        if flat_summary_stats_df is None:
+            flat_summary_stats_df = long_form_df.copy()
         else:
-            merged_df = pd.merge(merged_df, long_form_df, how="inner", on=["block", "destination"])
+            flat_summary_stats_df = pd.merge(
+                flat_summary_stats_df, long_form_df, how="inner", on=["block", "destination"]
+            )
 
-    merged_df["autopool"] = autopool.name
-    return merged_df
+    flat_summary_stats_df["autopool"] = autopool.name
+
+    if flat_summary_stats_df.duplicated().any():
+        duplicate_rows = flat_summary_stats_df[flat_summary_stats_df.duplicated()]
+        raise ValueError(f"Duplicate rows detected in the DataFrame flat_summary_stats_df':\n{duplicate_rows}")
+    return flat_summary_stats_df
 
 
 def _get_earliest_raw_summary_stats_that_does_not_revert(
@@ -299,9 +305,7 @@ def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_f
         """
     params = (autopool.name,)
     long_summary_stats_df = run_read_only_query(query, params)
-    summary_stats_df = pd.pivot(
-        long_summary_stats_df, columns=["destination"], values=summary_stats_field, index="block"
-    )
+    summary_stats_df = pd.pivot(long_summary_stats_df, columns="destination", values=summary_stats_field, index="block")
     summary_stats_df = summary_stats_df.reset_index()
     summary_stats_df = add_timestamp_to_df_with_block_column(summary_stats_df, autopool.chain)
     summary_stats_df = summary_stats_df.drop(columns=["block"])

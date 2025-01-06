@@ -53,7 +53,6 @@ def add_new_rows(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) ->
 
         conn.execute(insert_query)
         conn.execute("DROP TABLE IF EXISTS temp_table")
-        conn.commit()
         print(f"Inserted new rows into '{table_name}' while avoiding duplicates.")
 
     except sqlite3.Error as e:
@@ -93,6 +92,10 @@ def verify_rows_saved(df: pd.DataFrame, table_name: str, conn: sqlite3.Connectio
             print(full_df.dtypes)
             print(full_df.shape)
             raise ValueError(f"Data inconsistency detected in table '{table_name}'")
+
+        if full_df.duplicated().any():
+            duplicate_rows = full_df[full_df.duplicated()]
+            raise ValueError(f"Duplicate rows detected {table_name}':\n{duplicate_rows}")
     except sqlite3.Error as e:
         print(f"Error verifying rows in table '{table_name}': {e}")
         raise
@@ -191,6 +194,11 @@ def run_read_only_query(query: str, params: tuple | None) -> pd.DataFrame:
         df = pd.read_sql_query(query, conn, params=params)
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
+
+        if df.duplicated().any():
+            duplicate_rows = df[df.duplicated()]
+            raise ValueError(f"Duplicate rows read from db {query=}':\n{duplicate_rows=}")
+
         return df
 
 
@@ -254,7 +262,6 @@ def drop_table(table_name: str) -> None:
 
             # Drop the table
             cursor.execute(f"DROP TABLE {table_name}")
-            conn.commit()
             print(f"Table '{table_name}' has been dropped successfully.")
     except sqlite3.Error as e:
         print(f"Error dropping table '{table_name}': {e}")
