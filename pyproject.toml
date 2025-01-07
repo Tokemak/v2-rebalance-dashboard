@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "v2-rebalance-dashboard"
+name = "mainnet_launch"
 version = "0.1.0"
 description = ""
 authors = ["parkerburchett <parkerburchett@gmail.com>"]
