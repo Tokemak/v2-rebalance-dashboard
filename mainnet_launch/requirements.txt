@@ -1,0 +1,12 @@
+boto3==1.35.67
+botocore==1.35.67
+multicall==0.10.0
+nest_asyncio==1.6.0
+numpy==2.2.1
+pandas==2.2.3
+plotly==5.24.1
+psutil==6.1.0
+python-dotenv==1.0.1
+Requests==2.32.3
+streamlit==1.38.0
+web3==5.28.0
