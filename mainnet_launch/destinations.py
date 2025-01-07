@@ -139,7 +139,10 @@ def _fetch_destination_details_from_external_source(
     pools_and_destinations_df = fetch_pools_and_destinations_df(chain, blocks)
     autopool_pool_address_to_autopool = {a.autopool_eth_addr.lower(): a for a in ALL_AUTOPOOLS}
 
-    all_destination_details: list[DestinationDetails] = make_idle_destination_details(chain)
+    if highest_block_already_fetched == chain.block_autopool_first_deployed:
+        all_destination_details: list[DestinationDetails] = make_idle_destination_details(chain)
+    else:
+        all_destination_details = []
 
     def _add_to_all_destination_details(row: dict):
 
