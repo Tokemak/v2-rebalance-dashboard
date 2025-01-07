@@ -84,7 +84,3 @@ def should_update_table(table_name: str, max_latency: str = "6 hours") -> bool:
         return True
 
     return (current_time - last_updated) > pd.Timedelta(max_latency)
-
-
-# runs on import
-ensure_table_to_last_updated_exists()

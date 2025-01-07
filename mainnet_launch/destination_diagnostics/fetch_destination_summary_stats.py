@@ -47,7 +47,7 @@ SUMMARY_STATS_FIELDS = [
 ]
 
 
-def _add_new_destination_summary_stats_to_table() -> None:
+def add_new_destination_summary_stats_to_table() -> None:
     for autopool in ALL_AUTOPOOLS:
         highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
             DESTINATION_SUMMARY_STATS_TABLE, autopool
@@ -297,7 +297,7 @@ def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_f
         raise ValueError(f"Can only fetch {SUMMARY_STATS_FIELDS=} you tried to fetch {summary_stats_field=}")
 
     if should_update_table(DESTINATION_SUMMARY_STATS_TABLE):
-        _add_new_destination_summary_stats_to_table()
+        add_new_destination_summary_stats_to_table()
 
     query = f"""
         SELECT destination, block, {summary_stats_field} from {DESTINATION_SUMMARY_STATS_TABLE}

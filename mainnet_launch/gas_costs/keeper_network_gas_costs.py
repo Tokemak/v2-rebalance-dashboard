@@ -34,8 +34,9 @@ CALCULATOR_TOPIC_IDS = [
 ]
 INCENTIVE_PRICING_TOPIC_IDS = [INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 
+# TODO not setup for gas costs on optimism
 
-# TODO consider caching these, it takes 2 seconds to load the data from on chain
+
 def fetch_our_chainlink_upkeep_events() -> pd.DataFrame:
     contract = ETH_CHAIN.client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
     our_chainlink_upkeep_events = fetch_events(
@@ -46,7 +47,7 @@ def fetch_our_chainlink_upkeep_events() -> pd.DataFrame:
     return our_chainlink_upkeep_events
 
 
-@st.cache_data(ttl=CACHE_TIME)  # not cached
+@st.cache_data(ttl=CACHE_TIME)  # TODO Cache this
 def fetch_keeper_network_gas_costs() -> pd.DataFrame:
     our_upkeep_df = fetch_our_chainlink_upkeep_events()
     our_upkeep_df = add_transaction_gas_info_to_df_with_tx_hash(our_upkeep_df, ETH_CHAIN)

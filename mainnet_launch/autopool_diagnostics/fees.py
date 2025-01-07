@@ -30,7 +30,7 @@ AUTOPOOL_FEE_EVENTS_TABLE = "AUTOPOOL_FEE_EVENTS_TABLE"
 DESTINATION_DEBT_REPORTING_EVENTS_TABLE = "DESTINATION_DEBT_REPORTING_EVENTS_TABLE"
 
 
-def _add_new_fee_events_to_table():
+def add_new_fee_events_to_table():
     for autopool in ALL_AUTOPOOLS:
         highest_block_already_fetched = get_earliest_block_from_table_with_autopool(AUTOPOOL_FEE_EVENTS_TABLE, autopool)
         vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
@@ -66,7 +66,7 @@ def _add_new_fee_events_to_table():
 
 def fetch_autopool_fee_data(autopool: AutopoolConstants):
     if should_update_table(AUTOPOOL_FEE_EVENTS_TABLE):
-        _add_new_fee_events_to_table()
+        add_new_fee_events_to_table()
 
     params = (autopool.name,)
 
@@ -100,7 +100,8 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
     return periodic_fee_df, streaming_fee_df
 
 
-def _update_debt_reporting_table():
+# TODO split this into another file
+def add_new_debt_reporting_events_to_table():
     for autopool in ALL_AUTOPOOLS:
         highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
             DESTINATION_DEBT_REPORTING_EVENTS_TABLE, autopool
@@ -128,7 +129,7 @@ def _update_debt_reporting_table():
 
 def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants) -> pd.DataFrame:
     if should_update_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE):
-        _update_debt_reporting_table()
+        add_new_debt_reporting_events_to_table()
 
     params = (autopool.name,)
 

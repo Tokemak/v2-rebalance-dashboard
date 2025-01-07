@@ -44,7 +44,7 @@ from mainnet_launch.data_fetching.should_update_database import (
 REBALANCE_EVENTS_TABLE = "REBALANCE_EVENTS_TABLE"
 
 
-def _add_new_rebalance_events_for_each_autopool_to_table():
+def add_new_rebalance_events_for_each_autopool_to_table():
     for autopool in ALL_AUTOPOOLS:
         highest_block_already_fetched = get_earliest_block_from_table_with_autopool(REBALANCE_EVENTS_TABLE, autopool)
         new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
@@ -56,7 +56,7 @@ def _add_new_rebalance_events_for_each_autopool_to_table():
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
     if should_update_table(REBALANCE_EVENTS_TABLE):
-        _add_new_rebalance_events_for_each_autopool_to_table()
+        add_new_rebalance_events_for_each_autopool_to_table()
 
     query = f"""
         SELECT * from {REBALANCE_EVENTS_TABLE}

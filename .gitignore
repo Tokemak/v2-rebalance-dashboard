@@ -2,10 +2,11 @@ __pycache__/
 *.pyc
 .env
 .vscode/
-
+.venv/
+.pytest_cache/
 mainnet_launch/rebalance_plans/
-
 working_data/
+
 mainnet_launch/databases/autopool_dashboard.db
 mainnet_launch/databases/tx_hash_to_gas_info.db
 

@@ -2,7 +2,6 @@ from mainnet_launch.autopool_diagnostics.autopool_diagnostics_tab import (
     fetch_and_render_autopool_diagnostics_data,
 )
 from mainnet_launch.autopool_diagnostics.destination_allocation_over_time import (
-    fetch_destination_allocation_over_time_data,
     fetch_and_render_destination_allocation_over_time_data,
 )
 from mainnet_launch.destination_diagnostics.weighted_crm import (

@@ -25,7 +25,7 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to
 NAV_PER_SHARE_TABLE = "NAV_PER_SHARE_TABLE"
 
 
-def _add_new_nav_per_share_to_table():
+def add_new_nav_per_share_to_table():
     for chain in [ETH_CHAIN, BASE_CHAIN]:
         highest_block_already_fetched = get_earliest_block_from_table_with_chain(NAV_PER_SHARE_TABLE, chain)
         blocks = [b for b in build_blocks_to_use(chain) if b >= highest_block_already_fetched]
@@ -55,7 +55,7 @@ def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
 
 def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
     if should_update_table(NAV_PER_SHARE_TABLE):
-        _add_new_nav_per_share_to_table()
+        add_new_nav_per_share_to_table()
 
     query = f"""
         SELECT * from {NAV_PER_SHARE_TABLE}

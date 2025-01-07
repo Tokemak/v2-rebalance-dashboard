@@ -4,9 +4,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 from web3.exceptions import TransactionNotFound
 
-from mainnet_launch.constants import ChainData, ETH_CHAIN, BASE_CHAIN
+from mainnet_launch.constants import ChainData, ETH_CHAIN, BASE_CHAIN, DB_DIR
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
-from mainnet_launch.data_fetching.databases import TX_HASH_TO_GAS_INFO_DB, _initalize_tx_hash_to_gas_info_db
 from mainnet_launch.data_fetching.new_databases import (
     run_read_only_query,
     write_dataframe_to_table,
@@ -15,6 +14,21 @@ from mainnet_launch.data_fetching.new_databases import (
 
 
 TIMESTAMP_BLOCK_CHAIN_TABLE = "TIMESTAMP_BLOCK_CHAIN_TABLE"
+TX_HASH_TO_GAS_INFO_DB = DB_DIR / "tx_hash_to_gas_info.db"
+
+
+def initalize_tx_hash_to_gas_info_db():
+    with sqlite3.connect(TX_HASH_TO_GAS_INFO_DB) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS gas_info (
+                hash TEXT PRIMARY KEY,
+                gas_price INTEGER,
+                gas_used INTEGER
+            )
+            """
+        )
 
 
 def _load_tx_hash_to_gas_info(hashes: list[str]) -> pd.DataFrame:
@@ -111,9 +125,7 @@ def add_transaction_gas_info_to_df_with_tx_hash(df: pd.DataFrame, chain: ChainDa
     if len(df) == 0:
         return df
 
-    # the issue is that there is duplicate columns
     df_hashes = set(df["hash"].tolist())
-    pass
     existing_gas_info = _load_tx_hash_to_gas_info(df_hashes)
     existing_hash_set = set(existing_gas_info["hash"])
     hashes_to_fetch = [h for h in df_hashes if h not in existing_hash_set]
@@ -191,23 +203,3 @@ def add_timestamp_to_df_with_block_column(df: pd.DataFrame, chain: ChainData) ->
     df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
     df.set_index("timestamp", inplace=True)
     return df
-
-
-_initalize_tx_hash_to_gas_info_db()
-
-if __name__ == "__main__":
-    print("eth")
-    df = pd.DataFrame()
-    df["block"] = [19_000_000, 20_000_000, 20_000_002]
-    df["A"] = "temp"
-    print(df.head())
-    df = add_timestamp_to_df_with_block_column(df, BASE_CHAIN)
-    print(df.head())
-
-    print("base")
-    df = pd.DataFrame()
-    df["block"] = [19_000_000, 20_000_000, 20_000_002]
-    df["A"] = "temp"
-    print(df.head())
-    df = add_timestamp_to_df_with_block_column(df, BASE_CHAIN)
-    print(df.head())

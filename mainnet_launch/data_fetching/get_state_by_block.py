@@ -23,8 +23,7 @@ def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):
     return asyncio.run(safe_get_raw_state_by_block_one_block(calls, int(block), chain))
 
 
-async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData):
-    # nice for testing
+async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData) -> dict:
     multicall = Multicall(calls=calls, block_id=block, _w3=chain.client, require_success=False)
     response = await multicall.coroutine()
     return response
@@ -67,9 +66,6 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
     return _fetch_data
 
 
-# from mainnet_launch.data_fetching.get_state_by_block_now_cache import get_raw_state_by_blocks
-
-
 def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
@@ -78,12 +74,6 @@ def get_raw_state_by_blocks(
     include_block_number: bool = False,
 ) -> pd.DataFrame:
 
-    # try:
-    #     return get_raw_state_by_blocks(calls, blocks, chain, semaphore_limits, include_block_number)
-    # except Exception as e:
-    #     print("caching version failed for ", blocks[:2], calls[0])
-    #     print(e, type(e))
-    #     print("doing non caching version")
     return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, chain, semaphore_limits, include_block_number))
 
 
@@ -118,7 +108,6 @@ async def async_safe_get_raw_state_by_block(
     failed_multicalls = []
     calls_remaining = [m for m in pending_multicalls]
     for semaphore_limit in semaphore_limits:
-        # print(f"{len(calls_remaining)=} {semaphore_limit=}")
         # make a lot of calls very fast, then slowly back off and remake the calls that failed
         semaphore = asyncio.Semaphore(semaphore_limit)
         failed_multicalls = []
@@ -132,7 +121,7 @@ async def async_safe_get_raw_state_by_block(
     df = pd.DataFrame.from_records(responses)
     if len(df) == 0:
         print(
-            f"failed to fetch any data. consider trying again if expected to get data, but with a smaller semaphore_limit"
+            "failed to fetch any data. consider trying again if expected to get data, but with a smaller semaphore_limit"
         )
         print(f"{len(blocks_as_ints)=} {blocks_as_ints[0]=} {blocks_as_ints[-1]=}")
         print(f"{calls=}")
