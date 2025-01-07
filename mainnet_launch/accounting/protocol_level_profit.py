@@ -11,10 +11,13 @@ from mainnet_launch.gas_costs.keeper_network_gas_costs import (
 from mainnet_launch.autopool_diagnostics.fees import (
     AUTOPOOL_FEE_EVENTS_TABLE,
     DESTINATION_DEBT_REPORTING_EVENTS_TABLE,
-    _update_debt_reporting_table,
+    add_new_debt_reporting_events_to_table,
 )
 from mainnet_launch.data_fetching.new_databases import run_read_only_query
 from mainnet_launch.data_fetching.should_update_database import should_update_table
+
+# TODO this is not accurate because fees are going to sTOKE.
+# update this to match the pattern, if should update the data when needed
 
 
 def fetch_protocol_level_profit_and_loss_data():
@@ -105,7 +108,7 @@ def fetch_gas_cost_df() -> pd.DataFrame:
     """Fetch the gas costs for running the solver, reward token liqudation / debt reporting, and calculators (chainlink keeper network)"""
 
     if should_update_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE):
-        _update_debt_reporting_table()
+        add_new_debt_reporting_events_to_table()
 
     destination_debt_reporting_df = run_read_only_query(
         f"""SELECT * FROM {DESTINATION_DEBT_REPORTING_EVENTS_TABLE}""", params=None

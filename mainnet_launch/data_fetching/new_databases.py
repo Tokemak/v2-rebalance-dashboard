@@ -8,6 +8,8 @@ from mainnet_launch.data_fetching.should_update_database import (
     write_timestamp_table_was_last_updated,
 )
 
+# TODO, make the timestamps, cleaner dont' handle them explicitly but handle them here
+
 
 def convert_timestamps_to_iso(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -165,7 +167,7 @@ def load_table(table_name: str, where_clause: Optional[str] = None, params=None)
     """
     table_exists = does_table_exist(table_name)
     try:
-        with sqlite3.connect(DB_FILE, uri=True) as conn:
+        with sqlite3.connect(DB_FILE) as conn:
             if not table_exists:
                 print(f"Table '{table_name}' does not exist.")
                 return None

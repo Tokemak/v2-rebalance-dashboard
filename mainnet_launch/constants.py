@@ -83,6 +83,10 @@ BASE_CHAIN: ChainData = ChainData(
     name="base", block_autopool_first_deployed=21901103, approx_seconds_per_block=2.0, chain_id=8453
 )
 
+
+ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN]
+
+
 AUTO_ETH: AutopoolConstants = AutopoolConstants(
     name="autoETH",  #  "Tokemak autoETH",
     autopool_eth_addr="0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56",

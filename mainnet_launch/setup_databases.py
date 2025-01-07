@@ -1,0 +1,53 @@
+"""Runs once in the lifecycle of the app"""
+
+import streamlit as st
+from mainnet_launch.data_fetching.add_info_to_dataframes import initalize_tx_hash_to_gas_info_db
+from mainnet_launch.data_fetching.should_update_database import ensure_table_to_last_updated_exists
+
+from mainnet_launch.autopool_diagnostics.fetch_nav_per_share import add_new_nav_per_share_to_table
+
+from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import (
+    add_new_destination_summary_stats_to_table,
+)
+
+from mainnet_launch.solver_diagnostics.fetch_rebalance_events import add_new_rebalance_events_for_each_autopool_to_table
+
+
+from mainnet_launch.destinations import add_new_destination_details_for_each_chain_to_table
+
+
+from mainnet_launch.autopool_diagnostics.fees import add_new_fee_events_to_table, add_new_debt_reporting_events_to_table
+
+
+from mainnet_launch.solver_diagnostics.solver_diagnostics import ensure_all_rebalance_plans_are_loaded_from_s3_bucket
+
+from mainnet_launch.gas_costs.keeper_network_gas_costs import fetch_keeper_network_gas_costs
+from mainnet_launch.accounting.incentive_token_liqudiation_prices import add_new_reward_token_swapped_events_to_table
+
+
+@st.cache_resource
+def first_run_of_db():
+    """
+
+    Create and populate the database with data up to the current day
+    only ran once, at the start of the application.
+
+    """
+
+    initalize_tx_hash_to_gas_info_db()
+    ensure_table_to_last_updated_exists()  # creates autopool_dashboard.db
+
+    add_new_destination_details_for_each_chain_to_table()
+    add_new_nav_per_share_to_table()
+    add_new_destination_summary_stats_to_table()
+    add_new_rebalance_events_for_each_autopool_to_table()
+    add_new_fee_events_to_table()
+    add_new_debt_reporting_events_to_table()
+
+    # reads from s3 bucket
+    ensure_all_rebalance_plans_are_loaded_from_s3_bucket()
+
+    fetch_keeper_network_gas_costs()
+    # this does not create a new table but instead adds block timestamp and gas costs data for the chainlink keeper upkeep contracts
+
+    add_new_reward_token_swapped_events_to_table()

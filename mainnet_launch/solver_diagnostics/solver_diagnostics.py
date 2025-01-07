@@ -1,7 +1,4 @@
 import json
-import os
-import xml.etree.ElementTree as ET
-import requests
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -12,12 +9,10 @@ from mainnet_launch.constants import (
     CACHE_TIME,
     AutopoolConstants,
     ALL_AUTOPOOLS,
-    eth_client,
     SOLVER_REBALANCE_PLANS_DIR,
     AUTO_ETH,
 )
-from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI, AUTOPOOL_ETH_STRATEGY_ABI
-from mainnet_launch.data_fetching.get_events import fetch_events
+
 from mainnet_launch.destinations import get_destination_details
 from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
     fetch_rebalance_events_df,
@@ -29,7 +24,7 @@ import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
 
-from mainnet_launch.constants import CACHE_TIME, SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS, BAL_ETH, AUTO_LRT, BASE_ETH
+from mainnet_launch.constants import CACHE_TIME, SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS
 
 
 def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
@@ -40,7 +35,7 @@ def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
 
 @st.cache_data(ttl=CACHE_TIME)
 def fetch_solver_diagnostics_data(autopool: AutopoolConstants):
-    ensure_all_rebalance_plans_are_loaded()
+    ensure_all_rebalance_plans_are_loaded_from_s3_bucket()
     solver_df = _load_solver_df(autopool)
     proposed_rebalances_df = solver_df[solver_df["sodOnly"] == False].copy()
     proposed_rebalances_df.set_index("date", inplace=True)
@@ -77,12 +72,9 @@ def _render_solver_diagnostics(autopool: AutopoolConstants, figs):
         st.plotly_chart(fig, use_container_width=True)
 
 
-def ensure_all_rebalance_plans_are_loaded():
+def ensure_all_rebalance_plans_are_loaded_from_s3_bucket():
     s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
     for autopool in ALL_AUTOPOOLS:
-
-        # # the base ETH bucket does not work, unsure why
-        # if autopool.name != "baseETH":
         response = s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket)
         all_rebalance_plans = [o["Key"] for o in response["Contents"]]
         local_rebalance_plans = [str(path).split("/")[-1] for path in SOLVER_REBALANCE_PLANS_DIR.glob("*.json")]
@@ -95,6 +87,7 @@ def ensure_all_rebalance_plans_are_loaded():
             )
 
 
+# can be slow, has to load a few hundred jsons
 def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
     autopool_plans = [p for p in SOLVER_REBALANCE_PLANS_DIR.glob("*.json") if autopool.autopool_eth_addr in str(p)]
     destination_details = get_destination_details(autopool)

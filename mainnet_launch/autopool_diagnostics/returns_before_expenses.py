@@ -386,10 +386,7 @@ def _create_figs(
     )
 
 
-def fetch_autopool_return_and_expenses_metrics(autopool: AutopoolConstants):
-    df = fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool)
-
-
+# TODO cache these
 def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolConstants):
     df = fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool)
     st.title("APR Before Fees, Costs and Depegs")
@@ -434,14 +431,6 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
 if __name__ == "__main__":
     # to test run $ streamlit run mainnet_launch/autopool_diagnostics/returns_before_expenses.py
 
-    from mainnet_launch.constants import AUTO_LRT, BASE_ETH, AUTO_ETH, BAL_ETH
+    from mainnet_launch.constants import AUTO_LRT
 
-    # st.title("Autopool Diagnostics")
     fetch_and_render_autopool_return_and_expenses_metrics(AUTO_LRT)
-
-    # name_sto_autopool = {a.name: a for a in [AUTO_LRT, BASE_ETH, AUTO_ETH, BAL_ETH]}
-    # autopool_option = st.radio("Select Autopool to Analyze:", list(name_to_autopool.keys()))
-
-    # selected_autopool = name_to_autopool[autopool_option]
-
-    # fetch_and_render_autopool_return_and_expenses_metrics(selected_autopool)

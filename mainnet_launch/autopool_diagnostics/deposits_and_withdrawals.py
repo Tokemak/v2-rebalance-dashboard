@@ -13,6 +13,7 @@ start_block = 20759126  # Sep 15, 2024
 
 
 @st.cache_data(ttl=CACHE_TIME)
+# TODO cache these
 def fetch_autopool_deposit_and_withdraw_stats_data(autopool: AutopoolConstants):
     deposit_df, withdraw_df = _fetch_raw_deposit_and_withdrawal_dfs(autopool)
     daily_change_fig = _make_deposit_and_withdraw_figure(autopool, deposit_df, withdraw_df)

@@ -11,7 +11,12 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
     safe_normalize_with_bool_success,
 )
-from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, load_table, run_read_only_query
+from mainnet_launch.data_fetching.new_databases import (
+    write_dataframe_to_table,
+    load_table,
+    run_read_only_query,
+    get_earliest_block_from_table_with_chain,
+)
 from mainnet_launch.data_fetching.should_update_database import should_update_table
 
 from mainnet_launch.data_fetching.get_events import fetch_events
@@ -20,8 +25,7 @@ from mainnet_launch.constants import (
     INCENTIVE_PRICNIG_STATS,
     LIQUIDATION_ROW,
     ROOT_PRICE_ORACLE,
-    ETH_CHAIN,
-    BASE_CHAIN,
+    ALL_CHAINS,
     ChainData,
 )
 
@@ -31,7 +35,7 @@ from mainnet_launch.abis.abis import DESTINATION_DEBT_REPORTING_SWAPPED_ABI
 INCENTIVE_TOKEN_PRICES_TABLE_NAME = "INCENTIVE_TOKEN_PRICES_AT_LIQUIDATION"
 
 
-def _add_acheived_price_column(swapped_df: pd.DataFrame, token_address_to_decimals: dict):
+def _add_achieved_price_column(swapped_df: pd.DataFrame, token_address_to_decimals: dict):
     def _compute_achieved_price(row):
         sell_token_decimals = token_address_to_decimals[row["sellTokenAddress"]]
         normalized_sell_amount = row["sellAmount"] / (10**sell_token_decimals)
@@ -88,7 +92,9 @@ def _fetch_incentive_calculator_price_df(swapped_df: pd.DataFrame, chain: ChainD
     return incentive_calculator_price_df
 
 
-def _fetch_reward_token_price_during_liquidation(chain: ChainData, start_block: int) -> pd.DataFrame:
+def _fetch_reward_token_price_during_liquidation_from_external_source(
+    chain: ChainData, start_block: int
+) -> pd.DataFrame:
     contract = chain.client.eth.contract(LIQUIDATION_ROW(chain), abi=DESTINATION_DEBT_REPORTING_SWAPPED_ABI)
 
     swapped_df = fetch_events(contract.events.Swapped, start_block=start_block)
@@ -105,7 +111,7 @@ def _fetch_reward_token_price_during_liquidation(chain: ChainData, start_block: 
 
     token_address_to_decimals = get_state_by_one_block(decimals_calls, swapped_df["block"].max(), chain)
 
-    swapped_df = _add_acheived_price_column(swapped_df, token_address_to_decimals)
+    swapped_df = _add_achieved_price_column(swapped_df, token_address_to_decimals)
 
     # not used in plots, but could be useful to see size later
     swapped_df["weth_received"] = swapped_df["buyTokenAmountReceived"] / 1e18
@@ -140,23 +146,16 @@ def _fetch_reward_token_price_during_liquidation(chain: ChainData, start_block: 
     return long_swapped_df
 
 
-def _update_swapped_df():
-    """Refresh the swapped_df on disk"""
-    swapped_df = load_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
-
-    if swapped_df is None:
-        # if the df does not exist fetch it from the start
-        highest_eth_block_already_fetched = ETH_CHAIN.block_autopool_first_deployed
-        highest_base_block_already_fetched = BASE_CHAIN.block_autopool_first_deployed
-    else:
-        highest_eth_block_already_fetched = int(swapped_df[swapped_df["chain"] == ETH_CHAIN.name]["block"].max())
-        highest_base_block_already_fetched = int(swapped_df[swapped_df["chain"] == BASE_CHAIN.name]["block"].max())
-
-    eth_swapped_df = _fetch_reward_token_price_during_liquidation(ETH_CHAIN, highest_eth_block_already_fetched)
-    write_dataframe_to_table(eth_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
-
-    base_swapped_df = _fetch_reward_token_price_during_liquidation(BASE_CHAIN, highest_base_block_already_fetched)
-    write_dataframe_to_table(base_swapped_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+def add_new_reward_token_swapped_events_to_table():
+    for chain in ALL_CHAINS:
+        # TODO pick one name for these tables and dataframes and stick with it
+        highest_block_already_fetched = get_earliest_block_from_table_with_chain(
+            INCENTIVE_TOKEN_PRICES_TABLE_NAME, chain
+        )
+        new_swapped_events_df = _fetch_reward_token_price_during_liquidation_from_external_source(
+            chain, highest_block_already_fetched
+        )
+        write_dataframe_to_table(new_swapped_events_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
 
 
 def make_histogram_subplots(df: pd.DataFrame, col: str, title: str):
@@ -221,14 +220,14 @@ def _get_only_some_incentive_tokens_prices(
 def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
 
     if should_update_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME):
-        _update_swapped_df()
+        add_new_reward_token_swapped_events_to_table()
 
     today = datetime.now(timezone.utc)
     thirty_days_ago = today - timedelta(days=30)
     year_ago = today - timedelta(days=365)
 
     for start_time in [thirty_days_ago, year_ago]:
-        for chain in [ETH_CHAIN, BASE_CHAIN]:
+        for chain in ALL_CHAINS:
             st.subheader(f"Since {start_time.strftime('%Y-%m-%d')} {chain.name} Achieved vs Expected Token Price")
             chain_swapped_df = _get_only_some_incentive_tokens_prices(chain, start_time)
             st.plotly_chart(
