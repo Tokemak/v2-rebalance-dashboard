@@ -7,11 +7,15 @@ import streamlit as st
 import logging
 import psutil
 
+
 from mainnet_launch.constants import ALL_AUTOPOOLS, PRODUCTION_LOG_FILE_NAME
 from mainnet_launch.page_functions import (
     CONTENT_FUNCTIONS,
     PAGES_WITHOUT_AUTOPOOL,
 )
+from mainnet_launch.setup_databases import first_run_of_db
+
+first_run_of_db()
 
 
 STREAMLIT_MARKDOWN_HTML = """
