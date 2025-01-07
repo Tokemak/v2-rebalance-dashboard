@@ -6,16 +6,15 @@ from datetime import datetime
 import streamlit as st
 import logging
 import psutil
+import os
 
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, PRODUCTION_LOG_FILE_NAME
+from mainnet_launch.constants import ALL_AUTOPOOLS, PRODUCTION_LOG_FILE_NAME, DB_FILE
 from mainnet_launch.page_functions import (
     CONTENT_FUNCTIONS,
     PAGES_WITHOUT_AUTOPOOL,
 )
 from mainnet_launch.setup_databases import first_run_of_db
-
-first_run_of_db()
 
 
 STREAMLIT_MARKDOWN_HTML = """
@@ -87,6 +86,9 @@ def format_timedelta(td):
 
 
 def main():
+    if not os.path.exists(DB_FILE):
+        first_run_of_db()
+
     st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
     st.title("Autopool Diagnostics Dashboard")
     st.sidebar.title("Navigation")
