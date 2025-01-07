@@ -6,7 +6,7 @@ import psutil
 import os
 
 
-from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, AUTO_LRT
+from mainnet_launch.constants import AutopoolConstants, AUTO_LRT, PRODUCTION_LOG_FILE_NAME
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.autopool_diagnostics.fetch_nav_per_share import fetch_nav_per_share
 from mainnet_launch.destination_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
@@ -231,11 +231,10 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
 
     # Section for Log File Download
     st.header("Download Logs")
-    log_file_path = "data_caching.log"
 
-    if os.path.exists(log_file_path):
+    if os.path.exists(PRODUCTION_LOG_FILE_NAME):
         try:
-            with open(log_file_path, "r") as log_file:
+            with open(PRODUCTION_LOG_FILE_NAME, "r") as log_file:
                 log_content = log_file.read()
 
             st.download_button(

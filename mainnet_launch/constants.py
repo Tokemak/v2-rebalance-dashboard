@@ -193,3 +193,7 @@ def time_decorator(func):
         return result
 
     return wrapper
+
+
+PRODUCTION_LOG_FILE_NAME = "production_usage.log"
+TEST_LOG_FILE_NAME = "test_pages.log"
