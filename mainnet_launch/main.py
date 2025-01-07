@@ -7,7 +7,7 @@ import streamlit as st
 import logging
 import psutil
 
-from mainnet_launch.constants import ALL_AUTOPOOLS
+from mainnet_launch.constants import ALL_AUTOPOOLS, PRODUCTION_LOG_FILE_NAME
 from mainnet_launch.page_functions import (
     CONTENT_FUNCTIONS,
     PAGES_WITHOUT_AUTOPOOL,
@@ -56,12 +56,12 @@ def get_memory_usage():
     return mem_info.rss / (1024**2)
 
 
-production_logger = logging.getLogger("testing_logger")
+production_logger = logging.getLogger("production_logger")
 production_logger.setLevel(logging.INFO)
 
 # Only add the handler if it doesn't already exist
 if not production_logger.hasHandlers():
-    handler = logging.FileHandler("data_caching.log", mode="w")
+    handler = logging.FileHandler(PRODUCTION_LOG_FILE_NAME, mode="w")
     handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
     production_logger.addHandler(handler)
     production_logger.propagate = False

@@ -7,7 +7,7 @@ import psutil
 import traceback
 
 from mainnet_launch.ui_config_setup import config_plotly_and_streamlit
-from mainnet_launch.constants import ALL_AUTOPOOLS
+from mainnet_launch.constants import ALL_AUTOPOOLS, TEST_LOG_FILE_NAME, AutopoolConstants
 from mainnet_launch.page_functions import CONTENT_FUNCTIONS, PAGES_WITHOUT_AUTOPOOL
 
 # run this with `$poetry run test-pages`
@@ -25,8 +25,8 @@ testing_logger.setLevel(logging.INFO)
 
 # Only add the handler if it doesn't already exist
 if not testing_logger.hasHandlers():
-    handler = logging.FileHandler("verify_all_pages_work.log", mode="w")
-    handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
+    handler = logging.FileHandler(TEST_LOG_FILE_NAME, mode="w")
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
     testing_logger.addHandler(handler)
     testing_logger.propagate = False
 
@@ -49,7 +49,7 @@ def open_log_in_vscode(log_file):
         subprocess.run(["code", log_file], check=True)
 
 
-def log_and_time_function(page_name, func, autopool):
+def log_and_time_function(page_name, func, autopool: AutopoolConstants):
     start_time = time.time()
 
     try:
@@ -58,7 +58,6 @@ def log_and_time_function(page_name, func, autopool):
         else:
             func(autopool)
     except Exception as e:
-        # Log the error with detailed stack trace
         stack_trace = traceback.format_exc()
 
         if autopool is None:
@@ -69,7 +68,6 @@ def log_and_time_function(page_name, func, autopool):
         testing_logger.info(f"Exception: {e}")
         testing_logger.info("Stack trace:\n" + stack_trace)
     finally:
-        # Log execution time
         time_taken = time.time() - start_time
         if autopool is None:
             testing_logger.info(f"Execution Time: {time_taken:.2f} seconds | Page: {page_name}")
@@ -80,7 +78,7 @@ def log_and_time_function(page_name, func, autopool):
 
 
 def main():
-    open_log_in_vscode("verify_all_pages_work.log")
+    open_log_in_vscode(TEST_LOG_FILE_NAME)
 
     autopools_to_check = ALL_AUTOPOOLS  # [BASE_ETH, AUTO_LRT]
     testing_logger.info("First run of page view and caching")

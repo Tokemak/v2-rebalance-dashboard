@@ -36,14 +36,6 @@ from mainnet_launch.constants import AutopoolConstants
 
 def display_destination_diagnostics(autopool: AutopoolConstants):
     fetch_and_render_destination_apr_data(autopool)
-    # TODO add a chart of
-
-    # composite return out
-
-    # composite return in
-
-    # price, fee, incentive points
-    # for all the destinations
 
 
 CONTENT_FUNCTIONS = {
