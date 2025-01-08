@@ -9,7 +9,7 @@ from mainnet_launch.constants import (
     ALL_AUTOPOOLS,
     WETH,
 )
-from mainnet_launch.abis.abis import (
+from mainnet_launch.abis import (
     ROOT_PRICE_ORACLE_ABI,
     AUTOPOOL_ETH_STRATEGY_ABI,
     ERC_20_ABI,

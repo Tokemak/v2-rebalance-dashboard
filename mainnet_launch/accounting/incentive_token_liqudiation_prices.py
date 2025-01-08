@@ -29,7 +29,7 @@ from mainnet_launch.constants import (
     ChainData,
 )
 
-from mainnet_launch.abis.abis import DESTINATION_DEBT_REPORTING_SWAPPED_ABI
+from mainnet_launch.abis import DESTINATION_DEBT_REPORTING_SWAPPED_ABI
 
 
 INCENTIVE_TOKEN_PRICES_TABLE_NAME = "INCENTIVE_TOKEN_PRICES_AT_LIQUIDATION"
