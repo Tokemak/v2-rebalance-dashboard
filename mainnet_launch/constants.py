@@ -21,16 +21,15 @@ WEB3_CLIENTS: dict[str, Web3] = {
 }
 
 CACHE_TIME = 3600 * 6  # six hours
-ROOT_DIR = Path(__file__).parent
-SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "rebalance_plans"
+ROOT_DIR = Path(__file__).parent # consider moving these to a setup file with the db initalization
+SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "data_fetching/rebalance_plans"
 WORKING_DATA_DIR = ROOT_DIR / "working_data"
-TX_HASH_TO_GAS_COSTS_PATH = WORKING_DATA_DIR / "tx_hash_to_gas_info.json"
-DB_DIR = ROOT_DIR / "databases"
+TX_HASH_TO_GAS_COSTS_PATH = WORKING_DATA_DIR / "tx_hash_to_gas_info.json" # can be removed
+DB_DIR = ROOT_DIR / "database"
 DB_FILE = DB_DIR / "autopool_dashboard.db"
 
 os.makedirs(SOLVER_REBALANCE_PLANS_DIR, exist_ok=True)
 os.makedirs(WORKING_DATA_DIR, exist_ok=True)
-os.makedirs(DB_DIR, exist_ok=True)
 
 if not os.path.exists(TX_HASH_TO_GAS_COSTS_PATH):
     open(TX_HASH_TO_GAS_COSTS_PATH, "x").close()

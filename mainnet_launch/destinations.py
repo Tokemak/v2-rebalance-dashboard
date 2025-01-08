@@ -11,9 +11,9 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 
 from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, ChainData, ALL_CHAINS
-from mainnet_launch.lens_contract import fetch_pools_and_destinations_df
-from mainnet_launch.data_fetching.new_databases import write_dataframe_to_table, does_table_exist, run_read_only_query
-from mainnet_launch.data_fetching.should_update_database import should_update_table
+from mainnet_launch.pages.autopool_diagnostics.lens_contract import fetch_pools_and_destinations_df
+from mainnet_launch.database.new_databases import write_dataframe_to_table, does_table_exist, run_read_only_query
+from mainnet_launch.database.should_update_database import should_update_table
 
 DESTINATION_DETAILS_TABLE = "DESTINATION_DETAILS_TABLE"
 CHAIN_BLOCK_QUERIED_TABLE = "CHAIN_BLOCK_QUERIED_TABLE"

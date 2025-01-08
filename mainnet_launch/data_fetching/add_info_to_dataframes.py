@@ -4,9 +4,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 from web3.exceptions import TransactionNotFound
 
-from mainnet_launch.constants import ChainData, ETH_CHAIN, BASE_CHAIN, DB_DIR
+from mainnet_launch.constants import ChainData, ETH_CHAIN, DB_DIR
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
-from mainnet_launch.data_fetching.new_databases import (
+from mainnet_launch.database.new_databases import (
     run_read_only_query,
     write_dataframe_to_table,
     does_table_exist,
