@@ -19,7 +19,7 @@ DESTINATION_DETAILS_TABLE = "DESTINATION_DETAILS_TABLE"
 CHAIN_BLOCK_QUERIED_TABLE = "CHAIN_BLOCK_QUERIED_TABLE"
 
 
-@dataclass()
+@dataclass
 class DestinationDetails:
     vaultAddress: str
     exchangeName: str
@@ -31,6 +31,7 @@ class DestinationDetails:
 
     autopool: AutopoolConstants
     vault_name: str = None
+    # TODO add base asset here
 
     def __str__(self):
         details = "Destination Details:\n"

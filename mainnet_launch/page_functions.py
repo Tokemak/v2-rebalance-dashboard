@@ -33,17 +33,13 @@ from mainnet_launch.accounting.protocol_level_profit import (
 from mainnet_launch.constants import AutopoolConstants
 
 
-def display_destination_diagnostics(autopool: AutopoolConstants):
-    fetch_and_render_destination_apr_data(autopool)
-
-
 CONTENT_FUNCTIONS = {
     "Key Metrics": fetch_and_render_key_metrics_data,
     "Autopool Exposure": fetch_and_render_destination_allocation_over_time_data,
     "Autopool CRM": fetch_and_render_weighted_crm_data,
     "Rebalance Events": fetch_and_render_rebalance_events_data,
     "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
-    "Destination Diagnostics": display_destination_diagnostics,
+    "Destination Diagnostics": fetch_and_render_destination_apr_data,
     "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
     "Gas Costs": fetch_and_render_keeper_network_gas_costs,
     "Incentive Token Prices": fetch_and_render_reward_token_achieved_vs_incentive_token_price,
