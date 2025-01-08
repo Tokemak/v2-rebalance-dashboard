@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from time import time
-from enum import Enum
 import os
 
 from pathlib import Path
