@@ -10,7 +10,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.constants import AutopoolConstants, CACHE_TIME, WETH
-from mainnet_launch.abis.abis import (
+from mainnet_launch.abis import (
     AUTOPOOL_ETH_STRATEGY_ABI,
     ERC_20_ABI,
     BALANCER_AURA_DESTINATION_VAULT_ABI,

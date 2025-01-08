@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta, timezone
 
-from mainnet_launch.abis.abis import CHAINLINK_KEEPER_REGISTRY_ABI
+from mainnet_launch.abis import CHAINLINK_KEEPER_REGISTRY_ABI
 from mainnet_launch.constants import CACHE_TIME, ALL_AUTOPOOLS, ETH_CHAIN
 
 

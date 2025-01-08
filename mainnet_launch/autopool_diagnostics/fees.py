@@ -11,7 +11,7 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import (
     add_timestamp_to_df_with_block_column,
     add_transaction_gas_info_to_df_with_tx_hash,
 )
-from mainnet_launch.abis.abis import AUTOPOOL_VAULT_ABI
+from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
 
 from mainnet_launch.data_fetching.new_databases import (
