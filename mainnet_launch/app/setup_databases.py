@@ -9,19 +9,28 @@ from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats i
     add_new_destination_summary_stats_to_table,
 )
 
-from mainnet_launch.pages.rebalance_events.fetch_rebalance_events import add_new_rebalance_events_for_each_autopool_to_table
+from mainnet_launch.pages.rebalance_events.fetch_rebalance_events import (
+    add_new_rebalance_events_for_each_autopool_to_table,
+)
 
 
 from mainnet_launch.destinations import add_new_destination_details_for_each_chain_to_table
 
 
-from mainnet_launch.pages.protocol_level_profit_and_loss.fees import add_new_fee_events_to_table, add_new_debt_reporting_events_to_table
+from mainnet_launch.pages.protocol_level_profit_and_loss.fees import (
+    add_new_fee_events_to_table,
+    add_new_debt_reporting_events_to_table,
+)
 
 
-from mainnet_launch.pages.solver_diagnostics.solver_diagnostics import ensure_all_rebalance_plans_are_loaded_from_s3_bucket
+from mainnet_launch.pages.solver_diagnostics.solver_diagnostics import (
+    ensure_all_rebalance_plans_are_loaded_from_s3_bucket,
+)
 
 from mainnet_launch.pages.gas_costs.keeper_network_gas_costs import fetch_keeper_network_gas_costs
-from mainnet_launch.pages.incentive_token_prices.incentive_token_liqudiation_prices import add_new_reward_token_swapped_events_to_table
+from mainnet_launch.pages.incentive_token_prices.incentive_token_liqudiation_prices import (
+    add_new_reward_token_swapped_events_to_table,
+)
 
 from mainnet_launch.constants import DB_FILE, time_decorator
 

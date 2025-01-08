@@ -10,7 +10,7 @@ from mainnet_launch.pages.autopool_crm.weighted_crm import (
 )
 
 from mainnet_launch.pages.rebalance_events.rebalance_events import (
-    fetch_and_render_rebalance_events_data, # TODO rename this
+    fetch_and_render_rebalance_events_data,  # TODO rename this
 )
 from mainnet_launch.pages.solver_diagnostics.solver_diagnostics import (
     fetch_and_render_solver_diagnositics_data,
@@ -28,6 +28,7 @@ from mainnet_launch.pages.incentive_token_prices.incentive_token_liqudiation_pri
 from mainnet_launch.pages.protocol_level_profit_and_loss.protocol_level_profit import (
     fetch_and_render_protocol_level_profit_and_loss_data,
 )
+
 # consider moving this elsewhere
 
 CONTENT_FUNCTIONS = {
@@ -44,4 +45,3 @@ CONTENT_FUNCTIONS = {
 }
 
 PAGES_WITHOUT_AUTOPOOL = ["Gas Costs", "Incentive Token Prices", "Protocol Level Profit and Loss"]
-

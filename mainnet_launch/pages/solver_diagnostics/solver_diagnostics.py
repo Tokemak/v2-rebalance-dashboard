@@ -15,12 +15,10 @@ from mainnet_launch.constants import (
 
 from mainnet_launch.destinations import get_destination_details
 from mainnet_launch.pages.rebalance_events.fetch_rebalance_events import (
-    fetch_rebalance_events_df, 
+    fetch_rebalance_events_df,
 )
 
-from mainnet_launch.pages.rebalance_events.rebalance_events import (
-     fetch_and_render_solver_profit_data
-)
+from mainnet_launch.pages.rebalance_events.rebalance_events import fetch_and_render_solver_profit_data
 
 
 import boto3
