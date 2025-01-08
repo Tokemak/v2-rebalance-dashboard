@@ -31,4 +31,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-test-pages = "mainnet_launch.test_pages:main"
+test-pages = "tests.test_pages:main"

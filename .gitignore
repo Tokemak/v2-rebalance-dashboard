@@ -4,11 +4,12 @@ __pycache__/
 .vscode/
 .venv/
 .pytest_cache/
-mainnet_launch/rebalance_plans/
+mainnet_launch/data_fetching/rebalance_plans/
 working_data/
+mainnet_launch/rebalance_plans/
 
-mainnet_launch/databases/autopool_dashboard.db
-mainnet_launch/databases/tx_hash_to_gas_info.db
+mainnet_launch/database/autopool_dashboard.db
+mainnet_launch/database/tx_hash_to_gas_info.db
 
 
 production_usage.log
@@ -16,3 +17,4 @@ test_pages.log
 
 
 
+mainnet_launch_old
