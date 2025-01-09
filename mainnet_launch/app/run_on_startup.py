@@ -9,9 +9,7 @@ from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats i
     add_new_destination_summary_stats_to_table,
 )
 
-from mainnet_launch.pages.rebalance_events.fetch_rebalance_events import (
-    add_new_rebalance_events_for_each_autopool_to_table,
-)
+from mainnet_launch.pages.rebalance_events.rebalance_events import add_new_rebalance_events_for_each_autopool_to_table
 
 
 from mainnet_launch.destinations import add_new_destination_details_for_each_chain_to_table

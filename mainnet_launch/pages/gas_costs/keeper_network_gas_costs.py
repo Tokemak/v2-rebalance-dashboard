@@ -13,7 +13,7 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import (
     add_transaction_gas_info_to_df_with_tx_hash,
 )
 
-from mainnet_launch.pages.rebalance_events.fetch_rebalance_events import (
+from mainnet_launch.pages.rebalance_events.rebalance_events import (
     fetch_rebalance_events_df,
 )
 

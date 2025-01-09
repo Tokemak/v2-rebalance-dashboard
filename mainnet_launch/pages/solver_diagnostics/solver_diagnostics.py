@@ -14,11 +14,11 @@ from mainnet_launch.constants import (
 )
 
 from mainnet_launch.destinations import get_destination_details
-from mainnet_launch.pages.rebalance_events.fetch_rebalance_events import (
+from mainnet_launch.pages.rebalance_events.rebalance_events import (
     fetch_rebalance_events_df,
 )
 
-from mainnet_launch.pages.rebalance_events.rebalance_events import fetch_and_render_solver_profit_data
+from mainnet_launch.pages.solver_diagnostics.solver_profit import fetch_and_render_solver_profit_data
 
 
 import boto3
@@ -34,7 +34,6 @@ def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
     fetch_and_render_solver_profit_data(autopool)
 
 
-@st.cache_data(ttl=CACHE_TIME)
 def fetch_solver_diagnostics_data(autopool: AutopoolConstants):
     ensure_all_rebalance_plans_are_loaded_from_s3_bucket()
     solver_df = _load_solver_df(autopool)
@@ -88,7 +87,8 @@ def ensure_all_rebalance_plans_are_loaded_from_s3_bucket():
             )
 
 
-# can be slow, has to load a few hundred jsons
+# can be slow, is loading 1600 jsons
+@st.cache_data(ttl=CACHE_TIME)
 def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
     autopool_plans = [p for p in SOLVER_REBALANCE_PLANS_DIR.glob("*.json") if autopool.autopool_eth_addr in str(p)]
     destination_details = get_destination_details(autopool)
