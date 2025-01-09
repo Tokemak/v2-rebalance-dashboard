@@ -1,4 +1,6 @@
 [theme]
 base="light"
 
-folderWatchBlacklist = [".git", "__pycache__", "mainnet_launch/rebalance_plans"]
+
+[server]
+folderWatchBlacklist = [".git", "__pycache__", "mainnet_launch/data_fetching/rebalance_plans"]
