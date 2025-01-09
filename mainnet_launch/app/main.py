@@ -14,7 +14,7 @@ from mainnet_launch.pages.page_functions import (
     CONTENT_FUNCTIONS,
     PAGES_WITHOUT_AUTOPOOL,
 )
-from mainnet_launch.app.setup_databases import first_run_of_db
+from mainnet_launch.app.run_on_startup import first_run_of_db
 
 
 STREAMLIT_MARKDOWN_HTML = """
