@@ -86,33 +86,38 @@ def format_timedelta(td):
 
 
 def main():
+
     if not os.path.exists(DB_FILE):
-        st.text("populating database...")
         first_run_of_db()
+        with open("db_initalized", "x") as _:
+            pass
 
-    st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
-    st.title("Autopool Diagnostics Dashboard")
-    st.sidebar.title("Navigation")
+    if os.path.exists("db_initalized"):
+        st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
+        st.title("Autopool Diagnostics Dashboard")
+        st.sidebar.title("Navigation")
 
-    names = [autopool.name for autopool in ALL_AUTOPOOLS]
-    pool_name = st.sidebar.selectbox("Select Pool", names)
-    autopool_name_to_constants = {a.name: a for a in ALL_AUTOPOOLS}
-    autopool = autopool_name_to_constants[pool_name]
+        names = [autopool.name for autopool in ALL_AUTOPOOLS]
+        pool_name = st.sidebar.selectbox("Select Pool", names)
+        autopool_name_to_constants = {a.name: a for a in ALL_AUTOPOOLS}
+        autopool = autopool_name_to_constants[pool_name]
 
-    page = st.sidebar.radio("Go to", CONTENT_FUNCTIONS.keys())
+        page = st.sidebar.radio("Go to", CONTENT_FUNCTIONS.keys())
 
-    if page in PAGES_WITHOUT_AUTOPOOL:
-        start = datetime.now()
-        production_logger.info(f"Attempting {page}")
-        CONTENT_FUNCTIONS[page]()
-        time_taken = format_timedelta(datetime.now() - start)
-        production_logger.info(f"Success {page=} {time_taken=}")
+        if page in PAGES_WITHOUT_AUTOPOOL:
+            start = datetime.now()
+            production_logger.info(f"Attempting {page}")
+            CONTENT_FUNCTIONS[page]()
+            time_taken = format_timedelta(datetime.now() - start)
+            production_logger.info(f"Success {page=} {time_taken=}")
+        else:
+            start = datetime.now()
+            production_logger.info(f"Attempting {page} {autopool.name}")
+            CONTENT_FUNCTIONS[page](autopool)
+            time_taken = format_timedelta(datetime.now() - start)
+            production_logger.info(f"Success {page=} {autopool.name=} {time_taken=}")
     else:
-        start = datetime.now()
-        production_logger.info(f"Attempting {page} {autopool.name}")
-        CONTENT_FUNCTIONS[page](autopool)
-        time_taken = format_timedelta(datetime.now() - start)
-        production_logger.info(f"Success {page=} {autopool.name=} {time_taken=}")
+        st.text("Populating database for the first time...")
 
 
 if __name__ == "__main__":
