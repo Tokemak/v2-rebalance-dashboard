@@ -70,7 +70,7 @@ def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
     chain: ChainData,
-    semaphore_limits: tuple[int] = (100, 100, 50, 20, 2), 
+    semaphore_limits: tuple[int] = (100, 100, 50, 20, 2),
     include_block_number: bool = False,
 ) -> pd.DataFrame:
 
@@ -81,7 +81,7 @@ async def async_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
     chain: ChainData,
-    semaphore_limits: tuple[int] = (100, 100, 50, 20, 2), 
+    semaphore_limits: tuple[int] = (100, 100, 50, 20, 2),
     include_block_number: bool = False,
 ) -> pd.DataFrame:
     """
