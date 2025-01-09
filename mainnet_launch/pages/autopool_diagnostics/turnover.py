@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS
-from mainnet_launch.pages.rebalance_events.fetch_rebalance_events import (
+from mainnet_launch.pages.rebalance_events.rebalance_events import (
     fetch_rebalance_events_df,
 )
 from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
