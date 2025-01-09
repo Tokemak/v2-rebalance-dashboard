@@ -87,6 +87,7 @@ def format_timedelta(td):
 
 def main():
     if not os.path.exists(DB_FILE):
+        st.text("populating database...")
         first_run_of_db()
 
     st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
