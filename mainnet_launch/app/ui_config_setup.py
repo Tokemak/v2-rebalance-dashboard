@@ -5,6 +5,41 @@ import plotly.io as pio
 import plotly.express as px
 
 
+STREAMLIT_MARKDOWN_HTML = """
+        <style>
+        .main {
+            max-width: 85%;
+            margin: 0 auto;
+            padding-top: 40px;
+        }
+        .stPlotlyChart {
+            width: 100%;
+            height: auto;
+            min-height: 300px;
+            max-height: 600px;
+            background-color: #f0f2f6;
+            border-radius: 5px;
+            padding: 20px;
+        }
+        @media (max-width: 768px) {
+            .stPlotlyChart {
+                min-height: 250px;
+                max-height: 450px;
+            }
+        }
+        .stPlotlyChart {
+            background-color: #f0f2f6;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        .stExpander {
+            background-color: #e6e9ef;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        </style>
+        """
+
 def config_plotly_and_streamlit():
     # this needs to be first because otherwise we get this error:
     # `StreamlitAPIException: set_page_config() can only be called once per app page,

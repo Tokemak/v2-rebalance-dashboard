@@ -1,4 +1,4 @@
-from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit
+from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit, STREAMLIT_MARKDOWN_HTML
 
 config_plotly_and_streamlit()
 
@@ -15,42 +15,6 @@ from mainnet_launch.pages.page_functions import (
     PAGES_WITHOUT_AUTOPOOL,
 )
 from mainnet_launch.app.run_on_startup import first_run_of_db
-
-
-STREAMLIT_MARKDOWN_HTML = """
-        <style>
-        .main {
-            max-width: 85%;
-            margin: 0 auto;
-            padding-top: 40px;
-        }
-        .stPlotlyChart {
-            width: 100%;
-            height: auto;
-            min-height: 300px;
-            max-height: 600px;
-            background-color: #f0f2f6;
-            border-radius: 5px;
-            padding: 20px;
-        }
-        @media (max-width: 768px) {
-            .stPlotlyChart {
-                min-height: 250px;
-                max-height: 450px;
-            }
-        }
-        .stPlotlyChart {
-            background-color: #f0f2f6;
-            border-radius: 5px;
-            padding: 10px;
-        }
-        .stExpander {
-            background-color: #e6e9ef;
-            border-radius: 5px;
-            padding: 10px;
-        }
-        </style>
-        """
 
 
 def get_memory_usage():
@@ -88,11 +52,11 @@ def format_timedelta(td):
 def main():
 
     if not os.path.exists(DB_FILE):
-        first_run_of_db()
-        with open("db_initalized", "x") as _:
-            pass
+        
+        if st.button("do first run"):
+            first_run_of_db()
 
-    if os.path.exists("db_initalized"):
+   
         st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
         st.title("Autopool Diagnostics Dashboard")
         st.sidebar.title("Navigation")
