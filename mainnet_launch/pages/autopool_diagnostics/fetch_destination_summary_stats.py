@@ -23,7 +23,7 @@ from mainnet_launch.destinations import (
 )
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 
-from mainnet_launch.database.new_databases import (
+from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     get_earliest_block_from_table_with_autopool,
     run_read_only_query,

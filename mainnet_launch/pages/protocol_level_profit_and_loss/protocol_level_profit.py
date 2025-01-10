@@ -13,7 +13,7 @@ from mainnet_launch.pages.protocol_level_profit_and_loss.fees import (
     DESTINATION_DEBT_REPORTING_EVENTS_TABLE,
     add_new_debt_reporting_events_to_table,
 )
-from mainnet_launch.database.new_databases import run_read_only_query
+from mainnet_launch.database.database_operations import run_read_only_query
 from mainnet_launch.database.should_update_database import should_update_table
 
 # TODO this is not accurate because fees are going to sTOKE.

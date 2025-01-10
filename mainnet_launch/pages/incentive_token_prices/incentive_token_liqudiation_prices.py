@@ -11,7 +11,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
     safe_normalize_with_bool_success,
 )
-from mainnet_launch.database.new_databases import (
+from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     load_table,
     run_read_only_query,

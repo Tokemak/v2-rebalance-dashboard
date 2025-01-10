@@ -8,7 +8,7 @@ from mainnet_launch.database.should_update_database import (
     write_timestamp_table_was_last_updated,
 )
 
-# TODO, make the timestamps, cleaner dont' handle them explicitly but handle them here
+# TODO, make the timestamps cleaner by not handling them after reading the db but instead here.
 
 
 def convert_timestamps_to_iso(df: pd.DataFrame) -> pd.DataFrame:

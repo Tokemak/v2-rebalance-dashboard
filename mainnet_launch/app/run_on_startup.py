@@ -39,18 +39,15 @@ def first_run_of_db(production_logger):
     Create and populate the database with data up to the current day.
     Only runs once, at the start of the application.
     """
-    # Create a placeholder container to display messages on the webpage.
     status_container = st.empty()
 
-    messages = []  # List to accumulate messages for display.
+    messages = []
 
     def log_and_display(message):
         """Helper to log message, add a timestamp, and display it on the webpage."""
-        # Prepend current timestamp to the message
         timestamped_message = f"{datetime.now().isoformat()} - {message}"
         messages.append(timestamped_message)
         production_logger.info(timestamped_message)
-        # Update the container with all accumulated messages
         status_container.text("\n".join(messages))
 
     log_and_display("Starting first_run_of_db process.")
@@ -61,7 +58,7 @@ def first_run_of_db(production_logger):
         log_and_display("Transaction hash to gas info database initialized.")
 
         log_and_display("Ensuring table for last updated timestamp exists...")
-        ensure_table_to_last_updated_exists()  # creates autopool_dashboard.db
+        ensure_table_to_last_updated_exists()
         log_and_display("Table for last updated timestamp ensured.")
 
         log_and_display("Adding new destination details for each chain to table...")
