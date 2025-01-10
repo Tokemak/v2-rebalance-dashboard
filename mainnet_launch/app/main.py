@@ -58,7 +58,7 @@ def main():
     if not os.path.exists(FINISHED_STARTUP_FILE):
         st.title("Startup Process")
         st.warning(
-            "Keep this tab open and don't refresh, or open new tabs to this page after clicking start. Take ~15 minutes."
+            "Keep this tab open and don't refresh or open new tabs to this page after clicking start. Takes ~15 minutes."
         )
 
         if st.button("Start Startup Process"):
