@@ -14,7 +14,6 @@ from mainnet_launch.pages.page_functions import (
     PAGES_WITHOUT_AUTOPOOL,
 )
 from mainnet_launch.app.run_on_startup import first_run_of_db
-import portalocker
 
 
 production_logger = logging.getLogger("production_logger")
@@ -58,13 +57,16 @@ def render_ui():
 def main():
     if not os.path.exists(FINISHED_STARTUP_FILE):
         st.title("Startup Process")
-        st.warning("Keep this tab open and don't refresh after clicking start. This may take ~15 minutes.")
+        st.warning(
+            "Keep this tab open and don't refresh, or open new tabs to this page after clicking start. Take ~15 minutes."
+        )
 
         if st.button("Start Startup Process"):
             first_run_of_db(production_logger)
 
             with open(FINISHED_STARTUP_FILE, "x") as _:
                 pass
+            st.text("Finished startup, refresh to use app")
 
         try:
             with open(PRODUCTION_LOG_FILE_NAME, "r") as log_file:

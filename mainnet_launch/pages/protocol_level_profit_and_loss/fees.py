@@ -14,7 +14,7 @@ from mainnet_launch.data_fetching.add_info_to_dataframes import (
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
 
-from mainnet_launch.database.new_databases import (
+from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     run_read_only_query,
     get_earliest_block_from_table_with_autopool,

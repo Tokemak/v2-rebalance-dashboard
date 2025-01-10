@@ -13,7 +13,7 @@ from mainnet_launch.constants import (
     ETH_CHAIN,
     BASE_CHAIN,
 )
-from mainnet_launch.database.new_databases import (
+from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     get_earliest_block_from_table_with_chain,
     run_read_only_query,
