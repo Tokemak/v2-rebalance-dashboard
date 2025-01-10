@@ -3343,6 +3343,25 @@ dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
+name = "portalocker"
+version = "3.1.1"
+description = "Wraps the portalocker recipe for easy usage"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "portalocker-3.1.1-py3-none-any.whl", hash = "sha256:80e984e24de292ff258a5bea0e4f3f778fff84c0ae1275dbaebc4658de4aacb3"},
+    {file = "portalocker-3.1.1.tar.gz", hash = "sha256:ec20f6dda2ad9ce89fa399a5f31f4f1495f515958f0cb7ca6543cef7bb5a749e"},
+]
+
+[package.dependencies]
+pywin32 = {version = ">=226", markers = "platform_system == \"Windows\""}
+
+[package.extras]
+docs = ["sphinx (>=1.7.1)"]
+redis = ["redis"]
+tests = ["pytest (>=5.4.1)", "pytest-cov (>=2.8.1)", "pytest-mypy (>=0.8.0)", "pytest-rerunfailures (>=15.0)", "pytest-timeout (>=2.1.0)", "redis", "sphinx (>=6.0.0)", "types-redis"]
+
+[[package]]
 name = "prometheus-client"
 version = "0.21.1"
 description = "Python client for the Prometheus monitoring system."
@@ -4771,4 +4790,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.11"
-content-hash = "cb4aee2bcc7d23b3cd1c22409010fda05ae5b93d2aa1e0b53afb0e93c92e2352"
+content-hash = "c5e4317220ffce1c495670046b96c0093c5e203b4368061d188bf8c64e918f1d"
