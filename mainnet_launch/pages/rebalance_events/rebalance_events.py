@@ -45,7 +45,6 @@ from mainnet_launch.database.should_update_database import should_update_table
 REBALANCE_EVENTS_TABLE = "REBALANCE_EVENTS_TABLE"
 
 
-
 def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
     rebalance_df = fetch_rebalance_events_df(autopool)
     rebalance_figures = _make_rebalance_events_plots(rebalance_df)
@@ -467,8 +466,6 @@ def _add_spot_value_of_rebalance_events(rebalance_df: pd.DataFrame, autopool: Au
 
     rebalance_df["swap_cost"] = rebalance_df["swap_cost"].clip(lower=0)
     return rebalance_df
-
-
 
 
 def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
