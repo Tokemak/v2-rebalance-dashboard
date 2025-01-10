@@ -1,52 +1,57 @@
+# File Structure
+
+
+mainnet_launch/
 
 ├── abis
 
-
-
+Holds ABI jsons, constants and helper methods for using abi function signatures with mulitcall.py
 
 ├── app
 
-The main streamlit app and the inital script to fetch data up to the current day. 
+The main app of the dashboard. Has configuation details and a startup script.
+
+├── constants.py
+
+Onchain addresses and app relatated constants (paths, api keys, etc)
 
 
 ├── database
-Logic for handling reading and writing events and processed onchain data to disk.
+
+The .db files themselves and methods to read and write processed event and onchain data using sqlite
 
 
 ├── data_fetching
-Fetches events and onchain data
+
+Methods to quickly fetch contract events and onchain function calls.
 
 
-│   └── rebalance_plans
-Holds the solver rebalance plans .jsons
+├── destinations.py
+
+Defines what a "Destination" is and how to get all destinations deployed since launch. This is relevant because one set of Dex / Staking contract can be used by multiple Autopools. Also destinations are occasioanlly updated and this lets them be stiched together on the UI. Eg if a destination calculator is upgraded we still want to think of that as the same destination even though one of the contracts is different. 
+
+
+├── notebooks
+
+Work in progress jupyter notebooks and notes
 
 ├── pages
 
-One folder for each page of the app. Each folder holds both the logic to fetch the data and render the plots
+Each subfolder here is a seperate tab. In general I'm trying to keep the logic for each tab in a seperate folder. However there is still some overlap
+
+For example:
+
+The Destination Diagnostics tab uses data from the `getDestinationSummaryStats()` call but that data is fetched and stored in the Autopool Diagnostics tab because it is also used by charts in that tab. 
 
 
-│   ├── autopool_crm
-Autopool Composite Return Out Metric
+tests/
+
+test_pages.py
+
+Go though each page and autopool in the UI and ensures that it can run without error.Run this with `$ poetry run test-pages`
 
 
+test_api_keys.py
 
-│   ├── autopool_diagnostics
+Minimal tests that make sure that the secrets in .env are valid
 
-Many plots describing the autopool
-
-
-│   ├── autopool_exposure
-
-Current and historical of value in each destination over time
-
-│   ├── destination_diagnostics
-│   ├── gas_costs
-│   ├── incentive_token_prices
-│   ├── key_metrics
-│   ├── protocol_level_profit_and_loss
-│   ├── __pycache__
-│   ├── rebalance_events
-│   └── solver_diagnostics
-├── __pycache__
-└── working_data
-    └── end_of_day
