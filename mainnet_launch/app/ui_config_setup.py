@@ -40,6 +40,7 @@ STREAMLIT_MARKDOWN_HTML = """
         </style>
         """
 
+
 def config_plotly_and_streamlit():
     # this needs to be first because otherwise we get this error:
     # `StreamlitAPIException: set_page_config() can only be called once per app page,
@@ -55,3 +56,18 @@ def config_plotly_and_streamlit():
     pio.templates["dark_24_color_template"] = pio.templates["plotly"]
     pio.templates["dark_24_color_template"]["layout"]["colorway"] = px.colors.qualitative.Dark24
     pio.templates.default = "dark_24_color_template"
+
+
+def format_timedelta(td):
+    """Format a timedelta object into a readable string."""
+    total_seconds = int(td.total_seconds())
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    milliseconds = int(td.microseconds / 1000)
+    formatted_time = ""
+    if hours > 0:
+        formatted_time += f"{hours}h "
+    if minutes > 0 or hours > 0:
+        formatted_time += f"{minutes}m "
+    formatted_time += f"{seconds}s {milliseconds}ms"
+    return formatted_time
