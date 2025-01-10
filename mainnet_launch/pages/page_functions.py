@@ -6,8 +6,9 @@ from mainnet_launch.pages.autopool_exposure.destination_allocation_over_time imp
 )
 from mainnet_launch.pages.autopool_crm.weighted_crm import (
     fetch_and_render_weighted_crm_data,
-    fetch_and_render_destination_apr_data,
 )
+
+from mainnet_launch.pages.destination_diagnostics.destination_diagnostics import fetch_and_render_destination_apr_data
 
 from mainnet_launch.pages.rebalance_events.rebalance_events import (
     fetch_and_render_rebalance_events_data,  # TODO rename this
