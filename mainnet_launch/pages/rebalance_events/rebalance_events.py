@@ -45,6 +45,16 @@ from mainnet_launch.database.should_update_database import should_update_table
 REBALANCE_EVENTS_TABLE = "REBALANCE_EVENTS_TABLE"
 
 
+
+def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
+    rebalance_df = fetch_rebalance_events_df(autopool)
+    rebalance_figures = _make_rebalance_events_plots(rebalance_df)
+    st.header(f"{autopool.name} Rebalance Events")
+
+    for figure in rebalance_figures:
+        st.plotly_chart(figure, use_container_width=True)
+
+
 def add_new_rebalance_events_for_each_autopool_to_table():
     for autopool in ALL_AUTOPOOLS:
         highest_block_already_fetched = get_earliest_block_from_table_with_autopool(REBALANCE_EVENTS_TABLE, autopool)
@@ -459,14 +469,6 @@ def _add_spot_value_of_rebalance_events(rebalance_df: pd.DataFrame, autopool: Au
     return rebalance_df
 
 
-def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
-    rebalance_df = fetch_rebalance_events_df(autopool)
-    rebalance_figures = _make_rebalance_events_plots(rebalance_df)
-    st.header(f"{autopool.name} Rebalance Events")
-
-    # Render each figure individually
-    for figure in rebalance_figures:
-        st.plotly_chart(figure, use_container_width=True)
 
 
 def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
@@ -607,7 +609,6 @@ def _add_spot_value_of_rebalance_events(rebalance_df: pd.DataFrame, autopool: Au
     # on a later rebalance
     # a negative swap cost throws off some of the stats, so treat it as 0
     rebalance_df["swap_cost"] = rebalance_df["swap_cost"].clip(lower=0)
-    # rebalance_df = add_timestamp_to_df_with_block_column(rebalance_df, autopool.chain)
     return rebalance_df
 
 
