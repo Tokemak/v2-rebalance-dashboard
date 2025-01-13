@@ -63,7 +63,6 @@ def add_new_rebalance_events_for_each_autopool_to_table():
         write_dataframe_to_table(new_rebalance_events_df, REBALANCE_EVENTS_TABLE)
 
 
-# external facing part
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
     if should_update_table(REBALANCE_EVENTS_TABLE):

@@ -34,6 +34,11 @@ from mainnet_launch.pages.incentive_token_prices.incentive_token_liqudiation_pri
 )
 
 
+from mainnet_launch.pages.autopool_diagnostics.deposits_and_withdrawals import (
+    add_new_autopool_deposit_and_withdraw_events_to_table,
+)
+
+
 def first_run_of_db(production_logger):
     """
     Create and populate the database with data up to the current day.
@@ -93,9 +98,13 @@ def first_run_of_db(production_logger):
         fetch_keeper_network_gas_costs()
         log_and_display("Keeper network gas costs fetched.")
 
-        log_and_display("Adding new reward token swapped events to table...")
+        log_and_display("Fetching reward token Swapped events")
         add_new_reward_token_swapped_events_to_table()
         log_and_display("New reward token swapped events added.")
+
+        log_and_display("fetching autopool deposit and withdraw events...")
+        add_new_autopool_deposit_and_withdraw_events_to_table()
+        log_and_display("New autopool deposit and withdraw added")
 
     except Exception as e:
         error_msg = f"Error during first_run_of_db: {e}"

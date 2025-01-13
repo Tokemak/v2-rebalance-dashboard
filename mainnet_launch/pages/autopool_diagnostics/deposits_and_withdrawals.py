@@ -4,18 +4,27 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import plotly.express as px
-from mainnet_launch.constants import CACHE_TIME, eth_client, AutopoolConstants
+from mainnet_launch.constants import AutopoolConstants, AUTO_LRT, ALL_AUTOPOOLS
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
-start_block = 20759126  # Sep 15, 2024
+
+from mainnet_launch.database.database_operations import (
+    write_dataframe_to_table,
+    run_read_only_query,
+    get_earliest_block_from_table_with_autopool,
+)
+from mainnet_launch.database.should_update_database import should_update_table
 
 
-@st.cache_data(ttl=CACHE_TIME)
-# TODO cache these
+DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE = "DEPOSIT_AND_WITHDRAW__FROM_AUTOPOOL_TABLE"
+
+
 def fetch_autopool_deposit_and_withdraw_stats_data(autopool: AutopoolConstants):
-    deposit_df, withdraw_df = _fetch_raw_deposit_and_withdrawal_dfs(autopool)
+    df = fetch_autopool_deposit_and_withdraw_events(autopool)
+    deposit_df = df[df["event"] == "Deposit"].copy()
+    withdraw_df = df[df["event"] == "Withdraw"].copy()
     daily_change_fig = _make_deposit_and_withdraw_figure(autopool, deposit_df, withdraw_df)
     scatter_plot_fig = _make_scatter_plot_figure(autopool, deposit_df, withdraw_df)
     return daily_change_fig, scatter_plot_fig
@@ -28,19 +37,49 @@ def fetch_and_render_autopool_deposit_and_withdraw_stats_data(autopool: Autopool
     st.plotly_chart(scatter_plot_fig, use_container_width=True)
 
 
-def _fetch_raw_deposit_and_withdrawal_dfs(autopool: AutopoolConstants) -> tuple[pd.DataFrame, pd.DataFrame]:
-    contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+def fetch_autopool_deposit_and_withdraw_events(autopool: AutopoolConstants) -> pd.DataFrame:
+    if should_update_table(DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE):
+        add_new_autopool_deposit_and_withdraw_events_to_table()
 
+    query = f"""
+        SELECT * from {DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE}
+        
+        WHERE autopool = ?
+        
+        """
+    params = (autopool.name,)
+    rebalance_events_df = run_read_only_query(query, params)
+    rebalance_events_df = rebalance_events_df.set_index("timestamp")
+    return rebalance_events_df
+
+
+def add_new_autopool_deposit_and_withdraw_events_to_table():
+    for autopool in ALL_AUTOPOOLS:
+        highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
+            DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE, autopool
+        )
+        new_rebalance_events_df = _fetch_autopool_deposit_and_withdraw_events_from_external_source(
+            autopool, highest_block_already_fetched
+        )
+        write_dataframe_to_table(new_rebalance_events_df, DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE)
+
+
+def _fetch_autopool_deposit_and_withdraw_events_from_external_source(
+    autopool: AutopoolConstants, start_block: int
+) -> pd.DataFrame:
+    contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
     deposit_df = fetch_events(contract.events.Deposit, start_block=start_block)
     withdraw_df = fetch_events(contract.events.Withdraw, start_block=start_block)
-
-    deposit_df = add_timestamp_to_df_with_block_column(deposit_df, autopool.chain)
-    withdraw_df = add_timestamp_to_df_with_block_column(withdraw_df, autopool.chain)
 
     deposit_df["normalized_assets"] = deposit_df["assets"].apply(lambda x: int(x) / 1e18)
     withdraw_df["normalized_assets"] = withdraw_df["assets"].apply(lambda x: int(x) / 1e18)
 
-    return deposit_df, withdraw_df
+    cols = ["hash", "log_index", "block", "event", "normalized_assets"]
+
+    df = pd.concat([deposit_df[cols], withdraw_df[cols]], axis=0)
+    df = add_timestamp_to_df_with_block_column(df, autopool.chain).reset_index()
+    df["autopool"] = autopool.name
+    return df
 
 
 def _make_deposit_and_withdraw_figure(
