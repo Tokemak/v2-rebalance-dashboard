@@ -68,34 +68,28 @@ def add_new_fee_events_to_table():
             write_dataframe_to_table(fee_df, AUTOPOOL_FEE_EVENTS_TABLE)
 
 
-def fetch_autopool_fee_data(autopool: AutopoolConstants):
+def fetch_all_autopool_fee_events(autopool: AutopoolConstants) -> pd.DataFrame:
     add_new_fee_events_to_table()
-
     params = (autopool.name,)
 
-    get_streaming_fee_events_query = f"""
+    query = f"""
     
     SELECT * from {AUTOPOOL_FEE_EVENTS_TABLE}
     
-    WHERE autopool = ? and event = "FeeCollected"
-    
-    """
-    streaming_fee_df = run_read_only_query(get_streaming_fee_events_query, params)
-    streaming_fee_df = streaming_fee_df.set_index("timestamp")
-
-    get_periodic_fee_events_query = f"""
-    
-    SELECT * from {AUTOPOOL_FEE_EVENTS_TABLE}
-    
-    WHERE autopool = ? and event = "PeriodicFeeCollected"
+    WHERE autopool = ?
     
     """
 
-    periodic_fee_df = run_read_only_query(get_periodic_fee_events_query, params)
-    periodic_fee_df = periodic_fee_df.set_index("timestamp")
+    fee_event_df = run_read_only_query(query, params)
+    fee_event_df = fee_event_df.set_index("timestamp")
+    return fee_event_df
 
-    periodic_fee_df = periodic_fee_df[["normalized_fees"]].copy()
-    streaming_fee_df = streaming_fee_df[["normalized_fees"]].copy()
+
+def fetch_autopool_fee_data(autopool: AutopoolConstants):
+    # TODO edit this to only use fetch_all_autopool_fee_events and it splits them downstream
+    fee_event_df = fetch_all_autopool_fee_events(autopool)
+    streaming_fee_df = fee_event_df[fee_event_df["event"] == "FeeCollected"]["normalized_fees"].copy()
+    periodic_fee_df = fee_event_df[fee_event_df["event"] == "PeriodicFeeCollected"]["normalized_fees"].copy()
 
     periodic_fee_df.columns = [f"{autopool.name}_periodic"]
     streaming_fee_df.columns = [f"{autopool.name}_streaming"]
@@ -173,87 +167,77 @@ def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
 
 
 def fetch_and_render_autopool_fee_data(autopool: AutopoolConstants):
-
-    fee_df, sfee_df = fetch_autopool_fee_data(autopool)
-    if (len(fee_df) == 0) and (len(sfee_df) == 0):
-        # if there are no fees then we don't need to plot anything
-        return
+    fee_event_df = fetch_all_autopool_fee_events(autopool)
     st.header(f"{autopool.name} Autopool Fees")
+    _display_headline_fee_metrics(fee_event_df)
 
-    _display_fee_metrics(autopool, fee_df, True)
-    _display_fee_metrics(autopool, sfee_df, False)
-
-    # Generate fee figures
-    daily_fee_fig, cumulative_fee_fig, weekly_fee_fig = _build_fee_figures(autopool, fee_df)
-    daily_sfee_fig, cumulative_sfee_fig, weekly_sfee_fig = _build_fee_figures(autopool, sfee_df)
+    periodic_fees_figures_over_time = _build_fee_figures(
+        autopool, fee_event_df[fee_event_df["event"] == "PeriodicFeeCollected"]["normalized_fees"]
+    )
 
     st.subheader(f"{autopool.name} Autopool Periodic Fees")
+    for fig in periodic_fees_figures_over_time:
+        st.plotly_chart(fig, use_container_width=True)
 
-    st.plotly_chart(daily_fee_fig, use_container_width=True)
-    st.plotly_chart(weekly_fee_fig, use_container_width=True)
-    st.plotly_chart(cumulative_fee_fig, use_container_width=True)
+    streaming_fees_figures_over_time = _build_fee_figures(
+        autopool, fee_event_df[fee_event_df["event"] == "FeeCollected"]["normalized_fees"]
+    )  # might need to be df not series
 
     st.subheader(f"{autopool.name} Autopool Streaming Fees")
-    st.plotly_chart(daily_sfee_fig, use_container_width=True)
-    st.plotly_chart(weekly_sfee_fig, use_container_width=True)
-    st.plotly_chart(cumulative_sfee_fig, use_container_width=True)
+    for fig in streaming_fees_figures_over_time:
+        st.plotly_chart(fig, use_container_width=True)
 
 
-def _display_fee_metrics(autopool: AutopoolConstants, fee_df: pd.DataFrame, isPeriodic: bool):
-    """Calculate and display fee metrics at the top of the dashboard."""
-    # I don't really like this pattern, redo it
+def _compute_fee_values(fee_event_df: pd.DataFrame):
+    """Returns what fees and how much over time"""
     today = datetime.now(timezone.utc)
 
     seven_days_ago = today - timedelta(days=7)
     thirty_days_ago = today - timedelta(days=30)
     year_ago = today - timedelta(days=365)
 
-    if isPeriodic:
-        fee_column_name = f"{autopool.name}_periodic"
-    else:
-        fee_column_name = f"{autopool.name}_streaming"
+    periodic_fees = {}
+    streaming_fees = {}
 
-    fees_last_7_days = fee_df[fee_df.index >= seven_days_ago][fee_column_name].sum()
+    for window, window_name in zip(
+        [seven_days_ago, thirty_days_ago, year_ago],
+        [
+            "seven_days_ago",
+            "thirty_days_ago",
+            "year_ago",
+        ],
+    ):
+        recent_df = fee_event_df[fee_event_df.index >= window]
 
-    if len(fee_df[fee_df.index >= thirty_days_ago]) > 0:
-        fees_last_30_days = fee_df[fee_df.index >= thirty_days_ago][fee_column_name].sum()
-    else:
-        fees_last_30_days = "None"
+        periodic_fees[window_name] = recent_df[recent_df["event"] == "PeriodicFeeCollected"]["normalized_fees"].sum()
+        streaming_fees[window_name] = recent_df[recent_df["event"] == "FeeCollected"]["normalized_fees"].sum()
 
-    fees_year_to_date = fee_df[fee_df.index >= year_ago][fee_column_name].sum()
+    return periodic_fees, streaming_fees
+
+
+def _display_headline_fee_metrics(
+    fee_event_df: pd.DataFrame,
+):
+    periodic_fees, streaming_fees = _compute_fee_values(fee_event_df)
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        if isPeriodic:
-            st.metric(label="Periodic Fees Earned Over Last 7 Days (ETH)", value=f"{fees_last_7_days:.2f}")
-        else:
-            st.metric(label="Streaming Fees Earned Over Last 7 Days (ETH)", value=f"{fees_last_7_days:.2f}")
+        st.metric(label="Periodic Fees Earned Over Last 7 Days (ETH)", value=f"{periodic_fees['seven_days_ago']:.2f}")
+        st.metric(label="Streaming Fees Earned Over Last 7 Days (ETH)", value=f"{streaming_fees['seven_days_ago']:.2f}")
 
     with col2:
-        if isPeriodic:
-            st.metric(
-                label="Periodic Fees Earned Over Last 30 Days (ETH)",
-                value=f"{fees_last_30_days:.2f}" if isinstance(fees_last_30_days, (int, float)) else fees_last_30_days,
-            )
-        else:
-            st.metric(
-                label="Streaming Fees Earned Over Last 30 Days (ETH)",
-                value=f"{fees_last_30_days:.2f}" if isinstance(fees_last_30_days, (int, float)) else fees_last_30_days,
-            )
+        st.metric(label="Periodic Fees Earned Over Last 30 Days (ETH)", value=f"{periodic_fees['thirty_days_ago']:.2f}")
+        st.metric(
+            label="Streaming Fees Earned Over Last 30 Days (ETH)", value=f"{streaming_fees['thirty_days_ago']:.2f}"
+        )
 
     with col3:
-        if isPeriodic:
-            st.metric(label="Periodic Fees Earned Year to Date (ETH)", value=f"{fees_year_to_date:.2f}")
-        else:
-            st.metric(label="Streaming Fees Earned Year to Date (ETH)", value=f"{fees_year_to_date:.2f}")
+        st.metric(label="Periodic Fees Earned Over Last 1 Year (ETH)", value=f"{periodic_fees['year_ago']:.2f}")
+        st.metric(label="Streaming Fees Earned Over Last 1 Year (ETH)", value=f"{streaming_fees['year_ago']:.2f}")
 
 
 def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
-    # Ensure the 'fee_df' is indexed by datetime
-    fee_df.index = pd.to_datetime(fee_df.index)
-
-    # 1. Daily Fees
     daily_fees_df = fee_df.resample("1D").sum()
     daily_fee_fig = px.bar(daily_fees_df)
     daily_fee_fig.update_layout(

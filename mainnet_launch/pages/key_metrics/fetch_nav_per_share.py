@@ -55,7 +55,7 @@ def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
     )
 
 
-def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
+def fetch_autopool_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
     add_new_nav_per_share_to_table()
 
     query = f"""
@@ -67,9 +67,16 @@ def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
     nav_per_share_df = long_nav_per_share_df.pivot(
         index="block", columns="autopool", values="nav_per_share"
     ).reset_index()
+    # this is fast because the block_timestamp for the blocks from (get block by share) should be already cached
     nav_per_share_df = add_timestamp_to_df_with_block_column(nav_per_share_df, autopool.chain)
 
-    # nav_per_share_df = _fetch_all_all_pool_nav_per_share(blocks)[[autopool.name]]
+    return nav_per_share_df
+
+
+def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
+    nav_per_share_df = fetch_autopool_nav_per_share(autopool)[[autopool.name]]
+
+    # nav_per_share_df = _fetch_all_all_pool_nav_per_share(blocks
     nav_per_share_df = nav_per_share_df.resample("1D").last()
 
     # Calculate the 30-day difference and annualized return
@@ -102,13 +109,3 @@ def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
     nav_per_share_df["30_day_MA_annualized_return"] = nav_per_share_df["30_day_MA_return"] * 365 * 100
 
     return nav_per_share_df
-
-
-if __name__ == "__main__":
-    nav_per_share_df = fetch_nav_per_share(ALL_AUTOPOOLS[2])
-    print(nav_per_share_df.head())
-    print(nav_per_share_df.tail())
-
-    nav_per_share_df = fetch_nav_per_share(ALL_AUTOPOOLS[1])
-    print(nav_per_share_df.head())
-    print(nav_per_share_df.tail())

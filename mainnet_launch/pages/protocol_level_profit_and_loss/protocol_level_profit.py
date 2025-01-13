@@ -107,8 +107,7 @@ def _render_protocol_level_profit_and_loss_tables(
 def fetch_gas_cost_df() -> pd.DataFrame:
     """Fetch the gas costs for running the solver, reward token liqudation / debt reporting, and calculators (chainlink keeper network)"""
 
-    if should_update_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE):
-        add_new_debt_reporting_events_to_table()
+    add_new_debt_reporting_events_to_table()
 
     destination_debt_reporting_df = run_read_only_query(
         f"""SELECT * FROM {DESTINATION_DEBT_REPORTING_EVENTS_TABLE}""", params=None
@@ -151,4 +150,4 @@ def fetch_gas_cost_df() -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    fetch_gas_cost_df()
+    fetch_and_render_protocol_level_profit_and_loss_data()
