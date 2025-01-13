@@ -26,11 +26,13 @@ NAV_PER_SHARE_TABLE = "NAV_PER_SHARE_TABLE"
 
 
 def add_new_nav_per_share_to_table():
-    for chain in [ETH_CHAIN, BASE_CHAIN]:
-        highest_block_already_fetched = get_earliest_block_from_table_with_chain(NAV_PER_SHARE_TABLE, chain)
-        blocks = [b for b in build_blocks_to_use(chain) if b >= highest_block_already_fetched]
-        nav_per_share_df = _fetch_nav_per_share_from_external_source(chain, blocks)
-        write_dataframe_to_table(nav_per_share_df, NAV_PER_SHARE_TABLE)
+    if should_update_table(NAV_PER_SHARE_TABLE):
+
+        for chain in [ETH_CHAIN, BASE_CHAIN]:
+            highest_block_already_fetched = get_earliest_block_from_table_with_chain(NAV_PER_SHARE_TABLE, chain)
+            blocks = [b for b in build_blocks_to_use(chain) if b >= highest_block_already_fetched]
+            nav_per_share_df = _fetch_nav_per_share_from_external_source(chain, blocks)
+            write_dataframe_to_table(nav_per_share_df, NAV_PER_SHARE_TABLE)
 
 
 def _fetch_nav_per_share_from_external_source(chain: ChainData, blocks: list[int]):
@@ -54,8 +56,7 @@ def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
 
 
 def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
-    if should_update_table(NAV_PER_SHARE_TABLE):
-        add_new_nav_per_share_to_table()
+    add_new_nav_per_share_to_table()
 
     query = f"""
         SELECT * from {NAV_PER_SHARE_TABLE}

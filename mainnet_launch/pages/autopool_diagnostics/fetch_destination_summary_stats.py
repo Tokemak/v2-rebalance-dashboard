@@ -47,15 +47,17 @@ SUMMARY_STATS_FIELDS = [
 ]
 
 
-def add_new_destination_summary_stats_to_table() -> None:
-    for autopool in ALL_AUTOPOOLS:
-        highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
-            DESTINATION_SUMMARY_STATS_TABLE, autopool
-        )
-        blocks = [b for b in build_blocks_to_use(autopool.chain) if b >= highest_block_already_fetched]
+def add_new_destination_summary_stats_to_table():
+    if should_update_table(DESTINATION_SUMMARY_STATS_TABLE):
 
-        flat_summary_stats_df = _fetch_destination_summary_stats_from_external_source(autopool, blocks)
-        write_dataframe_to_table(flat_summary_stats_df, DESTINATION_SUMMARY_STATS_TABLE)
+        for autopool in ALL_AUTOPOOLS:
+            highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
+                DESTINATION_SUMMARY_STATS_TABLE, autopool
+            )
+            blocks = [b for b in build_blocks_to_use(autopool.chain) if b >= highest_block_already_fetched]
+
+            flat_summary_stats_df = _fetch_destination_summary_stats_from_external_source(autopool, blocks)
+            write_dataframe_to_table(flat_summary_stats_df, DESTINATION_SUMMARY_STATS_TABLE)
 
 
 def _fetch_destination_summary_stats_from_external_source(
@@ -296,8 +298,7 @@ def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_f
     if summary_stats_field not in SUMMARY_STATS_FIELDS:
         raise ValueError(f"Can only fetch {SUMMARY_STATS_FIELDS=} you tried to fetch {summary_stats_field=}")
 
-    if should_update_table(DESTINATION_SUMMARY_STATS_TABLE):
-        add_new_destination_summary_stats_to_table()
+    add_new_destination_summary_stats_to_table()
 
     query = f"""
         SELECT destination, block, {summary_stats_field} from {DESTINATION_SUMMARY_STATS_TABLE}

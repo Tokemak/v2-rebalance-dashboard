@@ -30,42 +30,46 @@ DESTINATION_DEBT_REPORTING_EVENTS_TABLE = "DESTINATION_DEBT_REPORTING_EVENTS_TAB
 
 
 def add_new_fee_events_to_table():
-    for autopool in ALL_AUTOPOOLS:
-        highest_block_already_fetched = get_earliest_block_from_table_with_autopool(AUTOPOOL_FEE_EVENTS_TABLE, autopool)
-        vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+    if should_update_table(AUTOPOOL_FEE_EVENTS_TABLE):
+        for autopool in ALL_AUTOPOOLS:
+            highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
+                AUTOPOOL_FEE_EVENTS_TABLE, autopool
+            )
+            vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
 
-        streaming_fee_df = fetch_events(vault_contract.events.FeeCollected, start_block=highest_block_already_fetched)
+            streaming_fee_df = fetch_events(
+                vault_contract.events.FeeCollected, start_block=highest_block_already_fetched
+            )
 
-        streaming_fee_df["normalized_fees"] = streaming_fee_df["fees"].apply(lambda x: int(x) / 1e18)
-        streaming_fee_df["new_shares_from_streaming_fees"] = streaming_fee_df["mintedShares"] / 1e18
-        streaming_fee_df["new_shares_from_periodic_fees"] = 0.0  # so that the columns line up
+            streaming_fee_df["normalized_fees"] = streaming_fee_df["fees"].apply(lambda x: int(x) / 1e18)
+            streaming_fee_df["new_shares_from_streaming_fees"] = streaming_fee_df["mintedShares"] / 1e18
+            streaming_fee_df["new_shares_from_periodic_fees"] = 0.0  # so that the columns line up
 
-        periodic_fee_df = fetch_events(
-            vault_contract.events.PeriodicFeeCollected, start_block=highest_block_already_fetched
-        )
+            periodic_fee_df = fetch_events(
+                vault_contract.events.PeriodicFeeCollected, start_block=highest_block_already_fetched
+            )
 
-        periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
-        periodic_fee_df["new_shares_from_streaming_fees"] = 0  # so the columns line up
-        periodic_fee_df["new_shares_from_periodic_fees"] = periodic_fee_df["mintedShares"] / 1e18
+            periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
+            periodic_fee_df["new_shares_from_streaming_fees"] = 0  # so the columns line up
+            periodic_fee_df["new_shares_from_periodic_fees"] = periodic_fee_df["mintedShares"] / 1e18
 
-        cols_to_keep = [
-            "event",
-            "block",
-            "hash",
-            "normalized_fees",
-            "new_shares_from_streaming_fees",
-            "new_shares_from_periodic_fees",
-        ]
-        fee_df = pd.concat([streaming_fee_df, periodic_fee_df], axis=0)
-        fee_df = fee_df[cols_to_keep].copy()
-        fee_df["autopool"] = autopool.name
-        fee_df = add_timestamp_to_df_with_block_column(fee_df, autopool.chain).reset_index()
-        write_dataframe_to_table(fee_df, AUTOPOOL_FEE_EVENTS_TABLE)
+            cols_to_keep = [
+                "event",
+                "block",
+                "hash",
+                "normalized_fees",
+                "new_shares_from_streaming_fees",
+                "new_shares_from_periodic_fees",
+            ]
+            fee_df = pd.concat([streaming_fee_df, periodic_fee_df], axis=0)
+            fee_df = fee_df[cols_to_keep].copy()
+            fee_df["autopool"] = autopool.name
+            fee_df = add_timestamp_to_df_with_block_column(fee_df, autopool.chain).reset_index()
+            write_dataframe_to_table(fee_df, AUTOPOOL_FEE_EVENTS_TABLE)
 
 
 def fetch_autopool_fee_data(autopool: AutopoolConstants):
-    if should_update_table(AUTOPOOL_FEE_EVENTS_TABLE):
-        add_new_fee_events_to_table()
+    add_new_fee_events_to_table()
 
     params = (autopool.name,)
 
@@ -99,36 +103,39 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
     return periodic_fee_df, streaming_fee_df
 
 
-# TODO split this into another file
+# TODO move this into another file
 def add_new_debt_reporting_events_to_table():
-    for autopool in ALL_AUTOPOOLS:
-        highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
-            DESTINATION_DEBT_REPORTING_EVENTS_TABLE, autopool
-        )
-        highest_block_already_fetched = autopool.chain.block_autopool_first_deployed
-        vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-        debt_reporting_events_df = fetch_events(
-            vault_contract.events.DestinationDebtReporting, start_block=highest_block_already_fetched
-        )
+    if should_update_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE):
 
-        debt_reporting_events_df = add_timestamp_to_df_with_block_column(
-            debt_reporting_events_df, autopool.chain
-        ).reset_index()
-        debt_reporting_events_df["eth_claimed"] = debt_reporting_events_df["claimed"] / 1e18  # claimed is in ETH
-        vault_to_name = {d.vaultAddress: d.vault_name for d in get_destination_details(autopool)}
-        debt_reporting_events_df["destinationName"] = debt_reporting_events_df["destination"].apply(
-            lambda x: vault_to_name[x]
-        )
-        debt_reporting_events_df["autopool"] = autopool.name
-        cols = ["eth_claimed", "hash", "destinationName", "autopool", "timestamp", "block", "log_index"]
-        debt_reporting_events_df = debt_reporting_events_df[cols].copy()
-        debt_reporting_events_df = add_transaction_gas_info_to_df_with_tx_hash(debt_reporting_events_df, autopool.chain)
-        write_dataframe_to_table(debt_reporting_events_df, DESTINATION_DEBT_REPORTING_EVENTS_TABLE)
+        for autopool in ALL_AUTOPOOLS:
+            highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
+                DESTINATION_DEBT_REPORTING_EVENTS_TABLE, autopool
+            )
+            highest_block_already_fetched = autopool.chain.block_autopool_first_deployed
+            vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+            debt_reporting_events_df = fetch_events(
+                vault_contract.events.DestinationDebtReporting, start_block=highest_block_already_fetched
+            )
+
+            debt_reporting_events_df = add_timestamp_to_df_with_block_column(
+                debt_reporting_events_df, autopool.chain
+            ).reset_index()
+            debt_reporting_events_df["eth_claimed"] = debt_reporting_events_df["claimed"] / 1e18  # claimed is in ETH
+            vault_to_name = {d.vaultAddress: d.vault_name for d in get_destination_details(autopool)}
+            debt_reporting_events_df["destinationName"] = debt_reporting_events_df["destination"].apply(
+                lambda x: vault_to_name[x]
+            )
+            debt_reporting_events_df["autopool"] = autopool.name
+            cols = ["eth_claimed", "hash", "destinationName", "autopool", "timestamp", "block", "log_index"]
+            debt_reporting_events_df = debt_reporting_events_df[cols].copy()
+            debt_reporting_events_df = add_transaction_gas_info_to_df_with_tx_hash(
+                debt_reporting_events_df, autopool.chain
+            )
+            write_dataframe_to_table(debt_reporting_events_df, DESTINATION_DEBT_REPORTING_EVENTS_TABLE)
 
 
 def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants) -> pd.DataFrame:
-    if should_update_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE):
-        add_new_debt_reporting_events_to_table()
+    add_new_debt_reporting_events_to_table()
 
     params = (autopool.name,)
 

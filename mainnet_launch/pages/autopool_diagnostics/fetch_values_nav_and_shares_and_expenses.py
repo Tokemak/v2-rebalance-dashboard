@@ -1,7 +1,6 @@
 """Returns of the autopool before and after expenses and fees"""
 
 import pandas as pd
-import streamlit as st
 from multicall import Call
 
 
@@ -12,15 +11,15 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
-from mainnet_launch.solver_diagnostics.fetch_rebalance_events import (
+from mainnet_launch.pages.rebalance_events.rebalance_events import (
     fetch_rebalance_events_df,
 )
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.constants import AutopoolConstants, CACHE_TIME
+from mainnet_launch.constants import AutopoolConstants, AUTO_LRT, time_decorator
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
 
-@st.cache_data(ttl=CACHE_TIME)
+@time_decorator
 def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
     daily_nav_shares_df = _fetch_actual_nav_per_share_by_day(autopool)
     cumulative_new_shares_df = _fetch_cumulative_fee_shares_minted_by_day(autopool)
@@ -36,8 +35,9 @@ def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: Autopoo
         ],
         axis=1,
     )
-    df.iloc[0] = df.iloc[0].fillna(0)
+    df.iloc[0] = df.iloc[0].fillna(0)  # new shares, nav los to fees, nav lost to swap costs all start out at 0
     df = df.ffill()
+
     return df
 
 
@@ -79,10 +79,10 @@ def _fetch_cumulative_nav_lost_to_rebalances(autopool: AutopoolConstants) -> pd.
         ~(rebalance_df["outDestinationVault"].str.lower() == autopool.autopool_eth_addr.lower())
     ].copy()
 
-    cumulative_rebalance_from_idle_swap_cost = rebalance_from_idle_df["swap_cost"].resample("1D").sum().cumsum()
+    cumulative_rebalance_from_idle_swap_cost = rebalance_from_idle_df["swapCost"].resample("1D").sum().cumsum()
     cumulative_rebalance_from_idle_swap_cost.name = "rebalance_from_idle_swap_cost"
 
-    cumulative_rebalance_not_from_idle_swap_cost = rebalance_not_from_idle_df["swap_cost"].resample("1D").sum().cumsum()
+    cumulative_rebalance_not_from_idle_swap_cost = rebalance_not_from_idle_df["swapCost"].resample("1D").sum().cumsum()
     cumulative_rebalance_not_from_idle_swap_cost.name = "rebalance_not_idle_swap_cost"
     return cumulative_rebalance_from_idle_swap_cost, cumulative_rebalance_not_from_idle_swap_cost
 
@@ -106,3 +106,15 @@ def _fetch_cumulative_fee_shares_minted_by_day(autopool: AutopoolConstants) -> p
     daily_fee_share_df = fee_df.resample("1D").sum()
     cumulative_new_shares_df = daily_fee_share_df.cumsum()
     return cumulative_new_shares_df
+
+
+# Index(['actual_nav', 'actual_shares', 'actual_nav_per_share',
+#        'new_shares_from_periodic_fees', 'new_shares_from_streaming_fees',
+#        'rebalance_from_idle_swap_cost', 'rebalance_not_idle_swap_cost'],
+#       dtype='object')
+
+
+if __name__ == "__main__":
+    df = fetch_nav_and_shares_and_factors_that_impact_nav_per_share(AUTO_LRT)
+    print(df.columns)
+    print(df.shape)

@@ -54,14 +54,15 @@ def fetch_autopool_deposit_and_withdraw_events(autopool: AutopoolConstants) -> p
 
 
 def add_new_autopool_deposit_and_withdraw_events_to_table():
-    for autopool in ALL_AUTOPOOLS:
-        highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
-            DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE, autopool
-        )
-        new_rebalance_events_df = _fetch_autopool_deposit_and_withdraw_events_from_external_source(
-            autopool, highest_block_already_fetched
-        )
-        write_dataframe_to_table(new_rebalance_events_df, DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE)
+    if should_update_table(DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE):
+        for autopool in ALL_AUTOPOOLS:
+            highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
+                DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE, autopool
+            )
+            deposit_and_withdraw_events_df = _fetch_autopool_deposit_and_withdraw_events_from_external_source(
+                autopool, highest_block_already_fetched
+            )
+            write_dataframe_to_table(deposit_and_withdraw_events_df, DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE)
 
 
 def _fetch_autopool_deposit_and_withdraw_events_from_external_source(
