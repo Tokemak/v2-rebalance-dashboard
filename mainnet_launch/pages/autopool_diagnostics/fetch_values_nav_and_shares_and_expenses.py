@@ -1,26 +1,22 @@
 """Returns of the autopool before and after expenses and fees"""
 
 import pandas as pd
-from multicall import Call
 
+from mainnet_launch.constants import AutopoolConstants, AUTO_ETH
 
-from mainnet_launch.data_fetching.get_state_by_block import (
-    get_raw_state_by_blocks,
-    safe_normalize_with_bool_success,
-    build_blocks_to_use,
-)
-
-from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.pages.rebalance_events.rebalance_events import (
     fetch_rebalance_events_df,
 )
-from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.constants import AutopoolConstants, AUTO_LRT, time_decorator
-from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
+
+from mainnet_launch.pages.protocol_level_profit_and_loss.fees import (
+    fetch_all_autopool_fee_events,
+)
+
+from mainnet_launch.pages.key_metrics.fetch_nav_per_share import fetch_autopool_nav_per_share
 
 
-@time_decorator
 def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
+    # this is only using cached data so it does not need it's own table
     daily_nav_shares_df = _fetch_actual_nav_per_share_by_day(autopool)
     cumulative_new_shares_df = _fetch_cumulative_fee_shares_minted_by_day(autopool)
     cumulative_rebalance_from_idle_swap_cost, cumulative_rebalance_not_from_idle_swap_cost = (
@@ -35,6 +31,7 @@ def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: Autopoo
         ],
         axis=1,
     )
+
     df.iloc[0] = df.iloc[0].fillna(0)  # new shares, nav los to fees, nav lost to swap costs all start out at 0
     df = df.ffill()
 
@@ -42,30 +39,9 @@ def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: Autopoo
 
 
 def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants) -> pd.DataFrame:
-
-    def handle_getAssetBreakdown(success, AssetBreakdown):
-        if success:
-            totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
-            return int(totalIdle + totalDebt) / 1e18
-        return None
-
-    calls = [
-        Call(
-            autopool.autopool_eth_addr,
-            ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
-            [("actual_nav", handle_getAssetBreakdown)],
-        ),
-        Call(
-            autopool.autopool_eth_addr,
-            ["totalSupply()(uint256)"],
-            [("actual_shares", safe_normalize_with_bool_success)],
-        ),
-    ]
-
-    blocks = build_blocks_to_use(autopool.chain)
-    df = get_raw_state_by_blocks(calls, blocks, autopool.chain)
-    df["actual_nav_per_share"] = df["actual_nav"] / df["actual_shares"]
-    daily_nav_shares_df = df.resample("1D").last()
+    df = fetch_autopool_nav_per_share(autopool)
+    df["actual_nav_per_share"] = df[autopool.name]
+    daily_nav_shares_df = df[["actual_nav_per_share"]].resample("1D").last()
     return daily_nav_shares_df
 
 
@@ -88,33 +64,18 @@ def _fetch_cumulative_nav_lost_to_rebalances(autopool: AutopoolConstants) -> pd.
 
 
 def _fetch_cumulative_fee_shares_minted_by_day(autopool: AutopoolConstants) -> pd.DataFrame:
-    vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    FeeCollected_df = add_timestamp_to_df_with_block_column(
-        fetch_events(vault_contract.events.FeeCollected), autopool.chain
-    )
-    PeriodicFeeCollected_df = add_timestamp_to_df_with_block_column(
-        fetch_events(vault_contract.events.PeriodicFeeCollected), autopool.chain
-    )
-    PeriodicFeeCollected_df["new_shares_from_periodic_fees"] = PeriodicFeeCollected_df["mintedShares"] / 1e18
-    FeeCollected_df["new_shares_from_streaming_fees"] = FeeCollected_df["mintedShares"] / 1e18
-    fee_df = pd.concat(
-        [
-            PeriodicFeeCollected_df[["new_shares_from_periodic_fees"]],
-            FeeCollected_df[["new_shares_from_streaming_fees"]],
-        ]
-    )
+    fee_df = fetch_all_autopool_fee_events(autopool)[
+        ["new_shares_from_periodic_fees", "new_shares_from_streaming_fees"]
+    ]
     daily_fee_share_df = fee_df.resample("1D").sum()
     cumulative_new_shares_df = daily_fee_share_df.cumsum()
     return cumulative_new_shares_df
 
 
-# Index(['actual_nav', 'actual_shares', 'actual_nav_per_share',
-#        'new_shares_from_periodic_fees', 'new_shares_from_streaming_fees',
-#        'rebalance_from_idle_swap_cost', 'rebalance_not_idle_swap_cost'],
-#       dtype='object')
-
-
 if __name__ == "__main__":
-    df = fetch_nav_and_shares_and_factors_that_impact_nav_per_share(AUTO_LRT)
+    df = fetch_nav_and_shares_and_factors_that_impact_nav_per_share(AUTO_ETH)
     print(df.columns)
     print(df.shape)
+    print(df.head())
+
+    print(df.tail())
