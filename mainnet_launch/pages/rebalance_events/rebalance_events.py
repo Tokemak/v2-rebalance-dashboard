@@ -55,18 +55,20 @@ def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
 
 
 def add_new_rebalance_events_for_each_autopool_to_table():
-    for autopool in ALL_AUTOPOOLS:
-        highest_block_already_fetched = get_earliest_block_from_table_with_autopool(REBALANCE_EVENTS_TABLE, autopool)
-        new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
-            autopool, highest_block_already_fetched
-        )
-        write_dataframe_to_table(new_rebalance_events_df, REBALANCE_EVENTS_TABLE)
+    if should_update_table(REBALANCE_EVENTS_TABLE):
+        for autopool in ALL_AUTOPOOLS:
+            highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
+                REBALANCE_EVENTS_TABLE, autopool
+            )
+            new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
+                autopool, highest_block_already_fetched
+            )
+            write_dataframe_to_table(new_rebalance_events_df, REBALANCE_EVENTS_TABLE)
 
 
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
-    if should_update_table(REBALANCE_EVENTS_TABLE):
-        add_new_rebalance_events_for_each_autopool_to_table()
+    add_new_rebalance_events_for_each_autopool_to_table()
 
     query = f"""
         SELECT * from {REBALANCE_EVENTS_TABLE}

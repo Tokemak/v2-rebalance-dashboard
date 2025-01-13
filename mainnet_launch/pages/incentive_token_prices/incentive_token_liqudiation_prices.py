@@ -147,15 +147,16 @@ def _fetch_reward_token_price_during_liquidation_from_external_source(
 
 
 def add_new_reward_token_swapped_events_to_table():
-    for chain in ALL_CHAINS:
-        # TODO pick one name for these tables and dataframes and stick with it
-        highest_block_already_fetched = get_earliest_block_from_table_with_chain(
-            INCENTIVE_TOKEN_PRICES_TABLE_NAME, chain
-        )
-        new_swapped_events_df = _fetch_reward_token_price_during_liquidation_from_external_source(
-            chain, highest_block_already_fetched
-        )
-        write_dataframe_to_table(new_swapped_events_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+    if should_update_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME):
+        for chain in ALL_CHAINS:
+            # TODO pick one name for these tables and dataframes and stick with it
+            highest_block_already_fetched = get_earliest_block_from_table_with_chain(
+                INCENTIVE_TOKEN_PRICES_TABLE_NAME, chain
+            )
+            new_swapped_events_df = _fetch_reward_token_price_during_liquidation_from_external_source(
+                chain, highest_block_already_fetched
+            )
+            write_dataframe_to_table(new_swapped_events_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
 
 
 def make_histogram_subplots(df: pd.DataFrame, col: str, title: str):
@@ -219,8 +220,7 @@ def _get_only_some_incentive_tokens_prices(
 
 def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
 
-    if should_update_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME):
-        add_new_reward_token_swapped_events_to_table()
+    add_new_reward_token_swapped_events_to_table()
 
     today = datetime.now(timezone.utc)
     thirty_days_ago = today - timedelta(days=30)

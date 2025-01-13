@@ -99,14 +99,15 @@ def _get_highest_block_to_fetch_for_destination_details(chain: ChainData) -> int
 
 
 def add_new_destination_details_for_each_chain_to_table():
-    for chain in ALL_CHAINS:
-        highest_block_already_fetched = _get_highest_block_to_fetch_for_destination_details(chain)
-        new_destination_details_df, new_highest_block = _fetch_destination_details_from_external_source(
-            chain, highest_block_already_fetched
-        )
-        chain_block_table = pd.DataFrame.from_records([{"block": new_highest_block, "chain": chain.name}])
-        write_dataframe_to_table(chain_block_table, CHAIN_BLOCK_QUERIED_TABLE)
-        write_dataframe_to_table(new_destination_details_df, DESTINATION_DETAILS_TABLE)
+    if should_update_table(DESTINATION_DETAILS_TABLE):
+        for chain in ALL_CHAINS:
+            highest_block_already_fetched = _get_highest_block_to_fetch_for_destination_details(chain)
+            new_destination_details_df, new_highest_block = _fetch_destination_details_from_external_source(
+                chain, highest_block_already_fetched
+            )
+            chain_block_table = pd.DataFrame.from_records([{"block": new_highest_block, "chain": chain.name}])
+            write_dataframe_to_table(chain_block_table, CHAIN_BLOCK_QUERIED_TABLE)
+            write_dataframe_to_table(new_destination_details_df, DESTINATION_DETAILS_TABLE)
 
 
 def make_idle_destination_details(chain: ChainData) -> list[DestinationDetails]:
@@ -194,8 +195,7 @@ def _fetch_destination_details_from_external_source(
 
 
 def get_destination_details(autopool: AutopoolConstants) -> tuple[DestinationDetails]:
-    if should_update_table(DESTINATION_DETAILS_TABLE):
-        add_new_destination_details_for_each_chain_to_table()
+    add_new_destination_details_for_each_chain_to_table()
 
     query = f"""
         SELECT * from {DESTINATION_DETAILS_TABLE}

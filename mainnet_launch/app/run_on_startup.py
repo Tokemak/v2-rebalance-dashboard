@@ -95,7 +95,7 @@ def first_run_of_db(production_logger):
         log_and_display("All rebalance plans loaded.")
 
         log_and_display("Fetching keeper network gas costs...")
-        fetch_keeper_network_gas_costs()
+        fetch_keeper_network_gas_costs()  # need to be cached? maybe or put together from cached calls
         log_and_display("Keeper network gas costs fetched.")
 
         log_and_display("Fetching reward token Swapped events")

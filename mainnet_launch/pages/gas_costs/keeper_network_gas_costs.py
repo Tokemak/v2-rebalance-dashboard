@@ -49,6 +49,7 @@ def fetch_our_chainlink_upkeep_events() -> pd.DataFrame:
 
 @st.cache_data(ttl=CACHE_TIME)  # TODO Cache this
 def fetch_keeper_network_gas_costs() -> pd.DataFrame:
+
     our_upkeep_df = fetch_our_chainlink_upkeep_events()
     our_upkeep_df = add_transaction_gas_info_to_df_with_tx_hash(our_upkeep_df, ETH_CHAIN)
     our_upkeep_df = add_timestamp_to_df_with_block_column(our_upkeep_df, ETH_CHAIN)
