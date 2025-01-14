@@ -22,9 +22,11 @@ def _compute_adjusted_nav_per_share_n_days(
     adjusted_shares = df["actual_shares"].copy()
     adjusted_nav = df["actual_nav"].copy()
     nav_per_share_df = df.copy()
-
+    apply_rebalance_from_idle_swap_cost = True
     if apply_periodic_fees:
-        adjusted_shares -= df["new_shares_from_periodic_fees"].rolling(n_days).sum()
+        adjusted_shares -= (
+            df["new_shares_from_periodic_fees"].rolling(n_days).sum()
+        )  # the issue is that these are currnet values, when it should be, just since the last day
     if apply_streaming_fees:
         adjusted_shares -= df["new_shares_from_streaming_fees"].rolling(n_days).sum()
     if apply_rebalance_from_idle_swap_cost:
@@ -35,8 +37,22 @@ def _compute_adjusted_nav_per_share_n_days(
         # change the nav to what it would be at the each block if it was at peg
         adjusted_nav += df["additional_nav_if_price_return_was_0"]
 
-    nav_per_share_df["adjusted_nav_per_share"] = adjusted_nav / adjusted_shares
-    nav_per_share_df["actual_nav_per_share"] = df["actual_nav"] / df["actual_shares"]
+    nav_per_share_df["adjusted_nav"] = adjusted_nav
+    nav_per_share_df["adjusted_shares"] = adjusted_shares
+
+    nav_per_share_df["adjusted_nav_per_share"] = nav_per_share_df["adjusted_nav"] / nav_per_share_df["adjusted_shares"]
+    nav_per_share_df["actual_nav_per_share"] = nav_per_share_df["actual_nav"] / nav_per_share_df["actual_shares"]
+
+    a = nav_per_share_df[
+        [
+            "actual_nav",
+            "adjusted_nav",
+            "actual_shares",
+            "adjusted_shares",
+            "actual_nav_per_share",
+            "adjusted_nav_per_share",
+        ]
+    ]
 
     nav_per_share_df[f"actual_{n_days}_days_annualized_apr"] = (
         100
@@ -279,6 +295,7 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
         apply_rebalance_not_idle_swap_cost,
         apply_nav_lost_to_depeg,
     )
+    pass
 
     row1_cols = st.columns(2)
 
@@ -298,8 +315,8 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
 
 
 if __name__ == "__main__":
-    # to test run $ streamlit run mainnet_launch/autopool_diagnostics/returns_before_expenses.py
+    # to test run $ streamlit run mainnet_launch/pages/autopool_diagnostics/returns_before_expenses.py
 
-    from mainnet_launch.constants import AUTO_LRT
+    from mainnet_launch.constants import AUTO_ETH
 
-    fetch_and_render_autopool_return_and_expenses_metrics(AUTO_LRT)
+    fetch_and_render_autopool_return_and_expenses_metrics(AUTO_ETH)
