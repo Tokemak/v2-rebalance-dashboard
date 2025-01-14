@@ -16,8 +16,8 @@ from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
 from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
-    run_read_only_query,
     get_earliest_block_from_table_with_autopool,
+    get_all_rows_in_table_by_autopool,
 )
 
 from mainnet_launch.database.should_update_database import (
@@ -70,18 +70,7 @@ def add_new_fee_events_to_table():
 
 def fetch_all_autopool_fee_events(autopool: AutopoolConstants) -> pd.DataFrame:
     add_new_fee_events_to_table()
-    params = (autopool.name,)
-
-    query = f"""
-    
-    SELECT * from {AUTOPOOL_FEE_EVENTS_TABLE}
-    
-    WHERE autopool = ?
-    
-    """
-
-    fee_event_df = run_read_only_query(query, params)
-    fee_event_df = fee_event_df.set_index("timestamp")
+    fee_event_df = get_all_rows_in_table_by_autopool(AUTOPOOL_FEE_EVENTS_TABLE, autopool)
     return fee_event_df
 
 
@@ -131,17 +120,7 @@ def add_new_debt_reporting_events_to_table():
 def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants) -> pd.DataFrame:
     add_new_debt_reporting_events_to_table()
 
-    params = (autopool.name,)
-
-    query = f"""
-    
-    SELECT * from {DESTINATION_DEBT_REPORTING_EVENTS_TABLE}
-    
-    WHERE autopool = ?
-    """
-    debt_reporting_events_df = run_read_only_query(query, params)
-    debt_reporting_events_df = debt_reporting_events_df.set_index("timestamp")
-
+    debt_reporting_events_df = get_all_rows_in_table_by_autopool(DESTINATION_DEBT_REPORTING_EVENTS_TABLE, autopool)
     return debt_reporting_events_df
 
 

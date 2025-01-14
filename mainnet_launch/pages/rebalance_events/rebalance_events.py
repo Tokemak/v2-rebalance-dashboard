@@ -38,6 +38,7 @@ from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     run_read_only_query,
     get_earliest_block_from_table_with_autopool,
+    get_all_rows_in_table_by_autopool,
 )
 from mainnet_launch.database.should_update_database import should_update_table
 
@@ -67,18 +68,8 @@ def add_new_rebalance_events_for_each_autopool_to_table():
 
 
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
-
     add_new_rebalance_events_for_each_autopool_to_table()
-
-    query = f"""
-        SELECT * from {REBALANCE_EVENTS_TABLE}
-        
-        WHERE autopool = ?
-        
-        """
-    params = (autopool.name,)
-    rebalance_events_df = run_read_only_query(query, params)
-    rebalance_events_df = rebalance_events_df.set_index("timestamp")
+    rebalance_events_df = get_all_rows_in_table_by_autopool(REBALANCE_EVENTS_TABLE, autopool)
     return rebalance_events_df
 
 

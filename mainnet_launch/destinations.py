@@ -12,7 +12,12 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 
 from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, ChainData, ALL_CHAINS
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import fetch_pools_and_destinations_df
-from mainnet_launch.database.database_operations import write_dataframe_to_table, does_table_exist, run_read_only_query
+from mainnet_launch.database.database_operations import (
+    write_dataframe_to_table,
+    get_earliest_block_from_table_with_chain,
+    run_read_only_query,
+    get_all_rows_in_table_by_autopool,
+)
 from mainnet_launch.database.should_update_database import should_update_table
 
 DESTINATION_DETAILS_TABLE = "DESTINATION_DETAILS_TABLE"
@@ -80,29 +85,10 @@ class DestinationDetails:
         )
 
 
-# TODO use the standard method
-def _get_highest_block_to_fetch_for_destination_details(chain: ChainData) -> int:
-    if does_table_exist(CHAIN_BLOCK_QUERIED_TABLE):
-        query = f"""
-        SELECT max(block) as highest_found_block from {CHAIN_BLOCK_QUERIED_TABLE}
-        where chain = ?
-        """
-        params = (chain.name,)
-        df = run_read_only_query(query, params)
-
-        possible_highest_block = df["highest_found_block"].values[0]
-        if possible_highest_block is None:
-            return chain.block_autopool_first_deployed
-        else:
-            return int(possible_highest_block)
-    else:
-        return chain.block_autopool_first_deployed
-
-
 def add_new_destination_details_for_each_chain_to_table():
     if should_update_table(DESTINATION_DETAILS_TABLE):
         for chain in ALL_CHAINS:
-            highest_block_already_fetched = _get_highest_block_to_fetch_for_destination_details(chain)
+            highest_block_already_fetched = get_earliest_block_from_table_with_chain(DESTINATION_DETAILS_TABLE, chain)
             new_destination_details_df, new_highest_block = _fetch_destination_details_from_external_source(
                 chain, highest_block_already_fetched
             )
@@ -197,13 +183,8 @@ def _fetch_destination_details_from_external_source(
 
 def get_destination_details(autopool: AutopoolConstants) -> tuple[DestinationDetails]:
     add_new_destination_details_for_each_chain_to_table()
+    destination_details_df = get_all_rows_in_table_by_autopool(DESTINATION_DETAILS_TABLE, autopool)
 
-    query = f"""
-        SELECT * from {DESTINATION_DETAILS_TABLE}
-        WHERE autopool = ?
-        """
-    params = (autopool.name,)
-    destination_details_df = run_read_only_query(query, params)
     destination_details = [DestinationDetails.from_record(r) for r in destination_details_df.to_records()]
     return destination_details
 

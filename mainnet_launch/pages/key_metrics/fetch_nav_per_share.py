@@ -16,7 +16,7 @@ from mainnet_launch.constants import (
 from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     get_earliest_block_from_table_with_chain,
-    run_read_only_query,
+    get_all_rows_in_table_by_autopool,
 )
 from mainnet_launch.database.should_update_database import should_update_table
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
@@ -57,19 +57,12 @@ def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
 
 def fetch_autopool_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
     add_new_nav_per_share_to_table()
-
-    query = f"""
-        SELECT * from {NAV_PER_SHARE_TABLE}
-        WHERE autopool = ?
-        """
-    params = (autopool.name,)
-    long_nav_per_share_df = run_read_only_query(query, params)
+    long_nav_per_share_df = get_all_rows_in_table_by_autopool(NAV_PER_SHARE_TABLE, autopool)
     nav_per_share_df = long_nav_per_share_df.pivot(
         index="block", columns="autopool", values="nav_per_share"
     ).reset_index()
     # this is fast because the block_timestamp for the blocks from (get block by share) should be already cached
     nav_per_share_df = add_timestamp_to_df_with_block_column(nav_per_share_df, autopool.chain)
-
     return nav_per_share_df
 
 

@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import plotly.express as px
-from mainnet_launch.constants import AutopoolConstants, AUTO_LRT, ALL_AUTOPOOLS
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
@@ -12,13 +12,13 @@ from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
 from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
-    run_read_only_query,
     get_earliest_block_from_table_with_autopool,
+    get_all_rows_in_table_by_autopool,
 )
 from mainnet_launch.database.should_update_database import should_update_table
 
 
-DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE = "DEPOSIT_AND_WITHDRAW__FROM_AUTOPOOL_TABLE"
+DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE = "DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE"
 
 
 def fetch_autopool_deposit_and_withdraw_stats_data(autopool: AutopoolConstants):
@@ -41,15 +41,7 @@ def fetch_autopool_deposit_and_withdraw_events(autopool: AutopoolConstants) -> p
     if should_update_table(DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE):
         add_new_autopool_deposit_and_withdraw_events_to_table()
 
-    query = f"""
-        SELECT * from {DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE}
-        
-        WHERE autopool = ?
-        
-        """
-    params = (autopool.name,)
-    rebalance_events_df = run_read_only_query(query, params)
-    rebalance_events_df = rebalance_events_df.set_index("timestamp")
+    rebalance_events_df = get_all_rows_in_table_by_autopool(DEPOSIT_AND_WITHDRAW_FROM_AUTOPOOL_TABLE, autopool)
     return rebalance_events_df
 
 
