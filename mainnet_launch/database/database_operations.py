@@ -256,7 +256,8 @@ def get_all_rows_in_table_by_autopool(table_name: str, autopool: AutopoolConstan
     """
 
     df = run_read_only_query(query, params)
-    df = df.set_index("timestamp")
+    if 'timestamp' in df.columns:
+        df = df.set_index("timestamp")
     return df
 
 
@@ -272,5 +273,6 @@ def get_all_rows_in_table_by_chain(table_name: str, chain: ChainData) -> pd.Data
     """
 
     df = run_read_only_query(query, params)
-    df = df.set_index("timestamp")
+    if 'timestamp' in df.columns:
+        df = df.set_index("timestamp")
     return df
