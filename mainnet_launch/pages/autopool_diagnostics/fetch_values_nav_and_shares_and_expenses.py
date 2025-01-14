@@ -1,6 +1,7 @@
 """Returns of the autopool before and after expenses and fees"""
 
 import pandas as pd
+from multicall import Call
 
 from mainnet_launch.constants import AutopoolConstants, AUTO_ETH
 
@@ -11,23 +12,99 @@ from mainnet_launch.pages.rebalance_events.rebalance_events import (
 from mainnet_launch.pages.protocol_level_profit_and_loss.fees import (
     fetch_all_autopool_fee_events,
 )
+from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
 
-from mainnet_launch.pages.key_metrics.fetch_nav_per_share import fetch_autopool_nav_per_share
+
+from mainnet_launch.data_fetching.get_state_by_block import (
+    build_blocks_to_use,
+    get_raw_state_by_blocks,
+    safe_normalize_with_bool_success,
+)
+from mainnet_launch.database.database_operations import (
+    write_dataframe_to_table,
+    run_read_only_query,
+    get_earliest_block_from_table_with_autopool,
+)
+
+from mainnet_launch.database.should_update_database import (
+    should_update_table,
+)
+
+
+ACUTAL_NAV_AND_SHARES_TABLE = "ACUTAL_NAV_AND_SHARES_TABLE"
+
+
+def add_new_acutal_nav_and_acutal_shares_to_table():
+    if should_update_table(ACUTAL_NAV_AND_SHARES_TABLE):
+        for autopool in ALL_AUTOPOOLS:
+            highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
+                ACUTAL_NAV_AND_SHARES_TABLE, autopool
+            )
+
+            nav_and_shares_df = _fetch_actual_nav_per_share_by_day(autopool, highest_block_already_fetched)
+            write_dataframe_to_table(nav_and_shares_df, ACUTAL_NAV_AND_SHARES_TABLE)
+
+
+def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
+    def handle_getAssetBreakdown(success, AssetBreakdown):
+        if success:
+            totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
+            return int(totalIdle + totalDebt) / 1e18
+        return None
+
+    calls = [
+        Call(
+            autopool.autopool_eth_addr,
+            ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
+            [("actual_nav", handle_getAssetBreakdown)],
+        ),
+        Call(
+            autopool.autopool_eth_addr,
+            ["totalSupply()(uint256)"],
+            [("actual_shares", safe_normalize_with_bool_success)],
+        ),
+    ]
+
+    blocks = [b for b in build_blocks_to_use(autopool.chain) if b > start_block]
+    df = get_raw_state_by_blocks(calls, blocks, autopool.chain, include_block_number=True).reset_index()
+    df["autopool"] = autopool.name
+    return df
+
+
+def fetch_actual_nav_and_actual_shares(autopool: AutopoolConstants) -> pd.DataFrame:
+    add_new_acutal_nav_and_acutal_shares_to_table()
+    params = (autopool.name,)
+
+    query = f"""
+    
+    SELECT * from {ACUTAL_NAV_AND_SHARES_TABLE}
+    
+    WHERE autopool = ?
+    
+    """
+
+    df = run_read_only_query(query, params)
+    df = df.set_index("timestamp")
+    daily_nav_shares_df = df.resample("1D").last()
+    return daily_nav_shares_df
 
 
 def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
-    # this is only using cached data so it does not need it's own table
-    daily_nav_shares_df = _fetch_actual_nav_per_share_by_day(autopool)
+    daily_nav_shares_df = fetch_actual_nav_and_actual_shares(autopool)
     cumulative_new_shares_df = _fetch_cumulative_fee_shares_minted_by_day(autopool)
     cumulative_rebalance_from_idle_swap_cost, cumulative_rebalance_not_from_idle_swap_cost = (
         _fetch_cumulative_nav_lost_to_rebalances(autopool)
     )
+    implied_extra_nav_if_price_return_is_zero = _fetch_implied_extra_nav_if_price_return_is_zero(autopool)
+
     df = pd.concat(
         [
             daily_nav_shares_df,
             cumulative_new_shares_df,
             cumulative_rebalance_from_idle_swap_cost,
             cumulative_rebalance_not_from_idle_swap_cost,
+            implied_extra_nav_if_price_return_is_zero,
         ],
         axis=1,
     )
@@ -36,13 +113,6 @@ def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: Autopoo
     df = df.ffill()
 
     return df
-
-
-def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants) -> pd.DataFrame:
-    df = fetch_autopool_nav_per_share(autopool)
-    df["actual_nav_per_share"] = df[autopool.name]
-    daily_nav_shares_df = df[["actual_nav_per_share"]].resample("1D").last()
-    return daily_nav_shares_df
 
 
 def _fetch_cumulative_nav_lost_to_rebalances(autopool: AutopoolConstants) -> pd.DataFrame:
@@ -70,6 +140,18 @@ def _fetch_cumulative_fee_shares_minted_by_day(autopool: AutopoolConstants) -> p
     daily_fee_share_df = fee_df.resample("1D").sum()
     cumulative_new_shares_df = daily_fee_share_df.cumsum()
     return cumulative_new_shares_df
+
+
+def _fetch_implied_extra_nav_if_price_return_is_zero(autopool: AutopoolConstants) -> pd.DataFrame:
+    pricePerShare_df = fetch_destination_summary_stats(autopool, "pricePerShare")
+    ownedShares_df = fetch_destination_summary_stats(autopool, "ownedShares")
+    allocation_df = pricePerShare_df * ownedShares_df
+
+    priceReturn_df = fetch_destination_summary_stats(autopool, "priceReturn")
+
+    implied_extra_nav_if_price_return_is_zero = (allocation_df * priceReturn_df).sum(axis=1).resample("1D").last()
+    implied_extra_nav_if_price_return_is_zero.name = "additional_nav_if_price_return_was_0"
+    return implied_extra_nav_if_price_return_is_zero
 
 
 if __name__ == "__main__":
