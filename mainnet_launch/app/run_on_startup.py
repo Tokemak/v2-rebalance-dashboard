@@ -42,6 +42,8 @@ from mainnet_launch.pages.autopool_diagnostics.fetch_values_nav_and_shares_and_e
     add_new_acutal_nav_and_acutal_shares_to_table,
 )
 
+from mainnet_launch.pages.gas_costs.keeper_network_gas_costs import add_chainlink_upkeep_events_to_table
+
 
 def first_run_of_db(production_logger):
     """
@@ -113,6 +115,10 @@ def first_run_of_db(production_logger):
         log_and_display("Fetching Autopool actual nav and actual shares...")
         add_new_acutal_nav_and_acutal_shares_to_table()
         log_and_display("New autopool actual nav and actual shares added")
+
+        log_and_display("Chainlink Keeper Network Gas Costs...")
+        add_chainlink_upkeep_events_to_table()
+        log_and_display("Chainlink Keeper Network Gas Costs added ")
 
     except Exception as e:
         error_msg = f"Error during first_run_of_db: {e}"

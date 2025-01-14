@@ -25,6 +25,7 @@ from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     run_read_only_query,
     get_earliest_block_from_table_with_autopool,
+    get_all_rows_in_table_by_autopool,
 )
 
 from mainnet_launch.database.should_update_database import (
@@ -74,18 +75,7 @@ def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants, start_block:
 
 def fetch_actual_nav_and_actual_shares(autopool: AutopoolConstants) -> pd.DataFrame:
     add_new_acutal_nav_and_acutal_shares_to_table()
-    params = (autopool.name,)
-
-    query = f"""
-    
-    SELECT * from {ACUTAL_NAV_AND_SHARES_TABLE}
-    
-    WHERE autopool = ?
-    
-    """
-
-    df = run_read_only_query(query, params)
-    df = df.set_index("timestamp")
+    df = get_all_rows_in_table_by_autopool(ACUTAL_NAV_AND_SHARES_TABLE, autopool)
     daily_nav_shares_df = df.resample("1D").last()
     return daily_nav_shares_df
 

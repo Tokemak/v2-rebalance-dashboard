@@ -57,7 +57,7 @@ def add_new_rows(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection) ->
         conn.execute("DROP TABLE IF EXISTS temp_table")
         print(f"Inserted new rows into '{table_name}' while avoiding duplicates.")
 
-    except sqlite3.Error as e:
+    except (sqlite3.Error, OverflowError) as e:
         conn.rollback()
         print(f"Error inserting new rows into '{table_name}': {e}")
         raise
@@ -242,3 +242,35 @@ def get_earliest_block_from_table_with_chain(table_name: str, chain: ChainData) 
             return int(df["highest_found_block"].values[0])
     else:
         return chain.block_autopool_first_deployed
+
+
+def get_all_rows_in_table_by_autopool(table_name: str, autopool: AutopoolConstants) -> pd.DataFrame:
+    params = (autopool.name,)
+
+    query = f"""
+    
+    SELECT * from {table_name}
+    
+    WHERE autopool = ?
+    
+    """
+
+    df = run_read_only_query(query, params)
+    df = df.set_index("timestamp")
+    return df
+
+
+def get_all_rows_in_table_by_chain(table_name: str, chain: ChainData) -> pd.DataFrame:
+    params = (chain.name,)
+
+    query = f"""
+    
+    SELECT * from {table_name}
+    
+    WHERE chain = ?
+    
+    """
+
+    df = run_read_only_query(query, params)
+    df = df.set_index("timestamp")
+    return df
