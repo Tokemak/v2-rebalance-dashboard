@@ -94,6 +94,7 @@ def fetch_keeper_network_gas_costs() -> pd.DataFrame:
 
     our_upkeep_df = get_all_rows_in_table_by_chain(CHAINLINK_UPKEEP_PERFORMED_EVENT_TABLE, ETH_CHAIN)
     our_upkeep_df = add_transaction_gas_info_to_df_with_tx_hash(our_upkeep_df, ETH_CHAIN)
+    our_upkeep_df = add_timestamp_to_df_with_block_column(our_upkeep_df, ETH_CHAIN)
 
     # only count gas costs after mainnet launch on September 15
     our_upkeep_df = our_upkeep_df[our_upkeep_df.index >= pd.Timestamp("2024-09-15", tz="UTC")].copy()
