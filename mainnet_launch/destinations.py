@@ -88,7 +88,7 @@ class DestinationDetails:
 def add_new_destination_details_for_each_chain_to_table():
     if should_update_table(DESTINATION_DETAILS_TABLE):
         for chain in ALL_CHAINS:
-            highest_block_already_fetched = get_earliest_block_from_table_with_chain(DESTINATION_DETAILS_TABLE, chain)
+            highest_block_already_fetched = get_earliest_block_from_table_with_chain(CHAIN_BLOCK_QUERIED_TABLE, chain)
             new_destination_details_df, new_highest_block = _fetch_destination_details_from_external_source(
                 chain, highest_block_already_fetched
             )
