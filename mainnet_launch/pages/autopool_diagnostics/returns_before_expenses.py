@@ -22,11 +22,8 @@ def _compute_adjusted_nav_per_share_n_days(
     adjusted_shares = df["actual_shares"].copy()
     adjusted_nav = df["actual_nav"].copy()
     nav_per_share_df = df.copy()
-    apply_rebalance_from_idle_swap_cost = True
     if apply_periodic_fees:
-        adjusted_shares -= (
-            df["new_shares_from_periodic_fees"].rolling(n_days).sum()
-        )  # the issue is that these are currnet values, when it should be, just since the last day
+        adjusted_shares -= df["new_shares_from_periodic_fees"].rolling(n_days).sum()
     if apply_streaming_fees:
         adjusted_shares -= df["new_shares_from_streaming_fees"].rolling(n_days).sum()
     if apply_rebalance_from_idle_swap_cost:
@@ -34,7 +31,7 @@ def _compute_adjusted_nav_per_share_n_days(
     if apply_rebalance_not_idle_swap_cost:
         adjusted_nav += df["rebalance_not_idle_swap_cost"].rolling(n_days).sum()
     if apply_nav_lost_to_depeg:
-        # change the nav to what it would be at the each block if it was at peg
+        # change the nav to what it would be at each block if it was at peg
         adjusted_nav += df["additional_nav_if_price_return_was_0"]
 
     nav_per_share_df["adjusted_nav"] = adjusted_nav
