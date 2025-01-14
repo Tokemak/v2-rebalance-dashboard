@@ -13,7 +13,6 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
-    load_table,
     run_read_only_query,
     get_earliest_block_from_table_with_chain,
 )

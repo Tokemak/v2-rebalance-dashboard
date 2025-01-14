@@ -18,6 +18,17 @@ from mainnet_launch.pages.rebalance_events.rebalance_events import (
 )
 
 
+from mainnet_launch.database.database_operations import (
+    write_dataframe_to_table,
+    get_earliest_block_from_table_with_chain,
+    get_all_rows_in_table_by_chain,
+)
+
+from mainnet_launch.database.should_update_database import (
+    should_update_table,
+)
+
+
 KEEPER_REGISTRY_CONTRACT_ADDRESS = "0x6593c7De001fC8542bB1703532EE1E5aA0D458fD"
 
 
@@ -34,25 +45,55 @@ CALCULATOR_TOPIC_IDS = [
 ]
 INCENTIVE_PRICING_TOPIC_IDS = [INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 
-# TODO not setup for gas costs on optimism
+
+CHAINLINK_UPKEEP_PERFORMED_EVENT_TABLE = "CHAINLINK_UPKEEP_PERFORMED_EVENT_TABLE"
 
 
-def fetch_our_chainlink_upkeep_events() -> pd.DataFrame:
-    contract = ETH_CHAIN.client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
-    our_chainlink_upkeep_events = fetch_events(
+def add_chainlink_upkeep_events_to_table():
+    if should_update_table(CHAINLINK_UPKEEP_PERFORMED_EVENT_TABLE):
+        for chain in [ETH_CHAIN]:  # ignoring BASE for now
+            highest_block_already_fetched = get_earliest_block_from_table_with_chain(
+                CHAINLINK_UPKEEP_PERFORMED_EVENT_TABLE, chain
+            )
+
+            df = _fetch_our_chainlink_upkeep_events_from_external_source(chain, highest_block_already_fetched)
+            df["chain"] = chain.name
+
+            print(df.head())
+            print(df.dtypes)
+            cols = [
+                "id",
+                "hash",
+                "log_index",
+                "chain",
+                "block",
+                "timestamp",
+            ]
+            write_dataframe_to_table(df[cols], CHAINLINK_UPKEEP_PERFORMED_EVENT_TABLE)
+
+
+def _fetch_our_chainlink_upkeep_events_from_external_source(chain, start_block) -> pd.DataFrame:
+    contract = chain.client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
+    our_upkeep_df = fetch_events(
         contract.events.UpkeepPerformed,
-        20753178,
+        start_block,
         argument_filters={"id": [int(i) for i in [*CALCULATOR_TOPIC_IDS, *INCENTIVE_PRICING_TOPIC_IDS]]},
     )
-    return our_chainlink_upkeep_events
+    our_upkeep_df["id"] = our_upkeep_df["id"].apply(str)
 
-
-@st.cache_data(ttl=CACHE_TIME)  # TODO Cache this
-def fetch_keeper_network_gas_costs() -> pd.DataFrame:
-
-    our_upkeep_df = fetch_our_chainlink_upkeep_events()
     our_upkeep_df = add_transaction_gas_info_to_df_with_tx_hash(our_upkeep_df, ETH_CHAIN)
     our_upkeep_df = add_timestamp_to_df_with_block_column(our_upkeep_df, ETH_CHAIN)
+
+    our_upkeep_df = our_upkeep_df.reset_index()
+
+    return our_upkeep_df
+
+
+def fetch_keeper_network_gas_costs() -> pd.DataFrame:
+    add_chainlink_upkeep_events_to_table()
+
+    our_upkeep_df = get_all_rows_in_table_by_chain(CHAINLINK_UPKEEP_PERFORMED_EVENT_TABLE, ETH_CHAIN)
+    our_upkeep_df = add_transaction_gas_info_to_df_with_tx_hash(our_upkeep_df, ETH_CHAIN)
 
     # only count gas costs after mainnet launch on September 15
     our_upkeep_df = our_upkeep_df[our_upkeep_df.index >= pd.Timestamp("2024-09-15", tz="UTC")].copy()
@@ -191,7 +232,7 @@ def fetch_solver_gas_costs() -> pd.DataFrame:
     dfs = []
     for autopool in ALL_AUTOPOOLS:
         if autopool.chain == ETH_CHAIN:
-            df = fetch_rebalance_events_df(autopool)  # this is reading from disk, could only be one query
+            df = fetch_rebalance_events_df(autopool)  # this is fast, is using database
             dfs.append(df)
 
     clean_rebalance_df = pd.concat(dfs)
@@ -200,4 +241,4 @@ def fetch_solver_gas_costs() -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    fetch_solver_gas_costs()
+    add_chainlink_upkeep_events_to_table()
