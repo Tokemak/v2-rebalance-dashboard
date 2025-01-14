@@ -80,6 +80,7 @@ class DestinationDetails:
         )
 
 
+# TODO use the standard method
 def _get_highest_block_to_fetch_for_destination_details(chain: ChainData) -> int:
     if does_table_exist(CHAIN_BLOCK_QUERIED_TABLE):
         query = f"""

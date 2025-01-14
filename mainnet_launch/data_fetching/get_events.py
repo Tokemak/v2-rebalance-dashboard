@@ -50,10 +50,6 @@ def _recursive_helper_get_all_events_within_range(
     """
     Recursively fetch all the `event` events between start_block and end_block.
     Immediately splits the range into smaller chunks on timeout or large response issues.
-
-    TODO: consider usings eth.getLogs API calls like in
-
-    https://web3py.readthedocs.io/en/stable/filters.html
     """
     try:
         # Try fetching events in the given range

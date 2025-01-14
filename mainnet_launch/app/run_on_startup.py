@@ -38,6 +38,10 @@ from mainnet_launch.pages.autopool_diagnostics.deposits_and_withdrawals import (
     add_new_autopool_deposit_and_withdraw_events_to_table,
 )
 
+from mainnet_launch.pages.autopool_diagnostics.fetch_values_nav_and_shares_and_expenses import (
+    add_new_acutal_nav_and_acutal_shares_to_table,
+)
+
 
 def first_run_of_db(production_logger):
     """
@@ -102,9 +106,13 @@ def first_run_of_db(production_logger):
         add_new_reward_token_swapped_events_to_table()
         log_and_display("New reward token swapped events added.")
 
-        log_and_display("fetching autopool deposit and withdraw events...")
+        log_and_display("Fetching autopool deposit and withdraw events...")
         add_new_autopool_deposit_and_withdraw_events_to_table()
         log_and_display("New autopool deposit and withdraw added")
+
+        log_and_display("Fetching Autopool actual nav and actual shares...")
+        add_new_acutal_nav_and_acutal_shares_to_table()
+        log_and_display("New autopool actual nav and actual shares added")
 
     except Exception as e:
         error_msg = f"Error during first_run_of_db: {e}"
