@@ -128,3 +128,19 @@ def first_run_of_db(production_logger):
     finally:
         final_msg = "first_run_of_db process completed"
         log_and_display(final_msg)
+
+
+if __name__ == "__main__":
+    import logging
+
+    production_logger = logging.getLogger("production_logger")
+    production_logger.setLevel(logging.INFO)
+
+    # Only add the handler if it doesn't already exist
+    if not production_logger.hasHandlers():
+        handler = logging.FileHandler("first run in debug mode.txt", mode="w")
+        handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+        production_logger.addHandler(handler)
+        production_logger.propagate = False
+
+    first_run_of_db(production_logger)
