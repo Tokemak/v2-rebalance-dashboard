@@ -24,7 +24,7 @@ def fetch_destination_allocation_over_time_data(autopool: AutopoolConstants):
     allocation_fig.update_layout(yaxis_title="ETH")
 
     percent_allocation_fig = px.bar(percent_allocation_df, title=f"{autopool.name}: Percent of TVL by Destination")
-    percent_allocation_fig.update_layout(yaxis_title="ETH")
+    percent_allocation_fig.update_layout(yaxis_title="NAV (%)")
 
     return pie_allocation_fig, allocation_fig, percent_allocation_fig
 
