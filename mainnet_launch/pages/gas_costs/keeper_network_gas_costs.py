@@ -36,6 +36,9 @@ OLD_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "134446188683144185628259750599351504067
 NEW_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "113129673265054907567420460651277872997162644350081440026681710279139531871240"
 NEW2_CALCULATOR_KEEPER_ORACLE_TOPIC_ID = "93443706906332180407535184303815616290343141548650473059299738217546322242910"
 INCENTIVE_PRICING_KEEPER_ORACLE_ID = "84910810589923801598536031507827941923735631663622593132512932471876788938876"
+ETH_PER_TOKEN_SENDER_ORACLE_ID = (
+    "2774403708484311544165440706031341871504925629391958533428545305548524420937"  # sends pricing info to Base
+)
 
 
 CALCULATOR_TOPIC_IDS = [
@@ -45,8 +48,27 @@ CALCULATOR_TOPIC_IDS = [
 ]
 INCENTIVE_PRICING_TOPIC_IDS = [INCENTIVE_PRICING_KEEPER_ORACLE_ID]
 
+ETH_PER_TOKEN_SENDER_TOPIC_IDS = [ETH_PER_TOKEN_SENDER_ORACLE_ID]
 
 CHAINLINK_UPKEEP_PERFORMED_EVENT_TABLE = "CHAINLINK_UPKEEP_PERFORMED_EVENT_TABLE"
+
+
+def _fetch_and_add_rows_from_start():
+    # useful if new data is need from the past,
+    for chain in [ETH_CHAIN]:  # ignoring BASE for now
+        highest_block_already_fetched = chain.block_autopool_first_deployed
+        df = _fetch_our_chainlink_upkeep_events_from_external_source(chain, highest_block_already_fetched)
+        df["chain"] = chain.name
+
+        cols = [
+            "id",
+            "hash",
+            "log_index",
+            "chain",
+            "block",
+            "timestamp",
+        ]
+        write_dataframe_to_table(df[cols], CHAINLINK_UPKEEP_PERFORMED_EVENT_TABLE)
 
 
 def add_chainlink_upkeep_events_to_table():
@@ -59,8 +81,6 @@ def add_chainlink_upkeep_events_to_table():
             df = _fetch_our_chainlink_upkeep_events_from_external_source(chain, highest_block_already_fetched)
             df["chain"] = chain.name
 
-            print(df.head())
-            print(df.dtypes)
             cols = [
                 "id",
                 "hash",
@@ -77,7 +97,11 @@ def _fetch_our_chainlink_upkeep_events_from_external_source(chain, start_block) 
     our_upkeep_df = fetch_events(
         contract.events.UpkeepPerformed,
         start_block,
-        argument_filters={"id": [int(i) for i in [*CALCULATOR_TOPIC_IDS, *INCENTIVE_PRICING_TOPIC_IDS]]},
+        argument_filters={
+            "id": [
+                int(i) for i in [*CALCULATOR_TOPIC_IDS, *INCENTIVE_PRICING_TOPIC_IDS, *ETH_PER_TOKEN_SENDER_TOPIC_IDS]
+            ]
+        },
     )
     our_upkeep_df["id"] = our_upkeep_df["id"].apply(str)
 
@@ -139,7 +163,8 @@ def fetch_and_render_keeper_network_gas_costs():
 
 def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
     calculator_df = our_upkeep_df[our_upkeep_df["id"].apply(str).isin(CALCULATOR_TOPIC_IDS)]
-    incentive_pricing_df = our_upkeep_df[our_upkeep_df["id"].apply(str) == INCENTIVE_PRICING_KEEPER_ORACLE_ID]
+    incentive_pricing_df = our_upkeep_df[our_upkeep_df["id"].apply(str).isin(INCENTIVE_PRICING_TOPIC_IDS)]
+    eth_per_token_sender_df = our_upkeep_df[our_upkeep_df["id"].apply(str).isin(ETH_PER_TOKEN_SENDER_TOPIC_IDS)]
 
     calculator_gas_costs_7, calculator_gas_costs_30, calculator_gas_costs_365 = get_gas_costs(
         calculator_df, "gasCostInETH_with_chainlink_premium"
@@ -148,9 +173,13 @@ def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
         incentive_pricing_df, "gasCostInETH_with_chainlink_premium"
     )
 
+    eth_per_token_gas_costs_7, eth_per_token_gas_costs_30, eth_per_token_gas_costs_365 = get_gas_costs(
+        eth_per_token_sender_df, "gasCostInETH_with_chainlink_premium"
+    )
+
     solver_cost_7, solver_cost_30, solver_cost_365 = fetch_solver_metrics()  # col3
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     col1.metric(label="Calculator Keeper ETH Cost (Last 7 Days)", value=f"{calculator_gas_costs_7:.4f} ETH")
     col1.metric(label="Calculator Keeper ETH Cost (Last 30 Days)", value=f"{calculator_gas_costs_30:.4f} ETH")
@@ -163,6 +192,16 @@ def _display_gas_cost_metrics(our_upkeep_df: pd.DataFrame):
     col3.metric(label="Solver ETH Cost (Last 7 Days)", value=f"{solver_cost_7:.4f} ETH")
     col3.metric(label="Solver ETH Cost (Last 30 Days)", value=f"{solver_cost_30:.4f} ETH")
     col3.metric(label="Solver ETH Cost (Last 1 Year)", value=f"{solver_cost_365:.4f} ETH")
+
+    col4.metric(
+        label="Eth Per Token (send data to Base) ETH Cost (Last 7 Days)", value=f"{eth_per_token_gas_costs_7:.4f} ETH"
+    )
+    col4.metric(
+        label="Eth Per Token (send data to Base) ETH Cost (Last 30 Days)", value=f"{eth_per_token_gas_costs_30:.4f} ETH"
+    )
+    col4.metric(
+        label="Eth Per Token (send data to Base) ETH Cost (Last 1 Year)", value=f"{eth_per_token_gas_costs_365:.4f} ETH"
+    )
 
 
 def get_gas_costs(df: pd.DataFrame, column: str):
@@ -242,4 +281,4 @@ def fetch_solver_gas_costs() -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    add_chainlink_upkeep_events_to_table()
+    _fetch_and_add_rows_from_start()
