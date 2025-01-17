@@ -19,6 +19,7 @@ from mainnet_launch.pages.rebalance_events.rebalance_events import (
 )
 
 from mainnet_launch.pages.solver_diagnostics.solver_profit import fetch_and_render_solver_profit_data
+from mainnet_launch.pages.solver_diagnostics.bps_lost_to_rebalances import fetch_and_render_bps_lost_to_rebalances
 
 
 import boto3
@@ -32,6 +33,7 @@ def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
     figs = fetch_solver_diagnostics_data(autopool)
     _render_solver_diagnostics(autopool, figs)
     fetch_and_render_solver_profit_data(autopool)
+    fetch_and_render_bps_lost_to_rebalances(autopool)
 
 
 def fetch_solver_diagnostics_data(autopool: AutopoolConstants):
@@ -266,5 +268,5 @@ def _add_add_rank_count(solver_df):
 
 
 if __name__ == "__main__":
-    # streamlit run mainnet_launch/solver_diagnostics/solver_diagnostics.py
+    # streamlit run mainnet_launch/pages/solver_diagnostics/solver_diagnostics.py
     fetch_and_render_solver_diagnositics_data(AUTO_ETH)
