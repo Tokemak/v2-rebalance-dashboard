@@ -189,3 +189,24 @@ def build_blocks_to_use(
         end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
     blocks = [b for b in range(start_block, end_block, blocks_hop)]
     return blocks
+
+
+def build_blocks_to_use_dont_clip(
+    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 4
+) -> list[int]:
+    """Returns a block approx every 6 hours. by default between when autopool was first deployed to the current block"""
+    # this is not the number of seconds between blocks is not constant
+    start_block = chain.block_autopool_first_deployed if start_block is None else start_block
+    first_minute_of_curent_day = datetime.datetime.combine(
+        datetime.datetime.now(datetime.timezone.utc).date(), datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
+    )
+    # this is not correct
+    end_block = chain.client.eth.block_number if end_block is None else end_block
+    # end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
+    blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
+
+    # while end_block_date_time > first_minute_of_curent_day:
+    #     end_block = end_block - blocks_hop
+    #     end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
+    blocks = [b for b in range(start_block, end_block, blocks_hop)]
+    return blocks
