@@ -45,6 +45,11 @@ from mainnet_launch.pages.autopool_diagnostics.fetch_values_nav_and_shares_and_e
 from mainnet_launch.pages.gas_costs.keeper_network_gas_costs import add_chainlink_upkeep_events_to_table
 
 
+from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import (
+    add_new_asset_oracle_and_discount_price_rows_to_table,
+)
+
+
 def first_run_of_db(production_logger):
     """
     Create and populate the database with data up to the current day.
@@ -118,7 +123,11 @@ def first_run_of_db(production_logger):
 
         log_and_display("Chainlink Keeper Network Gas Costs...")
         add_chainlink_upkeep_events_to_table()
-        log_and_display("Chainlink Keeper Network Gas Costs added ")
+        log_and_display("Chainlink Keeper Network Gas Costs added")
+
+        log_and_display("Asset Backing and Oracle Price...")
+        add_new_asset_oracle_and_discount_price_rows_to_table()
+        log_and_display("Asset Backing and Oracle Price added")
 
     except Exception as e:
         error_msg = f"Error during first_run_of_db: {e}"
