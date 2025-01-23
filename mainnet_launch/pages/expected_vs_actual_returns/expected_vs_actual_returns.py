@@ -69,9 +69,9 @@ def build_CR_out_vs_gross_and_net_performance_fig(autopool: AutopoolConstants, n
     weighted_price_return_df = weighted_price_return_df.resample("1D").last()
 
     gross_net_and_projected_returns_df["autopool_price_return"] = weighted_price_return_df
-    gross_net_and_projected_returns_df["change_in_price_return"] = gross_net_and_projected_returns_df[
+    gross_net_and_projected_returns_df["change_in_price_return"] = (gross_net_and_projected_returns_df[
         "autopool_price_return"
-    ].diff(n_days)
+    ].diff(n_days)) * (n_days/365)
 
     gross_net_and_projected_returns_df = gross_net_and_projected_returns_df.dropna()
     return gross_net_and_projected_returns_df
@@ -106,9 +106,15 @@ def _create_autopool_cr_gross_and_net_and_price_price_return_figure(
         ),
         secondary_y=True,
     )
+    # make sure the annualize it
+    # make sure the scales aling
+    # double check autoLRT to see why there is a bigger gap between CR and Gross today
+    
+    
 
+    # align the left and right scale
     fig.update_yaxes(title_text="Gross Net and CR", secondary_y=False)  # Left Y-axis
-    fig.update_yaxes(title_text=f"Percent Change in Price Return", secondary_y=True)  # Right Y-axis
+    fig.update_yaxes(title_text=f"Annualized Impact of Percent Change in Price Return", secondary_y=True)  # Right Y-axis
 
     # Optionally update x-axis and layout settings
     fig.update_xaxes(title_text="Date")

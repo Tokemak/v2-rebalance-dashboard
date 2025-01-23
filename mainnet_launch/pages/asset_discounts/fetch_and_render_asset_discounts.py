@@ -36,25 +36,26 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 
 
-ASSET_DISCOUNT_TABLE = "ASSET_DISCOUNT_TABLE"
+ASSET_BACKING_AND_PRICES = "ASSET_BACKING_AND_PRICES"
 
 
 def add_new_asset_oracle_and_discount_price_rows_to_table():
-    if should_update_table(ASSET_DISCOUNT_TABLE):
+    if should_update_table(ASSET_BACKING_AND_PRICES):
         for chain in [ETH_CHAIN]:
-            highest_block_already_fetched = get_earliest_block_from_table_with_chain(ASSET_DISCOUNT_TABLE, chain)
+            # must add BASE as well purely for the support
+            highest_block_already_fetched = get_earliest_block_from_table_with_chain(ASSET_BACKING_AND_PRICES, chain)
             asset_oracle_and_backing_df = _fetch_backing_and_oracle_price_df_from_external_source(
                 chain, highest_block_already_fetched
             )
             asset_oracle_and_backing_df["chain"] = chain.name
-            write_dataframe_to_table(asset_oracle_and_backing_df, ASSET_DISCOUNT_TABLE)
+            write_dataframe_to_table(asset_oracle_and_backing_df, ASSET_BACKING_AND_PRICES)
 
 
-def _fetch_lst_calc_addresses_df() -> pd.DataFrame:
+def _fetch_lst_calc_addresses_df(chain: ChainData) -> pd.DataFrame:
     # returns a dataframe of the LST address, LST.symbol, and LST calculator
     # 3 total http calls total, fine not to have a table for htis
-    stats_calculator_registry_contract = ETH_CHAIN.client.eth.contract(
-        STATS_CALCULATOR_REGISTRY(ETH_CHAIN), abi=STATS_CALCULATOR_REGISTRY_ABI
+    stats_calculator_registry_contract = chain.client.eth.contract(
+        STATS_CALCULATOR_REGISTRY(chain), abi=STATS_CALCULATOR_REGISTRY_ABI
     )
 
     StatCalculatorRegistered = fetch_events(stats_calculator_registry_contract.events.StatCalculatorRegistered)
@@ -69,7 +70,7 @@ def _fetch_lst_calc_addresses_df() -> pd.DataFrame:
     ]
 
     calculator_to_lst_address = get_state_by_one_block(
-        lstTokenAddress_calls, ETH_CHAIN.client.eth.block_number, chain=ETH_CHAIN
+        lstTokenAddress_calls, chain.client.eth.block_number, chain=chain
     )
     StatCalculatorRegistered["lst"] = StatCalculatorRegistered["calculatorAddress"].map(calculator_to_lst_address)
     lst_calcs = StatCalculatorRegistered[~StatCalculatorRegistered["lst"].isna()].copy()
@@ -82,13 +83,9 @@ def _fetch_lst_calc_addresses_df() -> pd.DataFrame:
         )
         for a in lst_calcs["lst"]
     ]
-    calculator_to_lst_address = get_state_by_one_block(symbol_calls, ETH_CHAIN.client.eth.block_number, chain=ETH_CHAIN)
+    calculator_to_lst_address = get_state_by_one_block(symbol_calls, chain.client.eth.block_number, chain=chain)
     lst_calcs["symbol"] = lst_calcs["lst"].map(calculator_to_lst_address)
 
-    token_symbols_to_ignore = ["OETH", "stETH", "eETH"]
-    # skip stETH and eETH because they are captured in wstETH and weETH
-    # skip OETH because we dropped it in October 2024,
-    lst_calcs = lst_calcs[~lst_calcs["symbol"].isin(token_symbols_to_ignore)].copy()
 
     return lst_calcs[["lst", "symbol", "calculatorAddress"]]
 
@@ -97,7 +94,13 @@ def _fetch_backing_and_oracle_price_df_from_external_source(chain: ChainData, st
     if chain != ETH_CHAIN:
         raise ValueError("only for Ethereum")
 
-    lst_calcs = _fetch_lst_calc_addresses_df()
+    lst_calcs = _fetch_lst_calc_addresses_df(chain)
+    
+    
+    token_symbols_to_ignore = ["OETH", "stETH", "eETH"]
+    # skip stETH and eETH because they are captured in wstETH and weETH
+    # skip OETH because we dropped it in October 2024,
+    lst_calcs = lst_calcs[~lst_calcs["symbol"].isin(token_symbols_to_ignore)].copy()
 
     oracle_price_calls = [
         Call(
@@ -178,7 +181,7 @@ def _extract_backing_price_and_percent_discount_dfs(long_df: pd.DataFrame) -> pd
 
 def fetch_and_render_asset_oracle_and_backing():
     add_new_asset_oracle_and_discount_price_rows_to_table()
-    long_asset_oracle_and_backing_df = get_all_rows_in_table_by_chain(ASSET_DISCOUNT_TABLE, ETH_CHAIN)
+    long_asset_oracle_and_backing_df = get_all_rows_in_table_by_chain(ASSET_BACKING_AND_PRICES, ETH_CHAIN)
 
     wide_backing_df, wide_oracle_price_df, wide_percent_discount_df = _extract_backing_price_and_percent_discount_dfs(
         long_asset_oracle_and_backing_df
