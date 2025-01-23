@@ -276,3 +276,28 @@ def get_all_rows_in_table_by_chain(table_name: str, chain: ChainData) -> pd.Data
     if "timestamp" in df.columns:
         df = df.set_index("timestamp")
     return df
+
+
+
+def drop_table(table_name: str) -> None:
+    """
+    Drops a table from the database if it exists.
+
+    Parameters:
+        table_name (str): Name of the table to be dropped.
+    """
+    if not table_name:
+        raise ValueError("table_name cannot be None or empty")
+
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            drop_query = f"DROP TABLE IF EXISTS {table_name}"
+            conn.execute(drop_query)
+            print(f"Table '{table_name}' dropped successfully.")
+    except sqlite3.Error as e:
+        print(f"Database error while dropping table '{table_name}': {e}")
+        raise
+
+
+# if __name__ == '__main__':
+#     drop_table('ASSET_DISCOUNT_TABLE')
