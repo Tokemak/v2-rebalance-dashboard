@@ -5,11 +5,10 @@ import plotly.express as px
 from mainnet_launch.constants import (
     AutopoolConstants,
     STATS_CALCULATOR_REGISTRY,
-    ALL_AUTOPOOLS,
-    ETH_CHAIN,
+    ALL_CHAINS,
     ROOT_PRICE_ORACLE,
     ChainData,
-    CACHE_TIME,
+    ETH_CHAIN,
 )
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
@@ -41,7 +40,7 @@ ASSET_BACKING_AND_PRICES = "ASSET_BACKING_AND_PRICES"
 
 def add_new_asset_oracle_and_discount_price_rows_to_table():
     if should_update_table(ASSET_BACKING_AND_PRICES):
-        for chain in [ETH_CHAIN]:
+        for chain in ALL_CHAINS:
             # must add BASE as well purely for the support
             highest_block_already_fetched = get_earliest_block_from_table_with_chain(ASSET_BACKING_AND_PRICES, chain)
             asset_oracle_and_backing_df = _fetch_backing_and_oracle_price_df_from_external_source(
@@ -86,17 +85,13 @@ def _fetch_lst_calc_addresses_df(chain: ChainData) -> pd.DataFrame:
     calculator_to_lst_address = get_state_by_one_block(symbol_calls, chain.client.eth.block_number, chain=chain)
     lst_calcs["symbol"] = lst_calcs["lst"].map(calculator_to_lst_address)
 
-
     return lst_calcs[["lst", "symbol", "calculatorAddress"]]
 
 
 def _fetch_backing_and_oracle_price_df_from_external_source(chain: ChainData, start_block: int) -> pd.DataFrame:
-    if chain != ETH_CHAIN:
-        raise ValueError("only for Ethereum")
 
     lst_calcs = _fetch_lst_calc_addresses_df(chain)
-    
-    
+
     token_symbols_to_ignore = ["OETH", "stETH", "eETH"]
     # skip stETH and eETH because they are captured in wstETH and weETH
     # skip OETH because we dropped it in October 2024,
@@ -104,7 +99,7 @@ def _fetch_backing_and_oracle_price_df_from_external_source(chain: ChainData, st
 
     oracle_price_calls = [
         Call(
-            ROOT_PRICE_ORACLE(ETH_CHAIN),
+            ROOT_PRICE_ORACLE(chain),
             ["getPriceInEth(address)(uint256)", lst],
             [(f"{symbol}_oracle_price", safe_normalize_with_bool_success)],
         )
@@ -120,9 +115,9 @@ def _fetch_backing_and_oracle_price_df_from_external_source(chain: ChainData, st
         for (calculatorAddress, symbol) in zip(lst_calcs["calculatorAddress"], lst_calcs["symbol"])
     ]
 
-    blocks = build_blocks_to_use(ETH_CHAIN, start_block=start_block)
+    blocks = build_blocks_to_use(chain, start_block=start_block)
     wide_oracle_and_backing_df = get_raw_state_by_blocks(
-        [*oracle_price_calls, *backing_calls], blocks, ETH_CHAIN, include_block_number=True
+        [*oracle_price_calls, *backing_calls], blocks, chain, include_block_number=True
     )
 
     long_oracle_and_backing_df = _raw_price_and_backing_data_to_long_format(wide_oracle_and_backing_df)
@@ -153,7 +148,9 @@ def _raw_price_and_backing_data_to_long_format(wide_df: pd.DataFrame) -> pd.Data
     return long_df
 
 
-def _extract_backing_price_and_percent_discount_dfs(long_df: pd.DataFrame) -> pd.DataFrame:
+def _extract_backing_price_and_percent_discount_dfs(
+    long_df: pd.DataFrame, autopoool: AutopoolConstants
+) -> pd.DataFrame:
     # convert the long_df (as it is stored on disk) and converts it back into the wide format
     # to use elsewhere
     # timestamp	cbETH_backing	cbETH_oracle_price
@@ -162,7 +159,7 @@ def _extract_backing_price_and_percent_discount_dfs(long_df: pd.DataFrame) -> pd
 
     # this does not maintain column order
 
-    long_df = add_timestamp_to_df_with_block_column(long_df, ETH_CHAIN).reset_index()
+    long_df = add_timestamp_to_df_with_block_column(long_df, autopoool.chain).reset_index()
 
     long_df["percent_discount"] = 100 - (100 * long_df["oracle_price"] / long_df["backing"])
 
@@ -176,12 +173,23 @@ def _extract_backing_price_and_percent_discount_dfs(long_df: pd.DataFrame) -> pd
         index="timestamp", columns="symbol", values="percent_discount"
     )
 
+    wide_backing_df["WETH"] = 1
+    wide_oracle_price_df["WETH"] = 1
+    wide_percent_discount_df["WETH"] = 0
+
+    wide_backing_df["stETH"] = 1  # the definition of stETH
+    wide_oracle_price_df["WETH"] = 1
+    wide_oracle_price_df["stETH"] = wide_oracle_price_df["wstETH"] / wide_backing_df["wstETH"]
+    wide_percent_discount_df["WETH"] = 0
+    wide_percent_discount_df["stETH"] = wide_percent_discount_df["wstETH"]
+
     return wide_backing_df, wide_oracle_price_df, wide_percent_discount_df
 
 
 def fetch_and_render_asset_oracle_and_backing():
     add_new_asset_oracle_and_discount_price_rows_to_table()
     long_asset_oracle_and_backing_df = get_all_rows_in_table_by_chain(ASSET_BACKING_AND_PRICES, ETH_CHAIN)
+    # by default only show the price and discount data for Ethereum
 
     wide_backing_df, wide_oracle_price_df, wide_percent_discount_df = _extract_backing_price_and_percent_discount_dfs(
         long_asset_oracle_and_backing_df

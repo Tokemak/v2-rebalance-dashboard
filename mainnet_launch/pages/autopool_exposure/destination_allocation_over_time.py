@@ -4,6 +4,9 @@ import streamlit as st
 
 from mainnet_launch.constants import AutopoolConstants
 from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
+from mainnet_launch.pages.autopool_exposure.asset_allocation_over_time import (
+    fetch_and_render_asset_allocation_over_time,
+)
 
 
 def fetch_destination_allocation_over_time_data(autopool: AutopoolConstants):
@@ -36,7 +39,8 @@ def fetch_and_render_destination_allocation_over_time_data(autopool: AutopoolCon
     st.plotly_chart(pie_allocation_fig, use_container_width=True)
     st.plotly_chart(allocation_fig, use_container_width=True)
     st.plotly_chart(percent_allocation_fig, use_container_width=True)
-    # low priority, add token exposure, from lens contract
+
+    fetch_and_render_asset_allocation_over_time(autopool)
 
     with st.expander("See explanation for Autopool Allocation Over Time"):
         st.write(
