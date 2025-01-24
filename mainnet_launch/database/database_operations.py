@@ -278,7 +278,6 @@ def get_all_rows_in_table_by_chain(table_name: str, chain: ChainData) -> pd.Data
     return df
 
 
-
 def drop_table(table_name: str) -> None:
     """
     Drops a table from the database if it exists.
