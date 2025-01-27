@@ -73,6 +73,8 @@ def get_raw_state_by_blocks(
     semaphore_limits: tuple[int] = (300, 300, 50, 20, 2),
     include_block_number: bool = False,
 ) -> pd.DataFrame:
+    if len(blocks) == 0:
+        raise ValueError("Blocks cannot be empty")
 
     return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, chain, semaphore_limits, include_block_number))
 

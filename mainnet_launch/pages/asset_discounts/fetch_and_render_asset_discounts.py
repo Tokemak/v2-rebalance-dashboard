@@ -148,9 +148,7 @@ def _raw_price_and_backing_data_to_long_format(wide_df: pd.DataFrame) -> pd.Data
     return long_df
 
 
-def _extract_backing_price_and_percent_discount_dfs(
-    long_df: pd.DataFrame, autopoool: AutopoolConstants
-) -> pd.DataFrame:
+def _extract_backing_price_and_percent_discount_dfs(long_df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
     # convert the long_df (as it is stored on disk) and converts it back into the wide format
     # to use elsewhere
     # timestamp	cbETH_backing	cbETH_oracle_price
@@ -159,7 +157,7 @@ def _extract_backing_price_and_percent_discount_dfs(
 
     # this does not maintain column order
 
-    long_df = add_timestamp_to_df_with_block_column(long_df, autopoool.chain).reset_index()
+    long_df = add_timestamp_to_df_with_block_column(long_df, chain).reset_index()
 
     long_df["percent_discount"] = 100 - (100 * long_df["oracle_price"] / long_df["backing"])
 
@@ -190,9 +188,9 @@ def fetch_and_render_asset_oracle_and_backing():
     add_new_asset_oracle_and_discount_price_rows_to_table()
     long_asset_oracle_and_backing_df = get_all_rows_in_table_by_chain(ASSET_BACKING_AND_PRICES, ETH_CHAIN)
     # by default only show the price and discount data for Ethereum
-
+    # all the assets are on ethereum
     wide_backing_df, wide_oracle_price_df, wide_percent_discount_df = _extract_backing_price_and_percent_discount_dfs(
-        long_asset_oracle_and_backing_df
+        long_asset_oracle_and_backing_df, ETH_CHAIN
     )
 
     backing_figure = px.line(wide_backing_df, title="Backing", labels={"index": "Date", "value": "ETH"})

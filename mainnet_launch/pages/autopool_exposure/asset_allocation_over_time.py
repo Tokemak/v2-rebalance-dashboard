@@ -52,8 +52,7 @@ AUTOPOOL_ASSET_ALLOCATION_TABLE = "AUTOPOOL_ASSET_ALLOCATION_TABLE"
 
 
 def add_new_asset_allocation_data_to_table():
-    # if should_update_table(AUTOPOOL_ASSET_ALLOCATION_TABLE):
-
+    if should_update_table(AUTOPOOL_ASSET_ALLOCATION_TABLE):
         for autopool in ALL_AUTOPOOLS:
             highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
                 AUTOPOOL_ASSET_ALLOCATION_TABLE, autopool
@@ -226,8 +225,8 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
 
 
 if __name__ == "__main__":
-    
+
     from mainnet_launch.database.database_operations import drop_table
-    
+
     drop_table(AUTOPOOL_ASSET_ALLOCATION_TABLE)
     fetch_and_render_asset_allocation_over_time(ALL_AUTOPOOLS[-1])
