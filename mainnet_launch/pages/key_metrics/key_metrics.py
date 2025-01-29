@@ -252,7 +252,6 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
 
 if __name__ == "__main__":
     from mainnet_launch.constants import (
-        STREAMLIT_IN_MEMORY_CACHE_TIME,
         AutopoolConstants,
         ALL_AUTOPOOLS,
         AUTO_ETH,

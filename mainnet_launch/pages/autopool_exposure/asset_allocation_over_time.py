@@ -9,7 +9,6 @@ from mainnet_launch.constants import (
     ETH_CHAIN,
     ROOT_PRICE_ORACLE,
     ChainData,
-    STREAMLIT_IN_MEMORY_CACHE_TIME,
     WETH,
 )
 from mainnet_launch.data_fetching.get_events import fetch_events
@@ -195,14 +194,14 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
     # makes sure that the columns are in the right order
     assets_oracle_value_df = wide_asset_df * wide_oracle_price_df[wide_asset_df.columns]
 
-    assect_percent_of_value_df = 100 * assets_oracle_value_df / assets_oracle_value_df.sum(axis=1)
+    assets_percent_oracle_value_df = 100 * assets_oracle_value_df.div(assets_oracle_value_df.sum(axis=1), axis=0)
 
     st.plotly_chart(
         px.bar(assets_oracle_value_df, title="TVL ETH value by asset", labels={"value": "ETH"}),
         use_container_width=True,
     )
     st.plotly_chart(
-        px.bar(assect_percent_of_value_df, title="TVL Percent by asset", labels={"value": "Percent"}),
+        px.bar(assets_percent_oracle_value_df, title="TVL Percent by asset", labels={"value": "Percent"}),
         use_container_width=True,
     )
 
