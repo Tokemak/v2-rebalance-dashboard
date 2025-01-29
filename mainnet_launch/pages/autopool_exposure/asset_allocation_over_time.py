@@ -178,7 +178,9 @@ def _make_destination_asset_reserves_calls(dest: DestinationDetails) -> list[Cal
     return [underlying_reserves_call, underlyingTotalSupply_call, balance_of_call], unique_id
 
 
-def _build_safe_and_backing_value_df(autopool: AutopoolConstants):
+def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
+
+    add_new_asset_allocation_data_to_table()
 
     assets_df = get_all_rows_in_table_by_autopool(AUTOPOOL_ASSET_ALLOCATION_TABLE, autopool)
     wide_asset_df = assets_df.pivot(index="block", columns="symbol", values="quantity").reset_index()
@@ -192,41 +194,21 @@ def _build_safe_and_backing_value_df(autopool: AutopoolConstants):
 
     # makes sure that the columns are in the right order
     assets_oracle_value_df = wide_asset_df * wide_oracle_price_df[wide_asset_df.columns]
-    assets_backing_value_df = wide_asset_df * wide_backing_df[wide_asset_df.columns]
-    assets_price_return_sources_df = (
-        (assets_oracle_value_df * wide_percent_discount_df[wide_asset_df.columns] / 100)
-        / assets_oracle_value_df[wide_asset_df.columns]
-    ) * 100  # .75 (scales down to what the price wheight hsouldbe# incorrect, not sure why
-    # not certain here if it should be `/ assets_backing_value_df instead``
-    assets_price_return_sources_df = (
-        assets_price_return_sources_df * 0.75
-    )  # scale down because the price return is set to 75%
-    return assets_oracle_value_df, assets_backing_value_df, assets_price_return_sources_df
 
-
-def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
-    add_new_asset_allocation_data_to_table()
-
-    assets_oracle_value_df, assets_backing_value_df, assets_price_return_sources_df = _build_safe_and_backing_value_df(
-        autopool
-    )
+    assect_percent_of_value_df = 100 * assets_oracle_value_df / assets_oracle_value_df.sum(axis=1)
 
     st.plotly_chart(
-        px.bar(assets_oracle_value_df, title="Asset Oracle Value", labels={"value": "ETH"}), use_container_width=True
+        px.bar(assets_oracle_value_df, title="TVL ETH value by asset", labels={"value": "ETH"}),
+        use_container_width=True,
     )
     st.plotly_chart(
-        px.bar(assets_backing_value_df, title="Asset Backing Value", labels={"value": "ETH"}), use_container_width=True
+        px.bar(assect_percent_of_value_df, title="TVL Percent by asset", labels={"value": "Percent"}),
+        use_container_width=True,
     )
-    # I don't want to keep this one,
-    # st.plotly_chart(
-    #     px.bar(assets_price_return_sources_df, title="Price Return Sources", labels={"value": "Percent"}),
-    #     use_container_width=True,
-    # )
 
 
 if __name__ == "__main__":
 
     from mainnet_launch.database.database_operations import drop_table
 
-    drop_table(AUTOPOOL_ASSET_ALLOCATION_TABLE)
     fetch_and_render_asset_allocation_over_time(ALL_AUTOPOOLS[-1])

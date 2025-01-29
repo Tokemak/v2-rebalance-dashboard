@@ -135,59 +135,73 @@ def _create_autopool_cr_gross_and_net_and_price_price_return_figure(
         secondary_y=True,
         matches="y",  # Match the scale of the left y-axis
     )
-    fig.add_hline(y=0, line_dash="dash", line_color="gray", annotation_text="Zero Line", secondary_y=True)
+    fig.add_hline(y=0, line_dash="dash", line_color="gray", annotation_text="", secondary_y=True)
 
     # Optionally update x-axis and layout settings
     fig.update_xaxes(title_text="Date")
     fig.update_layout(title_text=f"{autopool.name} {n_days} Days APR and Change Price Return Over Time")
-    return fig
+
+    scatter_plot = _make_cr_out_vs_gross_plus_price_return_scatter_plot(df, n_days)
+
+    return fig, scatter_plot
 
 
-def calculate_metrics(df, target_col, signal_cols):
+def _make_cr_out_vs_gross_plus_price_return_scatter_plot(df, n_days):
+    scatter_plot = px.scatter(
+        df,
+        x=f"avg_cr_out_prior_{n_days}_days",
+        y="Gross + Price Return",
+        title="All time CR out : Gross + Annualized Price Return",
+        hover_data={"index": df.index},
+    )
 
-    results = []
+    line_max = max(df[f"avg_cr_out_prior_{n_days}_days"].max(), df["Gross + Price Return"].max()) + 3
 
-    for signal_col in signal_cols:
-        # Fit a regression model
-        X = sm.add_constant(df[signal_col])  # Add intercept
-        y = df[target_col]
-        model = sm.OLS(y, X).fit()
+    scatter_plot.add_shape(
+        type="line",
+        x0=0,
+        y0=0,
+        x1=line_max,
+        y1=line_max,
+        line=dict(
+            color="red",
+            dash="dash",
+        ),
+    )
 
-        # Get predicted values
-        y_pred = model.predict(X)
+    scatter_plot.add_annotation(
+        x=0.25 * line_max,
+        y=0.5 * line_max,
+        text="Over Performance",
+        showarrow=False,
+        font=dict(color="green", size=12),
+    )
 
-        # Calculate metrics
-        mse = np.sqrt(np.mean((y - y_pred) ** 2))  # Mean Squared Error
-        r2 = model.rsquared  # R-squared
-        mae = np.mean(np.abs(y - y_pred))  # Mean Absolute Error
+    scatter_plot.add_annotation(
+        x=0.75 * line_max,
+        y=0.25 * line_max,
+        text="Under Performance",
+        showarrow=False,
+        font=dict(color="red", size=12),
+    )
 
-        results.append({"Signal": signal_col, "MSE": mse, "R²": r2, "MAE": mae})
-
-    # Convert results to DataFrame for display
-    metrics_df = pd.DataFrame(results)
-    return metrics_df
+    return scatter_plot
 
 
 def fetch_and_render_actual_and_gross_and_projected_returns(autopool: AutopoolConstants):
 
     for n_days in [30, 7]:
         n_days_apr_df = build_CR_out_vs_gross_and_net_performance_df(autopool, n_days)
-        n_days_apr_fig = _create_autopool_cr_gross_and_net_and_price_price_return_figure(
+        n_days_apr_fig, scatter_plot = _create_autopool_cr_gross_and_net_and_price_price_return_figure(
             autopool, n_days_apr_df, n_days
         )
-        st.plotly_chart(n_days_apr_fig, use_container_width=True)
 
-        metrics = calculate_metrics(
-            n_days_apr_df,
-            target_col=f"avg_cr_out_prior_{n_days}_days",
-            signal_cols=[
-                f"adjusted_{n_days}_days_annualized_apr",
-                f"actual_{n_days}_days_annualized_apr",
-                "Gross + Price Return",
-            ],
-        )
+        col1, col2 = st.columns(2)
 
-        st.dataframe(metrics)
+        with col1:
+            st.plotly_chart(n_days_apr_fig, use_container_width=True)
+        with col2:
+            st.plotly_chart(scatter_plot, use_container_width=True)
 
     with st.expander("Explanation"):
         st.markdown(
