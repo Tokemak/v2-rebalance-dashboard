@@ -187,7 +187,7 @@ def _build_safe_and_backing_value_df(autopool: AutopoolConstants):
     long_asset_oracle_and_backing_df = get_all_rows_in_table_by_chain(ASSET_BACKING_AND_PRICES, autopool.chain)
 
     wide_backing_df, wide_oracle_price_df, wide_percent_discount_df = _extract_backing_price_and_percent_discount_dfs(
-        long_asset_oracle_and_backing_df, autopool
+        long_asset_oracle_and_backing_df, autopool.chain
     )
 
     # makes sure that the columns are in the right order
