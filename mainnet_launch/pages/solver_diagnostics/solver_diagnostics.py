@@ -26,8 +26,6 @@ import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
 
-from mainnet_launch.constants import STREAMLIT_IN_MEMORY_CACHE_TIME, SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS
-
 
 def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
     figs = fetch_solver_diagnostics_data(autopool)
