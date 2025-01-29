@@ -50,3 +50,9 @@ def fetch_and_render_destination_allocation_over_time_data(autopool: AutopoolCon
             - Percent of TVL by Destination: Shows the percent of capital deployed to each destination
             """
         )
+
+
+if __name__ == "__main__":
+    from mainnet_launch.constants import AUTO_ETH
+
+    fetch_and_render_asset_allocation_over_time(AUTO_ETH)

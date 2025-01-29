@@ -80,11 +80,12 @@ def build_CR_out_vs_gross_and_net_performance_df(autopool: AutopoolConstants, n_
     gross_net_and_projected_returns_df["annualized_change_in_price_return"] = (
         gross_net_and_projected_returns_df["change_in_price_return"] * 365 / n_days
     )
-    gross_net_and_projected_returns_df["gross + price return"] = (
+    gross_net_and_projected_returns_df["Gross + Price Return"] = (
         gross_net_and_projected_returns_df[f"adjusted_{n_days}_days_annualized_apr"]
         + gross_net_and_projected_returns_df["annualized_change_in_price_return"]
     )
     gross_net_and_projected_returns_df = gross_net_and_projected_returns_df.dropna()
+
     return gross_net_and_projected_returns_df
 
 
@@ -97,7 +98,7 @@ def _create_autopool_cr_gross_and_net_and_price_price_return_figure(
         f"adjusted_{n_days}_days_annualized_apr",
         f"actual_{n_days}_days_annualized_apr",
         f"avg_cr_out_prior_{n_days}_days",
-        "gross + price return",
+        "Gross + Price Return",
     ]
 
     readable_column_names = [
@@ -156,7 +157,7 @@ def calculate_metrics(df, target_col, signal_cols):
         y_pred = model.predict(X)
 
         # Calculate metrics
-        mse = np.mean((y - y_pred) ** 2)  # Mean Squared Error
+        mse = np.sqrt(np.mean((y - y_pred) ** 2))  # Mean Squared Error
         r2 = model.rsquared  # R-squared
         mae = np.mean(np.abs(y - y_pred))  # Mean Absolute Error
 
@@ -182,7 +183,7 @@ def fetch_and_render_actual_and_gross_and_projected_returns(autopool: AutopoolCo
             signal_cols=[
                 f"adjusted_{n_days}_days_annualized_apr",
                 f"actual_{n_days}_days_annualized_apr",
-                "gross + price return",
+                "Gross + Price Return",
             ],
         )
 
