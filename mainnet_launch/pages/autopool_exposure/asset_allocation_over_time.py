@@ -9,7 +9,7 @@ from mainnet_launch.constants import (
     ETH_CHAIN,
     ROOT_PRICE_ORACLE,
     ChainData,
-    CACHE_TIME,
+    STREAMLIT_IN_MEMORY_CACHE_TIME,
     WETH,
 )
 from mainnet_launch.data_fetching.get_events import fetch_events

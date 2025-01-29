@@ -20,19 +20,15 @@ WEB3_CLIENTS: dict[str, Web3] = {
     "base": base_client,
 }
 
-CACHE_TIME = 3600 * 6  # six hours
+STREAMLIT_IN_MEMORY_CACHE_TIME = 3600 * 6  # six hours
 ROOT_DIR = Path(__file__).parent  # consider moving these to a setup file with the db initalization
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "data_fetching/rebalance_plans"
 WORKING_DATA_DIR = ROOT_DIR / "working_data"
-TX_HASH_TO_GAS_COSTS_PATH = WORKING_DATA_DIR / "tx_hash_to_gas_info.json"  # can be removed
 DB_DIR = ROOT_DIR / "database"
 DB_FILE = DB_DIR / "autopool_dashboard.db"
 
 os.makedirs(SOLVER_REBALANCE_PLANS_DIR, exist_ok=True)
 os.makedirs(WORKING_DATA_DIR, exist_ok=True)
-
-if not os.path.exists(TX_HASH_TO_GAS_COSTS_PATH):
-    open(TX_HASH_TO_GAS_COSTS_PATH, "x").close()
 
 
 @dataclass(frozen=True)
@@ -67,6 +63,7 @@ class AutopoolConstants:
     autopool_eth_strategy_addr: str
     solver_rebalance_plans_bucket: str
     chain: ChainData
+    base_asset: str  # AutopoolETH.asset()
 
     def __hash__(self):
         return hash(self.chain)
@@ -83,42 +80,6 @@ BASE_CHAIN: ChainData = ChainData(
 
 
 ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN]
-
-
-AUTO_ETH: AutopoolConstants = AutopoolConstants(
-    name="autoETH",  #  "Tokemak autoETH",
-    autopool_eth_addr="0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56",
-    autopool_eth_strategy_addr="0xf5f6addB08c5e6091e5FdEc7326B21bEEd942235",
-    solver_rebalance_plans_bucket=os.environ["AUTO_ETH_BUCKET"],
-    chain=ETH_CHAIN,
-)
-
-BAL_ETH: AutopoolConstants = AutopoolConstants(
-    name="balETH",  #  "Tokemak autoETH",
-    autopool_eth_addr="0x6dC3ce9C57b20131347FDc9089D740DAf6eB34c5",
-    autopool_eth_strategy_addr="0xabe104560D0B390309bcF20b73Dca335457AA32e",
-    solver_rebalance_plans_bucket=os.environ["BAL_ETH_BUCKET"],
-    chain=ETH_CHAIN,
-)
-
-AUTO_LRT: AutopoolConstants = AutopoolConstants(
-    name="autoLRT",  # "Tokemak autoLRT"
-    autopool_eth_addr="0xE800e3760FC20aA98c5df6A9816147f190455AF3",
-    autopool_eth_strategy_addr="0x72a726c10220280049687E58B7b05fb03d579109",
-    solver_rebalance_plans_bucket=os.environ["AUTO_LRT_BUCKET"],
-    chain=ETH_CHAIN,
-)
-
-BASE_ETH: AutopoolConstants = AutopoolConstants(
-    "baseETH",  # "Tokemak baseETH"
-    autopool_eth_addr="0xAADf01DD90aE0A6Bb9Eb908294658037096E0404",
-    autopool_eth_strategy_addr="0xe72a466d426F735BfeE91Db19dc509735B65b8dc",
-    solver_rebalance_plans_bucket=os.environ["BASE_ETH_BUCKET"],
-    chain=BASE_CHAIN,
-)
-
-
-ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH]
 
 
 @dataclass
@@ -203,3 +164,46 @@ def time_decorator(func):
 
 PRODUCTION_LOG_FILE_NAME = "production_usage.log"
 TEST_LOG_FILE_NAME = "test_pages.log"
+
+
+AUTO_ETH: AutopoolConstants = AutopoolConstants(
+    name="autoETH",  #  "Tokemak autoETH",
+    autopool_eth_addr="0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56",
+    autopool_eth_strategy_addr="0xf5f6addB08c5e6091e5FdEc7326B21bEEd942235",
+    solver_rebalance_plans_bucket=os.environ["AUTO_ETH_BUCKET"],
+    chain=ETH_CHAIN,
+    base_asset=WETH(ETH_CHAIN),
+)
+
+BAL_ETH: AutopoolConstants = AutopoolConstants(
+    name="balETH",  #  "Tokemak autoETH",
+    autopool_eth_addr="0x6dC3ce9C57b20131347FDc9089D740DAf6eB34c5",
+    autopool_eth_strategy_addr="0xabe104560D0B390309bcF20b73Dca335457AA32e",
+    solver_rebalance_plans_bucket=os.environ["BAL_ETH_BUCKET"],
+    chain=ETH_CHAIN,
+    base_asset=WETH(ETH_CHAIN),
+)
+
+AUTO_LRT: AutopoolConstants = AutopoolConstants(
+    name="autoLRT",  # "Tokemak autoLRT"
+    autopool_eth_addr="0xE800e3760FC20aA98c5df6A9816147f190455AF3",
+    autopool_eth_strategy_addr="0x72a726c10220280049687E58B7b05fb03d579109",
+    solver_rebalance_plans_bucket=os.environ["AUTO_LRT_BUCKET"],
+    chain=ETH_CHAIN,
+    base_asset=WETH(ETH_CHAIN),
+)
+
+BASE_ETH: AutopoolConstants = AutopoolConstants(
+    "baseETH",  # "Tokemak baseETH"
+    autopool_eth_addr="0xAADf01DD90aE0A6Bb9Eb908294658037096E0404",
+    autopool_eth_strategy_addr="0xe72a466d426F735BfeE91Db19dc509735B65b8dc",
+    solver_rebalance_plans_bucket=os.environ["BASE_ETH_BUCKET"],
+    chain=BASE_CHAIN,
+    base_asset=WETH(BASE_CHAIN),
+)
+
+
+# dineoETH 0x35911af1b570e26f668905595ded133d01cd3e5a
+
+
+ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH]

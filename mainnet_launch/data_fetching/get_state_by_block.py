@@ -7,7 +7,7 @@ import nest_asyncio
 import asyncio
 
 
-from mainnet_launch.constants import CACHE_TIME, ChainData, TokemakAddress
+from mainnet_launch.constants import STREAMLIT_IN_MEMORY_CACHE_TIME, ChainData, TokemakAddress
 
 # needed to run these functions in a jupyter notebook
 nest_asyncio.apply()
@@ -171,7 +171,7 @@ def identity_function(value):
     return value
 
 
-@st.cache_data(ttl=CACHE_TIME)
+@st.cache_data(ttl=STREAMLIT_IN_MEMORY_CACHE_TIME)
 def build_blocks_to_use(
     chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 4
 ) -> list[int]:
