@@ -81,21 +81,23 @@ def get_destination_details(autopool: AutopoolConstants, blocks: list[int]) -> t
 
         for on_chain_autopool_data, list_of_destinations in zip(row["autopools"], row["destinations"]):
 
-            autopool_constant = autopool_pool_address_to_autopool[on_chain_autopool_data["poolAddress"].lower()]
-
-            for destination in list_of_destinations:
-                destination_details = DestinationDetails(
-                    vaultAddress=Web3.toChecksumAddress(destination["vaultAddress"]),
-                    exchangeName=destination["exchangeName"],
-                    dexPool=Web3.toChecksumAddress(destination["dexPool"]),
-                    lpTokenAddress=Web3.toChecksumAddress(destination["lpTokenAddress"]),
-                    lpTokenName=destination["lpTokenName"],
-                    lpTokenSymbol=destination["lpTokenSymbol"],
-                    autopool=autopool_constant,
-                    vault_name=None,  # added later with an onchain call
-                )
-                # add any destinations ever created regardless of if they are currently active
-                all_destination_details.add(destination_details)
+            autopool_constant = autopool_pool_address_to_autopool.get(on_chain_autopool_data["poolAddress"].lower())
+            # skip autopools that don't have an AutopoolConstant setup
+            # this is so that the app won't break when a new autopool is deployed
+            if autopool_constant is not None:
+                for destination in list_of_destinations:
+                    destination_details = DestinationDetails(
+                        vaultAddress=Web3.toChecksumAddress(destination["vaultAddress"]),
+                        exchangeName=destination["exchangeName"],
+                        dexPool=Web3.toChecksumAddress(destination["dexPool"]),
+                        lpTokenAddress=Web3.toChecksumAddress(destination["lpTokenAddress"]),
+                        lpTokenName=destination["lpTokenName"],
+                        lpTokenSymbol=destination["lpTokenSymbol"],
+                        autopool=autopool_constant,
+                        vault_name=None,  # added later with an onchain call
+                    )
+                    # add any destinations ever created regardless of if they are currently active
+                    all_destination_details.add(destination_details)
 
     pools_and_destinations_df["getPoolsAndDestinations"].apply(_add_to_all_destination_details)
 
