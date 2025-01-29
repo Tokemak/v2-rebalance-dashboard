@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 import streamlit as st
 
 from mainnet_launch.constants import (
-    CACHE_TIME,
+    STREAMLIT_IN_MEMORY_CACHE_TIME,
     AutopoolConstants,
     ALL_AUTOPOOLS,
     SOLVER_REBALANCE_PLANS_DIR,
@@ -26,7 +26,7 @@ import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
 
-from mainnet_launch.constants import CACHE_TIME, SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS
+from mainnet_launch.constants import STREAMLIT_IN_MEMORY_CACHE_TIME, SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS
 
 
 def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
@@ -89,8 +89,8 @@ def ensure_all_rebalance_plans_are_loaded_from_s3_bucket():
             )
 
 
-# can be slow, is loading 1600 jsons
-@st.cache_data(ttl=CACHE_TIME)
+# can be slow, requires loading a few thousand jsons.
+@st.cache_data(ttl=STREAMLIT_IN_MEMORY_CACHE_TIME)
 def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
     autopool_plans = [p for p in SOLVER_REBALANCE_PLANS_DIR.glob("*.json") if autopool.autopool_eth_addr in str(p)]
     destination_details = get_destination_details(autopool)
