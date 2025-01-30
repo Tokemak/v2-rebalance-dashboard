@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import pandas as pd
 
 from mainnet_launch.constants import DB_FILE
+from mainnet_launch.app.app_config import SHOULD_UPDATE_DATABASE_MAX_LATENCY
 
 
 TABLE_NAME_TO_LAST_UPDATED = "TABLE_NAME_TO_LAST_UPDATED"
@@ -76,7 +77,7 @@ def write_timestamp_table_was_last_updated(table_name: str, cursor) -> None:
         raise e
 
 
-def should_update_table(table_name: str, max_latency: str = "6 hours") -> bool:
+def should_update_table(table_name: str, max_latency: pd.Timedelta = SHOULD_UPDATE_DATABASE_MAX_LATENCY) -> bool:
     current_time = datetime.now(timezone.utc)
     last_updated = get_timestamp_table_was_last_updated(table_name)
 

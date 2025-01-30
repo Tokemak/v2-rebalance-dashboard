@@ -152,9 +152,7 @@ def _make_apr_figure(nav_per_share_df: pd.DataFrame, n_days: int) -> go.Figure:
     apr_fig.update_layout(
         title=f"{n_days} Days Annualized APR",
         xaxis_title="Date",
-        yaxis_title="APR",
-        # legend_title="Legend",
-        # yaxis2=dict(title="Difference (Adjusted - Original APR)", overlaying="y", side="right"),
+        yaxis_title="APR (%)",
     )
     return apr_fig
 
@@ -214,7 +212,7 @@ def _make_bridge_figure(values: list[float], names: list[str], title: str):
         waterfallgap=0.3,
         showlegend=True,
         xaxis_title="APR Components",
-        yaxis_title="Values",
+        yaxis_title="APR (%)",
     )
 
     return fig

@@ -42,12 +42,15 @@ def add_new_acutal_nav_and_acutal_shares_to_table():
             highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
                 ACUTAL_NAV_AND_SHARES_TABLE, autopool
             )
+            # I don't think this is the right pattern, maybe make a better one,
+            # eg handle the empty dataframe in write_dataframe_to_table and get_raw_state_by_blocks
+            blocks = [b for b in build_blocks_to_use(autopool.chain) if b > highest_block_already_fetched]
+            if len(blocks) > 0:
+                nav_and_shares_df = _fetch_actual_nav_per_share_by_day(autopool, blocks)
+                write_dataframe_to_table(nav_and_shares_df, ACUTAL_NAV_AND_SHARES_TABLE)
 
-            nav_and_shares_df = _fetch_actual_nav_per_share_by_day(autopool, highest_block_already_fetched)
-            write_dataframe_to_table(nav_and_shares_df, ACUTAL_NAV_AND_SHARES_TABLE)
 
-
-def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
+def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants, blocks: list[int]) -> pd.DataFrame:
     def handle_getAssetBreakdown(success, AssetBreakdown):
         if success:
             totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
@@ -67,7 +70,6 @@ def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants, start_block:
         ),
     ]
 
-    blocks = [b for b in build_blocks_to_use(autopool.chain) if b > start_block]
     df = get_raw_state_by_blocks(calls, blocks, autopool.chain, include_block_number=True).reset_index()
     df["autopool"] = autopool.name
     return df

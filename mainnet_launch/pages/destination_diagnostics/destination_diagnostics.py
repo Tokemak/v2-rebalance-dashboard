@@ -5,22 +5,13 @@ import streamlit as st
 
 
 from mainnet_launch.constants import AutopoolConstants
-from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
+from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import (
+    fetch_destination_summary_stats,
+    get_destination_details,
+)
 
 
-def fetch_and_render_destination_apr_data(autopool: AutopoolConstants):
-    apr_components_fig = _make_apr_components_fig(autopool)
-    st.plotly_chart(apr_components_fig, use_container_width=True)
-
-    with st.expander("See explanation"):
-        st.write(
-            f"""
-              APR Components: Show Unweighted Base, Fee, Incentive and Price Return of the Destination
-            """
-        )
-
-
-def _make_apr_components_fig(autopool: AutopoolConstants) -> go.Figure:
+def fetch_and_render_destination_apr_data(autopool: AutopoolConstants) -> go.Figure:
     priceReturn_df = 100 * fetch_destination_summary_stats(autopool, "priceReturn")
     baseApr_df = 100 * fetch_destination_summary_stats(autopool, "baseApr")
     feeApr_df = 100 * fetch_destination_summary_stats(autopool, "feeApr")
@@ -29,22 +20,30 @@ def _make_apr_components_fig(autopool: AutopoolConstants) -> go.Figure:
 
     st.title("Destination APR Components")
 
-    destination = st.selectbox("Select a destination", pointsApr_df.columns)
+    destination_choice = st.selectbox("Select a destination", pointsApr_df.columns)
 
     plot_data = pd.DataFrame(
         {
-            "Price Return": priceReturn_df[destination],
-            "Base APR": baseApr_df[destination],
-            "Incentive APR": incentiveApr_df[destination],
-            "Fee APR": feeApr_df[destination],
-            "Points APR": pointsApr_df[destination],
+            "Price Return": priceReturn_df[destination_choice],
+            "Base APR": baseApr_df[destination_choice],
+            "Incentive APR": incentiveApr_df[destination_choice],
+            "Fee APR": feeApr_df[destination_choice],
+            "Points APR": pointsApr_df[destination_choice],
         },
         index=pointsApr_df.index,
     )
+    the_destinations = [d for d in get_destination_details(autopool) if d.vault_name == destination_choice]
 
-    apr_components_fig = px.line(plot_data, title=f"APR Components for {destination}")
+    apr_components_fig = px.line(plot_data, title=f"APR Components for {destination_choice}")
     _apply_default_style(apr_components_fig)
-    return apr_components_fig
+
+    st.plotly_chart(apr_components_fig, use_container_width=True)
+    st.write("Shows Unweighted Base, Fee, Incentive and Price Return of each Destination")
+
+    with st.expander("Destination Addresses"):
+        st.text(f"{the_destinations[0].vault_name}")
+        for dest in the_destinations:
+            st.text(f"{dest.vaultAddress=} {dest.dexPool=} {dest.lpTokenAddress=}")
 
 
 def _apply_default_style(fig: go.Figure) -> None:

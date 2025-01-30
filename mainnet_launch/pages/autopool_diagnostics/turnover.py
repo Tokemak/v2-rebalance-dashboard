@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import streamlit as st
 
-from mainnet_launch.constants import CACHE_TIME, AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.pages.rebalance_events.rebalance_events import (
     fetch_rebalance_events_df,
 )
@@ -17,8 +17,20 @@ def fetch_and_render_turnover_data(autopool: AutopoolConstants):
 
 
 def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
-    # TODO I suspect this can be slightly off because it may be using the in and out eth value from the rebalance events
     clean_rebalance_df = fetch_rebalance_events_df(autopool)
+
+    def _is_a_rebalance_between_the_same_destination(row) -> bool:
+        # moveName = f"{out_destination_symbol} -> {in_destination_symbol}"
+        destination_symbols = row["moveName"].split(" -> ")
+        if len(destination_symbols) == 2:
+            out_destination_symbol, in_destination_symbol = destination_symbols
+            if out_destination_symbol == in_destination_symbol:
+                return True
+        return False
+
+    clean_rebalance_df["is_rebalance_between_the_same_destination"] = clean_rebalance_df.apply(
+        _is_a_rebalance_between_the_same_destination, axis=1
+    )
 
     pricePerShare_df = fetch_destination_summary_stats(autopool, "pricePerShare")
     ownedShares_df = fetch_destination_summary_stats(autopool, "ownedShares")
@@ -41,24 +53,25 @@ def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
 
         avg_tvl = float(total_nav_series[total_nav_series.index >= window].mean())
 
-        eth_value_solver_took_from_to_autopool = recent_df["outEthValue"].sum()
-        eth_value_solver_sent_to_autopool = recent_df["inEthValue"].sum()
-        eth_value_lost_to_solver = eth_value_solver_took_from_to_autopool - eth_value_solver_sent_to_autopool
+        total_volume_with_rebalances_to_same_destination = recent_df["outEthValue"].sum()
+        total_volume_without_rebalances_to_same_destination = recent_df[
+            ~recent_df["is_rebalance_between_the_same_destination"]
+        ]["outEthValue"].sum()
 
-        turnover = eth_value_solver_took_from_to_autopool / avg_tvl
         record = {
-            "autopool": autopool.name,
-            "duration": window_name,
-            "rebalance_count": rebalance_count,
-            "autopool_avg_eth_tvl": avg_tvl,
-            "eth_value_solver_took_from_autopool": eth_value_solver_took_from_to_autopool,
-            "eth_value_solver_sent_to_autopool": eth_value_solver_sent_to_autopool,
-            "eth_value_lost_to_solver": eth_value_lost_to_solver,
-            "turnover": turnover,
+            "window": window_name,
+            "rebalances": rebalance_count,
+            "avg_tvl": round(avg_tvl, 2),
+            "volume_with_rebalances_to_self": round(total_volume_with_rebalances_to_same_destination, 2),
+            "volume_without_rebalances_to_self": round(total_volume_without_rebalances_to_same_destination, 2),
+            "turnover_with_rebalances_to_self": round(total_volume_with_rebalances_to_same_destination / avg_tvl, 3),
+            "turnover_without_rebalances_to_self": round(
+                total_volume_without_rebalances_to_same_destination / avg_tvl, 3
+            ),
         }
         records.append(record)
 
-    turnover_summary = pd.DataFrame.from_records(records).round(2)
+    turnover_summary = pd.DataFrame.from_records(records)
     return turnover_summary
 
 

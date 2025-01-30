@@ -35,17 +35,17 @@ INCENTIVE_TOKEN_PRICES_TABLE_NAME = "INCENTIVE_TOKEN_PRICES_AT_LIQUIDATION"
 
 
 def _add_achieved_price_column(swapped_df: pd.DataFrame, token_address_to_decimals: dict):
-    def _compute_achieved_price(row):
-        sell_token_decimals = token_address_to_decimals[row["sellTokenAddress"]]
-        normalized_sell_amount = row["sellAmount"] / (10**sell_token_decimals)
+    swapped_df["normalized_sell_amount"] = swapped_df.apply(
+        lambda row: row["sellAmount"] / (10 ** token_address_to_decimals[row["sellTokenAddress"]]), axis=1
+    )
 
-        buy_token_decimals = token_address_to_decimals[row["buyTokenAddress"]]
-        normalized_buy_amount = row["buyTokenAmountReceived"] / (10**buy_token_decimals)
+    swapped_df["normalized_buy_amount"] = swapped_df.apply(
+        lambda row: row["buyTokenAmountReceived"] / (10 ** token_address_to_decimals[row["buyTokenAddress"]]), axis=1
+    )
 
-        achieved_price = normalized_buy_amount / normalized_sell_amount
-        return achieved_price
-
-    swapped_df["achieved_price"] = swapped_df.apply(lambda row: _compute_achieved_price(row), axis=1)
+    swapped_df["achieved_price"] = swapped_df.apply(
+        lambda row: row["normalized_buy_amount"] / row["normalized_sell_amount"], axis=1
+    )
 
     return swapped_df
 
@@ -112,10 +112,9 @@ def _fetch_reward_token_price_during_liquidation_from_external_source(
 
     swapped_df = _add_achieved_price_column(swapped_df, token_address_to_decimals)
 
-    # not used in plots, but could be useful to see size later
-    swapped_df["weth_received"] = swapped_df["buyTokenAmountReceived"] / 1e18
-
-    long_swapped_df = swapped_df[["block", "sellTokenAddress", "achieved_price", "weth_received"]].copy()
+    long_swapped_df = swapped_df[
+        ["block", "sellTokenAddress", "achieved_price", "normalized_sell_amount", "normalized_buy_amount"]
+    ].copy()
 
     long_oracle_prices_df = pd.melt(
         oracle_price_df,
@@ -266,4 +265,9 @@ def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
 
 
 if __name__ == "__main__":
-    fetch_and_render_reward_token_achieved_vs_incentive_token_price()
+
+    from mainnet_launch.database.database_operations import drop_table
+
+    # drop_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
+    # fetch_and_render_reward_token_achieved_vs_incentive_token_price()
+    add_new_reward_token_swapped_events_to_table()

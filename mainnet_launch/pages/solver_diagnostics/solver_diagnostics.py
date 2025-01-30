@@ -4,9 +4,9 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta, timezone
 import streamlit as st
+from mainnet_launch.app.app_config import STREAMLIT_IN_MEMORY_CACHE_TIME
 
 from mainnet_launch.constants import (
-    CACHE_TIME,
     AutopoolConstants,
     ALL_AUTOPOOLS,
     SOLVER_REBALANCE_PLANS_DIR,
@@ -19,19 +19,19 @@ from mainnet_launch.pages.rebalance_events.rebalance_events import (
 )
 
 from mainnet_launch.pages.solver_diagnostics.solver_profit import fetch_and_render_solver_profit_data
+from mainnet_launch.pages.solver_diagnostics.bps_lost_to_rebalances import fetch_and_render_bps_lost_to_rebalances
 
 
 import boto3
 from botocore import UNSIGNED
 from botocore.client import Config
 
-from mainnet_launch.constants import CACHE_TIME, SOLVER_REBALANCE_PLANS_DIR, ALL_AUTOPOOLS
-
 
 def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
     figs = fetch_solver_diagnostics_data(autopool)
     _render_solver_diagnostics(autopool, figs)
     fetch_and_render_solver_profit_data(autopool)
+    fetch_and_render_bps_lost_to_rebalances(autopool)
 
 
 def fetch_solver_diagnostics_data(autopool: AutopoolConstants):
@@ -87,8 +87,8 @@ def ensure_all_rebalance_plans_are_loaded_from_s3_bucket():
             )
 
 
-# can be slow, is loading 1600 jsons
-@st.cache_data(ttl=CACHE_TIME)
+# can be slow, requires loading a few thousand jsons.
+@st.cache_data(ttl=STREAMLIT_IN_MEMORY_CACHE_TIME)
 def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
     autopool_plans = [p for p in SOLVER_REBALANCE_PLANS_DIR.glob("*.json") if autopool.autopool_eth_addr in str(p)]
     destination_details = get_destination_details(autopool)
@@ -266,5 +266,5 @@ def _add_add_rank_count(solver_df):
 
 
 if __name__ == "__main__":
-    # streamlit run mainnet_launch/solver_diagnostics/solver_diagnostics.py
+    # streamlit run mainnet_launch/pages/solver_diagnostics/solver_diagnostics.py
     fetch_and_render_solver_diagnositics_data(AUTO_ETH)
