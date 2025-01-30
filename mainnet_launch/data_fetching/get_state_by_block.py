@@ -5,9 +5,10 @@ import streamlit as st
 
 import nest_asyncio
 import asyncio
+from mainnet_launch.app.app_config import STREAMLIT_IN_MEMORY_CACHE_TIME, SEMAPHORE_LIMITS_FOR_MULTCIALL
 
 
-from mainnet_launch.constants import STREAMLIT_IN_MEMORY_CACHE_TIME, ChainData, TokemakAddress
+from mainnet_launch.constants import ChainData, TokemakAddress
 
 # needed to run these functions in a jupyter notebook
 nest_asyncio.apply()
@@ -70,7 +71,7 @@ def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
     chain: ChainData,
-    semaphore_limits: tuple[int] = (300, 300, 50, 20, 2),
+    semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTCIALL,
     include_block_number: bool = False,
 ) -> pd.DataFrame:
     if len(blocks) == 0:
@@ -83,7 +84,7 @@ async def async_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
     chain: ChainData,
-    semaphore_limits: tuple[int] = (300, 300, 50, 20, 2),
+    semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTCIALL,
     include_block_number: bool = False,
 ) -> pd.DataFrame:
     """
@@ -178,7 +179,7 @@ def build_blocks_to_use(
     """Returns a block approx every 6 hours. by default between when autopool was first deployed to the current block"""
     # this is not the number of seconds between blocks is not constant
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    first_minute_of_curent_day = datetime.datetime.combine(
+    first_minute_of_current_day = datetime.datetime.combine(
         datetime.datetime.now(datetime.timezone.utc).date(), datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
     )
     # this is not correct
@@ -186,7 +187,7 @@ def build_blocks_to_use(
     end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
     blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
 
-    while end_block_date_time > first_minute_of_curent_day:
+    while end_block_date_time > first_minute_of_current_day:
         end_block = end_block - blocks_hop
         end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
     blocks = [b for b in range(start_block, end_block, blocks_hop)]

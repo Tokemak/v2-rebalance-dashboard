@@ -20,7 +20,6 @@ WEB3_CLIENTS: dict[str, Web3] = {
     "base": base_client,
 }
 
-STREAMLIT_IN_MEMORY_CACHE_TIME = 3600 * 6  # six hours
 ROOT_DIR = Path(__file__).parent  # consider moving these to a setup file with the db initalization
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "data_fetching/rebalance_plans"
 WORKING_DATA_DIR = ROOT_DIR / "working_data"
@@ -91,7 +90,7 @@ class TokemakAddress:
 
     def __post_init__(self):
         if not Web3.isChecksumAddress(self.eth):
-            raise ValueError(f"{self.eth} must be a checksum address")
+            raise ValueError(f"{self.eth} must be a checksum address should be {Web3.toChecksumAddress(self.eth)=}")
 
         if not Web3.isChecksumAddress(self.base):
             raise ValueError(f"{self.base} must be a checksum address should be: {Web3.toChecksumAddress(self.base)=}")
