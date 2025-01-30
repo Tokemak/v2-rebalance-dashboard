@@ -118,11 +118,11 @@ def _create_autopool_cr_gross_and_net_and_price_price_return_figure(
         secondary_y=True,
     )
 
-    fig.update_yaxes(title_text="Gross Net and CR", secondary_y=False)  
+    fig.update_yaxes(title_text="Gross Net and CR", secondary_y=False)
     fig.update_yaxes(
         title_text="Annualized Impact of Percent Change in Price Return",
         secondary_y=True,
-        matches="y", 
+        matches="y",
     )
     fig.add_hline(y=0, line_dash="dash", line_color="gray", annotation_text="", secondary_y=True)
 
