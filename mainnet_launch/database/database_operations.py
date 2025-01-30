@@ -153,7 +153,7 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str, verify_data_stor
         raise
 
 
-def load_table(table_name: str, where_clause: Optional[str] = None, params=None) -> Optional[pd.DataFrame]:
+def load_table(table_name: str, where_clause: Optional[str] = None, params=None) -> pd.DataFrame:
     """
     Loads data from the specified table if it exists and applies the given WHERE clause.
 
@@ -178,7 +178,7 @@ def load_table(table_name: str, where_clause: Optional[str] = None, params=None)
             else:
                 query = base_query
 
-            df = pd.read_sql_query(query, conn, params)
+            df = pd.read_sql_query(query, conn, params=params)
 
             if "timestamp" in df.columns:
                 df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
@@ -276,3 +276,69 @@ def get_all_rows_in_table_by_chain(table_name: str, chain: ChainData) -> pd.Data
     if "timestamp" in df.columns:
         df = df.set_index("timestamp")
     return df
+
+
+def drop_table(table_name: str) -> None:
+    """
+    Drops a table from the database if it exists.
+
+    Parameters:
+        table_name (str): Name of the table to be dropped.
+    """
+    if not table_name:
+        raise ValueError("table_name cannot be None or empty")
+
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            drop_query = f"DROP TABLE IF EXISTS {table_name}"
+            conn.execute(drop_query)
+            print(f"Table '{table_name}' dropped successfully.")
+    except sqlite3.Error as e:
+        print(f"Database error while dropping table '{table_name}': {e}")
+        raise
+
+
+def get_all_tables_info() -> pd.DataFrame:
+    """
+    Returns information for all tables in the database:
+    - Table name
+    - Column name
+    - Data type
+    - Row count (as a proxy for size)
+    """
+    with sqlite3.connect(DB_FILE) as conn:
+        # Get all table names
+        tables_df = pd.read_sql_query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;", conn)
+
+        if tables_df.empty:
+            return pd.DataFrame(columns=["table_name", "column_name", "data_type", "row_count"])
+
+        results = []
+
+        # Iterate over each table and gather its info
+        for table_name in tables_df["name"]:
+            # Get column info via PRAGMA
+            pragma_df = pd.read_sql_query(f"PRAGMA table_info({table_name});", conn)
+
+            # Get row count (serves as a simple indicator of 'size')
+            row_count_df = pd.read_sql_query(f"SELECT COUNT(*) as row_count FROM {table_name};", conn)
+            row_count = int(row_count_df["row_count"].iloc[0])
+
+            # Collect each column’s info
+            for _, row in pragma_df.iterrows():
+                results.append(
+                    {
+                        "table_name": table_name,
+                        "column_name": row["name"],
+                        "data_type": row["type"],
+                        "row_count": row_count,
+                    }
+                )
+
+        return pd.DataFrame(results)
+
+
+if __name__ == "__main__":
+    from mainnet_launch.constants import WORKING_DATA_DIR
+
+    get_all_tables_info().to_csv(WORKING_DATA_DIR / "table_info.csv")

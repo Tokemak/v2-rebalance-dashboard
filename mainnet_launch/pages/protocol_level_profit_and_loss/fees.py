@@ -1,6 +1,9 @@
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+from plotly.subplots import make_subplots
+import plotly.graph_objs as go
+
 from datetime import datetime, timedelta, timezone
 
 
@@ -132,6 +135,8 @@ def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
     cumulative_eth_claimed_area_plot = px.area(
         destination_cumulative_sum, title="Cumulative ETH value of rewards claimed by destination"
     )
+    cumulative_eth_claimed_area_plot.update_layout(yaxis_title="ETH", xaxis_title="Date")
+
     individual_reward_claim_events_fig = px.scatter(
         debt_reporting_events_df,
         x=debt_reporting_events_df.index,
@@ -141,29 +146,49 @@ def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
         size_max=40,
         title="Individual reward claiming and liquidation events",
     )
+
+    individual_reward_claim_events_fig.update_layout(yaxis_title="ETH", xaxis_title="Date")
     st.plotly_chart(cumulative_eth_claimed_area_plot, use_container_width=True)
     st.plotly_chart(individual_reward_claim_events_fig, use_container_width=True)
 
 
 def fetch_and_render_autopool_fee_data(autopool: AutopoolConstants):
     fee_event_df = fetch_all_autopool_fee_events(autopool)
+    # add 0 fees rows at the highest date so that it resamples with the same axis
+
     st.header(f"{autopool.name} Autopool Fees")
     _display_headline_fee_metrics(fee_event_df)
 
-    periodic_fees_figures_over_time = _build_fee_figures(
-        autopool, fee_event_df[fee_event_df["event"] == "PeriodicFeeCollected"]["normalized_fees"]
-    )
+    start_date = fee_event_df.index.min()
+    end_date = fee_event_df.index.max()
+    for event, readable_event_name in zip(["PeriodicFeeCollected", "FeeCollected"], ["Periodic Fees", "Streaming Fee"]):
 
-    st.subheader(f"{autopool.name} Autopool Periodic Fees")
-    for fig in periodic_fees_figures_over_time:
-        st.plotly_chart(fig, use_container_width=True)
+        daily = fee_event_df[fee_event_df["event"] == event]["normalized_fees"].resample("1D").sum()
 
-    streaming_fees_figures_over_time = _build_fee_figures(
-        autopool, fee_event_df[fee_event_df["event"] == "FeeCollected"]["normalized_fees"]
-    )  # might need to be df not series
+        cumulative = daily.cumsum()
+        # have the weeks start and end on Wednesday 4:00 PM to Wednesday 4:00 PM UTC (hour 16)
+        # this make it line up with sTOKE fees
+        weekly = daily.shift(-16, freq="h").resample("W-WED").sum()
+        weekly.index = weekly.index + pd.Timedelta(hours=16)
 
-    st.subheader(f"{autopool.name} Autopool Streaming Fees")
-    for fig in streaming_fees_figures_over_time:
+        fig = make_subplots(rows=1, cols=3, subplot_titles=("Daily Fees", "Weekly Fees", "Cumulative Fees"))
+
+        fig.add_trace(go.Bar(x=daily.index, y=daily, name="Daily"), row=1, col=1)
+        fig.add_trace(go.Bar(x=weekly.index, y=weekly, name="Weekly"), row=1, col=2)
+        fig.add_trace(go.Bar(x=cumulative.index, y=cumulative, name="Cumulative"), row=1, col=3)
+
+        for col in [1, 2, 3]:
+            fig.update_xaxes(range=[start_date, end_date], row=1, col=col)
+
+        fig.update_yaxes(title_text="ETH", row=1, col=1)
+        fig.update_layout(
+            xaxis=dict(range=[start_date, end_date]),
+            yaxis_title="ETH",
+            title="Daily Periodic Fees",
+            title_text=f"{autopool.name} {readable_event_name}",
+            showlegend=False,
+        )
+
         st.plotly_chart(fig, use_container_width=True)
 
 

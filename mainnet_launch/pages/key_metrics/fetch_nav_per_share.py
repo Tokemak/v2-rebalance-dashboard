@@ -6,13 +6,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     build_blocks_to_use,
 )
 
-from mainnet_launch.constants import (
-    ALL_AUTOPOOLS,
-    AutopoolConstants,
-    ChainData,
-    ETH_CHAIN,
-    BASE_CHAIN,
-)
+from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, ChainData, ALL_CHAINS
 from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     get_earliest_block_from_table_with_chain,
@@ -28,7 +22,7 @@ NAV_PER_SHARE_TABLE = "NAV_PER_SHARE_TABLE"
 def add_new_nav_per_share_to_table():
     if should_update_table(NAV_PER_SHARE_TABLE):
 
-        for chain in [ETH_CHAIN, BASE_CHAIN]:
+        for chain in ALL_CHAINS:
             highest_block_already_fetched = get_earliest_block_from_table_with_chain(NAV_PER_SHARE_TABLE, chain)
             blocks = [b for b in build_blocks_to_use(chain) if b >= highest_block_already_fetched]
             nav_per_share_df = _fetch_nav_per_share_from_external_source(chain, blocks)

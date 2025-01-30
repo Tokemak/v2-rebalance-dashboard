@@ -3,7 +3,8 @@ from datetime import datetime
 import streamlit as st
 
 
-from mainnet_launch.data_fetching.add_info_to_dataframes import initalize_tx_hash_to_gas_info_db
+from mainnet_launch.data_fetching.add_info_to_dataframes import initialize_tx_hash_to_gas_info_db
+
 from mainnet_launch.database.should_update_database import ensure_table_to_last_updated_exists
 
 from mainnet_launch.pages.key_metrics.fetch_nav_per_share import add_new_nav_per_share_to_table
@@ -45,6 +46,11 @@ from mainnet_launch.pages.autopool_diagnostics.fetch_values_nav_and_shares_and_e
 from mainnet_launch.pages.gas_costs.keeper_network_gas_costs import add_chainlink_upkeep_events_to_table
 
 
+from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import (
+    add_new_asset_oracle_and_discount_price_rows_to_table,
+)
+
+
 def first_run_of_db(production_logger):
     """
     Create and populate the database with data up to the current day.
@@ -65,7 +71,7 @@ def first_run_of_db(production_logger):
 
     try:
         log_and_display("Initializing transaction hash to gas info database...")
-        initalize_tx_hash_to_gas_info_db()
+        initialize_tx_hash_to_gas_info_db()
         log_and_display("Transaction hash to gas info database initialized.")
 
         log_and_display("Ensuring table for last updated timestamp exists...")
@@ -118,7 +124,11 @@ def first_run_of_db(production_logger):
 
         log_and_display("Chainlink Keeper Network Gas Costs...")
         add_chainlink_upkeep_events_to_table()
-        log_and_display("Chainlink Keeper Network Gas Costs added ")
+        log_and_display("Chainlink Keeper Network Gas Costs added")
+
+        log_and_display("Asset Backing and Oracle Price...")
+        add_new_asset_oracle_and_discount_price_rows_to_table()
+        log_and_display("Asset Backing and Oracle Price added")
 
     except Exception as e:
         error_msg = f"Error during first_run_of_db: {e}"
