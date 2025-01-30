@@ -2,9 +2,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st
-
-
-import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from mainnet_launch.constants import AutopoolConstants
@@ -15,10 +12,6 @@ from mainnet_launch.pages.autopool_diagnostics.returns_before_expenses import (
 )
 from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 from mainnet_launch.pages.key_metrics.fetch_nav_per_share import fetch_nav_per_share
-
-
-import statsmodels.api as sm
-import numpy as np
 
 
 def build_CR_out_vs_gross_and_net_performance_df(autopool: AutopoolConstants, n_days: int):

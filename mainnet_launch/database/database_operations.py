@@ -296,3 +296,49 @@ def drop_table(table_name: str) -> None:
     except sqlite3.Error as e:
         print(f"Database error while dropping table '{table_name}': {e}")
         raise
+
+
+def get_all_tables_info() -> pd.DataFrame:
+    """
+    Returns information for all tables in the database:
+    - Table name
+    - Column name
+    - Data type
+    - Row count (as a proxy for size)
+    """
+    with sqlite3.connect(DB_FILE) as conn:
+        # Get all table names
+        tables_df = pd.read_sql_query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;", conn)
+
+        if tables_df.empty:
+            return pd.DataFrame(columns=["table_name", "column_name", "data_type", "row_count"])
+
+        results = []
+
+        # Iterate over each table and gather its info
+        for table_name in tables_df["name"]:
+            # Get column info via PRAGMA
+            pragma_df = pd.read_sql_query(f"PRAGMA table_info({table_name});", conn)
+
+            # Get row count (serves as a simple indicator of 'size')
+            row_count_df = pd.read_sql_query(f"SELECT COUNT(*) as row_count FROM {table_name};", conn)
+            row_count = int(row_count_df["row_count"].iloc[0])
+
+            # Collect each column’s info
+            for _, row in pragma_df.iterrows():
+                results.append(
+                    {
+                        "table_name": table_name,
+                        "column_name": row["name"],
+                        "data_type": row["type"],
+                        "row_count": row_count,
+                    }
+                )
+
+        return pd.DataFrame(results)
+
+
+if __name__ == "__main__":
+    from mainnet_launch.constants import WORKING_DATA_DIR
+
+    get_all_tables_info().to_csv(WORKING_DATA_DIR / "table_info.csv")
