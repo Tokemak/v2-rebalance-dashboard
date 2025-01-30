@@ -3,7 +3,8 @@ from datetime import datetime
 import streamlit as st
 
 
-from mainnet_launch.data_fetching.add_info_to_dataframes import initalize_tx_hash_to_gas_info_db
+from mainnet_launch.data_fetching.add_info_to_dataframes import initialize_tx_hash_to_gas_info_db
+
 from mainnet_launch.database.should_update_database import ensure_table_to_last_updated_exists
 
 from mainnet_launch.pages.key_metrics.fetch_nav_per_share import add_new_nav_per_share_to_table
@@ -70,7 +71,7 @@ def first_run_of_db(production_logger):
 
     try:
         log_and_display("Initializing transaction hash to gas info database...")
-        initalize_tx_hash_to_gas_info_db()
+        initialize_tx_hash_to_gas_info_db()
         log_and_display("Transaction hash to gas info database initialized.")
 
         log_and_display("Ensuring table for last updated timestamp exists...")

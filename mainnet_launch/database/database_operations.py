@@ -153,7 +153,7 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str, verify_data_stor
         raise
 
 
-def load_table(table_name: str, where_clause: Optional[str] = None, params=None) -> Optional[pd.DataFrame]:
+def load_table(table_name: str, where_clause: Optional[str] = None, params=None) -> pd.DataFrame:
     """
     Loads data from the specified table if it exists and applies the given WHERE clause.
 
@@ -178,7 +178,7 @@ def load_table(table_name: str, where_clause: Optional[str] = None, params=None)
             else:
                 query = base_query
 
-            df = pd.read_sql_query(query, conn, params)
+            df = pd.read_sql_query(query, conn, params=params)
 
             if "timestamp" in df.columns:
                 df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
@@ -296,7 +296,3 @@ def drop_table(table_name: str) -> None:
     except sqlite3.Error as e:
         print(f"Database error while dropping table '{table_name}': {e}")
         raise
-
-
-# if __name__ == '__main__':
-#     drop_table('ASSET_DISCOUNT_TABLE')

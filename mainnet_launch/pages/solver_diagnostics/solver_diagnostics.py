@@ -4,9 +4,9 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta, timezone
 import streamlit as st
+from mainnet_launch.app.app_config import STREAMLIT_IN_MEMORY_CACHE_TIME
 
 from mainnet_launch.constants import (
-    STREAMLIT_IN_MEMORY_CACHE_TIME,
     AutopoolConstants,
     ALL_AUTOPOOLS,
     SOLVER_REBALANCE_PLANS_DIR,
