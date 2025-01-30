@@ -5,7 +5,7 @@ import streamlit as st
 
 import nest_asyncio
 import asyncio
-from mainnet_launch.app.app_config import STREAMLIT_IN_MEMORY_CACHE_TIME, SEMAPHORE_LIMITS_FOR_MULTCIALL
+from mainnet_launch.app.app_config import STREAMLIT_IN_MEMORY_CACHE_TIME, SEMAPHORE_LIMITS_FOR_MULTICALL
 
 
 from mainnet_launch.constants import ChainData, TokemakAddress
@@ -71,7 +71,7 @@ def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
     chain: ChainData,
-    semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTCIALL,
+    semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTICALL,
     include_block_number: bool = False,
 ) -> pd.DataFrame:
     if len(blocks) == 0:
@@ -84,7 +84,7 @@ async def async_safe_get_raw_state_by_block(
     calls: list[Call],
     blocks: list[int],
     chain: ChainData,
-    semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTCIALL,
+    semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTICALL,
     include_block_number: bool = False,
 ) -> pd.DataFrame:
     """
