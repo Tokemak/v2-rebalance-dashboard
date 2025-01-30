@@ -117,20 +117,15 @@ def _create_autopool_cr_gross_and_net_and_price_price_return_figure(
         ),
         secondary_y=True,
     )
-    # make sure the annualize it
-    # make sure the scales aling
-    # double check autoLRT to see why there is a bigger gap between CR and Gross today
 
-    # align the left and right scale
-    fig.update_yaxes(title_text="Gross Net and CR", secondary_y=False)  # Left Y-axis
+    fig.update_yaxes(title_text="Gross Net and CR", secondary_y=False)  
     fig.update_yaxes(
         title_text="Annualized Impact of Percent Change in Price Return",
         secondary_y=True,
-        matches="y",  # Match the scale of the left y-axis
+        matches="y", 
     )
     fig.add_hline(y=0, line_dash="dash", line_color="gray", annotation_text="", secondary_y=True)
 
-    # Optionally update x-axis and layout settings
     fig.update_xaxes(title_text="Date")
     fig.update_layout(title_text=f"{autopool.name} {n_days} Days APR and Change Price Return Over Time")
 
