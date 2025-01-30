@@ -81,9 +81,6 @@ def should_update_table(table_name: str, max_latency: pd.Timedelta = SHOULD_UPDA
     current_time = datetime.now(timezone.utc)
     last_updated = get_timestamp_table_was_last_updated(table_name)
 
-    if max_latency is None:
-        max_latency = SHOULD_UPDATE_DATABASE_MAX_LATENCY
-
     if last_updated is None:
         return True
 
