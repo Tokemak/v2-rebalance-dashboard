@@ -133,6 +133,7 @@ def _fetch_destination_details_from_external_source(
     else:
         all_destination_details = []
 
+    def _add_to_all_destination_details(row):
         for on_chain_autopool_data, list_of_destinations in zip(
             row["getPoolsAndDestinations"]["autopools"], row["getPoolsAndDestinations"]["destinations"]
         ):

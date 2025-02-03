@@ -1,5 +1,6 @@
 import plotly.express as px
 import plotly.graph_objects as go
+import numpy as np
 import pandas as pd
 import streamlit as st
 from plotly.subplots import make_subplots
@@ -77,6 +78,11 @@ def build_CR_out_vs_gross_and_net_performance_df(autopool: AutopoolConstants, n_
         gross_net_and_projected_returns_df[f"adjusted_{n_days}_days_annualized_apr"]
         + gross_net_and_projected_returns_df["annualized_change_in_price_return"]
     )
+    # drop days were the CR is 0 (this is because the getDestinationSummaryStats call failed)
+    gross_net_and_projected_returns_df["autopool_price_return"] = gross_net_and_projected_returns_df[
+        f"{autopool.name} CR"
+    ].replace(0, np.nan)
+
     gross_net_and_projected_returns_df = gross_net_and_projected_returns_df.dropna()
 
     return gross_net_and_projected_returns_df
@@ -129,17 +135,30 @@ def _create_autopool_cr_gross_and_net_and_price_price_return_figure(
     fig.update_xaxes(title_text="Date")
     fig.update_layout(title_text=f"{autopool.name} {n_days} Days APR and Change Price Return Over Time")
 
-    scatter_plot = _make_cr_out_vs_gross_plus_price_return_scatter_plot(df, n_days)
+    cr_vs_gross_and_price_return_adjusted = _make_cr_out_vs_gross_plus_price_return_scatter_plot(
+        df,
+        n_days,
+        x_col=f"avg_cr_out_prior_{n_days}_days",
+        y_col="Gross + Price Return",
+        title="CR vs Gross + Price Return",
+    )
+    cr_vs_net_scatter = _make_cr_out_vs_gross_plus_price_return_scatter_plot(
+        df,
+        n_days,
+        x_col=f"avg_cr_out_prior_{n_days}_days",
+        y_col=f"actual_{n_days}_days_annualized_apr",
+        title="CR vs Net Return",
+    )
 
-    return fig, scatter_plot
+    return fig, cr_vs_gross_and_price_return_adjusted, cr_vs_net_scatter
 
 
-def _make_cr_out_vs_gross_plus_price_return_scatter_plot(df, n_days):
+def _make_cr_out_vs_gross_plus_price_return_scatter_plot(df, n_days, x_col, y_col, title):
     scatter_plot = px.scatter(
         df,
-        x=f"avg_cr_out_prior_{n_days}_days",
-        y="Gross + Price Return",
-        title="All time CR out : Gross + Annualized Price Return",
+        x=x_col,
+        y=y_col,
+        title=title,
         hover_data={"index": df.index},
     )
 
@@ -180,16 +199,18 @@ def fetch_and_render_actual_and_gross_and_projected_returns(autopool: AutopoolCo
 
     for n_days in [30, 7]:
         n_days_apr_df = build_CR_out_vs_gross_and_net_performance_df(autopool, n_days)
-        n_days_apr_fig, scatter_plot = _create_autopool_cr_gross_and_net_and_price_price_return_figure(
-            autopool, n_days_apr_df, n_days
+        apr_fig, cr_vs_gross_and_price_return_adjusted, cr_vs_net_scatter = (
+            _create_autopool_cr_gross_and_net_and_price_price_return_figure(autopool, n_days_apr_df, n_days)
         )
 
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.plotly_chart(n_days_apr_fig, use_container_width=True)
+            st.plotly_chart(apr_fig, use_container_width=True)
         with col2:
-            st.plotly_chart(scatter_plot, use_container_width=True)
+            st.plotly_chart(cr_vs_gross_and_price_return_adjusted, use_container_width=True)
+        with col3:
+            st.plotly_chart(cr_vs_net_scatter, use_container_width=True)
 
     with st.expander("Explanation"):
         st.markdown(
