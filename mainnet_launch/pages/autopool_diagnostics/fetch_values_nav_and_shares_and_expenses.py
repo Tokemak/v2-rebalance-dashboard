@@ -114,11 +114,23 @@ def _fetch_daily_nav_lost_to_rebalances(autopool: AutopoolConstants) -> pd.DataF
         ~(rebalance_df["outDestinationVault"].str.lower() == autopool.autopool_eth_addr.lower())
     ].copy()
 
+    # clip swap cost to 0
     daily_rebalance_from_idle_swap_cost = rebalance_from_idle_df["swapCost"].resample("1D").sum()
     daily_rebalance_from_idle_swap_cost.name = "rebalance_from_idle_swap_cost"
 
     daily_rebalance_not_from_idle_swap_cost = rebalance_not_from_idle_df["swapCost"].resample("1D").sum()
     daily_rebalance_not_from_idle_swap_cost.name = "rebalance_not_idle_swap_cost"
+
+    # daily_rebalance_from_idle_swap_cost = (
+    #     (rebalance_from_idle_df["outEthValue"] - rebalance_from_idle_df["inEthValue"]).resample("1D").sum()
+    # )
+    # daily_rebalance_from_idle_swap_cost.name = "rebalance_from_idle_swap_cost"
+
+    # daily_rebalance_not_from_idle_swap_cost = (
+    #     (rebalance_not_from_idle_df["outEthValue"] - rebalance_not_from_idle_df["inEthValue"]).resample("1D").sum()
+    # )
+    # daily_rebalance_not_from_idle_swap_cost.name = "rebalance_not_idle_swap_cost"
+
     return daily_rebalance_from_idle_swap_cost, daily_rebalance_not_from_idle_swap_cost
 
 
