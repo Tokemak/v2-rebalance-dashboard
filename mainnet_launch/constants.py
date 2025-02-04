@@ -166,7 +166,7 @@ TEST_LOG_FILE_NAME = "test_pages.log"
 
 
 AUTO_ETH: AutopoolConstants = AutopoolConstants(
-    name="autoETH",  #  "Tokemak autoETH",
+    name="autoETH",
     autopool_eth_addr="0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56",
     autopool_eth_strategy_addr="0xf5f6addB08c5e6091e5FdEc7326B21bEEd942235",
     solver_rebalance_plans_bucket=os.environ["AUTO_ETH_BUCKET"],
@@ -175,7 +175,7 @@ AUTO_ETH: AutopoolConstants = AutopoolConstants(
 )
 
 BAL_ETH: AutopoolConstants = AutopoolConstants(
-    name="balETH",  #  "Tokemak autoETH",
+    name="balETH",
     autopool_eth_addr="0x6dC3ce9C57b20131347FDc9089D740DAf6eB34c5",
     autopool_eth_strategy_addr="0xabe104560D0B390309bcF20b73Dca335457AA32e",
     solver_rebalance_plans_bucket=os.environ["BAL_ETH_BUCKET"],
@@ -184,7 +184,7 @@ BAL_ETH: AutopoolConstants = AutopoolConstants(
 )
 
 AUTO_LRT: AutopoolConstants = AutopoolConstants(
-    name="autoLRT",  # "Tokemak autoLRT"
+    name="autoLRT",
     autopool_eth_addr="0xE800e3760FC20aA98c5df6A9816147f190455AF3",
     autopool_eth_strategy_addr="0x72a726c10220280049687E58B7b05fb03d579109",
     solver_rebalance_plans_bucket=os.environ["AUTO_LRT_BUCKET"],
@@ -193,7 +193,7 @@ AUTO_LRT: AutopoolConstants = AutopoolConstants(
 )
 
 BASE_ETH: AutopoolConstants = AutopoolConstants(
-    "baseETH",  # "Tokemak baseETH"
+    "baseETH",
     autopool_eth_addr="0xAADf01DD90aE0A6Bb9Eb908294658037096E0404",
     autopool_eth_strategy_addr="0xe72a466d426F735BfeE91Db19dc509735B65b8dc",
     solver_rebalance_plans_bucket=os.environ["BASE_ETH_BUCKET"],
@@ -201,8 +201,17 @@ BASE_ETH: AutopoolConstants = AutopoolConstants(
     base_asset=WETH(BASE_CHAIN),
 )
 
+DINERO_ETH: AutopoolConstants = AutopoolConstants(
+    "dineroETH",
+    autopool_eth_addr="0x35911af1B570E26f668905595dEd133D01CD3E5a",
+    autopool_eth_strategy_addr="0x2Ade538C621A117afc4D485C79b16DD5769bC921 ",
+    solver_rebalance_plans_bucket=os.environ["DINERO_ETH_BUCKET"],
+    chain=ETH_CHAIN,
+    base_asset=WETH(ETH_CHAIN),
+)
+
 
 # dineoETH 0x35911af1b570e26f668905595ded133d01cd3e5a
 
 
-ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH]
+ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]

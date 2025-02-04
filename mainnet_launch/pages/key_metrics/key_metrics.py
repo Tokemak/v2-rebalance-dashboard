@@ -251,11 +251,7 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import (
-        AutopoolConstants,
-        ALL_AUTOPOOLS,
-        AUTO_ETH,
-        BASE_ETH,
-    )
+    from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, AUTO_ETH, BASE_ETH, DINERO_ETH
 
-    fetch_and_render_key_metrics_data(AUTO_LRT)
+    fetch_and_render_key_metrics_data(DINERO_ETH)
+    pass
