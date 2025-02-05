@@ -15,26 +15,79 @@ from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats i
 from mainnet_launch.pages.key_metrics.fetch_nav_per_share import fetch_nav_per_share
 
 
-def build_CR_out_vs_gross_and_net_performance_df(autopool: AutopoolConstants, n_days: int):
+def _build_expected_return_df(autopool: AutopoolConstants, n_days: int) -> pd.DataFrame:
+    """
+    CR out is our at moment prediction of the return of the autopool
+    Change in price return is the dominating factor why this is different
 
+    If CR out was perfectly accurate and annualized change in price return is also accurate
+
+    gross return = CR out - Change in Price Return
+
+    where gross return is the growth in nav per share if there were no rebalance costs and no fees
+
+
+    Therefore the difference between these comes from
+
+
+    gross return + noise = (CR out + noise) - (Change in Price return + noise)
+
+    Sources of noise
+
+    Gross return noise
+    - in accuracy in backing out fees and rebalance costs
+
+    CR out noise
+    - Incentive token price movements also scaling down by .9
+    - Fee apr diff
+    - Points apr
+
+
+    Price return noise
+    - We hold more of an asset when it trades at a discount than we do when it pops back up to peg
+    - Scalng down by .75
+
+
+    """
     compositeReturn_out_df = 100 * fetch_destination_summary_stats(autopool, "compositeReturn")
     pricePerShare_df = 100 * fetch_destination_summary_stats(autopool, "pricePerShare")
     ownedShares_df = 100 * fetch_destination_summary_stats(autopool, "ownedShares")
     allocation_df = pricePerShare_df * ownedShares_df
     portion_allocation_df = allocation_df.div(allocation_df.sum(axis=1), axis=0)
-    autopool_weighted_expected_return = (compositeReturn_out_df * portion_allocation_df).sum(axis=1)
-    compositeReturn_out_df[f"{autopool.name} CR"] = autopool_weighted_expected_return
+    compositeReturn_out_df[f"Composite Return Out"] = (compositeReturn_out_df * portion_allocation_df).sum(axis=1)
 
-    priceReturn_df = 100 * fetch_destination_summary_stats(autopool, "priceReturn")
-    weighted_price_return_df = (priceReturn_df * portion_allocation_df).sum(axis=1)
+    priceReturn_df = fetch_destination_summary_stats(autopool, "priceReturn")
 
-    nav_per_share_df = fetch_nav_per_share(autopool)
+    compositeReturn_out_df["Weighted Price Return"] = 100 * (priceReturn_df * portion_allocation_df).sum(axis=1)
 
-    df = pd.concat(
-        [compositeReturn_out_df.resample("1D").last(), nav_per_share_df[f"{n_days}_day_annualized_return"]], axis=1
+    compositeReturn_out_df = compositeReturn_out_df.resample("1D").last()[
+        [
+            "Weighted Price Return",
+            "Composite Return Out",
+        ]
+    ]
+    compositeReturn_out_df["Annualized Change In Price Return"] = (
+        compositeReturn_out_df["Weighted Price Return"].diff(n_days) * 365 / n_days
     )
 
-    df[f"avg_cr_out_prior_{n_days}_days"] = df[f"{autopool.name} CR"].rolling(n_days).mean()
+    compositeReturn_out_df["Rolling Average Composite Return Out"] = (
+        compositeReturn_out_df["Composite Return Out"].rolling(n_days).mean()
+    )
+
+    # if change in price return is positive then the discount increased. So our assets are worth less than they were before
+    compositeReturn_out_df["Expected Return"] = (
+        compositeReturn_out_df[f"Rolling Average Composite Return Out"]
+        - compositeReturn_out_df["Annualized Change In Price Return"]
+    )
+
+    return compositeReturn_out_df
+
+
+def _build_autopool_gross_and_net_return_df(autopool: AutopoolConstants, n_days: int) -> pd.DataFrame:
+    """
+    Net return: Annualized Return in Nav per share over n days
+    Gross return: Annualized Return in Nav per share over n days if there were no fees or rebalance costs
+    """
 
     nav_per_share_df = fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool)
     adjusted_nav_per_share_df = _compute_adjusted_nav_per_share_n_days(
@@ -47,170 +100,92 @@ def build_CR_out_vs_gross_and_net_performance_df(autopool: AutopoolConstants, n_
         apply_nav_lost_to_depeg=False,
     )
 
-    gross_net_and_projected_returns_df = pd.concat(
-        [
-            df[[f"{autopool.name} CR", f"{n_days}_day_annualized_return", f"avg_cr_out_prior_{n_days}_days"]],
-            adjusted_nav_per_share_df,
-        ],
-        axis=1,
-    )
+    adjusted_nav_per_share_df["Net Return"] = adjusted_nav_per_share_df[f"actual_{n_days}_days_annualized_apr"]
+    adjusted_nav_per_share_df["Gross Return"] = adjusted_nav_per_share_df[f"adjusted_{n_days}_days_annualized_apr"]
 
-    gross_net_and_projected_returns_df["diff_between_rolling_weighted_CR_and_adjusted"] = (
-        gross_net_and_projected_returns_df[f"adjusted_{n_days}_days_annualized_apr"]
-        - gross_net_and_projected_returns_df[f"avg_cr_out_prior_{n_days}_days"]
-    )
-    gross_net_and_projected_returns_df["diff_between_rolling_weighted_CR_and_actual"] = (
-        gross_net_and_projected_returns_df[f"actual_{n_days}_days_annualized_apr"]
-        - gross_net_and_projected_returns_df[f"avg_cr_out_prior_{n_days}_days"]
-    )
-
-    weighted_price_return_df = weighted_price_return_df.resample("1D").last()
-
-    gross_net_and_projected_returns_df["autopool_price_return"] = weighted_price_return_df
-    gross_net_and_projected_returns_df["change_in_price_return"] = gross_net_and_projected_returns_df[
-        "autopool_price_return"
-    ].diff(n_days)
-
-    gross_net_and_projected_returns_df["annualized_change_in_price_return"] = (
-        gross_net_and_projected_returns_df["change_in_price_return"] * 365 / n_days
-    )
-    gross_net_and_projected_returns_df["Gross + Price Return"] = (
-        gross_net_and_projected_returns_df[f"adjusted_{n_days}_days_annualized_apr"]
-        + gross_net_and_projected_returns_df["annualized_change_in_price_return"]
-    )
-    # drop days were the CR is 0 (this is because the getDestinationSummaryStats call failed)
-    gross_net_and_projected_returns_df["autopool_price_return"] = gross_net_and_projected_returns_df[
-        f"{autopool.name} CR"
-    ].replace(0, np.nan)
-
-    gross_net_and_projected_returns_df = gross_net_and_projected_returns_df.dropna()
-
-    return gross_net_and_projected_returns_df
+    return adjusted_nav_per_share_df[["Net Return", "Gross Return"]]
 
 
-def _create_autopool_cr_gross_and_net_and_price_price_return_figure(
-    autopool: AutopoolConstants, df: pd.DataFrame, n_days: int
-):
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
+def _fetch_expected_and_gross_apr_df(autopool: AutopoolConstants, n_days: int) -> pd.DataFrame:
+    gross_and_net_return_df = _build_autopool_gross_and_net_return_df(autopool, n_days)
+    cr_and_price_return_df = _build_expected_return_df(autopool, n_days)
 
-    apr_columns = [
-        f"adjusted_{n_days}_days_annualized_apr",
-        f"actual_{n_days}_days_annualized_apr",
-        f"avg_cr_out_prior_{n_days}_days",
-        "Gross + Price Return",
-    ]
-
-    readable_column_names = [
-        "Gross Return",
-        "Net Return",
-        f"{n_days} Days Rolling Avg Composite Return",
-        "gross + change in price return",
-    ]
-
-    for col, name in zip(apr_columns, readable_column_names):
-        fig.add_trace(go.Scatter(x=df.index, y=df[col], name=name), secondary_y=False)
-
-    fig.add_trace(
-        go.Scatter(
-            x=df.index,
-            y=df["annualized_change_in_price_return"],
-            name=f"Annualized {n_days} day Change in Price Return",
-            mode="lines",
-            line=dict(
-                dash="dash",
-                color="red",
-            ),
-        ),
-        secondary_y=True,
-    )
-
-    fig.update_yaxes(title_text="Gross Net and CR", secondary_y=False)
-    fig.update_yaxes(
-        title_text="Annualized Impact of Percent Change in Price Return",
-        secondary_y=True,
-        matches="y",
-    )
-    fig.add_hline(y=0, line_dash="dash", line_color="gray", annotation_text="", secondary_y=True)
-
-    fig.update_xaxes(title_text="Date")
-    fig.update_layout(title_text=f"{autopool.name} {n_days} Days APR and Change Price Return Over Time")
-
-    cr_vs_gross_and_price_return_adjusted = _make_cr_out_vs_gross_plus_price_return_scatter_plot(
-        df,
-        n_days,
-        x_col=f"avg_cr_out_prior_{n_days}_days",
-        y_col="Gross + Price Return",
-        title="CR vs Gross + Price Return",
-    )
-    cr_vs_net_scatter = _make_cr_out_vs_gross_plus_price_return_scatter_plot(
-        df,
-        n_days,
-        x_col=f"avg_cr_out_prior_{n_days}_days",
-        y_col=f"actual_{n_days}_days_annualized_apr",
-        title="CR vs Net Return",
-    )
-
-    return fig, cr_vs_gross_and_price_return_adjusted, cr_vs_net_scatter
+    apr_df = pd.concat([gross_and_net_return_df, cr_and_price_return_df], axis=1)
+    apr_df["Gross + Price Return"] = apr_df["Gross Return"] + apr_df["Annualized Change In Price Return"]
+    apr_df = apr_df.dropna()
+    return apr_df
 
 
-def _make_cr_out_vs_gross_plus_price_return_scatter_plot(df, n_days, x_col, y_col, title):
-    scatter_plot = px.scatter(
-        df,
+def _make_scatter_plot(apr_df, x_col, y_col, autopool, n_days):
+    scatter_plot_fig = px.scatter(
+        apr_df,
         x=x_col,
         y=y_col,
-        title=title,
-        hover_data={"index": df.index},
+        title=f"{x_col} vs {y_col} {autopool.name} {n_days} days",
+        hover_data={"index": apr_df.index.date},
     )
+    line_max = max(apr_df[y_col].max(), apr_df[y_col].max()) + 3
 
-    line_max = max(df[f"avg_cr_out_prior_{n_days}_days"].max(), df["Gross + Price Return"].max()) + 3
-
-    scatter_plot.add_shape(
+    scatter_plot_fig.add_shape(
         type="line",
         x0=0,
         y0=0,
         x1=line_max,
         y1=line_max,
         line=dict(
-            color="red",
+            color="black",
             dash="dash",
         ),
     )
 
-    scatter_plot.add_annotation(
+    scatter_plot_fig.add_annotation(
         x=0.25 * line_max,
         y=0.5 * line_max,
-        text="Over Performance",
+        text="More than Expected",
         showarrow=False,
         font=dict(color="green", size=12),
     )
 
-    scatter_plot.add_annotation(
+    scatter_plot_fig.add_annotation(
         x=0.75 * line_max,
         y=0.25 * line_max,
-        text="Under Performance",
+        text="Less than Expected",
         showarrow=False,
         font=dict(color="red", size=12),
     )
+    return scatter_plot_fig
 
-    return scatter_plot
+
+def _make_apr_figures(apr_df: pd.DataFrame, autopool: AutopoolConstants, n_days: int):
+
+    apr_line_fig = px.line(
+        apr_df,
+        title=f"{autopool.name} Expected and Acutal Performance Window size {n_days} days",
+    )
+
+    expected_vs_gross_scatter_fig = _make_scatter_plot(apr_df, "Expected Return", "Gross Return", autopool, n_days)
+    avg_cr_vs_gross_plus_price_scatter_fig = _make_scatter_plot(
+        apr_df, "Rolling Average Composite Return Out", "Gross + Price Return", autopool, n_days
+    )
+
+    return apr_line_fig, expected_vs_gross_scatter_fig, avg_cr_vs_gross_plus_price_scatter_fig
 
 
 def fetch_and_render_actual_and_gross_and_projected_returns(autopool: AutopoolConstants):
 
     for n_days in [30, 7]:
-        n_days_apr_df = build_CR_out_vs_gross_and_net_performance_df(autopool, n_days)
-        apr_fig, cr_vs_gross_and_price_return_adjusted, cr_vs_net_scatter = (
-            _create_autopool_cr_gross_and_net_and_price_price_return_figure(autopool, n_days_apr_df, n_days)
+        apr_df = _fetch_expected_and_gross_apr_df(autopool, n_days)
+        apr_line_fig, expected_vs_gross_scatter_fig, avg_cr_vs_gross_plus_price_scatter_fig = _make_apr_figures(
+            apr_df, autopool, n_days
         )
-
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.plotly_chart(apr_fig, use_container_width=True)
+            st.plotly_chart(apr_line_fig, use_container_width=True)
         with col2:
-            st.plotly_chart(cr_vs_gross_and_price_return_adjusted, use_container_width=True)
+            st.plotly_chart(expected_vs_gross_scatter_fig, use_container_width=True)
         with col3:
-            st.plotly_chart(cr_vs_net_scatter, use_container_width=True)
+            st.plotly_chart(avg_cr_vs_gross_plus_price_scatter_fig, use_container_width=True)
 
     with st.expander("Explanation"):
         st.markdown(
