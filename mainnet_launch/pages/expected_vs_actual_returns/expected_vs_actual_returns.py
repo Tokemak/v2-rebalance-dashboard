@@ -164,28 +164,21 @@ def _make_apr_figures(apr_df: pd.DataFrame, autopool: AutopoolConstants, n_days:
     )
 
     expected_vs_gross_scatter_fig = _make_scatter_plot(apr_df, "Expected Return", "Gross Return", autopool, n_days)
-    avg_cr_vs_gross_plus_price_scatter_fig = _make_scatter_plot(
-        apr_df, "Rolling Average Composite Return Out", "Gross + Price Return", autopool, n_days
-    )
 
-    return apr_line_fig, expected_vs_gross_scatter_fig, avg_cr_vs_gross_plus_price_scatter_fig
+    return apr_line_fig, expected_vs_gross_scatter_fig
 
 
 def fetch_and_render_actual_and_gross_and_projected_returns(autopool: AutopoolConstants):
 
     for n_days in [30, 7]:
         apr_df = _fetch_expected_and_gross_apr_df(autopool, n_days)
-        apr_line_fig, expected_vs_gross_scatter_fig, avg_cr_vs_gross_plus_price_scatter_fig = _make_apr_figures(
-            apr_df, autopool, n_days
-        )
+        apr_line_fig, expected_vs_gross_scatter_fig = _make_apr_figures(apr_df, autopool, n_days)
         col1, col2, col3 = st.columns(3)
 
         with col1:
             st.plotly_chart(apr_line_fig, use_container_width=True)
         with col2:
             st.plotly_chart(expected_vs_gross_scatter_fig, use_container_width=True)
-        with col3:
-            st.plotly_chart(avg_cr_vs_gross_plus_price_scatter_fig, use_container_width=True)
 
     with st.expander("Explanation"):
         st.markdown(
