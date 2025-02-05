@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 import psutil
 import os
+import datetime
 
 
 from mainnet_launch.constants import AutopoolConstants, AUTO_LRT, PRODUCTION_LOG_FILE_NAME
@@ -15,6 +16,7 @@ from mainnet_launch.destinations import get_destination_details
 
 def fetch_key_metrics_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use(autopool.chain)
+
     nav_per_share_df = fetch_nav_per_share(autopool)
 
     compositeReturn_out_df = fetch_destination_summary_stats(autopool, "compositeReturn")
@@ -28,6 +30,21 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     baseApr_df = fetch_destination_summary_stats(autopool, "baseApr")
     feeApr_df = fetch_destination_summary_stats(autopool, "feeApr")
     incentiveApr_df = fetch_destination_summary_stats(autopool, "incentiveApr")
+
+    # exclude the current day so to not compute the APR of half days
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    first_minute_of_current_day = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    for df in [
+        nav_per_share_df,
+        compositeReturn_out_df,
+        priceReturn_df,
+        pricePerShare_df,
+        ownedShares_df,
+        allocation_df,
+    ]:
+        df = df[df.index < first_minute_of_current_day].copy()
+
     portion_df = allocation_df.div(total_nav_series, axis=0)
 
     uwcr_df = 100 * (baseApr_df + feeApr_df + incentiveApr_df)
@@ -223,13 +240,17 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
         - Expected Annualized Return: Projected percent annual return based on current allocations of the Autopool.
         """
         )
-    highest_block_used = key_metric_data["blocks"][-1]
-    highest_timestamp = allocation_df.index[-1]
-    st.text(f"Highest block and time used {highest_timestamp=} {highest_block_used=} {autopool.chain.name=}")
-
+    highest_block_used = max(key_metric_data["blocks"])
+    highest_timestamp = allocation_df.index.max()
+    st.markdown(
+        f"""
+        **Highest Block Used**: `{highest_block_used}`  
+        **Timestamp**: `{highest_timestamp}`  
+        **Chain**: `{autopool.chain.name}`
+        """
+    )
     st.markdown("---")  # Add a horizontal line for separation
 
-    # Section for Log File Download
     st.header("Download Logs")
 
     if os.path.exists(PRODUCTION_LOG_FILE_NAME):
@@ -253,5 +274,5 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
 if __name__ == "__main__":
     from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, AUTO_ETH, BASE_ETH, DINERO_ETH
 
-    fetch_and_render_key_metrics_data(DINERO_ETH)
+    fetch_and_render_key_metrics_data(AUTO_ETH)
     pass
