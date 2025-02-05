@@ -10,6 +10,9 @@ from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit
 from mainnet_launch.constants import ALL_AUTOPOOLS, TEST_LOG_FILE_NAME, AutopoolConstants
 from mainnet_launch.pages.page_functions import CONTENT_FUNCTIONS, PAGES_WITHOUT_AUTOPOOL
 
+from mainnet_launch.data_fetching.add_info_to_dataframes import initialize_tx_hash_to_gas_info_db
+from mainnet_launch.database.should_update_database import ensure_table_to_last_updated_exists, DB_FILE
+
 # run this with `$poetry run test-pages`
 
 config_plotly_and_streamlit()
@@ -78,6 +81,9 @@ def log_and_time_function(page_name, func, autopool: AutopoolConstants):
 
 
 def main():
+
+    ensure_table_to_last_updated_exists()
+    initialize_tx_hash_to_gas_info_db()
     open_log_in_vscode(TEST_LOG_FILE_NAME)
 
     autopools_to_check = ALL_AUTOPOOLS  # [BASE_ETH, AUTO_LRT]

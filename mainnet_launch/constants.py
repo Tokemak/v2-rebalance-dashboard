@@ -14,6 +14,10 @@ eth_client = Web3(Web3.HTTPProvider(os.environ["ALCHEMY_URL"]))
 base_client = Web3(Web3.HTTPProvider(os.environ["ALCHEMY_URL"].replace("eth-mainnet", "base-mainnet")))
 base_client.middleware_onion.inject(geth_poa_middleware, layer=0)
 
+# make sure the chain ids are loaded as properties
+eth_client.eth.chain_id
+base_client.eth.chain_id
+
 
 WEB3_CLIENTS: dict[str, Web3] = {
     "eth": eth_client,
@@ -204,14 +208,11 @@ BASE_ETH: AutopoolConstants = AutopoolConstants(
 DINERO_ETH: AutopoolConstants = AutopoolConstants(
     "dineroETH",
     autopool_eth_addr="0x35911af1B570E26f668905595dEd133D01CD3E5a",
-    autopool_eth_strategy_addr="0x2Ade538C621A117afc4D485C79b16DD5769bC921 ",
+    autopool_eth_strategy_addr="0x2Ade538C621A117afc4D485C79b16DD5769bC921",
     solver_rebalance_plans_bucket=os.environ["DINERO_ETH_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
 )
-
-
-# dineoETH 0x35911af1b570e26f668905595ded133d01cd3e5a
 
 
 ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]

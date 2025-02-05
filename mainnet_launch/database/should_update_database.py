@@ -77,7 +77,23 @@ def write_timestamp_table_was_last_updated(table_name: str, cursor) -> None:
         raise e
 
 
+def does_table_exist(table_name: str) -> bool:
+    # duplicate to avoid circular imports
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        )
+        table_exists = cursor.fetchone() is not None
+        return table_exists
+
+
 def should_update_table(table_name: str, max_latency: pd.Timedelta = SHOULD_UPDATE_DATABASE_MAX_LATENCY) -> bool:
+    if not does_table_exist(table_name):
+        return True
+
     current_time = datetime.now(timezone.utc)
     last_updated = get_timestamp_table_was_last_updated(table_name)
 
