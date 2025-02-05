@@ -28,6 +28,7 @@ from mainnet_launch.abis import STATS_CALCULATOR_REGISTRY_ABI
 
 from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import (
     ASSET_BACKING_AND_PRICES,
+    add_new_asset_oracle_and_discount_price_rows_to_table,
     get_all_rows_in_table_by_chain,
     _extract_backing_price_and_percent_discount_dfs,
 )
@@ -45,6 +46,7 @@ from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     get_earliest_block_from_table_with_autopool,
     run_read_only_query,
+    does_table_exist,
 )
 
 AUTOPOOL_ASSET_ALLOCATION_TABLE = "AUTOPOOL_ASSET_ALLOCATION_TABLE"
@@ -185,6 +187,7 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
     wide_asset_df = assets_df.pivot(index="block", columns="symbol", values="quantity").reset_index()
     wide_asset_df = add_timestamp_to_df_with_block_column(wide_asset_df, autopool.chain).drop(columns=["block"])
 
+    add_new_asset_oracle_and_discount_price_rows_to_table()  # make sure that we have asset prices
     long_asset_oracle_and_backing_df = get_all_rows_in_table_by_chain(ASSET_BACKING_AND_PRICES, autopool.chain)
 
     wide_backing_df, wide_oracle_price_df, wide_percent_discount_df = _extract_backing_price_and_percent_discount_dfs(
@@ -211,3 +214,4 @@ if __name__ == "__main__":
     from mainnet_launch.database.database_operations import drop_table
 
     fetch_and_render_asset_allocation_over_time(ALL_AUTOPOOLS[-1])
+    pass

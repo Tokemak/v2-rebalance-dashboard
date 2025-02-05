@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import streamlit as st
 
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, BASE_ETH, DINERO_ETH
 from mainnet_launch.pages.rebalance_events.rebalance_events import (
     fetch_rebalance_events_df,
 )
@@ -76,6 +76,7 @@ def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
+    fetch_and_render_turnover_data(BASE_ETH)
 
-    for a in ALL_AUTOPOOLS:
-        fetch_and_render_turnover_data(a)
+    # for a in ALL_AUTOPOOLS:
+    #     fetch_and_render_turnover_data(a)

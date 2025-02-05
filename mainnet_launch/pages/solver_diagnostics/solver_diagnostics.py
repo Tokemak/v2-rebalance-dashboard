@@ -28,15 +28,18 @@ from botocore.client import Config
 
 
 def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
-    figs = fetch_solver_diagnostics_data(autopool)
-    _render_solver_diagnostics(autopool, figs)
+    figs = fetch_and_render_solver_diagnostics_data(autopool)
     fetch_and_render_solver_profit_data(autopool)
     fetch_and_render_bps_lost_to_rebalances(autopool)
 
 
-def fetch_solver_diagnostics_data(autopool: AutopoolConstants):
+def fetch_and_render_solver_diagnostics_data(autopool: AutopoolConstants):
     ensure_all_rebalance_plans_are_loaded_from_s3_bucket()
     solver_df = _load_solver_df(autopool)
+    if solver_df is None:
+        st.text(f"{autopool.name} has no rebalance plans on s3 bucket")
+        return
+
     proposed_rebalances_df = solver_df[solver_df["sodOnly"] == False].copy()
     proposed_rebalances_df.set_index("date", inplace=True)
 
@@ -56,7 +59,7 @@ def fetch_solver_diagnostics_data(autopool: AutopoolConstants):
 
     size_of_candidate_set = _add_add_rank_count(solver_df)
 
-    return [
+    figs = [
         proposed_vs_actual_rebalance_scatter_plot_fig,
         bar_chart_count_proposed_vs_actual_rebalances_fig,
         plan_count_fig,
@@ -64,9 +67,6 @@ def fetch_solver_diagnostics_data(autopool: AutopoolConstants):
         dex_win_fig,
         size_of_candidate_set,
     ]
-
-
-def _render_solver_diagnostics(autopool: AutopoolConstants, figs):
     st.header(f"{autopool.name} Solver Diagnostics")
     for fig in figs:
         st.plotly_chart(fig, use_container_width=True)
@@ -76,21 +76,28 @@ def ensure_all_rebalance_plans_are_loaded_from_s3_bucket():
     s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
     for autopool in ALL_AUTOPOOLS:
         response = s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket)
-        all_rebalance_plans = [o["Key"] for o in response["Contents"]]
-        local_rebalance_plans = [str(path).split("/")[-1] for path in SOLVER_REBALANCE_PLANS_DIR.glob("*.json")]
-        rebalance_plans_to_fetch = [
-            json_path for json_path in all_rebalance_plans if json_path not in local_rebalance_plans
-        ]
-        for json_key in rebalance_plans_to_fetch:
-            s3_client.download_file(
-                autopool.solver_rebalance_plans_bucket, json_key, SOLVER_REBALANCE_PLANS_DIR / json_key
-            )
+        solver_plans_names_on_remote = response.get("Contents")
+        if solver_plans_names_on_remote is not None:
+            all_rebalance_plans = [o["Key"] for o in solver_plans_names_on_remote]
+            local_rebalance_plans = [str(path).split("/")[-1] for path in SOLVER_REBALANCE_PLANS_DIR.glob("*.json")]
+            rebalance_plans_to_fetch = [
+                json_path for json_path in all_rebalance_plans if json_path not in local_rebalance_plans
+            ]
+            for json_key in rebalance_plans_to_fetch:
+                s3_client.download_file(
+                    autopool.solver_rebalance_plans_bucket, json_key, SOLVER_REBALANCE_PLANS_DIR / json_key
+                )
 
 
 # can be slow, requires loading a few thousand jsons.
 @st.cache_data(ttl=STREAMLIT_IN_MEMORY_CACHE_TIME)
 def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
+    # not setup for if there are no rebalance plans
     autopool_plans = [p for p in SOLVER_REBALANCE_PLANS_DIR.glob("*.json") if autopool.autopool_eth_addr in str(p)]
+
+    if len(autopool_plans) == 0:
+        return None
+
     destination_details = get_destination_details(autopool)
     destination_vault_address_to_symbol = {dest.vaultAddress: dest.vault_name for dest in destination_details}
     all_data = []
@@ -267,4 +274,6 @@ def _add_add_rank_count(solver_df):
 
 if __name__ == "__main__":
     # streamlit run mainnet_launch/pages/solver_diagnostics/solver_diagnostics.py
-    fetch_and_render_solver_diagnositics_data(AUTO_ETH)
+    from mainnet_launch.constants import DINERO_ETH
+
+    fetch_and_render_solver_diagnositics_data(DINERO_ETH)

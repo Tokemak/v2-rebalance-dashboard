@@ -170,12 +170,14 @@ def _combine_migrated_destinations(
 
         name_to_summary_records = {}
         for dest in destination_details:
-            if dest.vaultAddress in [*row["current_destinations"], autopool.autopool_eth_addr]:
-                summary_stats_data = row[dest.vaultAddress]
-                if summary_stats_data is not None:
-                    # overwrite the ownShares so that it counts the shares in deprecated destinations
-                    summary_stats_data["ownedShares"] = ownedShares_record[dest.vault_name]
-                name_to_summary_records[dest.vault_name] = summary_stats_data
+            # this the case when calling before an autopool exists
+            if row["current_destinations"] is not None:
+                if dest.vaultAddress in [*row["current_destinations"], autopool.autopool_eth_addr]:
+                    summary_stats_data = row[dest.vaultAddress]
+                    if summary_stats_data is not None:
+                        # overwrite the ownShares so that it counts the shares in deprecated destinations
+                        summary_stats_data["ownedShares"] = ownedShares_record[dest.vault_name]
+                    name_to_summary_records[dest.vault_name] = summary_stats_data
         return name_to_summary_records
 
     merged_destination_df = pd.DataFrame.from_records(summary_stats_df.apply(_combine_to_destination_name, axis=1))
@@ -315,4 +317,9 @@ def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_f
 
 
 if __name__ == "__main__":
-    summary_stats_df = fetch_destination_summary_stats(AUTO_LRT, "baseApr")
+    from mainnet_launch.constants import DINERO_ETH
+
+    summary_stats_df = _fetch_destination_summary_stats_from_external_source(
+        DINERO_ETH, build_blocks_to_use(DINERO_ETH.chain, DINERO_ETH.chain.block_autopool_first_deployed)
+    )
+    pass

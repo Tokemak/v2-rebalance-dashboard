@@ -1,4 +1,4 @@
-from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError
+from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError, ConnectionError
 
 import pandas as pd
 import web3
@@ -63,7 +63,7 @@ def _recursive_helper_get_all_events_within_range(
         _flatten_events(just_found_events)
         found_events.extend(just_found_events)
 
-    except (TimeoutError, ValueError, ReadTimeout, HTTPError, ChunkedEncodingError) as e:
+    except (TimeoutError, ValueError, ReadTimeout, HTTPError, ChunkedEncodingError, ConnectionError) as e:
         if isinstance(e, ValueError) and e.args[0].get("code") != -32602:
             # Re-raise non "Log response size exceeded" errors
             raise e
@@ -107,7 +107,6 @@ def fetch_events(
     """
     Collect every `event` between start_block and end_block into a DataFrame.
     """
-
     if event.web3.eth.chain_id == BASE_CHAIN.chain_id:
         chain = BASE_CHAIN
     elif event.web3.eth.chain_id == ETH_CHAIN.chain_id:

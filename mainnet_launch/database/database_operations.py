@@ -6,6 +6,7 @@ import pandas as pd
 from mainnet_launch.constants import DB_FILE, AutopoolConstants, ChainData
 from mainnet_launch.database.should_update_database import (
     write_timestamp_table_was_last_updated,
+    TABLE_NAME_TO_LAST_UPDATED,
 )
 
 # TODO, make the timestamps cleaner by not handling them after reading the db but instead here.
@@ -292,6 +293,10 @@ def drop_table(table_name: str) -> None:
         with sqlite3.connect(DB_FILE) as conn:
             drop_query = f"DROP TABLE IF EXISTS {table_name}"
             conn.execute(drop_query)
+
+            # Remove the corresponding entry from TABLE_NAME_TO_LAST_UPDATED
+            delete_query = f"DELETE FROM {TABLE_NAME_TO_LAST_UPDATED} WHERE table_name = ?"
+            conn.execute(delete_query, (table_name,))
             print(f"Table '{table_name}' dropped successfully.")
     except sqlite3.Error as e:
         print(f"Database error while dropping table '{table_name}': {e}")
