@@ -2,7 +2,6 @@ import os
 import pandas as pd
 from dotenv import load_dotenv
 
-# Load environment variables from the .env file
 load_dotenv()
 
 STREAMLIT_IN_MEMORY_CACHE_TIME = int(os.environ["STREAMLIT_IN_MEMORY_CACHE_TIME"])
