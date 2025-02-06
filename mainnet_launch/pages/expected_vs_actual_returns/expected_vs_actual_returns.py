@@ -125,11 +125,12 @@ def _make_scatter_plot(apr_df, x_col, y_col, autopool, n_days):
         hover_data={"index": apr_df.index.date},
     )
     line_max = max(apr_df[y_col].max(), apr_df[y_col].max()) + 3
+    line_min = max(apr_df[y_col].min(), apr_df[y_col].min()) - 3
 
     scatter_plot_fig.add_shape(
         type="line",
-        x0=0,
-        y0=0,
+        x0=line_min,
+        y0=line_min,
         x1=line_max,
         y1=line_max,
         line=dict(
@@ -140,7 +141,7 @@ def _make_scatter_plot(apr_df, x_col, y_col, autopool, n_days):
 
     scatter_plot_fig.add_annotation(
         x=0.25 * line_max,
-        y=0.5 * line_max,
+        y=0.75 * line_max,
         text="More than Expected",
         showarrow=False,
         font=dict(color="green", size=12),
@@ -159,7 +160,15 @@ def _make_scatter_plot(apr_df, x_col, y_col, autopool, n_days):
 def _make_apr_figures(apr_df: pd.DataFrame, autopool: AutopoolConstants, n_days: int):
 
     apr_line_fig = px.line(
-        apr_df,
+        apr_df[
+            [
+                "Expected Return",
+                "Annualized Change In Price Return",
+                "Gross Return",
+                "Gross + Price Return",
+                "Rolling Average Composite Return Out",
+            ]
+        ],
         title=f"{autopool.name} Expected and Acutal Performance Window size {n_days} days",
     )
 
@@ -173,7 +182,7 @@ def fetch_and_render_actual_and_gross_and_projected_returns(autopool: AutopoolCo
     for n_days in [30, 7]:
         apr_df = _fetch_expected_and_gross_apr_df(autopool, n_days)
         apr_line_fig, expected_vs_gross_scatter_fig = _make_apr_figures(apr_df, autopool, n_days)
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
 
         with col1:
             st.plotly_chart(apr_line_fig, use_container_width=True)
@@ -183,36 +192,36 @@ def fetch_and_render_actual_and_gross_and_projected_returns(autopool: AutopoolCo
     with st.expander("Explanation"):
         st.markdown(
             """
-        This is a measure of how well the Autopool Composite Return predicts the actual return.
+                ## Key Metrics Explained
 
-        **Net Return:** 
-        - The *actual* annualized growth in NAV per share.
+                ### Gross Return
+ 
+                - The *hypothetical* `n-day` annualized growth in NAV per share, calculated by removing Tokemak fees and rebalance costs.
 
-        **Gross Return:**
-        - The *hypothetical* annualized growth in NAV per share, assuming:
-            - There were no Tokemak fees, and
-            - No NAV was lost to rebalances.
+                
+                ### Annualized Change in Price Return
+                - The annualized change in the autopool weighted Price Return over an `n-day` period.
 
-        **N-day Rolling Average Composite Return:**
-        - The weighted average of the Composite Return of the Autopool for the previous N days.
-        - The weights are the percent of NAV in that destination, and the values are the Composite Return out of that destination.
-        - This tries to give a near 1:1 comparison with Composite Return Out, because Composite Return does not factor in the costs to enter a destination.
+                > Annualized Change in Price Return = (Change in Weighted Price Return over n days) x (365 / n)
 
-        **Change in Price Return:**
-        - This compares the total Price Return of the autopool N days ago with the current Price Return.
+                - **Interpretation:**  
+                - A **positive** value indicates that the Price Return has increased (e.g., an increase in LST discounts causing assets to be valued lower).
+                - A **negative** value indicates a decrease in the Price Return (e.g., a decrease in LST discount causing asset values to increase).
 
-        Change in Price Return = Current Autopool Price Return - Price Return N days ago
+                - This change can significantly affect top line APR. This is more exagerated than with a shorter n-day period.
 
-        - A positive value means the total Price Return of the autopool increased in the last N days.
-            - e.g., the LST discount increased, making our assets decrease in value.
-        - A negative value means the total Price Return of the autopool decreased in the last N days.
-            - e.g., the LST discount decreased, making our assets increase in value.
+                ### Expected Return
+                - Calculated as the difference between the `n-day` Rolling Average Composite Return Out and the Annualized Change in Price Return.
 
-        When the Price Return moves in our favor, it makes the APR look better.
-        When the Price Return moves against us, it makes the APR look worse.
-        
-        This is more exaggerated the shorter the window used to annualize. 
-        """
+                > Expected Return = Rolling Average Composite Return Out - Annualized Change in Price Return
+
+                - The is what the autopool APR *should* be if the `n-day` Rolling Average Composite Return Out was perfectly accurate and the change in price return fully captured the change in asset value.
+
+                The Solver makes rebalance decisions to exit a destination based on Composite Return Out. 
+
+                The price return of a destination is a relativly small factor of price return. It is not scaled at all. 
+
+                """
         )
 
 
