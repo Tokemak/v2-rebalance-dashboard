@@ -41,14 +41,14 @@ from mainnet_launch.database.database_operations import (
     get_all_rows_in_table_by_autopool,
 )
 from mainnet_launch.database.should_update_database import should_update_table
-from mainnet_launch.pages.rebalance_events.rebalance_plots import make_rebalance_events_plots
+
 
 REBALANCE_EVENTS_TABLE = "REBALANCE_EVENTS_TABLE"
 
 
 def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
     rebalance_df = fetch_rebalance_events_df(autopool)
-    rebalance_figures = make_rebalance_events_plots(rebalance_df)
+    rebalance_figures = _make_rebalance_events_plots(rebalance_df)
     st.header(f"{autopool.name} Rebalance Events")
 
     for figure in rebalance_figures:
@@ -285,6 +285,39 @@ def _build_value_held_by_solver(
     return eth_value_held_by_flash_solver_df
 
 
+def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
+    destinations = get_destination_details(autopool)
+
+    vaultAddresses = list(set([d.vaultAddress for d in destinations]))
+    dfs = []
+
+    for vault_address in vaultAddresses:
+        contract = autopool.chain.client.eth.contract(
+            Web3.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
+        )
+        df = fetch_events(contract.events.UnderlyingDeposited, start_block=start_block)
+        df["contract_address"] = contract.address
+        dfs.append(df)
+
+    UnderlyingDeposited_df = pd.concat(dfs, axis=0)
+    return UnderlyingDeposited_df
+
+
+def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
+    destinations = get_destination_details(autopool)
+    vaultAddresses = list(set([d.vaultAddress for d in destinations]))
+    dfs = []
+
+    for vault_address in vaultAddresses:
+        contract = autopool.chain.client.eth.contract(
+            Web3.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
+        )
+        df = fetch_events(contract.events.UnderlyingWithdraw, start_block=start_block)
+        df["contract_address"] = contract.address
+        dfs.append(df)
+
+    UnderlyingWithdraw_df = pd.concat(dfs, axis=0)
+    return UnderlyingWithdraw_df
 
 
 def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
@@ -384,8 +417,8 @@ def fetch_rebalance_events_and_actual_weth_and_lp_tokens_moved(
     weth_to_autopool, weth_from_autopool = _fetch_weth_transfers_to_or_from_autopool_vault(
         autopool, start_block=start_block
     )
-    # UnderlyingDeposited_df = _fetch_destination_UnderlyingDeposited(autopool, start_block=start_block)
-    # UnderlyingWithdraw_df = _fetch_destination_UnderlyingWithdraw(autopool, start_block=start_block)
+    UnderlyingDeposited_df = _fetch_destination_UnderlyingDeposited(autopool, start_block=start_block)
+    UnderlyingWithdraw_df = _fetch_destination_UnderlyingWithdraw(autopool, start_block=start_block)
 
     valid_weth_from_autopool = weth_from_autopool[~weth_from_autopool["hash"].duplicated(keep=False)].copy()
     valid_weth_from_autopool["weth_from_autopool"] = valid_weth_from_autopool["value"] / 1e18
@@ -438,7 +471,7 @@ def _add_spot_value_of_rebalance_events(rebalance_df: pd.DataFrame, autopool: Au
     rebalance_df[["out_price", "out_amount", "in_price", "in_amount"]] = rebalance_df.apply(
         lambda row: _compute_value_out_of_autopool(row), axis=1, result_type="expand"
     )
-    pass
+
     rebalance_df["spot_value_out"] = rebalance_df["out_price"] * rebalance_df["out_amount"]
     rebalance_df["spot_value_in"] = rebalance_df["in_price"] * rebalance_df["in_amount"]
     rebalance_df["swap_cost"] = rebalance_df["spot_value_out"] - rebalance_df["spot_value_in"]
@@ -471,66 +504,102 @@ def _fetch_weth_transfers_to_or_from_autopool_vault(autopool: AutopoolConstants,
     return weth_to_autopool, weth_from_autopool
 
 
-def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
-    destinations = get_destination_details(autopool)
+# plots
 
-    vaultAddresses = list(set([d.vaultAddress for d in destinations]))
-    dfs = []
 
-    for vault_address in vaultAddresses:
-        contract = autopool.chain.client.eth.contract(
-            Web3.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
+def _make_rebalance_events_plots(clean_rebalance_df):
+    figures = []
+    figures.append(_add_composite_return_figures(clean_rebalance_df))
+    figures.append(_add_in_out_eth_value(clean_rebalance_df))
+    figures.append(_add_predicted_gain_and_swap_cost(clean_rebalance_df))
+    figures.append(_add_swap_cost_percent(clean_rebalance_df))
+    figures.append(_add_break_even_days_and_offset_period(clean_rebalance_df))
+    return figures
+
+
+def _add_composite_return_figures(clean_rebalance_df: pd.DataFrame) -> go.Figure:
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["out_compositeReturn"], name="Out Composite Return")
+    )
+    fig.add_trace(
+        go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["in_compositeReturn"], name="In Composite Return")
+    )
+    fig.update_yaxes(title_text="Return (%)")
+    fig.update_layout(
+        title="Composite Returns",
+        bargap=0.0,
+        bargroupgap=0.01,
+    )
+    return fig
+
+
+def _add_in_out_eth_value(clean_rebalance_df: pd.DataFrame) -> go.Figure:
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["outEthValue"], name="Out ETH Value"))
+    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["inEthValue"], name="In ETH Value"))
+    fig.update_yaxes(title_text="ETH")
+    fig.update_layout(
+        title="In/Out ETH Values",
+        bargap=0.0,
+        bargroupgap=0.01,
+    )
+    return fig
+
+
+def _add_predicted_gain_and_swap_cost(clean_rebalance_df: pd.DataFrame) -> go.Figure:
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            x=clean_rebalance_df.index,
+            y=clean_rebalance_df["predicted_gain_during_swap_cost_off_set_period"],
+            name="Predicted Gain",
         )
-        df = fetch_events(contract.events.UnderlyingDeposited, start_block=start_block)
-        df["contract_address"] = contract.address
-        dfs.append(df)
-
-    UnderlyingDeposited_df = pd.concat(dfs, axis=0)
-    return UnderlyingDeposited_df
-
-def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
-    destinations = get_destination_details(autopool)
-
-    vaultAddresses = list(set([d.vaultAddress for d in destinations]))
-    dfs = []
-
-    for vault_address in vaultAddresses:
-        contract = autopool.chain.client.eth.contract(
-            Web3.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
-        )
-        df = fetch_events(contract.events.UnderlyingDeposited, start_block=start_block)
-        df["contract_address"] = contract.address
-        dfs.append(df)
-
-    UnderlyingDeposited_df = pd.concat(dfs, axis=0)
-    return UnderlyingDeposited_df
+    )
+    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["swapCost"], name="Swap Cost"))
+    fig.update_yaxes(title_text="ETH")
+    fig.update_layout(title="Swap Cost and Predicted Gain", bargap=0.0, bargroupgap=0.01)
+    return fig
 
 
+def _add_swap_cost_percent(clean_rebalance_df: pd.DataFrame) -> go.Figure:
+    swap_cost_percentage = clean_rebalance_df["slippage"] * 100
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=swap_cost_percentage, name="Swap Cost Percentage"))
+    fig.update_yaxes(title_text="Swap Cost (%)")
+    fig.update_layout(
+        title="Swap Cost as Percentage of Out ETH Value",
+        bargap=0.0,
+        bargroupgap=0.01,
+    )
+    return fig
 
 
-def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
-    destinations = get_destination_details(autopool)
-    vaultAddresses = list(set([d.vaultAddress for d in destinations]))
-    dfs = []
+def _add_break_even_days_and_offset_period(clean_rebalance_df: pd.DataFrame) -> go.Figure:
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["break_even_days"], name="Break Even Days"))
+    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["offset_period"], name="Offset Period"))
+    fig.update_yaxes(title_text="Days")
+    fig.update_layout(
+        title="Break Even Days and Offset Period",
+        bargap=0.0,
+        bargroupgap=0.01,
+    )
+    return fig
 
-    for vault_address in vaultAddresses:
-        contract = autopool.chain.client.eth.contract(
-            Web3.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
-        )
-        df = fetch_events(contract.events.UnderlyingWithdraw, start_block=start_block)
-        df["contract_address"] = contract.address
-        dfs.append(df)
 
-    UnderlyingWithdraw_df = pd.concat(dfs, axis=0)
-    return UnderlyingWithdraw_df
+def make_expoded_box_plot(df: pd.DataFrame, col: str, resolution: str = "1W"):
+    # assumes df is timestmap index
+    list_df = df.resample(resolution)[col].apply(list).reset_index()
+    exploded_df = list_df.explode(col)
+
+    return px.box(exploded_df, x="timestamp", y=col, title=f"Distribution of {col}")
 
 
 if __name__ == "__main__":
     from mainnet_launch.constants import AUTO_ETH
     from mainnet_launch.database.database_operations import drop_table
 
-    # drop_table(REBALANCE_EVENTS_TABLE)
-    my_hash = '0x54777a26ba321156e651e40b8e18daa5bb60b8844c88b11f87c228c3ca4ebad7'
-    # new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(AUTO_ETH, 20839197 - 2)
+    drop_table(REBALANCE_EVENTS_TABLE)
 
-    lp_token_moves = _fetch_destination_UnderlyingDeposited
+    # new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(AUTO_ETH, 20839197 - 2)
