@@ -17,6 +17,7 @@ from mainnet_launch.database.database_operations import (
     get_earliest_block_from_table_with_chain,
     run_read_only_query,
     get_all_rows_in_table_by_autopool,
+    drop_table
 )
 from mainnet_launch.database.should_update_database import should_update_table
 
@@ -36,6 +37,7 @@ class DestinationDetails:
 
     autopool: AutopoolConstants
     vault_name: str = None
+    incentive_stats: str = None
     # TODO add base asset here
 
     def __str__(self):
@@ -65,6 +67,7 @@ class DestinationDetails:
             "lpTokenName": self.lpTokenName,
             "autopool": self.autopool.name,
             "vault_name": self.vault_name,
+            'incentive_stats': self.incentive_stats
         }
 
     @classmethod
@@ -82,6 +85,7 @@ class DestinationDetails:
             lpTokenName=record["lpTokenName"],
             autopool=autopool,
             vault_name=record["vault_name"],
+            incentive_stats=record["incentive_stats"],
         )
 
 
@@ -113,6 +117,7 @@ def make_idle_destination_details(chain: ChainData) -> list[DestinationDetails]:
                     lpTokenName=None,
                     autopool=autopool,
                     vault_name=None,  # added later with an onchain call
+                    incentive_stats=None,
                 )
             )
 
@@ -151,6 +156,7 @@ def _fetch_destination_details_from_external_source(
                         lpTokenSymbol=destination["lpTokenSymbol"],
                         autopool=autopool_constant,
                         vault_name=None,  # added later with an onchain call
+                        incentive_stats=None
                     )
                     # add any destinations ever created regardless of if they are currently active
                     all_destination_details.append(destination_details)
@@ -170,10 +176,24 @@ def _fetch_destination_details_from_external_source(
     # the names don't change so we only need to get it once at the current highest block
     vault_addresses_to_names = get_state_by_one_block(get_destination_names_calls, block=max(blocks), chain=chain)
 
+    # incentive stats contracts, note these can change over time, might need another option for this
+    get_destination_stats_calls = [
+        Call(
+            vaultAddress,
+            "getStats()(address)",
+            [(Web3.toChecksumAddress(vaultAddress), identity_with_bool_success)],
+        )
+        for vaultAddress in unique_destination_vault_addressses
+    ]
+
+    vault_addresses_to_stats = get_state_by_one_block(get_destination_stats_calls, block=max(blocks), chain=chain)
+
     for dest in all_destination_details:
         symbol = vault_addresses_to_names[Web3.toChecksumAddress(dest.vaultAddress)]
         symbol = symbol.replace("toke-WETH-", "")
         dest.vault_name = f"{symbol} ({dest.exchangeName})"
+        dest.incentive_stats= vault_addresses_to_stats[dest.vaultAddress]
+
 
     destination_details_df = pd.DataFrame.from_records([dest.to_record() for dest in all_destination_details])
 
@@ -191,6 +211,9 @@ def get_destination_details(autopool: AutopoolConstants) -> tuple[DestinationDet
 
 if __name__ == "__main__":
     from mainnet_launch.constants import BASE_CHAIN, ETH_CHAIN, BAL_ETH, AUTO_ETH
+
+    drop_table(DESTINATION_DETAILS_TABLE)
+    drop_table(CHAIN_BLOCK_QUERIED_TABLE)
 
     details1 = get_destination_details(BAL_ETH)
     details2 = get_destination_details(AUTO_ETH)
