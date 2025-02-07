@@ -172,6 +172,12 @@ def identity_function(value):
     return value
 
 
+def to_datetime_with_bool_success(success, timestamp):
+    if success:
+        return pd.to_datetime(timestamp, unit="s", utc=True)
+    return None
+
+
 @st.cache_data(ttl=STREAMLIT_IN_MEMORY_CACHE_TIME)
 def build_blocks_to_use(
     chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 4

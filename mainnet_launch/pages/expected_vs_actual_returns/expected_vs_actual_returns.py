@@ -216,11 +216,6 @@ def fetch_and_render_actual_and_gross_and_projected_returns(autopool: AutopoolCo
                 > Expected Return = Rolling Average Composite Return Out - Annualized Change in Price Return
 
                 - The is what the autopool APR *should* be if the `n-day` Rolling Average Composite Return Out was perfectly accurate and the change in price return fully captured the change in asset value.
-
-                The Solver makes rebalance decisions to exit a destination based on Composite Return Out. 
-
-                The price return of a destination is a relativly small factor of price return. It is not scaled at all. 
-
                 """
         )
 
