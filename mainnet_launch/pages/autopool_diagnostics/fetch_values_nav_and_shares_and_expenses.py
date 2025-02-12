@@ -3,8 +3,6 @@
 import pandas as pd
 from multicall import Call
 
-from mainnet_launch.constants import AutopoolConstants, AUTO_ETH
-
 from mainnet_launch.pages.rebalance_events.rebalance_events import (
     fetch_rebalance_events_df,
 )
