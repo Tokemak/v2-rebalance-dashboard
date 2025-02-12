@@ -42,3 +42,6 @@ with open(ABI_DIR / "swapped_event_destination_debt_reporting.json", "r") as fin
 
 with open(ABI_DIR / "tokemak_stats_calculator_registry_abi.json", "r") as fin:
     STATS_CALCULATOR_REGISTRY_ABI = json.load(fin)
+
+with open(ABI_DIR / "tokemak_liquidation_row_abi.json", "r") as fin:
+    LIQUIDATION_ROW_ABI = json.load(fin)
