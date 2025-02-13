@@ -56,15 +56,19 @@ def add_new_destination_summary_stats_to_table():
             )
             blocks = [b for b in build_blocks_to_use(autopool.chain) if b >= highest_block_already_fetched]
 
-            flat_summary_stats_df = _fetch_destination_summary_stats_from_external_source(autopool, blocks)
+            flat_summary_stats_df = _fetch_destination_summary_stats_from_external_source(
+                autopool, blocks, direction="out"
+            )
             write_dataframe_to_table(flat_summary_stats_df, DESTINATION_SUMMARY_STATS_TABLE)
 
 
 def _fetch_destination_summary_stats_from_external_source(
-    autopool: AutopoolConstants, blocks: list[int]
+    autopool: AutopoolConstants, blocks: list[int], direction: str
 ) -> pd.DataFrame:
     destination_details = get_destination_details(autopool)
-    raw_summary_stats_df = _get_earliest_raw_summary_stats_that_does_not_revert(blocks, destination_details, autopool)
+    raw_summary_stats_df = _get_earliest_raw_summary_stats_that_does_not_revert(
+        blocks, destination_details, autopool, direction
+    )
     summary_stats_df = _combine_migrated_destinations(autopool, raw_summary_stats_df, destination_details)
     # note the blocks here are not exactly accurate, but are approximatly accurate
     # if the getDestinationsummaryStats() call reverts we get the price upto 30 minutes in the past, in 10 minute chunks
@@ -98,7 +102,7 @@ def _flatten_summary_stats_df(summary_stats_df: pd.DataFrame, autopool: Autopool
 
 
 def _get_earliest_raw_summary_stats_that_does_not_revert(
-    blocks: list[int], destination_details: list[DestinationDetails], autopool: AutopoolConstants
+    blocks: list[int], destination_details: list[DestinationDetails], autopool: AutopoolConstants, direction: str
 ) -> pd.DataFrame:
     """
     Returns a DataFrame where the columns are the destination vaultName,
@@ -133,7 +137,7 @@ def _get_earliest_raw_summary_stats_that_does_not_revert(
 
     """
 
-    current_df = _fetch_autopool_destination_df(blocks, destination_details, autopool)
+    current_df = _fetch_autopool_destination_df(blocks, destination_details, autopool, direction)
 
     # in 10 minute chunks look back and use the soonest value that does not revert
     # since getValidatedSpotPrice(lpToken) ocassionally reverts for small windows
@@ -142,7 +146,7 @@ def _get_earliest_raw_summary_stats_that_does_not_revert(
     for num_minutes in [30]:
         # approx
         blocks_in_the_past = [b - (blocks_per_minute * num_minutes) for b in blocks]
-        previous_df = _fetch_autopool_destination_df(blocks_in_the_past, destination_details, autopool)
+        previous_df = _fetch_autopool_destination_df(blocks_in_the_past, destination_details, autopool, direction)
 
         # if current is nan and previous is not nan, use previous, else use current
         replaced_values = np.where(
@@ -186,9 +190,12 @@ def _combine_migrated_destinations(
 
 
 def _fetch_autopool_destination_df(
-    blocks, destination_details: list[DestinationDetails], autopool: AutopoolConstants
+    blocks, destination_details: list[DestinationDetails], autopool: AutopoolConstants, direction: str
 ) -> pd.DataFrame:
-    calls = [_build_summary_stats_call(dest.autopool, dest) for dest in destination_details]
+    calls = [
+        _build_summary_stats_call(autopool=dest.autopool, dest=dest, direction=direction)
+        for dest in destination_details
+    ]
     summary_stats_df = get_raw_state_by_blocks(calls, blocks, autopool.chain, include_block_number=True)
 
     def get_current_destinations_by_block(
