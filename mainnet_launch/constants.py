@@ -215,5 +215,5 @@ DINERO_ETH: AutopoolConstants = AutopoolConstants(
 )
 
 
-# ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
-ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH]
+ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
+# ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH]
