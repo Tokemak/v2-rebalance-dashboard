@@ -1,10 +1,11 @@
-from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError
+from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError, ConnectionError
 
 import pandas as pd
 import web3
 from web3.contract import Contract, ContractEvent
 
-from mainnet_launch.constants import CACHE_TIME, eth_client
+from mainnet_launch.constants import BASE_CHAIN, ETH_CHAIN
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 
 def _flatten_events(just_found_events: list[dict]) -> None:
@@ -49,19 +50,20 @@ def _recursive_helper_get_all_events_within_range(
     """
     Recursively fetch all the `event` events between start_block and end_block.
     Immediately splits the range into smaller chunks on timeout or large response issues.
-
-    TODO: consider usings eth.getLogs API calls like in
-
-    https://web3py.readthedocs.io/en/stable/filters.html
     """
     try:
         # Try fetching events in the given range
-        event_filter = event.createFilter(fromBlock=start_block, toBlock=end_block, argument_filters=argument_filters)
+        try:
+            event_filter = event.createFilter(
+                fromBlock=start_block, toBlock=end_block, argument_filters=argument_filters
+            )
+        except Exception as e:
+            raise e
         just_found_events = event_filter.get_all_entries()
         _flatten_events(just_found_events)
         found_events.extend(just_found_events)
 
-    except (TimeoutError, ValueError, ReadTimeout, HTTPError, ChunkedEncodingError) as e:
+    except (TimeoutError, ValueError, ReadTimeout, HTTPError, ChunkedEncodingError, ConnectionError) as e:
         if isinstance(e, ValueError) and e.args[0].get("code") != -32602:
             # Re-raise non "Log response size exceeded" errors
             raise e
@@ -105,16 +107,29 @@ def fetch_events(
     """
     Collect every `event` between start_block and end_block into a DataFrame.
     """
-    end_block = event.web3.eth.block_number if end_block is None else end_block
-    found_events = []
-    _recursive_helper_get_all_events_within_range(event, start_block, end_block, found_events, argument_filters)
-    event_df = events_to_df(found_events)
+    if event.web3.eth.chain_id == BASE_CHAIN.chain_id:
+        chain = BASE_CHAIN
+    elif event.web3.eth.chain_id == ETH_CHAIN.chain_id:
+        chain = ETH_CHAIN
+    else:
+        raise ValueError(f"{event.web3.eth.chain_id=} not recognized")
+
+    end_block = max(build_blocks_to_use(chain)) if end_block is None else end_block
+
+    if end_block > start_block:
+        found_events = []
+        _recursive_helper_get_all_events_within_range(
+            event, int(start_block), int(end_block), found_events, argument_filters
+        )
+        event_df = events_to_df(found_events)
+    else:
+        event_df = pd.DataFrame()
 
     if len(event_df) == 0:
-        # make sure that the df returned as the expected columns
+        # make sure that the df returned has the expected columns
         event_field_names = [i["name"] for i in event._get_event_abi()["inputs"]]
         event_df = pd.DataFrame(
-            columns=[*event_field_names, str(event), "block", "transaction_index", "log_index", "hash"]
+            columns=[*event_field_names, "event", "block", "transaction_index", "log_index", "hash"]
         )
         pass
 
@@ -122,7 +137,6 @@ def fetch_events(
 
 
 def get_each_event_in_contract(contract: Contract, end_block: int = None) -> dict[str, pd.DataFrame]:
-    end_block = contract.web3.eth.block_number if end_block is None else end_block
     events_dict = dict()
     for event in contract.events:
         # add http fail retries?
