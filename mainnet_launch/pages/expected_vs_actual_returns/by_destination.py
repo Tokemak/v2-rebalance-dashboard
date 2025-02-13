@@ -59,7 +59,7 @@ def _make_destination_tvl_calls(autopool: AutopoolConstants) -> list[Call]:
     return calls
 
 
-def get_daily_destination_incentive_apr_and_tvl(autopool: AutopoolConstants) -> pd.DataFrame:
+def _get_daily_destination_incentive_apr_and_tvl(autopool: AutopoolConstants) -> pd.DataFrame:
     calls = _make_destination_tvl_calls(autopool)
     blocks = build_blocks_to_use(autopool.chain, approx_num_blocks_per_day=1)
 
@@ -80,19 +80,36 @@ def get_daily_destination_incentive_apr_and_tvl(autopool: AutopoolConstants) -> 
     return daily_df
 
 
-# expected income method
 
 
-def fetch_all_vault_liquidated_events_df(autopool:AutopoolConstants) -> pd.DataFrame:
+def _fetch_all_vault_liquidated_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
     lr_contract = autopool.chain.client.eth.contract(LIQUIDATION_ROW(autopool.chain), abi=LIQUIDATION_ROW_ABI)
-    VaultLiquidated_df = add_timestamp_to_df_with_block_column(fetch_events(lr_contract.events.VaultLiquidated,), autopool.chain)
-    VaultLiquidated_df['weth'] = VaultLiquidated_df['amount'] /1e18 # weth received for selling rewardstokens associated with vault
+    VaultLiquidated_df = add_timestamp_to_df_with_block_column(
+        fetch_events(
+            lr_contract.events.VaultLiquidated,
+        ),
+        autopool.chain,
+    )
+    VaultLiquidated_df["weth"] = (
+        VaultLiquidated_df["amount"] / 1e18
+    )  # weth received for selling rewardstokens associated with vault
 
     return VaultLiquidated_df
 
+
+def make_daily_data_df(autopool:AutopoolConstants) -> pd.DataFrame:
+    daily_df = _get_daily_destination_incentive_apr_and_tvl(autopool)
+    VaultLiquidated_df = _fetch_all_vault_liquidated_events_df(autopool)
+    for destination in get_destination_details(autopool):
+        if destination.vaultAddress != autopool.autopool_eth_addr:
+
+            daily_incentive_token_sales = VaultLiquidated_df[VaultLiquidated_df['vault'].str.lower() == destination.vaultAddress.lower()].resample('1d')[['weth']].sum()
+            daily_df[f'{destination.vaultAddress}_daily_incentives_weth'] = daily_incentive_token_sales
+
+    return daily_df
+
+
+
 if __name__ == "__main__":
     from mainnet_launch.pages.solver_diagnostics.solver_diagnostics import _load_solver_df, AUTO_ETH
-
-    daily_df = get_daily_destination_incentive_apr_and_tvl(AUTO_ETH)
-    daily_df
