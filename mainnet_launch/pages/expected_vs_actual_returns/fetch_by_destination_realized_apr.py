@@ -296,6 +296,7 @@ def add_new_acutal_nav_and_acutal_shares_to_table():
                 write_dataframe_to_table(df, BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE)
 
 
+@st.cache_data(ttl=100_000)
 def _fetch_by_destination_actualized_apr_raw_data_from_external_source(autopool: AutopoolConstants, start_block: int):
 
     blocks = build_blocks_to_use(
@@ -318,7 +319,6 @@ def _fetch_by_destination_actualized_apr_raw_data_from_external_source(autopool:
     return long_df
 
 
-@st.cache_data(ttl=100_000)
 def fetch_by_destination_actualized_and_projected_apr(autopool: AutopoolConstants) -> pd.DataFrame:
     return _fetch_by_destination_actualized_apr_raw_data_from_external_source(
         autopool, autopool.chain.block_autopool_first_deployed
