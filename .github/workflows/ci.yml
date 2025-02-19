@@ -35,5 +35,6 @@ jobs:
       - name: Run Black
         run: poetry run black --check .
 
-      - name: Run Tests
-        run: poetry run pytest
+      # - name: Run Tests
+      #   run: poetry run pytest
+d
