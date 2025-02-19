@@ -3,7 +3,13 @@ import streamlit as st
 from multicall import Call
 
 from mainnet_launch.abis import LIQUIDATION_ROW_ABI
-from mainnet_launch.constants import ROOT_PRICE_ORACLE, WETH, LIQUIDATION_ROW, AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants import (
+    ROOT_PRICE_ORACLE,
+    WETH,
+    LIQUIDATION_ROW,
+    AutopoolConstants,
+    ALL_AUTOPOOLS,
+)
 
 from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import (
     _fetch_destination_summary_stats_from_external_source,
@@ -24,7 +30,6 @@ from mainnet_launch.destinations import get_destination_details
 
 from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
-    run_read_only_query,
     get_earliest_block_from_table_with_autopool,
     get_all_rows_in_table_by_autopool,
 )
@@ -32,6 +37,25 @@ from mainnet_launch.database.database_operations import (
 from mainnet_launch.database.should_update_database import (
     should_update_table,
 )
+
+
+BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE = "BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE"
+
+
+def add_new_destination_projected_and_actual_returns_to_table():
+
+    if should_update_table(BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE):
+        for autopool in ALL_AUTOPOOLS:
+            highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
+                BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE, autopool
+            )
+
+            blocks = [b for b in build_blocks_to_use(autopool.chain) if b > highest_block_already_fetched]
+            if len(blocks) > 0:
+                df = _fetch_by_destination_actualized_apr_raw_data_from_external_source(autopool, min(blocks))
+                df = df.reset_index()
+                df["autopool"] = autopool.name
+                write_dataframe_to_table(df, BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE)
 
 
 def _make_destination_tvl_calls(autopool: AutopoolConstants) -> list[Call]:
@@ -262,9 +286,20 @@ def _extract_raw_onchain_returns_df(
         .set_index(["timestamp", "vault_name"])
     )
 
+    timestamp_to_block = tvl_df[["block"]].resample("1D").last()
+
     raw_onchain_returns_df = pd.concat(
         [by_destination_name_tvl_df, by_destination_name_virtual_price_df, by_destination_vault_liquidated_df], axis=1
     )
+    raw_onchain_returns_df = raw_onchain_returns_df.reset_index().set_index("timestamp")
+    raw_onchain_returns_df = raw_onchain_returns_df.merge(timestamp_to_block, left_index=True, right_index=True)
+
+    # avoid sql -> pandas float resolution errors
+    raw_onchain_returns_df["virtual_price"] = pd.to_numeric(
+        raw_onchain_returns_df["virtual_price"], errors="coerce"
+    ).round(12)
+
+    raw_onchain_returns_df = raw_onchain_returns_df.reset_index().set_index(["timestamp", "vault_name"])
     return raw_onchain_returns_df
 
 
@@ -278,25 +313,6 @@ def _set_base_apr_to_0_for_double_counting_destinations(long_df: pd.DataFrame) -
     return long_df
 
 
-BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE = "BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE"
-
-
-def add_new_acutal_nav_and_acutal_shares_to_table():
-    if should_update_table(BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE):
-        for autopool in ALL_AUTOPOOLS:
-            highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
-                BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE, autopool
-            )
-
-            blocks = [b for b in build_blocks_to_use(autopool.chain) if b > highest_block_already_fetched]
-            if len(blocks) > 0:
-                df = _fetch_by_destination_actualized_apr_raw_data_from_external_source(autopool, min(blocks))
-                df = df.reset_index()
-                df["autopool"] = autopool.name
-                write_dataframe_to_table(df, BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE)
-
-
-@st.cache_data(ttl=100_000)
 def _fetch_by_destination_actualized_apr_raw_data_from_external_source(autopool: AutopoolConstants, start_block: int):
 
     blocks = build_blocks_to_use(
@@ -315,22 +331,18 @@ def _fetch_by_destination_actualized_apr_raw_data_from_external_source(autopool:
     long_df = pd.concat([expected_apr_components_df, raw_onchain_returns_df], axis=1)
     long_df = long_df.sort_index()
     long_df = _set_base_apr_to_0_for_double_counting_destinations(long_df)
-    # cache this
+
     return long_df
 
 
 def fetch_by_destination_actualized_and_projected_apr(autopool: AutopoolConstants) -> pd.DataFrame:
-    return _fetch_by_destination_actualized_apr_raw_data_from_external_source(
-        autopool, autopool.chain.block_autopool_first_deployed
-    )
-    # add_new_acutal_nav_and_acutal_shares_to_table()
-    # df = get_all_rows_in_table_by_autopool(BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE, autopool)
-    # df = df.set_index(['timestamp', 'vault_name'])
-    # return df
+    add_new_destination_projected_and_actual_returns_to_table()
+    long_df = get_all_rows_in_table_by_autopool(BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE, autopool).reset_index()
+    long_df = long_df.set_index(["timestamp", "vault_name"]).sort_index()
+    return long_df
 
 
 if __name__ == "__main__":
     from mainnet_launch.pages.solver_diagnostics.solver_diagnostics import _load_solver_df, AUTO_ETH
 
-    # cache this, then you can let the others be variables
-    fetch_by_destination_actualized_and_projected_apr(AUTO_ETH)
+    add_new_destination_projected_and_actual_returns_to_table()

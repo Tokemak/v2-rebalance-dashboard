@@ -4,10 +4,8 @@ import numpy as np
 import plotly.express as px
 
 from mainnet_launch.constants import AutopoolConstants
-from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
-from mainnet_launch.destinations import get_destination_details
 from mainnet_launch.pages.expected_vs_actual_returns.fetch_by_destination_realized_apr import (
-    _fetch_by_destination_actualized_apr_raw_data_from_external_source,
+    fetch_by_destination_actualized_and_projected_apr,
 )
 
 
@@ -99,16 +97,16 @@ def _make_projected_vs_actual_scatter_plot(long_df: pd.DataFrame, x_col, y_col, 
 
 def _render_one_kind_of_error(
     long_df: pd.DataFrame,
-    col: str,
     predicted_col: str,
     actual_col: str,
     error_col: str,
 ) -> None:
-    local_long_df =   long_df.sort_values(by="vault_name").reindex(
+    local_long_df = long_df.sort_values(by="vault_name").reindex(
         columns=["vault_name", predicted_col, actual_col, error_col]
     )
+    col1, col2, col3 = st.columns(3)
 
-    with col:
+    with col1:
         st.plotly_chart(
             _make_projected_vs_actual_scatter_plot(
                 local_long_df,
@@ -118,6 +116,7 @@ def _render_one_kind_of_error(
             ),
             use_container_width=True,
         )
+    with col2:
         st.plotly_chart(
             px.ecdf(
                 local_long_df,
@@ -128,6 +127,7 @@ def _render_one_kind_of_error(
             use_container_width=True,
         )
 
+    with col3:
         st.plotly_chart(
             px.histogram(
                 local_long_df,
@@ -138,14 +138,14 @@ def _render_one_kind_of_error(
             use_container_width=True,
         )
 
-        negative_error_stats, positive_error_stats, all_error_stats = _render_error_metrics(local_long_df, error_col)
-        st.subheader("Error Metrics")
-        for stats, label in zip(
-            [negative_error_stats, positive_error_stats, all_error_stats],
-            ["Overestimate (Realized < Projected)", "Underestimate (Realized > Projected)", "All"],
-        ):
-            st.markdown(f"**{label}**")
-            st.write(stats.round(2))
+    negative_error_stats, positive_error_stats, all_error_stats = _render_error_metrics(local_long_df, error_col)
+    st.subheader("Error Metrics")
+    for stats, label in zip(
+        [negative_error_stats, positive_error_stats, all_error_stats],
+        ["Overestimate (Realized < Projected)", "Underestimate (Realized > Projected)", "All"],
+    ):
+        st.markdown(f"**{label}**")
+        st.write(stats.round(2))
 
 
 def _render_error_metrics(long_df: pd.DataFrame, error_col: str):
@@ -196,30 +196,36 @@ def _render_plots(raw_long_df: pd.DataFrame, incentive_apr_weight: float):
     long_df["Realized (Fee + Base + Incentive APR) - Projected (Base + Fee + Incentive APR Out)"] = (
         long_df["realized_base_plus_fee_plus_incentive_apr"] - long_df["projected_apr_out"]
     )
-    col1, col2, col3 = st.columns(3)
 
-    _render_one_kind_of_error(
-        long_df,
-        col1,
-        "incentive_apr_out_weight",
-        "realized_incentive_apr",
-        "Realized Incentive APR - Projected Incentive APR Out",
-    )
-    _render_one_kind_of_error(
-        long_df,
-        col2,
-        "projected_base_and_fee",
-        "realized_base_and_fee_apr",
-        "Realized (Fee + Base APR) - Projected (Base + Fee APR)",
-    )
+    error_metrics_options = [
+        "Projected Fee + Base vs Actual Fee + Base",
+        "Projected Incentive vs Acutal Incentive",
+        "Projected Fee + Base + Incentive vs Actual Fee + Base  + Incentive",
+    ]
+    tab = st.selectbox("Error Metric", options=error_metrics_options, index=2)
 
-    _render_one_kind_of_error(
-        long_df,
-        col3,
-        "projected_apr_out",
-        "realized_base_plus_fee_plus_incentive_apr",
-        "Realized (Fee + Base + Incentive APR) - Projected (Base + Fee + Incentive APR Out)",
-    )
+    if tab == "Projected Fee + Base vs Actual Fee + Base":
+        _render_one_kind_of_error(
+            long_df,
+            "projected_base_and_fee",
+            "realized_base_and_fee_apr",
+            "Realized (Fee + Base APR) - Projected (Base + Fee APR)",
+        )
+    elif tab == "Projected Incentive vs Acutal Incentive":
+        _render_one_kind_of_error(
+            long_df,
+            "incentive_apr_out_weight",
+            "realized_incentive_apr",
+            "Realized Incentive APR - Projected Incentive APR Out",
+        )
+    elif tab == "Projected Fee + Base + Incentive vs Actual Fee + Base  + Incentive":
+
+        _render_one_kind_of_error(
+            long_df,
+            "projected_apr_out",
+            "realized_base_plus_fee_plus_incentive_apr",
+            "Realized (Fee + Base + Incentive APR) - Projected (Base + Fee + Incentive APR Out)",
+        )
 
 
 def _render_one_destination_line_plots(long_df: pd.DataFrame):
@@ -239,36 +245,32 @@ def _render_one_destination_line_plots(long_df: pd.DataFrame):
 
 
 def fetch_and_render_by_destination_expected_apr(autopool: AutopoolConstants):
-    long_df = _fetch_by_destination_actualized_apr_raw_data_from_external_source(
-        autopool, autopool.chain.block_autopool_first_deployed
-    )
+    long_df = fetch_by_destination_actualized_and_projected_apr(autopool)
+
+    col1, col2, col3 = st.columns(3)
 
     options_1_to_60 = list(range(1, 61))
-
-    base_and_fee_n_day_window = st.selectbox(
-        "Base and Fee n-day window", options=options_1_to_60, index=options_1_to_60.index(7)
-    )
-
-    incentive_apr_n_day_window = st.selectbox(
-        "Incentive APR n-day window", options=options_1_to_60, index=options_1_to_60.index(7)
-    )
-
-    incentive_apr_forward_shift = st.selectbox(
-        "Incentive APR n-day forward shift", options=options_1_to_60, index=options_1_to_60.index(1)
-    )
-
-    incentive_apr_weight_options = [round(i * 0.05, 2) for i in range(21)]
-
-    incentive_apr_weight = st.selectbox(
-        "Incentive APR weight",
-        options=incentive_apr_weight_options,
-        index=incentive_apr_weight_options.index(0.9),  # default value 0.9
-    )
+    with col1:
+        # could be seperate but I think it makes more sense like this
+        n_day_window = st.selectbox(
+            "T(0) Projected vs T(0, N) actual window", options=options_1_to_60, index=options_1_to_60.index(7)
+        )
+    with col2:
+        incentive_apr_forward_shift = st.selectbox(
+            "Incentive APR n-day forward shift", options=options_1_to_60, index=options_1_to_60.index(1)
+        )
+    with col3:
+        incentive_apr_weight_options = [round(i * 0.05, 2) for i in range(21)]
+        incentive_apr_weight = st.selectbox(
+            "Incentive APR weight",
+            options=incentive_apr_weight_options,
+            index=incentive_apr_weight_options.index(0.9),  # default value 0.9
+        )
 
     long_df = combine_raw_data_into_projected_and_realized_apr_df(
         long_df,
-        base_and_fee_n_day_window=base_and_fee_n_day_window,
-        incentive_apr_n_day_window=incentive_apr_n_day_window,
+        base_and_fee_n_day_window=n_day_window,
+        incentive_apr_n_day_window=n_day_window,
         incentive_apr_forward_shift=incentive_apr_forward_shift,
         incentive_apr_weight=incentive_apr_weight,
     )
