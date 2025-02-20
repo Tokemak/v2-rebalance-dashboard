@@ -105,7 +105,7 @@ def _render_one_kind_of_error(
     local_long_df = long_df.sort_values(by="vault_name").reindex(
         columns=["vault_name", predicted_col, actual_col, error_col]
     )
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.plotly_chart(
@@ -139,12 +139,12 @@ def _render_one_kind_of_error(
             use_container_width=True,
         )
 
-    negative_error_stats, positive_error_stats, all_error_stats = _render_error_metrics(local_long_df, error_col)
+    negative_error_stats, positive_error_stats, all_error_stats, abs_error_stats = _render_error_metrics(local_long_df, error_col)
     st.subheader("Error Metrics")
     for stats, label, col in zip(
-        [negative_error_stats, positive_error_stats, all_error_stats],
-        ["Overestimate (Realized < Projected)", "Underestimate (Realized > Projected)", "All"],
-        [col1, col2, col3],
+        [negative_error_stats, positive_error_stats, all_error_stats, abs_error_stats],
+        ["Overestimate (Realized < Projected)", "Underestimate (Realized > Projected)", "All (with sign)", "All Absolute Error"],
+        [col1, col2, col3, col4],
     ):
         with col:
             st.markdown(f"**{label}**")
@@ -152,13 +152,16 @@ def _render_one_kind_of_error(
 
 
 def _render_error_metrics(long_df: pd.DataFrame, error_col: str):
+    # Create a copy and add a row for 'all_destinations'
     long_df_copy = long_df.copy()
     df_copy = long_df_copy.copy()
     df_copy["vault_name"] = "all_destinations"
     long_df_copy = pd.concat([long_df_copy, df_copy], ignore_index=True)
+    
     names = sorted(long_df["vault_name"].unique().tolist())
     index_order = ["all_destinations", *names]
 
+    # Define the metrics and corresponding names
     error_metrics = [
         "count",
         "mean",
@@ -170,19 +173,39 @@ def _render_error_metrics(long_df: pd.DataFrame, error_col: str):
     ]
     error_metric_names = ["count", "mean", "median", "max", "min", "10th percentile", "90th percentile"]
 
-    negative_error_stats = long_df_copy[long_df_copy[error_col] < 0].groupby("vault_name")[error_col].agg(error_metrics)
+    negative_error_stats = (
+        long_df_copy[long_df_copy[error_col] < 0]
+        .groupby("vault_name")[error_col]
+        .agg(error_metrics)
+    )
     negative_error_stats.columns = error_metric_names
     negative_error_stats = negative_error_stats.loc[index_order]
 
-    positive_error_stats = long_df_copy[long_df_copy[error_col] > 0].groupby("vault_name")[error_col].agg(error_metrics)
+    positive_error_stats = (
+        long_df_copy[long_df_copy[error_col] > 0]
+        .groupby("vault_name")[error_col]
+        .agg(error_metrics)
+    )
     positive_error_stats.columns = error_metric_names
     positive_error_stats = positive_error_stats.loc[index_order]
 
-    all_error_stats = long_df_copy.groupby("vault_name")[error_col].agg(error_metrics)
+    all_error_stats = (
+        long_df_copy.groupby("vault_name")[error_col]
+        .agg(error_metrics)
+    )
     all_error_stats.columns = error_metric_names
     all_error_stats = all_error_stats.loc[index_order]
 
-    return negative_error_stats, positive_error_stats, all_error_stats
+    long_df_copy[error_col] = long_df_copy[error_col].abs()
+    abs_error_stats = (
+        long_df_copy.groupby("vault_name")[error_col]
+        .agg(error_metrics)
+    )
+    abs_error_stats.columns = error_metric_names
+    abs_error_stats = abs_error_stats.loc[index_order]
+
+    return negative_error_stats, positive_error_stats, all_error_stats, abs_error_stats
+
 
 
 def _render_plots(raw_long_df: pd.DataFrame, incentive_apr_weight: float):
