@@ -307,7 +307,7 @@ def _set_base_apr_to_0_for_double_counting_destinations(long_df: pd.DataFrame) -
     # clip base apr to 0, because it is double counted in fee apr for these pools
 
     long_df = long_df.reset_index()
-    double_counting_base_apr = ["wETHrETH (curve)", "ethx-f (curve)", "osETH-rETH (curve)"]
+    double_counting_base_apr = ["wETHrETH (curve)", "ethx-f (curve)", "osETH-rETH (curve)", "weeth-ng (curve)"]
     long_df.loc[long_df["vault_name"].isin(double_counting_base_apr), "baseApr"] = 0.0
     long_df = long_df.set_index(["timestamp", "vault_name"])
     return long_df
@@ -343,6 +343,6 @@ def fetch_by_destination_actualized_and_projected_apr(autopool: AutopoolConstant
 
 
 if __name__ == "__main__":
-    from mainnet_launch.pages.solver_diagnostics.solver_diagnostics import _load_solver_df, AUTO_ETH
+    from mainnet_launch.constants import  AUTO_ETH, BAL_ETH
 
-    add_new_destination_projected_and_actual_returns_to_table()
+    df = _fetch_by_destination_actualized_apr_raw_data_from_external_source(BAL_ETH,BAL_ETH.chain.block_autopool_first_deployed)

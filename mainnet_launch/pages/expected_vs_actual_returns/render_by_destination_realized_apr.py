@@ -19,6 +19,7 @@ def _compute_n_day_realized_base_and_fee_apr(long_df: pd.DataFrame, n_day: int) 
     annualized_change_in_virtual_price = (365 / n_day) * (
         (virtual_price_after_n_days - current_virtual_price) / current_virtual_price
     )
+
     annualized_change_in_virtual_price = annualized_change_in_virtual_price.reset_index()
     annualized_change_in_virtual_price = annualized_change_in_virtual_price.melt(
         id_vars="timestamp", var_name="vault_name", value_name="realized_base_and_fee_apr"
@@ -140,12 +141,14 @@ def _render_one_kind_of_error(
 
     negative_error_stats, positive_error_stats, all_error_stats = _render_error_metrics(local_long_df, error_col)
     st.subheader("Error Metrics")
-    for stats, label in zip(
+    for stats, label, col in zip(
         [negative_error_stats, positive_error_stats, all_error_stats],
         ["Overestimate (Realized < Projected)", "Underestimate (Realized > Projected)", "All"],
+        [col1, col2, col3],
     ):
-        st.markdown(f"**{label}**")
-        st.write(stats.round(2))
+        with col:
+            st.markdown(f"**{label}**")
+            st.write(stats.round(2))
 
 
 def _render_error_metrics(long_df: pd.DataFrame, error_col: str):
@@ -249,18 +252,18 @@ def fetch_and_render_by_destination_expected_apr(autopool: AutopoolConstants):
 
     col1, col2, col3 = st.columns(3)
 
-    options_1_to_60 = list(range(1, 61))
+    options_10to_60 = list(range(0, 61))
     with col1:
         # could be seperate but I think it makes more sense like this
         n_day_window = st.selectbox(
-            "T(0) Projected vs T(0, N) actual window", options=options_1_to_60, index=options_1_to_60.index(7)
+            "T(0) Projected vs T(0, N) actual window", options=options_10to_60, index=options_10to_60.index(7)
         )
     with col2:
         incentive_apr_forward_shift = st.selectbox(
-            "Incentive APR n-day forward shift", options=options_1_to_60, index=options_1_to_60.index(1)
+            "Incentive APR n-day forward shift", options=options_10to_60, index=options_10to_60.index(1)
         )
     with col3:
-        incentive_apr_weight_options = [round(i * 0.05, 2) for i in range(21)]
+        incentive_apr_weight_options = [round(i * 0.05, 2) for i in range(41)]
         incentive_apr_weight = st.selectbox(
             "Incentive APR weight",
             options=incentive_apr_weight_options,
@@ -280,7 +283,7 @@ def fetch_and_render_by_destination_expected_apr(autopool: AutopoolConstants):
     vaults_with_some_tvl = vaults_with_positive_tvl.index.tolist()
     long_df = long_df[long_df["vault_name"].isin(vaults_with_some_tvl)]
 
-    _render_plots(long_df, incentive_apr_weight)
+    _render_plots(long_df, incentive_apr_weight)  # TODO add size here, mean size, over period
     _render_one_destination_line_plots(long_df)
 
 
