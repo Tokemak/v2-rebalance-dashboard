@@ -600,6 +600,6 @@ if __name__ == "__main__":
     from mainnet_launch.constants import AUTO_ETH
     from mainnet_launch.database.database_operations import drop_table
 
-    drop_table(REBALANCE_EVENTS_TABLE)
+    # drop_table(REBALANCE_EVENTS_TABLE)
 
     # new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(AUTO_ETH, 20839197 - 2)

@@ -14,10 +14,10 @@ eth_client = Web3(Web3.HTTPProvider(os.environ["ALCHEMY_URL"]))
 base_client = Web3(Web3.HTTPProvider(os.environ["ALCHEMY_URL"].replace("eth-mainnet", "base-mainnet")))
 base_client.middleware_onion.inject(geth_poa_middleware, layer=0)
 
-# make sure the chain ids are loaded as properties
-eth_client.eth.chain_id
-base_client.eth.chain_id
-
+# hardcode these because they are fixed and making external calls here sometimes causes requests timout errors such as:
+# requests.exceptions.ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+eth_client.eth._chain_id = lambda: 1
+base_client.eth._chain_id = lambda: 8453
 
 WEB3_CLIENTS: dict[str, Web3] = {
     "eth": eth_client,

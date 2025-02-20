@@ -11,9 +11,9 @@ from mainnet_launch.pages.expected_vs_actual_returns.fetch_by_destination_realiz
 
 def _compute_n_day_realized_base_and_fee_apr(long_df: pd.DataFrame, n_day: int) -> pd.DataFrame:
     # the annualized change in virtual price == base apr and fee apr
-    current_virtual_price = (
-        long_df.reset_index().pivot(columns="vault_name", values="virtual_price", index="timestamp").replace(0, np.nan)
-    )
+    duplicated_df = long_df[long_df.duplicated()]
+    df = long_df.reset_index()
+    current_virtual_price = df.pivot(columns="vault_name", values="virtual_price", index="timestamp").replace(0, np.nan)
     virtual_price_after_n_days = current_virtual_price.shift(-n_day)
 
     annualized_change_in_virtual_price = (365 / n_day) * (
@@ -139,11 +139,18 @@ def _render_one_kind_of_error(
             use_container_width=True,
         )
 
-    negative_error_stats, positive_error_stats, all_error_stats, abs_error_stats = _render_error_metrics(local_long_df, error_col)
+    negative_error_stats, positive_error_stats, all_error_stats, abs_error_stats = _render_error_metrics(
+        local_long_df, error_col
+    )
     st.subheader("Error Metrics")
     for stats, label, col in zip(
         [negative_error_stats, positive_error_stats, all_error_stats, abs_error_stats],
-        ["Overestimate (Realized < Projected)", "Underestimate (Realized > Projected)", "All (with sign)", "All Absolute Error"],
+        [
+            "Overestimate (Realized < Projected)",
+            "Underestimate (Realized > Projected)",
+            "All (with sign)",
+            "All Absolute Error",
+        ],
         [col1, col2, col3, col4],
     ):
         with col:
@@ -157,7 +164,7 @@ def _render_error_metrics(long_df: pd.DataFrame, error_col: str):
     df_copy = long_df_copy.copy()
     df_copy["vault_name"] = "all_destinations"
     long_df_copy = pd.concat([long_df_copy, df_copy], ignore_index=True)
-    
+
     names = sorted(long_df["vault_name"].unique().tolist())
     index_order = ["all_destinations", *names]
 
@@ -173,39 +180,24 @@ def _render_error_metrics(long_df: pd.DataFrame, error_col: str):
     ]
     error_metric_names = ["count", "mean", "median", "max", "min", "10th percentile", "90th percentile"]
 
-    negative_error_stats = (
-        long_df_copy[long_df_copy[error_col] < 0]
-        .groupby("vault_name")[error_col]
-        .agg(error_metrics)
-    )
+    negative_error_stats = long_df_copy[long_df_copy[error_col] < 0].groupby("vault_name")[error_col].agg(error_metrics)
     negative_error_stats.columns = error_metric_names
     negative_error_stats = negative_error_stats.loc[index_order]
 
-    positive_error_stats = (
-        long_df_copy[long_df_copy[error_col] > 0]
-        .groupby("vault_name")[error_col]
-        .agg(error_metrics)
-    )
+    positive_error_stats = long_df_copy[long_df_copy[error_col] > 0].groupby("vault_name")[error_col].agg(error_metrics)
     positive_error_stats.columns = error_metric_names
     positive_error_stats = positive_error_stats.loc[index_order]
 
-    all_error_stats = (
-        long_df_copy.groupby("vault_name")[error_col]
-        .agg(error_metrics)
-    )
+    all_error_stats = long_df_copy.groupby("vault_name")[error_col].agg(error_metrics)
     all_error_stats.columns = error_metric_names
     all_error_stats = all_error_stats.loc[index_order]
 
     long_df_copy[error_col] = long_df_copy[error_col].abs()
-    abs_error_stats = (
-        long_df_copy.groupby("vault_name")[error_col]
-        .agg(error_metrics)
-    )
+    abs_error_stats = long_df_copy.groupby("vault_name")[error_col].agg(error_metrics)
     abs_error_stats.columns = error_metric_names
     abs_error_stats = abs_error_stats.loc[index_order]
 
     return negative_error_stats, positive_error_stats, all_error_stats, abs_error_stats
-
 
 
 def _render_plots(raw_long_df: pd.DataFrame, incentive_apr_weight: float):

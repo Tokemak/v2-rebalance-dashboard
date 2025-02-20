@@ -32,6 +32,7 @@ from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     get_earliest_block_from_table_with_autopool,
     get_all_rows_in_table_by_autopool,
+    drop_table,
 )
 
 from mainnet_launch.database.should_update_database import (
@@ -307,7 +308,7 @@ def _set_base_apr_to_0_for_double_counting_destinations(long_df: pd.DataFrame) -
     # clip base apr to 0, because it is double counted in fee apr for these pools
 
     long_df = long_df.reset_index()
-    double_counting_base_apr = ["wETHrETH (curve)", "ethx-f (curve)", "osETH-rETH (curve)", "weeth-ng (curve)"]
+    double_counting_base_apr = ["wETHrETH (curve)", "ethx-f (curve)", "osETH-rETH (curve)", "weeth-ng (curve)"] # are there more than 2 alive
     long_df.loc[long_df["vault_name"].isin(double_counting_base_apr), "baseApr"] = 0.0
     long_df = long_df.set_index(["timestamp", "vault_name"])
     return long_df
@@ -332,6 +333,12 @@ def _fetch_by_destination_actualized_apr_raw_data_from_external_source(autopool:
     long_df = long_df.sort_index()
     long_df = _set_base_apr_to_0_for_double_counting_destinations(long_df)
 
+    long_df = long_df.reset_index()
+    long_df = long_df[long_df["vault_name"] != autopool.name]
+    long_df = long_df.set_index(["timestamp", "vault_name"])
+
+    # exclude the autopool itself because it expected and actual return
+    # is always 0% because it is plain base asset
     return long_df
 
 
@@ -343,6 +350,8 @@ def fetch_by_destination_actualized_and_projected_apr(autopool: AutopoolConstant
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import  AUTO_ETH, BAL_ETH
+    from mainnet_launch.constants import AUTO_ETH, BAL_ETH
 
-    df = _fetch_by_destination_actualized_apr_raw_data_from_external_source(BAL_ETH,BAL_ETH.chain.block_autopool_first_deployed)
+    df = _fetch_by_destination_actualized_apr_raw_data_from_external_source(
+        BAL_ETH, BAL_ETH.chain.block_autopool_first_deployed
+    )
