@@ -308,7 +308,12 @@ def _set_base_apr_to_0_for_double_counting_destinations(long_df: pd.DataFrame) -
     # clip base apr to 0, because it is double counted in fee apr for these pools
 
     long_df = long_df.reset_index()
-    double_counting_base_apr = ["wETHrETH (curve)", "ethx-f (curve)", "osETH-rETH (curve)", "weeth-ng (curve)"] # are there more than 2 alive
+    double_counting_base_apr = [
+        "wETHrETH (curve)",
+        "ethx-f (curve)",
+        "osETH-rETH (curve)",
+        "weeth-ng (curve)",
+    ]  # are there more than 2 alive
     long_df.loc[long_df["vault_name"].isin(double_counting_base_apr), "baseApr"] = 0.0
     long_df = long_df.set_index(["timestamp", "vault_name"])
     return long_df
@@ -345,12 +350,28 @@ def _fetch_by_destination_actualized_apr_raw_data_from_external_source(autopool:
 def fetch_by_destination_actualized_and_projected_apr(autopool: AutopoolConstants) -> pd.DataFrame:
     add_new_destination_projected_and_actual_returns_to_table()
     long_df = get_all_rows_in_table_by_autopool(BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE, autopool).reset_index()
+    long_df = long_df.dropna(subset=["block"])
+    # use the highest block for each day as the data set
+    # when timestamp, and vault address are the same
+    # keep the row that has the highest block
+    # this can happen because if we run this again on different days, and we are only keeping the last block per day
+
+    long_df = long_df.loc[long_df.groupby(["timestamp", "vault_name"])["block"].idxmax()]
+
     long_df = long_df.set_index(["timestamp", "vault_name"]).sort_index()
+
+    duplicate_rows = long_df.reset_index()[
+        long_df.reset_index().duplicated(subset=["timestamp", "vault_name"], keep=False)
+    ]
+    print("Duplicate rows found:")
+    print(duplicate_rows)
     return long_df
 
 
 if __name__ == "__main__":
     from mainnet_launch.constants import AUTO_ETH, BAL_ETH
+
+    # drop_table(BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE)
 
     df = _fetch_by_destination_actualized_apr_raw_data_from_external_source(
         BAL_ETH, BAL_ETH.chain.block_autopool_first_deployed
