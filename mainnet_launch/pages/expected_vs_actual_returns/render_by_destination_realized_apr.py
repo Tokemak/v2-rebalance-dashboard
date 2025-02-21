@@ -11,8 +11,10 @@ from mainnet_launch.pages.expected_vs_actual_returns.fetch_by_destination_realiz
 
 def _compute_n_day_realized_base_and_fee_apr(long_df: pd.DataFrame, n_day: int) -> pd.DataFrame:
     # the annualized change in virtual price == base apr and fee apr
-    duplicated_df = long_df[long_df.duplicated()]
     df = long_df.reset_index()
+    duplicate_rows = df[df.duplicated(subset=["timestamp", "vault_name"], keep=False)]
+    print("Duplicate rows found:")
+    print(duplicate_rows)
     current_virtual_price = df.pivot(columns="vault_name", values="virtual_price", index="timestamp").replace(0, np.nan)
     virtual_price_after_n_days = current_virtual_price.shift(-n_day)
 
@@ -204,21 +206,32 @@ def _render_plots(raw_long_df: pd.DataFrame, incentive_apr_weight: float):
 
     long_df = raw_long_df.dropna()
 
+    long_df["Realized (Fee + Base APR) - Projected (Base + Fee APR)"] = (
+        long_df["realized_base_and_fee_apr"] - long_df["projected_base_and_fee"]
+    )
+
     long_df["Realized Incentive APR - Projected Incentive APR Out"] = long_df["realized_incentive_apr"] - (
         long_df["incentiveAprOut"] * incentive_apr_weight
     )
-    long_df["Realized (Fee + Base APR) - Projected (Base + Fee APR)"] = (
-        long_df["realized_base_and_fee_apr"] - long_df["projected_base_and_fee"]
+
+    long_df["Realized Incentive APR - Projected Incentive APR In"] = long_df["realized_incentive_apr"] - (
+        long_df["incentiveAprIn"] * incentive_apr_weight
     )
 
     long_df["Realized (Fee + Base + Incentive APR) - Projected (Base + Fee + Incentive APR Out)"] = (
         long_df["realized_base_plus_fee_plus_incentive_apr"] - long_df["projected_apr_out"]
     )
 
+    long_df["Realized (Fee + Base + Incentive APR) - Projected (Base + Fee + Incentive APR In)"] = (
+        long_df["realized_base_plus_fee_plus_incentive_apr"] - long_df["projected_apr_in"]
+    )
+
     error_metrics_options = [
         "Projected Fee + Base vs Actual Fee + Base",
-        "Projected Incentive vs Acutal Incentive",
-        "Projected Fee + Base + Incentive vs Actual Fee + Base  + Incentive",
+        "Projected Incentive Out vs Acutal Incentive",
+        "Projected Incentive In vs Acutal Incentive",
+        "Projected Fee + Base + Incentive Out vs Actual Fee + Base + Incentive",
+        "Projected Fee + Base + Incentive In vs Actual Fee + Base + Incentive",
     ]
     tab = st.selectbox("Error Metric", options=error_metrics_options, index=2)
 
@@ -229,20 +242,36 @@ def _render_plots(raw_long_df: pd.DataFrame, incentive_apr_weight: float):
             "realized_base_and_fee_apr",
             "Realized (Fee + Base APR) - Projected (Base + Fee APR)",
         )
-    elif tab == "Projected Incentive vs Acutal Incentive":
+    elif tab == "Projected Incentive Out vs Acutal Incentive":
         _render_one_kind_of_error(
             long_df,
             "incentive_apr_out_weight",
             "realized_incentive_apr",
             "Realized Incentive APR - Projected Incentive APR Out",
         )
-    elif tab == "Projected Fee + Base + Incentive vs Actual Fee + Base  + Incentive":
 
+    elif tab == "Projected Incentive In vs Acutal Incentive":
+        _render_one_kind_of_error(
+            long_df,
+            "incentive_apr_in_weight",
+            "realized_incentive_apr",
+            "Realized (Fee + Base + Incentive APR) - Projected (Base + Fee + Incentive APR Out)",
+        )
+
+    elif tab == "Projected Fee + Base + Incentive Out vs Actual Fee + Base + Incentive":
         _render_one_kind_of_error(
             long_df,
             "projected_apr_out",
             "realized_base_plus_fee_plus_incentive_apr",
             "Realized (Fee + Base + Incentive APR) - Projected (Base + Fee + Incentive APR Out)",
+        )
+
+    elif tab == "Projected Fee + Base + Incentive In vs Actual Fee + Base + Incentive":
+        _render_one_kind_of_error(
+            long_df,
+            "projected_apr_out",
+            "realized_base_plus_fee_plus_incentive_apr",
+            "Realized (Fee + Base + Incentive APR) - Projected (Base + Fee + Incentive APR In)",
         )
 
 
@@ -314,3 +343,4 @@ if __name__ == "__main__":
     from mainnet_launch.constants import AutopoolConstants, AUTO_ETH
 
     fetch_and_render_by_destination_expected_apr(AUTO_ETH)
+    pass
