@@ -7,7 +7,7 @@ import os
 import datetime
 
 
-from mainnet_launch.constants import AutopoolConstants, AUTO_LRT, PRODUCTION_LOG_FILE_NAME
+from mainnet_launch.constants import AutopoolConstants, PRODUCTION_LOG_FILE_NAME, STARTUP_LOG_FILE
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 from mainnet_launch.pages.key_metrics.fetch_nav_per_share import fetch_nav_per_share
 from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
@@ -253,6 +253,11 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
 
     st.header("Download Logs")
 
+    render_download_production_button()
+    render_download_startup_log_button()
+
+
+def render_download_production_button():
     if os.path.exists(PRODUCTION_LOG_FILE_NAME):
         try:
             with open(PRODUCTION_LOG_FILE_NAME, "r") as log_file:
@@ -261,9 +266,28 @@ def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: Autopo
             st.download_button(
                 label="📥 Download Log File",
                 data=log_content,
-                file_name="data_caching.log",
+                file_name=PRODUCTION_LOG_FILE_NAME,
                 mime="text/plain",
-                key="download_log",
+                key="download_production_log",
+            )
+        except Exception as e:
+            st.error(f"An error occurred while reading the log file: {e}")
+    else:
+        st.warning("Log file not found. Please ensure that logging is properly configured.")
+
+
+def render_download_startup_log_button():
+    if os.path.exists(STARTUP_LOG_FILE):
+        try:
+            with open(STARTUP_LOG_FILE, "r") as log_file:
+                log_content = log_file.read()
+
+            st.download_button(
+                label="📥 Download Startup File",
+                data=log_content,
+                file_name="startup.txt",
+                mime="text/plain",
+                key="download_startup_log",
             )
         except Exception as e:
             st.error(f"An error occurred while reading the log file: {e}")

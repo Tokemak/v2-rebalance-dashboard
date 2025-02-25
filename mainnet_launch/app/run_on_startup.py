@@ -30,7 +30,7 @@ from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts impor
     add_new_asset_oracle_and_discount_price_rows_to_table,
 )
 
-from mainnet_launch.constants import PRODUCTION_LOG_FILE_NAME
+from mainnet_launch.constants import PRODUCTION_LOG_FILE_NAME, STARTUP_LOG_FILE
 
 import time
 import cProfile
@@ -40,6 +40,7 @@ from functools import wraps
 from datetime import datetime
 import streamlit as st
 import os
+import re
 
 
 def log_usage(production_logger):
@@ -64,17 +65,28 @@ def log_usage(production_logger):
 
             elapsed = time.time() - start_time
 
-            # Capture profiling statistics.
+            # Capture profiling statistics
             stream = io.StringIO()
             stats = pstats.Stats(profiler, stream=stream)
+            stats.strip_dirs()  # Remove directory information for clarity
+
+            # Filter to exclude results from ".venv/" or external library paths
             stats.sort_stats("cumulative")
-            stats.print_stats(20)  # Display top 20 time-consuming entries.
+            filtered_stats = [entry for entry in stats.fcn_list if "mainnet_launch/" in entry[0]]
+            stats.print_stats(lambda func: func in filtered_stats)
+            stats.print_stats(10)
 
             # Log the results using the production logger.
             production_logger.info(f"{func.__name__} started at {start_datetime} and took {elapsed:.2f} seconds")
 
             production_logger.info("Detailed function timing breakdown:")
             production_logger.info(stream.getvalue())
+
+            with open(STARTUP_LOG_FILE, "a") as f:
+                f.write(f"{func.__name__} started at {start_datetime} and took {elapsed:.2f} seconds\n")
+                f.write("Detailed function timing breakdown:\n")
+                f.write(stream.getvalue())
+                f.write("\n" + "=" * 80 + "\n")
 
             return result
 

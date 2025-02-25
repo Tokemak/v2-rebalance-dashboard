@@ -8,7 +8,7 @@ import logging
 import os
 
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, PRODUCTION_LOG_FILE_NAME, ROOT_DIR
+from mainnet_launch.constants import ALL_AUTOPOOLS, PRODUCTION_LOG_FILE_NAME, STARTUP_LOG_FILE, ROOT_DIR
 from mainnet_launch.pages.page_functions import (
     CONTENT_FUNCTIONS,
     PAGES_WITHOUT_AUTOPOOL,
