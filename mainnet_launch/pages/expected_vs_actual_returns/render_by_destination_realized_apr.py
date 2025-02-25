@@ -12,9 +12,6 @@ from mainnet_launch.pages.expected_vs_actual_returns.fetch_by_destination_realiz
 def _compute_n_day_realized_base_and_fee_apr(long_df: pd.DataFrame, n_day: int) -> pd.DataFrame:
     # the annualized change in virtual price == base apr and fee apr
     df = long_df.reset_index()
-    duplicate_rows = df[df.duplicated(subset=["timestamp", "vault_name"], keep=False)]
-    print("Duplicate rows found:")
-    print(duplicate_rows)
     current_virtual_price = df.pivot(columns="vault_name", values="virtual_price", index="timestamp").replace(0, np.nan)
     virtual_price_after_n_days = current_virtual_price.shift(-n_day)
 
@@ -294,7 +291,7 @@ def _render_one_destination_line_plots(long_df: pd.DataFrame):
 def fetch_and_render_by_destination_expected_apr(autopool: AutopoolConstants):
     long_df = fetch_by_destination_actualized_and_projected_apr(autopool)
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     options_10to_60 = list(range(0, 61))
     with col1:
@@ -313,6 +310,11 @@ def fetch_and_render_by_destination_expected_apr(autopool: AutopoolConstants):
             options=incentive_apr_weight_options,
             index=incentive_apr_weight_options.index(0.9),  # default value 0.9
         )
+    with col4:
+        include_decay_state_true_destinations = st.checkbox("Include Destinations With Decay State True")
+
+    if not include_decay_state_true_destinations:
+        long_df = long_df[long_df["decay_state"] == False].copy()
 
     long_df = combine_raw_data_into_projected_and_realized_apr_df(
         long_df,

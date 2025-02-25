@@ -67,6 +67,12 @@ def _compute_adjusted_nav_per_share_n_days(
             / nav_per_share_df["actual_nav_per_share"].shift(n_days)
         )
     )
+    # you can't do adjusted - adjusted / adjusted
+    # because adjusted at t=-7 is removing the impacts of (t=-7, to t=-14) at we are only interested
+    # in removing the impacts between (t=-7, and t=0)
+
+    # you can check this by looking how periodic fees ended on Nov 6 and the impact at the 7 day apr, ends on Nov 13,
+    # while if you do the adjusted - adjusted / adjusted then the impact persists until Nov 20
 
     return nav_per_share_df[
         [
