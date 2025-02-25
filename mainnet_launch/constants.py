@@ -167,7 +167,7 @@ def time_decorator(func):
 
 PRODUCTION_LOG_FILE_NAME = "production_usage.log"
 TEST_LOG_FILE_NAME = "test_pages.log"
-STARTUP_LOG_FILE =  ROOT_DIR / "startup.txt"
+STARTUP_LOG_FILE = ROOT_DIR / "startup.txt"
 
 
 AUTO_ETH: AutopoolConstants = AutopoolConstants(
