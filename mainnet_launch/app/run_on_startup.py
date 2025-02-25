@@ -37,7 +37,7 @@ import cProfile
 import pstats
 import io
 from functools import wraps
-import datetime
+from datetime import datetime
 import streamlit as st
 import os
 
