@@ -202,7 +202,7 @@ def build_blocks_to_use_dont_clip(
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
     first_minute_of_curent_day = datetime.datetime.combine(
         datetime.datetime.now(datetime.timezone.utc).date(), datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
-    )
+    ) 
     # this is not correct
     end_block = chain.client.eth.block_number if end_block is None else end_block
     # end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)

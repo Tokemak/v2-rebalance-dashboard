@@ -94,6 +94,13 @@ def verify_rows_saved(df: pd.DataFrame, table_name: str, conn: sqlite3.Connectio
             print(full_df.head())
             print(full_df.dtypes)
             print(full_df.shape)
+
+            subset_df = local_df[local_df.apply(tuple, axis=1).isin(full_df.apply(tuple, axis=1))]
+            print(subset_df.head())
+
+            print(subset_df.dtypes)
+            print(subset_df.shape)
+            # not sure why this is going at a subset
             raise ValueError(f"Data inconsistency detected in table '{table_name}'")
 
         if full_df.duplicated().any():
