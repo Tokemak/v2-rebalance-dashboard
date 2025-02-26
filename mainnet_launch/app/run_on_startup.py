@@ -116,8 +116,8 @@ def first_run_of_db(production_logger):
         log_usage(production_logger)(func)()
 
         # Read and display the complete production log.
-        if os.path.exists(PRODUCTION_LOG_FILE_NAME):
-            with open(PRODUCTION_LOG_FILE_NAME, "r") as log_file:
+        if os.path.exists(STARTUP_LOG_FILE):
+            with open(STARTUP_LOG_FILE, "r") as log_file:
                 log_contents = log_file.read()
             status_container.text(log_contents)
         else:
