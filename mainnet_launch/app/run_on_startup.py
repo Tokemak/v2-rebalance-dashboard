@@ -68,12 +68,8 @@ def log_usage(production_logger):
             # Capture profiling statistics
             stream = io.StringIO()
             stats = pstats.Stats(profiler, stream=stream)
-            stats.strip_dirs()  # Remove directory information for clarity
-
-            # Filter to exclude results from ".venv/" or external library paths
             stats.sort_stats("cumulative")
-            filtered_stats = [entry for entry in stats.fcn_list if "mainnet_launch/" in entry[0]]
-            stats.print_stats(lambda func: func in filtered_stats)
+            stats.print_stats(10, "mainnet_launch")
             stats.print_stats(10)
 
             # Log the results using the production logger.
