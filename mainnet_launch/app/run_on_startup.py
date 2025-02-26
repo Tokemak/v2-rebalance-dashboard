@@ -72,11 +72,11 @@ def log_usage(production_logger):
             stats.print_stats(10, "mainnet_launch")
             stats.print_stats(10)
 
-            # Log the results using the production logger.
-            production_logger.info(f"{func.__name__} started at {start_datetime} and took {elapsed:.2f} seconds")
+            # # Log the results using the production logger.
+            # production_logger.info(f"{func.__name__} started at {start_datetime} and took {elapsed:.2f} seconds")
 
-            production_logger.info("Detailed function timing breakdown:")
-            production_logger.info(stream.getvalue())
+            # production_logger.info("Detailed function timing breakdown:")
+            # production_logger.info(stream.getvalue())
 
             with open(STARTUP_LOG_FILE, "a") as f:
                 f.write(f"{func.__name__} started at {start_datetime} and took {elapsed:.2f} seconds\n")
