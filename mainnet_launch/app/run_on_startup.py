@@ -71,7 +71,7 @@ def log_usage(production_logger):
 
             with open(STARTUP_LOG_FILE, "a") as f:
                 f.write(f"{func.__name__} started at {start_datetime} and took {elapsed:.2f} seconds\n")
-                f.write("Detailed function timing breakdown:\n")
+                f.write("Detailed function timing breakdown:\v n")
                 f.write(stream.getvalue())
                 f.write("\n" + "=" * 80 + "\n")
 
@@ -103,9 +103,17 @@ functions_to_run = [
 
 def first_run_of_db(production_logger):
     status_container = st.empty()
+    # Read and display the complete production log.
+    if os.path.exists(STARTUP_LOG_FILE):
+        with open(STARTUP_LOG_FILE, "r") as log_file:
+            log_contents = log_file.read()
+        status_container.text(log_contents)
+    else:
+        status_container.text("Production log file not found.")
+
     for func in functions_to_run:
         log_usage(production_logger)(func)()
-
+        status_container = st.empty()
         # Read and display the complete production log.
         if os.path.exists(STARTUP_LOG_FILE):
             with open(STARTUP_LOG_FILE, "r") as log_file:
@@ -113,6 +121,7 @@ def first_run_of_db(production_logger):
             status_container.text(log_contents)
         else:
             status_container.text("Production log file not found.")
+
 
 
 # from datetime import datetime
