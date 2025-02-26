@@ -123,7 +123,6 @@ def first_run_of_db(production_logger):
             status_container.text("Production log file not found.")
 
 
-
 # from datetime import datetime
 
 # import streamlit as st
