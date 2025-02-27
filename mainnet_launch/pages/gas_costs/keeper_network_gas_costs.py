@@ -96,7 +96,8 @@ def _fetch_our_chainlink_upkeep_events_from_external_source(chain, start_block) 
     contract = chain.client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
     our_upkeep_df = fetch_events(
         contract.events.UpkeepPerformed,
-        start_block,
+        chain=chain,
+        start_block=start_block,
         argument_filters={
             "id": [
                 int(i) for i in [*CALCULATOR_TOPIC_IDS, *INCENTIVE_PRICING_TOPIC_IDS, *ETH_PER_TOKEN_SENDER_TOPIC_IDS]

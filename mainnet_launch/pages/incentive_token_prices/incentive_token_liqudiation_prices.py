@@ -96,7 +96,7 @@ def _fetch_reward_token_price_during_liquidation_from_external_source(
 ) -> pd.DataFrame:
     contract = chain.client.eth.contract(LIQUIDATION_ROW(chain), abi=DESTINATION_DEBT_REPORTING_SWAPPED_ABI)
 
-    swapped_df = fetch_events(contract.events.Swapped, start_block=start_block)
+    swapped_df = fetch_events(contract.events.Swapped, chain=chain, start_block=start_block)
     oracle_price_df = _fetch_oracle_price_df(swapped_df, chain)
     incentive_calculator_price_df = _fetch_incentive_calculator_price_df(swapped_df, chain)
 
