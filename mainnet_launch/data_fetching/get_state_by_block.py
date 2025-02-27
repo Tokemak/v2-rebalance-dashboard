@@ -6,9 +6,16 @@ import streamlit as st
 import nest_asyncio
 import asyncio
 from mainnet_launch.app.app_config import STREAMLIT_IN_MEMORY_CACHE_TIME, SEMAPHORE_LIMITS_FOR_MULTICALL
+from mainnet_launch.database.database_operations import (
+    write_dataframe_to_table,
+    get_earliest_block_from_table_with_chain,
+    get_all_rows_in_table_by_chain,
+    drop_table,
+)
+from mainnet_launch.database.should_update_database import should_update_table
 
 
-from mainnet_launch.constants import ChainData, TokemakAddress
+from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS
 
 # needed to run these functions in a jupyter notebook
 nest_asyncio.apply()
@@ -172,44 +179,71 @@ def identity_function(value):
     return value
 
 
-@st.cache_data(ttl=STREAMLIT_IN_MEMORY_CACHE_TIME)
+BLOCKS_TO_USE_TABLE = "BLOCKS_TO_USE_TABLE"
+
+
+def _add_to_blocks_to_use_table():
+    # drop_table(BLOCKS_TO_USE_TABLE)
+    if should_update_table(BLOCKS_TO_USE_TABLE, max_latency=pd.Timedelta("1 hour")):
+        for chain in ALL_CHAINS:
+            highest_block = get_earliest_block_from_table_with_chain(BLOCKS_TO_USE_TABLE, chain)
+            hour_blocks = _build_blocks_to_use_dont_clip(chain, start_block=highest_block, approx_num_blocks_per_day=48)
+
+            # Retrieve the raw state for the given blocks, including block numbers
+            df = get_raw_state_by_blocks([], hour_blocks, chain, include_block_number=True)
+            df["chain"] = chain.name
+            df = df.reset_index()
+            write_dataframe_to_table(df, BLOCKS_TO_USE_TABLE)
+
+
+# get the highest block for each day
 def build_blocks_to_use(
     chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 4
 ) -> list[int]:
-    """Returns a block approx every 6 hours. by default between when autopool was first deployed to the current block"""
-    # this is not the number of seconds between blocks is not constant
+
+    _add_to_blocks_to_use_table()
+
+    df = get_all_rows_in_table_by_chain(BLOCKS_TO_USE_TABLE, chain)
+    if end_block is None:
+        end_block = df["block"].max()
+    daily_df = df.resample("1D").last()
+    blocks = daily_df["block"].to_list()
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    first_minute_of_current_day = datetime.datetime.combine(
-        datetime.datetime.now(datetime.timezone.utc).date(), datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
-    )
-    # this is not correct
-    end_block = chain.client.eth.block_number if end_block is None else end_block
-    end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
-    blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
+    return [int(b) for b in blocks if (b > start_block) and (b <= end_block)]
 
-    while end_block_date_time > first_minute_of_current_day:
-        end_block = end_block - blocks_hop
-        end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
-    blocks = [b for b in range(start_block, end_block, blocks_hop)]
-    return blocks
+    # """Returns a block approx every 6 hours. by default between when autopool was first deployed to the current block"""
+    # # this is not the number of seconds between blocks is not constant
+    # start_block = chain.block_autopool_first_deployed if start_block is None else start_block
+    # first_minute_of_current_day = datetime.datetime.combine(
+    #     datetime.datetime.now(datetime.timezone.utc).date(), datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
+    # )
+    # # this is not correct
+    # end_block = chain.client.eth.block_number if end_block is None else end_block
+    # end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
+    # blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
+
+    # while end_block_date_time > first_minute_of_current_day:
+    #     end_block = end_block - blocks_hop
+    #     end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
+    # blocks = [b for b in range(start_block, end_block, blocks_hop)]
+    # return blocks
 
 
-def build_blocks_to_use_dont_clip(
-    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 4
+def _build_blocks_to_use_dont_clip(
+    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 48
 ) -> list[int]:
     """Returns a block approx every 6 hours. by default between when autopool was first deployed to the current block"""
     # this is not the number of seconds between blocks is not constant
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    first_minute_of_curent_day = datetime.datetime.combine(
-        datetime.datetime.now(datetime.timezone.utc).date(), datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
-    )
-    # this is not correct
     end_block = chain.client.eth.block_number if end_block is None else end_block
-    # end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
     blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
 
-    # while end_block_date_time > first_minute_of_curent_day:
-    #     end_block = end_block - blocks_hop
-    #     end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
     blocks = [b for b in range(start_block, end_block, blocks_hop)]
     return blocks
+
+
+if __name__ == "__main__":
+    from mainnet_launch.constants import ETH_CHAIN
+
+    b = build_blocks_to_use(ETH_CHAIN)
+    print(b)

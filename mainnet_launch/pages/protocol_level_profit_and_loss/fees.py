@@ -41,7 +41,7 @@ def add_new_fee_events_to_table():
             vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
 
             streaming_fee_df = fetch_events(
-                vault_contract.events.FeeCollected, start_block=highest_block_already_fetched
+                vault_contract.events.FeeCollected, chain=autopool.chain, start_block=highest_block_already_fetched
             )
 
             streaming_fee_df["normalized_fees"] = streaming_fee_df["fees"].apply(lambda x: int(x) / 1e18)
@@ -49,7 +49,9 @@ def add_new_fee_events_to_table():
             streaming_fee_df["new_shares_from_periodic_fees"] = 0.0  # so that the columns line up
 
             periodic_fee_df = fetch_events(
-                vault_contract.events.PeriodicFeeCollected, start_block=highest_block_already_fetched
+                vault_contract.events.PeriodicFeeCollected,
+                chain=autopool.chain,
+                start_block=highest_block_already_fetched,
             )
 
             periodic_fee_df["normalized_fees"] = periodic_fee_df["fees"].apply(lambda x: int(x) / 1e18)
@@ -100,7 +102,9 @@ def add_new_debt_reporting_events_to_table():
             highest_block_already_fetched = autopool.chain.block_autopool_first_deployed
             vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
             debt_reporting_events_df = fetch_events(
-                vault_contract.events.DestinationDebtReporting, start_block=highest_block_already_fetched
+                vault_contract.events.DestinationDebtReporting,
+                chain=autopool.chain,
+                start_block=highest_block_already_fetched,
             )
 
             debt_reporting_events_df = add_timestamp_to_df_with_block_column(

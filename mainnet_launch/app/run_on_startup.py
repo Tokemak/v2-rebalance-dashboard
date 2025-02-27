@@ -58,17 +58,19 @@ def write_pandas(stats, top_level_function):
             primitive_calls, total_calls, total_time, cumulative_time, callers = value
             percall_tottime = total_time / total_calls if total_calls else 0
             percall_cumtime = cumulative_time / total_calls if total_calls else 0
-            rows.append({
-                "top_level_function":top_level_function,
-                "ncalls": total_calls,
-                "tottime": total_time,
-                "percall_tottime": percall_tottime,
-                "cumtime": cumulative_time,
-                "percall_cumtime": percall_cumtime,
-                "filename": filename,
-                "lineno": lineno,
-                "function": func_name,
-            })
+            rows.append(
+                {
+                    "top_level_function": top_level_function,
+                    "ncalls": total_calls,
+                    "tottime": total_time,
+                    "percall_tottime": percall_tottime,
+                    "cumtime": cumulative_time,
+                    "percall_cumtime": percall_cumtime,
+                    "filename": filename,
+                    "lineno": lineno,
+                    "function": func_name,
+                }
+            )
     if rows:
         df_new = pd.DataFrame(rows)
         # Append to the CSV if it exists; otherwise, create a new file with a header.
@@ -77,11 +79,13 @@ def write_pandas(stats, top_level_function):
         else:
             df_new.to_csv(STARTUP_LOG_FILE, mode="w", header=True, index=False)
 
+
 def log_usage(production_logger):
     """
     A decorator that profiles the decorated function using cProfile and logs both a
     human-readable summary and appends profiling data to a CSV file using pandas.
     """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -107,13 +111,14 @@ def log_usage(production_logger):
             #     f.write("\n" + "=" * 80 + "\n")
 
             # Append the profiling data to a CSV using pandas.
-            write_pandas(stats, top_level_function = func.__name__)
+            write_pandas(stats, top_level_function=func.__name__)
 
             return result
 
         return wrapper
 
     return decorator
+
 
 functions_to_run = [
     initialize_tx_hash_to_gas_info_db,
@@ -132,6 +137,7 @@ functions_to_run = [
     add_chainlink_upkeep_events_to_table,
     add_new_asset_oracle_and_discount_price_rows_to_table,
 ]
+
 
 def first_run_of_db(production_logger):
     status_container = st.empty()
@@ -153,8 +159,6 @@ def first_run_of_db(production_logger):
             status_container.text(log_contents)
         else:
             status_container.text("Production log file not found.")
-
-
 
 
 # from mainnet_launch.data_fetching.add_info_to_dataframes import initialize_tx_hash_to_gas_info_db

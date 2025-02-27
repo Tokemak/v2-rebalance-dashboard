@@ -4,7 +4,7 @@ import pandas as pd
 import web3
 from web3.contract import Contract, ContractEvent
 
-from mainnet_launch.constants import BASE_CHAIN, ETH_CHAIN
+from mainnet_launch.constants import ChainData
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 
@@ -100,6 +100,7 @@ def events_to_df(found_events: list[web3.datastructures.AttributeDict]) -> pd.Da
 
 def fetch_events(
     event: ContractEvent,
+    chain: ChainData,
     start_block: int = 15091387,
     end_block: int = None,
     argument_filters: dict | None = None,
@@ -107,12 +108,12 @@ def fetch_events(
     """
     Collect every `event` between start_block and end_block into a DataFrame.
     """
-    if event.web3.eth.chain_id == BASE_CHAIN.chain_id:
-        chain = BASE_CHAIN
-    elif event.web3.eth.chain_id == ETH_CHAIN.chain_id:
-        chain = ETH_CHAIN
-    else:
-        raise ValueError(f"{event.web3.eth.chain_id=} not recognized")
+    # if event.web3.eth.chain_id == BASE_CHAIN.chain_id:
+    #     chain = BASE_CHAIN
+    # elif event.web3.eth.chain_id == ETH_CHAIN.chain_id:
+    #     chain = ETH_CHAIN
+    # else:
+    #     raise ValueError(f"{event.web3.eth.chain_id=} not recognized")
 
     end_block = max(build_blocks_to_use(chain)) if end_block is None else end_block
 
@@ -136,9 +137,9 @@ def fetch_events(
     return event_df
 
 
-def get_each_event_in_contract(contract: Contract, end_block: int = None) -> dict[str, pd.DataFrame]:
-    events_dict = dict()
-    for event in contract.events:
-        # add http fail retries?
-        events_dict[event.event_name] = fetch_events(event, end_block=end_block)
-    return events_dict
+# def get_each_event_in_contract(contract: Contract, end_block: int = None) -> dict[str, pd.DataFrame]:
+#     events_dict = dict()
+#     for event in contract.events:
+#         # add http fail retries?
+#         events_dict[event.event_name] = fetch_events(event, chainend_block=end_block)
+#     return events_dict

@@ -57,7 +57,7 @@ def _fetch_lst_calc_addresses_df(chain: ChainData) -> pd.DataFrame:
         STATS_CALCULATOR_REGISTRY(chain), abi=STATS_CALCULATOR_REGISTRY_ABI
     )
 
-    StatCalculatorRegistered = fetch_events(stats_calculator_registry_contract.events.StatCalculatorRegistered)
+    StatCalculatorRegistered = fetch_events(stats_calculator_registry_contract.events.StatCalculatorRegistered, chain)
 
     lstTokenAddress_calls = [
         Call(
