@@ -4,7 +4,13 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta, timezone
 import streamlit as st
-from mainnet_launch.app.app_config import STREAMLIT_IN_MEMORY_CACHE_TIME
+from mainnet_launch.app.app_config import STREAMLIT_IN_MEMORY_CACHE_TIME, NUM_S3_BUCKET_FETCHING_THREADS
+
+import time
+import concurrent.futures
+import boto3
+from botocore import UNSIGNED
+from botocore.config import Config
 
 from mainnet_launch.constants import (
     AutopoolConstants,
@@ -22,13 +28,8 @@ from mainnet_launch.pages.solver_diagnostics.solver_profit import fetch_and_rend
 from mainnet_launch.pages.solver_diagnostics.bps_lost_to_rebalances import fetch_and_render_bps_lost_to_rebalances
 
 
-import boto3
-from botocore import UNSIGNED
-from botocore.client import Config
-
-
 def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
-    figs = fetch_and_render_solver_diagnostics_data(autopool)
+    fetch_and_render_solver_diagnostics_data(autopool)
     fetch_and_render_solver_profit_data(autopool)
     fetch_and_render_bps_lost_to_rebalances(autopool)
 
@@ -83,7 +84,36 @@ def ensure_all_rebalance_plans_are_loaded_from_s3_bucket():
             rebalance_plans_to_fetch = [
                 json_path for json_path in all_rebalance_plans if json_path not in local_rebalance_plans
             ]
-            for json_key in rebalance_plans_to_fetch:
+            if len(rebalance_plans_to_fetch) > 0:
+
+                def download_file(json_key):
+                    max_attempts = 3
+                    for attempt in range(max_attempts):
+                        try:
+                            s3_client.download_file(
+                                autopool.solver_rebalance_plans_bucket,
+                                json_key,
+                                str(SOLVER_REBALANCE_PLANS_DIR / json_key),
+                            )
+                            return
+                        except Exception as e:
+                            if attempt == max_attempts - 1:
+                                # give up and fetch it sequentally later
+                                return
+                            else:
+                                time.sleep((2**attempt) / 2)  # exponential backoff
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_S3_BUCKET_FETCHING_THREADS) as executor:
+                    executor.map(download_file, rebalance_plans_to_fetch)
+
+            # fetch any remaining that were not fetched seqentially
+            updated_local_rebalance_plans = [
+                str(path).split("/")[-1] for path in SOLVER_REBALANCE_PLANS_DIR.glob("*.json")
+            ]
+            leftover_rebalance_plans_to_fetch = [
+                json_path for json_path in all_rebalance_plans if json_path not in updated_local_rebalance_plans
+            ]
+            for json_key in leftover_rebalance_plans_to_fetch:
                 s3_client.download_file(
                     autopool.solver_rebalance_plans_bucket, json_key, SOLVER_REBALANCE_PLANS_DIR / json_key
                 )
