@@ -141,24 +141,25 @@ functions_to_run = [
 
 def first_run_of_db(production_logger):
     status_container = st.empty()
-    # Read and display the complete production log.
-    if os.path.exists(STARTUP_LOG_FILE):
-        with open(STARTUP_LOG_FILE, "r") as log_file:
-            log_contents = log_file.read()
-        status_container.text(log_contents)
-    else:
-        status_container.text("Production log file not found.")
+    # # Read and display the complete production log.
+    # if os.path.exists(STARTUP_LOG_FILE):
+    #     with open(STARTUP_LOG_FILE, "r") as log_file:
+    #         log_contents = log_file.read()
+    #     status_container.text(log_contents)
+    # else:
+    #     status_container.text("Production log file not found.")
 
     for func in functions_to_run:
         log_usage(production_logger)(func)()
-        status_container = st.empty()
-        # Read and display the updated production log.
-        if os.path.exists(STARTUP_LOG_FILE):
-            with open(STARTUP_LOG_FILE, "r") as log_file:
-                log_contents = log_file.read()
-            status_container.text(log_contents)
-        else:
-            status_container.text("Production log file not found.")
+        status_container.text(func.__name__)
+        # status_container = st.empty()
+        # # Read and display the updated production log.
+        # if os.path.exists(STARTUP_LOG_FILE):
+        #     with open(STARTUP_LOG_FILE, "r") as log_file:
+        #         log_contents = log_file.read()
+        #     status_container.text(log_contents)
+        # else:
+        #     status_container.text("Production log file not found.")
 
 
 # from mainnet_launch.data_fetching.add_info_to_dataframes import initialize_tx_hash_to_gas_info_db
