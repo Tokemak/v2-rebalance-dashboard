@@ -385,12 +385,14 @@ def _fetch_weth_transfers_to_or_from_autopool_vault(autopool: AutopoolConstants,
 
     weth_to_autopool = fetch_events(
         weth_contract.events.Transfer,
+        chain=autopool.chain,
         start_block=start_block,
         argument_filters={"to": autopool.autopool_eth_addr},
     )
 
     weth_from_autopool = fetch_events(
         weth_contract.events.Transfer,
+        chain=autopool.chain,
         start_block=start_block,
         argument_filters={"from": autopool.autopool_eth_addr},
     )
@@ -407,7 +409,7 @@ def fetch_rebalance_events_and_actual_weth_and_lp_tokens_moved(
     )
 
     rebalance_between_destinations_df = fetch_events(
-        strategy_contract.events.RebalanceBetweenDestinations, start_block=start_block
+        strategy_contract.events.RebalanceBetweenDestinations, chain=autopool.chain, start_block=start_block
     )
 
     rebalance_between_destinations_df["outDestinationVault"] = rebalance_between_destinations_df[
@@ -418,7 +420,9 @@ def fetch_rebalance_events_and_actual_weth_and_lp_tokens_moved(
         lambda x: Web3.toChecksumAddress(x[0])
     )
 
-    rebalance_to_idle_df = fetch_events(strategy_contract.events.RebalanceToIdle, start_block=start_block)
+    rebalance_to_idle_df = fetch_events(
+        strategy_contract.events.RebalanceToIdle, chain=autopool.chain, start_block=start_block
+    )
 
     rebalance_to_idle_df["outDestinationVault"] = rebalance_to_idle_df["outSummary"].apply(
         lambda x: Web3.toChecksumAddress(x[0])
