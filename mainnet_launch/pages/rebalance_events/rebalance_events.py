@@ -67,6 +67,19 @@ def add_new_rebalance_events_for_each_autopool_to_table(run_anyway: bool = False
             )
             write_dataframe_to_table(new_rebalance_events_df, REBALANCE_EVENTS_TABLE)
 
+    # make sure that all teh autopool shave some data
+    for autopool in ALL_AUTOPOOLS:
+        rebalance_events_df = get_all_rows_in_table_by_autopool(REBALANCE_EVENTS_TABLE, autopool)
+        if len(rebalance_events_df) == 0:
+            # if this process gets interrupted, then you could have data for some autopools but not all of them
+            highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
+                REBALANCE_EVENTS_TABLE, autopool
+            )
+            new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
+                autopool, highest_block_already_fetched
+            )
+            write_dataframe_to_table(new_rebalance_events_df, REBALANCE_EVENTS_TABLE)
+
 
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     add_new_rebalance_events_for_each_autopool_to_table()
@@ -233,7 +246,7 @@ def _add_solver_profit_cols_by_flash_borrower(
     Solver profit: ETH value held by the solver AFTER a rebalance - ETH value held by the solver BEFORE a rebalance
     """
     root_price_oracle_contract = chain.client.eth.contract(ROOT_PRICE_ORACLE(chain), abi=ROOT_PRICE_ORACLE_ABI)
-    tokens: list[str] = fetch_events(root_price_oracle_contract.events.TokenRegistered)["token"].values
+    tokens: list[str] = fetch_events(root_price_oracle_contract.events.TokenRegistered, chain=chain)["token"].values
 
     symbol_calls = [Call(t, ["symbol()(string)"], [(t, identity_with_bool_success)]) for t in tokens]
     block = int(limited_clean_rebalance_df["block"].max())
@@ -295,7 +308,7 @@ def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants, start_bl
         contract = autopool.chain.client.eth.contract(
             Web3.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
         )
-        df = fetch_events(contract.events.UnderlyingDeposited, start_block=start_block)
+        df = fetch_events(contract.events.UnderlyingDeposited, chain=autopool.chain, start_block=start_block)
         df["contract_address"] = contract.address
         dfs.append(df)
 
@@ -312,7 +325,7 @@ def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants, start_blo
         contract = autopool.chain.client.eth.contract(
             Web3.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
         )
-        df = fetch_events(contract.events.UnderlyingWithdraw, start_block=start_block)
+        df = fetch_events(contract.events.UnderlyingWithdraw, chain=autopool.chain, start_block=start_block)
         df["contract_address"] = contract.address
         dfs.append(df)
 
@@ -491,12 +504,14 @@ def _fetch_weth_transfers_to_or_from_autopool_vault(autopool: AutopoolConstants,
 
     weth_to_autopool = fetch_events(
         weth_contract.events.Transfer,
+        chain=autopool.chain,
         start_block=start_block,
         argument_filters={"to": autopool.autopool_eth_addr},
     )
 
     weth_from_autopool = fetch_events(
         weth_contract.events.Transfer,
+        chain=autopool.chain,
         start_block=start_block,
         argument_filters={"from": autopool.autopool_eth_addr},
     )

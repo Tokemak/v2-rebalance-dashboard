@@ -61,8 +61,12 @@ def _fetch_autopool_deposit_and_withdraw_events_from_external_source(
     autopool: AutopoolConstants, start_block: int
 ) -> pd.DataFrame:
     contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-    deposit_df = fetch_events(contract.events.Deposit, start_block=start_block)
-    withdraw_df = fetch_events(contract.events.Withdraw, start_block=start_block)
+    deposit_df = fetch_events(
+        contract.events.Deposit,
+        autopool.chain,
+        start_block=start_block,
+    )
+    withdraw_df = fetch_events(contract.events.Withdraw, autopool.chain, start_block=start_block)
 
     deposit_df["normalized_assets"] = deposit_df["assets"].apply(lambda x: int(x) / 1e18)
     withdraw_df["normalized_assets"] = withdraw_df["assets"].apply(lambda x: int(x) / 1e18)
