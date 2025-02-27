@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 from multicall import Call
 from web3 import Web3
+import concurrent.futures
 
 
 from mainnet_launch.constants import (
@@ -13,6 +14,7 @@ from mainnet_launch.constants import (
     ChainData,
     ALL_AUTOPOOLS,
 )
+from mainnet_launch.app.app_config import NUM_GAS_INFO_FETCHING_THREADS
 
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
@@ -171,9 +173,20 @@ def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, 
 
     clean_rebalance_df = add_transaction_gas_info_to_df_with_tx_hash(clean_rebalance_df, autopool.chain)
 
-    clean_rebalance_df["flash_borrower_address"] = clean_rebalance_df.apply(
-        lambda row: _get_flash_borrower_address(row["hash"], autopool.chain), axis=1
-    )
+    def _get_flash_borrower_address(tx_hash: str, chain: ChainData) -> str:
+        # get the address of the flash borrower that did this rebalance
+        return chain.client.eth.get_transaction(tx_hash)["to"]
+
+    # Use concurrent.futures.ThreadPoolExecutor to run the calls in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_GAS_INFO_FETCHING_THREADS) as executor:
+        # executor.map preserves order, so we get results in the same order as the hashes.
+        flash_borrower_addresses = list(
+            executor.map(
+                lambda tx_hash: _get_flash_borrower_address(tx_hash, autopool.chain), clean_rebalance_df["hash"]
+            )
+        )
+
+    clean_rebalance_df["flash_borrower_address"] = flash_borrower_addresses
 
     clean_rebalance_df = _add_solver_profit_cols(clean_rebalance_df, autopool)
 
@@ -216,11 +229,6 @@ def getPriceInEth_call(name: str, token_address: str, chain: ChainData) -> Call:
         ["getPriceInEth(address)(uint256)", token_address],
         [(name, safe_normalize_with_bool_success)],
     )
-
-
-def _get_flash_borrower_address(tx_hash: str, chain: ChainData) -> str:
-    # get the address of the flash borrower that did this rebalance
-    return chain.client.eth.get_transaction(tx_hash)["to"]
 
 
 def _add_solver_profit_cols(clean_rebalance_df: pd.DataFrame, autopool: AutopoolConstants):
