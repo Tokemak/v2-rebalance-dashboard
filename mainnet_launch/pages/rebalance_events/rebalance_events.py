@@ -23,7 +23,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
 )
 
-from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.data_fetching.get_events import fetch_events, FetchEventParams, fetch_many_events
 
 from mainnet_launch.abis import (
     AUTOPOOL_ETH_STRATEGY_ABI,
@@ -177,9 +177,7 @@ def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, 
         # get the address of the flash borrower that did this rebalance
         return chain.client.eth.get_transaction(tx_hash)["to"]
 
-    # Use concurrent.futures.ThreadPoolExecutor to run the calls in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_GAS_INFO_FETCHING_THREADS) as executor:
-        # executor.map preserves order, so we get results in the same order as the hashes.
         flash_borrower_addresses = list(
             executor.map(
                 lambda tx_hash: _get_flash_borrower_address(tx_hash, autopool.chain), clean_rebalance_df["hash"]
@@ -306,175 +304,6 @@ def _build_value_held_by_solver(
     return eth_value_held_by_flash_solver_df
 
 
-def _fetch_destination_UnderlyingDeposited(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
-    destinations = get_destination_details(autopool)
-
-    vaultAddresses = list(set([d.vaultAddress for d in destinations]))
-    dfs = []
-
-    for vault_address in vaultAddresses:
-        contract = autopool.chain.client.eth.contract(
-            Web3.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
-        )
-        df = fetch_events(contract.events.UnderlyingDeposited, chain=autopool.chain, start_block=start_block)
-        df["contract_address"] = contract.address
-        dfs.append(df)
-
-    UnderlyingDeposited_df = pd.concat(dfs, axis=0)
-    return UnderlyingDeposited_df
-
-
-def _fetch_destination_UnderlyingWithdraw(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
-    destinations = get_destination_details(autopool)
-    vaultAddresses = list(set([d.vaultAddress for d in destinations]))
-    dfs = []
-
-    for vault_address in vaultAddresses:
-        contract = autopool.chain.client.eth.contract(
-            Web3.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
-        )
-        df = fetch_events(contract.events.UnderlyingWithdraw, chain=autopool.chain, start_block=start_block)
-        df["contract_address"] = contract.address
-        dfs.append(df)
-
-    UnderlyingWithdraw_df = pd.concat(dfs, axis=0)
-    return UnderlyingWithdraw_df
-
-
-def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
-
-    destinations = get_destination_details(autopool)
-
-    get_validated_spot_price_calls = []
-    for dest in destinations:
-        call = Call(
-            dest.vaultAddress,
-            ["getValidatedSpotPrice()(uint256)"],
-            [(dest.vaultAddress, safe_normalize_with_bool_success)],
-        )
-        get_validated_spot_price_calls.append(call)
-
-    validated_spot_price_df = get_raw_state_by_blocks(
-        get_validated_spot_price_calls, blocks, chain=autopool.chain, include_block_number=True
-    )
-    validated_spot_price_df[autopool.autopool_eth_addr] = (
-        1.0  # movements to or from the autopool itself are always in WETH
-    )
-    validated_spot_price_df = validated_spot_price_df.reset_index(drop=True)
-    return validated_spot_price_df
-
-
-def _fetch_lp_token_validated_safe_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
-
-    destinations = get_destination_details(autopool)
-
-    get_validated_spot_price_calls = []
-    for dest in destinations:
-        call = Call(
-            dest.vaultAddress,
-            ["getValidatedSafePrice()(uint256)"],
-            [(dest.vaultAddress, safe_normalize_with_bool_success)],
-        )
-        get_validated_spot_price_calls.append(call)
-
-    validated_spot_price_df = get_raw_state_by_blocks(
-        get_validated_spot_price_calls, blocks, chain=autopool.chain, include_block_number=True
-    )
-    validated_spot_price_df[autopool.autopool_eth_addr] = (
-        1.0  # movements to or from the autopool itself are always in WETH
-    )
-    validated_spot_price_df = validated_spot_price_df.reset_index(drop=True)
-    return validated_spot_price_df
-
-
-def _fetch_weth_transfers_to_or_from_autopool_vault(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
-
-    weth_contract = autopool.chain.client.eth.contract(WETH(autopool.chain), abi=ERC_20_ABI)
-
-    weth_to_autopool = fetch_events(
-        weth_contract.events.Transfer,
-        chain=autopool.chain,
-        start_block=start_block,
-        argument_filters={"to": autopool.autopool_eth_addr},
-    )
-
-    weth_from_autopool = fetch_events(
-        weth_contract.events.Transfer,
-        chain=autopool.chain,
-        start_block=start_block,
-        argument_filters={"from": autopool.autopool_eth_addr},
-    )
-
-    return weth_to_autopool, weth_from_autopool
-
-
-def fetch_rebalance_events_and_actual_weth_and_lp_tokens_moved(
-    autopool: AutopoolConstants, start_block: int
-) -> pd.DataFrame:
-
-    strategy_contract = autopool.chain.client.eth.contract(
-        autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI
-    )
-
-    rebalance_between_destinations_df = fetch_events(
-        strategy_contract.events.RebalanceBetweenDestinations, chain=autopool.chain, start_block=start_block
-    )
-
-    rebalance_between_destinations_df["outDestinationVault"] = rebalance_between_destinations_df[
-        "outSummaryStats"
-    ].apply(lambda x: Web3.toChecksumAddress(x[0]))
-
-    rebalance_between_destinations_df["inDestinationVault"] = rebalance_between_destinations_df["inSummaryStats"].apply(
-        lambda x: Web3.toChecksumAddress(x[0])
-    )
-
-    rebalance_to_idle_df = fetch_events(
-        strategy_contract.events.RebalanceToIdle, chain=autopool.chain, start_block=start_block
-    )
-
-    rebalance_to_idle_df["outDestinationVault"] = rebalance_to_idle_df["outSummary"].apply(
-        lambda x: Web3.toChecksumAddress(x[0])
-    )
-
-    rebalance_to_idle_df["inDestinationVault"] = autopool.autopool_eth_addr
-    rebalance_df = pd.concat([rebalance_to_idle_df, rebalance_between_destinations_df], axis=0)
-
-    weth_to_autopool, weth_from_autopool = _fetch_weth_transfers_to_or_from_autopool_vault(
-        autopool, start_block=start_block
-    )
-    UnderlyingDeposited_df = _fetch_destination_UnderlyingDeposited(autopool, start_block=start_block)
-    UnderlyingWithdraw_df = _fetch_destination_UnderlyingWithdraw(autopool, start_block=start_block)
-
-    valid_weth_from_autopool = weth_from_autopool[~weth_from_autopool["hash"].duplicated(keep=False)].copy()
-    valid_weth_from_autopool["weth_from_autopool"] = valid_weth_from_autopool["value"] / 1e18
-
-    valid_weth_to_autopool = weth_to_autopool[~weth_to_autopool["hash"].duplicated(keep=False)].copy()
-    valid_weth_to_autopool["weth_to_autopool"] = valid_weth_to_autopool["value"] / 1e18
-
-    valid_underlying_withdraw_df = UnderlyingWithdraw_df[~UnderlyingWithdraw_df["hash"].duplicated(keep=False)].copy()
-    valid_underlying_withdraw_df["amount_withdrawn"] = valid_underlying_withdraw_df["amount"] / 1e18
-
-    valid_underlying_deposited_df = UnderlyingDeposited_df[
-        ~UnderlyingDeposited_df["hash"].duplicated(keep=False)
-    ].copy()
-    valid_underlying_deposited_df["amount_deposited"] = valid_underlying_deposited_df["amount"] / 1e18
-
-    # amount_deposited the quantity of LP tokens deposited to a destination (value out the autopool)
-    # amount_withdrawn the quantity of LP tokens withdrawn from a destination (value into the autopool)
-    rebalance_df = pd.merge(
-        rebalance_df, valid_underlying_withdraw_df[["amount_withdrawn", "hash"]], on="hash", how="left"
-    )
-    rebalance_df = pd.merge(
-        rebalance_df, valid_underlying_deposited_df[["amount_deposited", "hash"]], on="hash", how="left"
-    )
-    rebalance_df = pd.merge(rebalance_df, valid_weth_to_autopool[["weth_to_autopool", "hash"]], on="hash", how="left")
-    rebalance_df = pd.merge(
-        rebalance_df, valid_weth_from_autopool[["weth_from_autopool", "hash"]], on="hash", how="left"
-    )
-    rebalance_df = _add_spot_value_of_rebalance_events(rebalance_df, autopool)
-    return rebalance_df
-
-
 def _add_spot_value_of_rebalance_events(rebalance_df: pd.DataFrame, autopool: AutopoolConstants) -> pd.DataFrame:
     # get the price of each destination LP token before the rebalance
     validated_spot_price_df = _fetch_lp_token_validated_spot_price(rebalance_df["block"] - 1, autopool)
@@ -510,28 +339,196 @@ def _add_spot_value_of_rebalance_events(rebalance_df: pd.DataFrame, autopool: Au
     return rebalance_df
 
 
-def _fetch_weth_transfers_to_or_from_autopool_vault(autopool: AutopoolConstants, start_block: int) -> pd.DataFrame:
+def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolConstants) -> pd.DataFrame:
 
+    destinations = get_destination_details(autopool)
+
+    get_validated_spot_price_calls = []
+    for dest in destinations:
+        call = Call(
+            dest.vaultAddress,
+            ["getValidatedSpotPrice()(uint256)"],
+            [(dest.vaultAddress, safe_normalize_with_bool_success)],
+        )
+        get_validated_spot_price_calls.append(call)
+
+    validated_spot_price_df = get_raw_state_by_blocks(
+        get_validated_spot_price_calls, blocks, chain=autopool.chain, include_block_number=True
+    )
+    validated_spot_price_df[autopool.autopool_eth_addr] = (
+        1.0  # movements to or from the autopool itself are always in WETH
+    )
+    validated_spot_price_df = validated_spot_price_df.reset_index(drop=True)
+    return validated_spot_price_df
+
+
+def fetch_events_needed_for_rebalance_events(autopool: AutopoolConstants, start_block: int) -> list[pd.DataFrame]:
+    event_dfs_to_fetch = []
+
+    # --- WETH Transfer events ---
     weth_contract = autopool.chain.client.eth.contract(WETH(autopool.chain), abi=ERC_20_ABI)
-
-    weth_to_autopool = fetch_events(
-        weth_contract.events.Transfer,
-        chain=autopool.chain,
-        start_block=start_block,
-        argument_filters={"to": autopool.autopool_eth_addr},
+    event_dfs_to_fetch.append(
+        FetchEventParams(
+            event=weth_contract.events.Transfer,
+            chain=autopool.chain,
+            id="weth_to_autopool",
+            start_block=start_block,
+            argument_filters={"to": autopool.autopool_eth_addr},
+        )
+    )
+    event_dfs_to_fetch.append(
+        FetchEventParams(
+            event=weth_contract.events.Transfer,
+            chain=autopool.chain,
+            id="weth_from_autopool",
+            start_block=start_block,
+            argument_filters={"from": autopool.autopool_eth_addr},
+        )
     )
 
-    weth_from_autopool = fetch_events(
-        weth_contract.events.Transfer,
-        chain=autopool.chain,
-        start_block=start_block,
-        argument_filters={"from": autopool.autopool_eth_addr},
+    # --- Strategy events ---
+    strategy_contract = autopool.chain.client.eth.contract(
+        autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI
+    )
+    event_dfs_to_fetch.append(
+        FetchEventParams(
+            event=strategy_contract.events.RebalanceBetweenDestinations,
+            chain=autopool.chain,
+            id="rebalance_between_destinations",
+            start_block=start_block,
+        )
+    )
+    event_dfs_to_fetch.append(
+        FetchEventParams(
+            event=strategy_contract.events.RebalanceToIdle,
+            chain=autopool.chain,
+            id="rebalance_to_idle",
+            start_block=start_block,
+        )
     )
 
-    return weth_to_autopool, weth_from_autopool
+    # --- Underlying Deposited / Withdraw events for each vault ---
+    destinations = get_destination_details(autopool)
+    vault_addresses = list({d.vaultAddress for d in destinations})
+
+    for vault_address in vault_addresses:
+        contract = autopool.chain.client.eth.contract(
+            Web3.toChecksumAddress(vault_address), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
+        )
+        # Underlying Deposited event for this vault.
+        event_dfs_to_fetch.append(
+            FetchEventParams(
+                event=contract.events.UnderlyingDeposited,
+                chain=autopool.chain,
+                id=f"Underlying_deposited_{vault_address}",
+                start_block=start_block,
+            )
+        )
+        # Underlying Withdraw event for this vault.
+        event_dfs_to_fetch.append(
+            FetchEventParams(
+                event=contract.events.UnderlyingWithdraw,
+                chain=autopool.chain,
+                id=f"Underlying_withdraw_{vault_address}",
+                start_block=start_block,
+            )
+        )
+
+    # Fetch all events concurrently.
+    results = fetch_many_events(event_dfs_to_fetch, num_threads=16)
+    rebalance_between_destinations_df = results["rebalance_between_destinations"]
+    rebalance_to_idle_df = results["rebalance_to_idle"]
+    weth_to_autopool = results["weth_to_autopool"]
+    weth_from_autopool = results["weth_from_autopool"]
+
+    UnderlyingDeposited_df = pd.concat([results[key] for key in results.keys() if "Underlying_deposited_" in key])
+    UnderlyingWithdraw_df = pd.concat([results[key] for key in results.keys() if "Underlying_withdraw_" in key])
+
+    return (
+        rebalance_between_destinations_df,
+        rebalance_to_idle_df,
+        weth_to_autopool,
+        weth_from_autopool,
+        UnderlyingDeposited_df,
+        UnderlyingWithdraw_df,
+    )
 
 
-# plots
+def _combine_rebalance_event_data(
+    autopool: AutopoolConstants,
+    rebalance_between_destinations_df: pd.DataFrame,
+    rebalance_to_idle_df: pd.DataFrame,
+    weth_to_autopool: pd.DataFrame,
+    weth_from_autopool: pd.DataFrame,
+    UnderlyingDeposited_df: pd.DataFrame,
+    UnderlyingWithdraw_df: pd.DataFrame,
+):
+
+    rebalance_between_destinations_df["outDestinationVault"] = rebalance_between_destinations_df[
+        "outSummaryStats"
+    ].apply(lambda x: Web3.toChecksumAddress(x[0]))
+
+    rebalance_between_destinations_df["inDestinationVault"] = rebalance_between_destinations_df["inSummaryStats"].apply(
+        lambda x: Web3.toChecksumAddress(x[0])
+    )
+    rebalance_to_idle_df["outDestinationVault"] = rebalance_to_idle_df["outSummary"].apply(
+        lambda x: Web3.toChecksumAddress(x[0])
+    )
+
+    rebalance_to_idle_df["inDestinationVault"] = autopool.autopool_eth_addr
+
+    valid_weth_from_autopool = weth_from_autopool[~weth_from_autopool["hash"].duplicated(keep=False)].copy()
+    valid_weth_from_autopool["weth_from_autopool"] = valid_weth_from_autopool["value"] / 1e18
+
+    valid_weth_to_autopool = weth_to_autopool[~weth_to_autopool["hash"].duplicated(keep=False)].copy()
+    valid_weth_to_autopool["weth_to_autopool"] = valid_weth_to_autopool["value"] / 1e18
+
+    valid_underlying_withdraw_df = UnderlyingWithdraw_df[~UnderlyingWithdraw_df["hash"].duplicated(keep=False)].copy()
+    valid_underlying_withdraw_df["amount_withdrawn"] = valid_underlying_withdraw_df["amount"] / 1e18
+
+    valid_underlying_deposited_df = UnderlyingDeposited_df[
+        ~UnderlyingDeposited_df["hash"].duplicated(keep=False)
+    ].copy()
+    valid_underlying_deposited_df["amount_deposited"] = valid_underlying_deposited_df["amount"] / 1e18
+
+    rebalance_df = pd.concat([rebalance_to_idle_df, rebalance_between_destinations_df], axis=0)
+    rebalance_df = pd.merge(
+        rebalance_df, valid_underlying_withdraw_df[["amount_withdrawn", "hash"]], on="hash", how="left"
+    )
+    rebalance_df = pd.merge(
+        rebalance_df, valid_underlying_deposited_df[["amount_deposited", "hash"]], on="hash", how="left"
+    )
+    rebalance_df = pd.merge(rebalance_df, valid_weth_to_autopool[["weth_to_autopool", "hash"]], on="hash", how="left")
+    rebalance_df = pd.merge(
+        rebalance_df, valid_weth_from_autopool[["weth_from_autopool", "hash"]], on="hash", how="left"
+    )
+    return rebalance_df
+
+
+def fetch_rebalance_events_and_actual_weth_and_lp_tokens_moved(autopool: AutopoolConstants, start_block: int):
+    (
+        rebalance_between_destinations_df,
+        rebalance_to_idle_df,
+        weth_to_autopool,
+        weth_from_autopool,
+        UnderlyingDeposited_df,
+        UnderlyingWithdraw_df,
+    ) = fetch_events_needed_for_rebalance_events(autopool, start_block)
+
+    rebalance_df = _combine_rebalance_event_data(
+        autopool,
+        rebalance_between_destinations_df,
+        rebalance_to_idle_df,
+        weth_to_autopool,
+        weth_from_autopool,
+        UnderlyingDeposited_df,
+        UnderlyingWithdraw_df,
+    )
+    rebalance_df = _add_spot_value_of_rebalance_events(rebalance_df, autopool)
+    return rebalance_df
+
+
+# # plots
 
 
 def _make_rebalance_events_plots(clean_rebalance_df):
@@ -627,6 +624,9 @@ if __name__ == "__main__":
     from mainnet_launch.constants import AUTO_ETH
     from mainnet_launch.database.database_operations import drop_table
 
-    drop_table(REBALANCE_EVENTS_TABLE)
+    # drop_table(REBALANCE_EVENTS_TABLE)
 
-    # new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(AUTO_ETH, 20839197 - 2)
+    new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
+        AUTO_ETH, AUTO_ETH.chain.block_autopool_first_deployed
+    )
+    print(new_rebalance_events_df.head())
