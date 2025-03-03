@@ -253,7 +253,6 @@ def _fetch_by_destination_actualized_apr_raw_data_from_external_source(
 
 
 def add_new_destination_projected_and_actual_returns_to_table():
-    drop_table(BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE)
     if should_update_table(BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE):
         for autopool in ALL_AUTOPOOLS:
             highest_block = get_earliest_block_from_table_with_autopool(
