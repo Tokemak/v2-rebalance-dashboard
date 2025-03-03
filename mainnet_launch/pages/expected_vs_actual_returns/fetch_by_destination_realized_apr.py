@@ -28,6 +28,7 @@ from mainnet_launch.database.database_operations import (
     get_earliest_block_from_table_with_autopool,
     get_all_rows_in_table_by_autopool,
     drop_table,
+    run_read_only_query,
 )
 from mainnet_launch.database.should_update_database import should_update_table
 
@@ -145,14 +146,6 @@ def merge_onchain_returns_components(
     return merged
 
 
-def transform_concat_components(expected_apr_df: pd.DataFrame, raw_returns_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Concatenate the expected APR components with the raw on-chain returns.
-    """
-    combined = pd.concat([expected_apr_df, raw_returns_df], axis=1)
-    return combined.sort_index()
-
-
 def transform_exclude_autopool_and_convert_decay(df: pd.DataFrame, autopool: AutopoolConstants) -> pd.DataFrame:
     """
     Remove the autopool itself (since its returns are always 0) and convert the decay state
@@ -171,15 +164,16 @@ def _set_base_apr_to_0_for_double_counting_destinations(long_df: pd.DataFrame) -
     """
     Clip base APR to 0 for destinations that double count APR in fee APR.
     """
-    long_df = long_df.reset_index()
     double_counting = [
         "wETHrETH (curve)",
         "ethx-f (curve)",
         "osETH-rETH (curve)",
         "weeth-ng (curve)",
     ]
-    long_df.loc[long_df["vault_name"].isin(double_counting), "baseApr"] = 0.0
-    return long_df.set_index(["timestamp", "vault_name"])
+
+    mask = long_df.index.get_level_values("vault_name").isin(double_counting)
+    long_df.loc[mask, "baseApr"] = 0.0
+    return long_df
 
 
 # ─── RAW ON-CHAIN RETURNS EXTRACTION ─────────────────────────────────────────────
@@ -229,7 +223,7 @@ def _fetch_by_destination_actualized_apr_raw_data_from_external_source(
     Fetch raw on-chain and expected APR data from external sources, merge them,
     and apply final transformations.
     """
-    blocks = build_blocks_to_use(autopool.chain, start_block=start_block, approx_num_blocks_per_day=1)
+    blocks = build_blocks_to_use(autopool.chain, start_block=start_block)
     out_stats_df, in_stats_df = _fetch_in_and_out_summary_stats(autopool, blocks)
     tvl_df = _fetch_each_destination_tvl_df(autopool, blocks)
     VaultLiquidated_df = _fetch_all_vault_liquidated_events_df(autopool, max(blocks))
@@ -243,12 +237,14 @@ def _fetch_by_destination_actualized_apr_raw_data_from_external_source(
         autopool, tvl_df, last_snapshot_virtual_price_df, VaultLiquidated_df, decay_state_df
     )
 
-    combined_df = transform_concat_components(expected_apr_df, raw_returns_df)
+    combined_df = pd.concat([expected_apr_df, raw_returns_df], axis=1).sort_index()
     combined_df = _set_base_apr_to_0_for_double_counting_destinations(combined_df)
-    combined_df = combined_df.reset_index()
-    combined_df = transform_exclude_autopool_and_convert_decay(combined_df, autopool)
-    print(combined_df.index[:3])
-    print(combined_df.dtypes)
+    # exclude the autopool as a destination
+    combined_df = combined_df[~combined_df.index.get_level_values("vault_name").isin([f"{autopool.name} (tokemak)"])]
+    combined_df["autopool"] = autopool.name
+    combined_df = combined_df.reset_index().drop(columns=["timestamp"])
+    # add back in the correct timestmap
+    combined_df = add_timestamp_to_df_with_block_column(combined_df, autopool.chain).reset_index()
     return combined_df
 
 
@@ -261,7 +257,6 @@ def add_new_destination_projected_and_actual_returns_to_table():
             blocks = [b for b in build_blocks_to_use(autopool.chain) if b > highest_block]
             if blocks:
                 df = _fetch_by_destination_actualized_apr_raw_data_from_external_source(autopool, min(blocks))
-                df["autopool"] = autopool.name
                 write_dataframe_to_table(df, BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE)
 
 
@@ -271,10 +266,8 @@ def fetch_by_destination_actualized_and_projected_apr(autopool: AutopoolConstant
     long_df = long_df.dropna(subset=["block"])
     # Use the highest block for each day when timestamp and vault_name are the same.
     long_df = long_df.loc[long_df.groupby(["timestamp", "vault_name"])["block"].idxmax()]
-    return long_df.set_index(["timestamp", "vault_name"]).sort_index()
-
-
-# ─── OTHER ON-CHAIN CALLS (UNCHANGED) ─────────────────────────────────────────────
+    long_df = long_df.set_index(["timestamp", "vault_name"]).sort_index()
+    return long_df
 
 
 def _make_destination_tvl_calls(autopool: AutopoolConstants) -> list[Call]:
@@ -395,7 +388,7 @@ def _fetch_each_destination_tvl_df(autopool: AutopoolConstants, blocks: list[int
 def _fetch_all_vault_liquidated_events_df(autopool: AutopoolConstants, highest_block_to_fetch: int) -> pd.DataFrame:
     lr_contract = autopool.chain.client.eth.contract(LIQUIDATION_ROW(autopool.chain), abi=LIQUIDATION_ROW_ABI)
     VaultLiquidated_df = add_timestamp_to_df_with_block_column(
-        fetch_events(lr_contract.events.VaultLiquidated, end_block=highest_block_to_fetch),
+        fetch_events(lr_contract.events.VaultLiquidated, autopool.chain, end_block=highest_block_to_fetch),
         autopool.chain,
     )
     VaultLiquidated_df["weth"] = VaultLiquidated_df["amount"] / 1e18
@@ -438,25 +431,11 @@ def _build_onchain_expected_apr_components(
 # ─── MAIN ───────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import AUTO_ETH, BAL_ETH, WORKING_DATA_DIR
-
-    df = _fetch_by_destination_actualized_apr_raw_data_from_external_source(BAL_ETH, 21775447)
-
-    df["autopool"] = BAL_ETH.name
-    write_dataframe_to_table(df, BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE)
-    pass
+    from mainnet_launch.constants import AUTO_ETH, BAL_ETH, WORKING_DATA_DIR, AUTO_LRT, DINERO_ETH
 
     # drop_table(BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE)
-    # Example: Uncomment to fetch and write data
-    # df = fetch_by_destination_actualized_and_projected_apr(BAL_ETH)
-    # pass
-    # pass
-
-    # get_all_tables_info_df = get_all_rows_in_table_by_autopool(
-    #     BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE, AUTO_ETH
-    # )
-    # pass
-    # # get_all_tables_info_df.to_csv(WORKING_DATA_DIR / "table_info.csv")
+    df = fetch_by_destination_actualized_and_projected_apr(DINERO_ETH)
+    # print(df.shape)
 
 
 # import pandas as pd
@@ -863,14 +842,3 @@ if __name__ == "__main__":
 #     long_df = long_df.loc[long_df.groupby(["timestamp", "vault_name"])["block"].idxmax()]
 #     long_df = long_df.set_index(["timestamp", "vault_name"]).sort_index()
 #     return long_df
-
-
-# if __name__ == "__main__":
-#     from mainnet_launch.constants import AUTO_ETH, BAL_ETH
-
-#     drop_table(BY_DESTINATION_PROJECTED_AND_EXPECTED_APR_TABLE)
-
-#     # df = _fetch_by_destination_actualized_apr_raw_data_from_external_source(BAL_ETH, 21389043)
-#     # pass
-
-#     # calls = _make_destination_last_virtual_price_calls(AUTO_ETH)
