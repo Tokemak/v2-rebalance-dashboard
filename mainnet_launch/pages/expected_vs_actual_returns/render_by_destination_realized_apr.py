@@ -177,7 +177,7 @@ def _render_error_metrics(long_df: pd.DataFrame, error_col: str):
         lambda x: np.percentile(x, 10),
         lambda x: np.percentile(x, 90),
     ]
-    error_metric_names = ["count", "mean", "median", "max", "min", "10th percentile", "90th percentile"]
+    error_metric_names = ["count", "mean", "median", "max", "min", "10th", "90th"]
 
     negative_error_stats = long_df_copy[long_df_copy[error_col] < 0].groupby("vault_name")[error_col].agg(error_metrics)
     negative_error_stats.columns = error_metric_names
@@ -344,5 +344,5 @@ if __name__ == "__main__":
     config_plotly_and_streamlit()
     from mainnet_launch.constants import AutopoolConstants, AUTO_ETH
 
-    fetch_and_render_by_destination_expected_apr(AUTO_ETH)
+    fetch_and_render_by_destination_expected_apr()
     pass
