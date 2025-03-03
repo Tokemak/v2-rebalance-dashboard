@@ -167,6 +167,7 @@ def time_decorator(func):
 
 PRODUCTION_LOG_FILE_NAME = "production_usage.log"
 TEST_LOG_FILE_NAME = "test_pages.log"
+STARTUP_LOG_FILE = ROOT_DIR / "startup.csv"
 
 
 AUTO_ETH: AutopoolConstants = AutopoolConstants(
@@ -215,5 +216,5 @@ DINERO_ETH: AutopoolConstants = AutopoolConstants(
 )
 
 
-# ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
-ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH]
+ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
+# ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH]

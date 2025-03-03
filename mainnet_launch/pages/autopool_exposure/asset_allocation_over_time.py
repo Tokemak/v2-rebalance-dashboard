@@ -11,7 +11,6 @@ from mainnet_launch.constants import (
     ChainData,
     WETH,
 )
-from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import _fetch_lst_calc_addresses_df
