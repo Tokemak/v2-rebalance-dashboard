@@ -11,6 +11,7 @@ import streamlit as st
 import concurrent.futures
 
 from mainnet_launch.data_fetching.add_info_to_dataframes import initialize_tx_hash_to_gas_info_db
+from mainnet_launch.data_fetching.get_state_by_block import _add_to_blocks_to_use_table
 from mainnet_launch.database.should_update_database import ensure_table_to_last_updated_exists
 from mainnet_launch.pages.key_metrics.fetch_nav_per_share import add_new_nav_per_share_to_table
 from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import (
@@ -41,7 +42,7 @@ from mainnet_launch.pages.autopool_diagnostics.fetch_values_nav_and_shares_and_e
 from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import (
     add_new_asset_oracle_and_discount_price_rows_to_table,
 )
-from mainnet_launch.constants import PRODUCTION_LOG_FILE_NAME, STARTUP_LOG_FILE
+from mainnet_launch.constants import STARTUP_LOG_FILE
 
 
 def write_pandas(stats, top_level_function):
@@ -111,8 +112,6 @@ def log_usage(production_logger):
 
 
 functions_to_run = [
-    initialize_tx_hash_to_gas_info_db,
-    ensure_table_to_last_updated_exists,
     add_new_destination_details_for_each_chain_to_table,
     add_new_nav_per_share_to_table,
     add_new_destination_summary_stats_to_table,
@@ -129,7 +128,7 @@ functions_to_run = [
 ]
 
 
-def run_functions_concurrently():
+def run_all_data_fetching_concurrently():
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         future_to_func = {executor.submit(fn): fn.__name__ for fn in functions_to_run}
         for future in concurrent.futures.as_completed(future_to_func):
@@ -141,4 +140,7 @@ def run_functions_concurrently():
 
 
 def first_run_of_db(production_logger):
-    log_usage(production_logger)(run_functions_concurrently)()
+    log_usage(production_logger)(initialize_tx_hash_to_gas_info_db)()
+    log_usage(production_logger)(ensure_table_to_last_updated_exists)()
+    log_usage(production_logger)(_add_to_blocks_to_use_table)()
+    log_usage(production_logger)(run_all_data_fetching_concurrently)()
