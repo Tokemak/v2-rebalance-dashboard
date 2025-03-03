@@ -196,6 +196,9 @@ def _add_to_blocks_to_use_table():
             write_dataframe_to_table(df, BLOCKS_TO_USE_TABLE)
 
 
+# 180 seconds, too slow
+
+
 # get the highest block for each day
 def build_blocks_to_use(
     chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 4
@@ -209,7 +212,7 @@ def build_blocks_to_use(
     daily_df = df.resample("1D").last()
     blocks = daily_df["block"].to_list()
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    return [int(b) for b in blocks if (b > start_block) and (b <= end_block)]
+    return [int(b) for b in blocks if (b >= start_block) and (b <= end_block)]
 
     # """Returns a block approx every 6 hours. by default between when autopool was first deployed to the current block"""
     # # this is not the number of seconds between blocks is not constant
