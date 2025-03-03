@@ -112,9 +112,12 @@ def log_usage(production_logger):
 
 
 functions_to_run = [
+    initialize_tx_hash_to_gas_info_db,
+    ensure_table_to_last_updated_exists,
+    _add_to_blocks_to_use_table,
+    add_new_destination_summary_stats_to_table,
     add_new_destination_details_for_each_chain_to_table,
     add_new_nav_per_share_to_table,
-    add_new_destination_summary_stats_to_table,
     add_new_rebalance_events_for_each_autopool_to_table,
     add_new_fee_events_to_table,
     add_new_debt_reporting_events_to_table,
@@ -128,19 +131,7 @@ functions_to_run = [
 ]
 
 
-def run_all_data_fetching_concurrently():
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        future_to_func = {executor.submit(fn): fn.__name__ for fn in functions_to_run}
-        for future in concurrent.futures.as_completed(future_to_func):
-            func_name = future_to_func[future]
-            try:
-                future.result()
-            except Exception as e:
-                st.text(f"An error occurred in function {func_name}: {e}")
-
-
 def first_run_of_db(production_logger):
-    log_usage(production_logger)(initialize_tx_hash_to_gas_info_db)()
-    log_usage(production_logger)(ensure_table_to_last_updated_exists)()
-    log_usage(production_logger)(_add_to_blocks_to_use_table)()
-    log_usage(production_logger)(run_all_data_fetching_concurrently)()
+    for f in functions_to_run:
+        log_usage(production_logger)(f)()
+        st.text(f.__name__)
