@@ -164,9 +164,6 @@ def _render_error_metrics(long_df: pd.DataFrame, error_col: str):
     df_copy["vault_name"] = "all_destinations"
     long_df_copy = pd.concat([long_df_copy, df_copy], ignore_index=True)
 
-    names = sorted(long_df["vault_name"].unique().tolist())
-    index_order = ["all_destinations", *names]
-
     # Define the metrics and corresponding names
     error_metrics = [
         "count",
@@ -181,10 +178,16 @@ def _render_error_metrics(long_df: pd.DataFrame, error_col: str):
 
     negative_error_stats = long_df_copy[long_df_copy[error_col] < 0].groupby("vault_name")[error_col].agg(error_metrics)
     negative_error_stats.columns = error_metric_names
+
+    names = sorted(long_df["vault_name"].unique().tolist())
+    index_order = [idx for idx in ["all_destinations", *names] if idx in negative_error_stats.index]
+
     negative_error_stats = negative_error_stats.loc[index_order]
 
     positive_error_stats = long_df_copy[long_df_copy[error_col] > 0].groupby("vault_name")[error_col].agg(error_metrics)
+
     positive_error_stats.columns = error_metric_names
+    index_order = [idx for idx in ["all_destinations", *names] if idx in positive_error_stats.index]
     positive_error_stats = positive_error_stats.loc[index_order]
 
     all_error_stats = long_df_copy.groupby("vault_name")[error_col].agg(error_metrics)
@@ -194,6 +197,7 @@ def _render_error_metrics(long_df: pd.DataFrame, error_col: str):
     long_df_copy[error_col] = long_df_copy[error_col].abs()
     abs_error_stats = long_df_copy.groupby("vault_name")[error_col].agg(error_metrics)
     abs_error_stats.columns = error_metric_names
+    index_order = [idx for idx in ["all_destinations", *names] if idx in abs_error_stats.index]
     abs_error_stats = abs_error_stats.loc[index_order]
 
     return negative_error_stats, positive_error_stats, all_error_stats, abs_error_stats
@@ -204,7 +208,7 @@ def _render_plots(raw_long_df: pd.DataFrame, incentive_apr_weight: float):
     long_df = raw_long_df.dropna()
 
     long_df["Realized (Fee + Base APR) - Projected (Base + Fee APR)"] = (
-        long_df["realized_base_and_fee_apr"] - long_df["projected_base_and_fee"]
+        long_df["realized_base_and_fee_apr"] - long_df["projected_base_and_fee"]  # 1 -0 = positive over estiamtes,
     )
 
     long_df["Realized Incentive APR - Projected Incentive APR Out"] = long_df["realized_incentive_apr"] - (
@@ -252,7 +256,7 @@ def _render_plots(raw_long_df: pd.DataFrame, incentive_apr_weight: float):
             long_df,
             "incentive_apr_in_weight",
             "realized_incentive_apr",
-            "Realized (Fee + Base + Incentive APR) - Projected (Base + Fee + Incentive APR Out)",
+            "Realized Incentive APR - Projected Incentive APR In",
         )
 
     elif tab == "Projected Fee + Base + Incentive Out vs Actual Fee + Base + Incentive":
