@@ -175,6 +175,13 @@ def identity_with_bool_success(success, value):
     return None
 
 
+
+def to_datetime_with_bool_success(success, value):
+    if success:
+        return pd.to_datetime(value, unit='s', utc=True)
+    return None
+
+
 def identity_function(value):
     return value
 
