@@ -99,9 +99,10 @@ def extract_destination_decay_state(decay_state_df: pd.DataFrame, names_to_vault
     for name, vaults in names_to_vaults.items():
         vaults_with_decay = [vault for vault in vaults if vault in decay_state_df.columns]
         by_destination_decay[name] = decay_state_df[vaults_with_decay].max(axis=1)
+        pass
     by_destination_decay = (
         by_destination_decay.resample("1D")
-        .last()
+        .last() # not certain here on this, maybe max?
         .reset_index()
         .melt(id_vars="timestamp", var_name="vault_name", value_name="decay_state")
         .set_index(["timestamp", "vault_name"])

@@ -89,13 +89,72 @@ def combine_raw_data_into_projected_and_realized_apr_df(
 
 
 def _make_projected_vs_actual_scatter_plot(long_df: pd.DataFrame, x_col, y_col, title):
-    fig = px.scatter(long_df, x=x_col, y=y_col, color="vault_name", title=title)
+    fig = px.scatter(long_df, x=x_col, y=y_col, color="vault_name", title=title, hover_data="timestamp")
     max_value = long_df[[x_col, y_col]].max().max() * 1.2
     fig.add_shape(type="line", x0=0, y0=0, x1=max_value, y1=max_value, line=dict(color="black", dash="dash"))
     return fig
 
 
 def _render_one_kind_of_error(
+    long_df: pd.DataFrame,
+    predicted_col: str,
+    actual_col: str,
+    error_col: str,
+) -> None:
+    # Prepare the DataFrame by sorting and reordering columns
+    local_long_df = long_df.sort_values(by="vault_name").reindex(
+        columns=["vault_name", predicted_col, actual_col, error_col, "timestamp"]
+    )
+
+    # Render error metrics tables first
+    (
+        negative_error_stats,
+        positive_error_stats,
+        all_error_stats,
+        abs_error_stats,
+    ) = _render_error_metrics(local_long_df, error_col)
+
+    st.subheader("Error Metrics")
+    st.subheader("All With Direction")
+    st.write(all_error_stats.round(2))
+
+    st.subheader("All ABS")
+    st.write(abs_error_stats.round(2))
+
+    # Render charts after the tables
+    st.plotly_chart(
+        _make_projected_vs_actual_scatter_plot(
+            local_long_df,
+            predicted_col,
+            actual_col,
+            f"{predicted_col} vs {actual_col}",
+        ),
+        use_container_width=True,
+    )
+
+    st.plotly_chart(
+        px.ecdf(
+            local_long_df,
+            x=error_col,
+            title=error_col,
+            color="vault_name",
+        ),
+        use_container_width=True,
+    )
+
+    st.plotly_chart(
+        px.histogram(
+            local_long_df,
+            x=error_col,
+            title=error_col,
+            color="vault_name",
+        ),
+        use_container_width=True,
+    )
+
+# why is decay state sometimes none?
+
+def _render_one_kind_of_error2(
     long_df: pd.DataFrame,
     predicted_col: str,
     actual_col: str,
@@ -315,11 +374,16 @@ def fetch_and_render_by_destination_expected_apr(autopool: AutopoolConstants):
             index=incentive_apr_weight_options.index(0.9),  # default value 0.9
         )
     with col4:
-        include_decay_state_true_destinations = st.checkbox("Include Destinations With Decay State True")
+        decay_option = st.radio(
+            "Select Decay State Filter", options=["Only decay state True", "Only decay state False", "Both"]
+        )
 
-    if not include_decay_state_true_destinations:
+    if decay_option == "Only decay state True":
+        long_df = long_df[long_df["decay_state"] == True].copy()
+    elif decay_option == "Only decay state False":
         long_df = long_df[long_df["decay_state"] == False].copy()
-
+    elif decay_option == "Both":
+        pass
     long_df = combine_raw_data_into_projected_and_realized_apr_df(
         long_df,
         base_and_fee_n_day_window=n_day_window,
@@ -348,5 +412,5 @@ if __name__ == "__main__":
     config_plotly_and_streamlit()
     from mainnet_launch.constants import AutopoolConstants, AUTO_ETH
 
-    fetch_and_render_by_destination_expected_apr()
+    fetch_and_render_by_destination_expected_apr(AUTO_ETH)
     pass
