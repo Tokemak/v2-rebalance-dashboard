@@ -1,7 +1,3 @@
-import json
-
-
-# These work
 def parse_type(param):
     """Recursively parse types, handling nested structs and arrays."""
     if param["type"] == "tuple":
@@ -18,6 +14,7 @@ def parse_type(param):
         return param["type"]
 
 
+# useful to get the function and event signatures when using multicall.py
 def get_function_and_event_signatures_with_returns(abi_json):
     # eg for multicall.py
     # might need to spot check
