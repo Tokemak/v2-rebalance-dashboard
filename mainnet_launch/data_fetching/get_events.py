@@ -1,10 +1,14 @@
-from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError
+from dataclasses import dataclass
+import concurrent.futures
 
+
+from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError, ConnectionError
 import pandas as pd
 import web3
 from web3.contract import Contract, ContractEvent
 
-from mainnet_launch.constants import CACHE_TIME, eth_client
+from mainnet_launch.constants import ChainData
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 
 def _flatten_events(just_found_events: list[dict]) -> None:
@@ -27,41 +31,54 @@ def _flatten_events(just_found_events: list[dict]) -> None:
         'token_supply': 398334677422224108708620}
         )
     """
-    for event in just_found_events:
+    cleaned_events = []
+    for raw_event_data in just_found_events:
+        event_data = {
+            "event": str(raw_event_data["event"]),
+            "block": int(raw_event_data["blockNumber"]),
+            "transaction_index": int(raw_event_data["transactionIndex"]),
+            "log_index": int(raw_event_data["logIndex"]),
+            "hash": str(raw_event_data["transactionHash"].hex()).lower(),
+        }
         updated_args = {}
-        for arg_name, value in event["args"].items():
+        for arg_name, value in raw_event_data["args"].items():
             if isinstance(value, list):
                 for position, value_in_position in enumerate(value):
                     updated_args[f"{arg_name}_{position}"] = value_in_position
             else:
                 updated_args[arg_name] = value
-        # hack around the immutability
-        event.__dict__["args"] = web3.datastructures.AttributeDict(updated_args)
+
+        event_data.update(updated_args)
+        cleaned_events.append(event_data)
+
+    return cleaned_events
 
 
 def _recursive_helper_get_all_events_within_range(
     event: "web3.contract.ContractEvent",
     start_block: int,
     end_block: int,
-    found_events: list,
+    clean_found_events: list,
     argument_filters: dict | None,
 ):
     """
     Recursively fetch all the `event` events between start_block and end_block.
     Immediately splits the range into smaller chunks on timeout or large response issues.
-
-    TODO: consider usings eth.getLogs API calls like in
-
-    https://web3py.readthedocs.io/en/stable/filters.html
+    # is sequential and recursive, generally fast enough, but not insanely fast
     """
     try:
         # Try fetching events in the given range
-        event_filter = event.createFilter(fromBlock=start_block, toBlock=end_block, argument_filters=argument_filters)
+        try:
+            event_filter = event.createFilter(
+                fromBlock=start_block, toBlock=end_block, argument_filters=argument_filters
+            )
+        except Exception as e:
+            raise e
         just_found_events = event_filter.get_all_entries()
-        _flatten_events(just_found_events)
-        found_events.extend(just_found_events)
+        cleaned_events = _flatten_events(just_found_events)
+        clean_found_events.extend(cleaned_events)
 
-    except (TimeoutError, ValueError, ReadTimeout, HTTPError, ChunkedEncodingError) as e:
+    except (TimeoutError, ValueError, ReadTimeout, HTTPError, ChunkedEncodingError, ConnectionError) as e:
         if isinstance(e, ValueError) and e.args[0].get("code") != -32602:
             # Re-raise non "Log response size exceeded" errors
             raise e
@@ -73,58 +90,90 @@ def _recursive_helper_get_all_events_within_range(
             # If the range is too small to split further, raise an exception
             raise RuntimeError(f"Unable to fetch events for blocks {start_block}-{end_block}")
 
-        _recursive_helper_get_all_events_within_range(event, start_block, mid, found_events, argument_filters)
-        _recursive_helper_get_all_events_within_range(event, mid + 1, end_block, found_events, argument_filters)
+        _recursive_helper_get_all_events_within_range(event, start_block, mid, clean_found_events, argument_filters)
+        _recursive_helper_get_all_events_within_range(event, mid + 1, end_block, clean_found_events, argument_filters)
 
 
-def events_to_df(found_events: list[web3.datastructures.AttributeDict]) -> pd.DataFrame:
-    if len(found_events) == 0:
+def events_to_df(clean_found_events: list[dict]) -> pd.DataFrame:
+    if len(clean_found_events) == 0:
         return pd.DataFrame(columns=["block", "transaction_index", "log_index", "hash"])
 
-    cleaned_events = []
-    for event in found_events:
-        cleaned_events.append(
-            {
-                **event["args"],
-                "event": str(event["event"]),
-                "block": int(event["blockNumber"]),
-                "transaction_index": int(event["transactionIndex"]),
-                "log_index": int(event["logIndex"]),
-                "hash": str(event["transactionHash"].hex()).lower(),
-            }
-        )
-    return pd.DataFrame.from_records(cleaned_events).sort_values(["block", "log_index"])
+    return pd.DataFrame.from_records(clean_found_events).sort_values(["block", "log_index"])
 
 
 def fetch_events(
     event: ContractEvent,
-    start_block: int = 15091387,
+    chain: ChainData,
+    start_block: int = 15091387,  # I don't like this start block
     end_block: int = None,
     argument_filters: dict | None = None,
 ) -> pd.DataFrame:
     """
     Collect every `event` between start_block and end_block into a DataFrame.
     """
-    end_block = event.web3.eth.block_number if end_block is None else end_block
-    found_events = []
-    _recursive_helper_get_all_events_within_range(event, start_block, end_block, found_events, argument_filters)
-    event_df = events_to_df(found_events)
+    end_block = max(build_blocks_to_use(chain)) if end_block is None else end_block
+
+    if end_block > start_block:
+        clean_found_events = []
+        _recursive_helper_get_all_events_within_range(
+            event, int(start_block), int(end_block), clean_found_events, argument_filters
+        )
+        event_df = events_to_df(clean_found_events)
+    else:
+        event_df = pd.DataFrame()
 
     if len(event_df) == 0:
-        # make sure that the df returned as the expected columns
+        # make sure that the df returned has the expected columns
         event_field_names = [i["name"] for i in event._get_event_abi()["inputs"]]
         event_df = pd.DataFrame(
-            columns=[*event_field_names, str(event), "block", "transaction_index", "log_index", "hash"]
+            columns=[*event_field_names, "event", "block", "transaction_index", "log_index", "hash"]
         )
         pass
 
     return event_df
 
 
-def get_each_event_in_contract(contract: Contract, end_block: int = None) -> dict[str, pd.DataFrame]:
-    end_block = contract.web3.eth.block_number if end_block is None else end_block
+@dataclass
+class FetchEventParams:
+    event: ContractEvent
+    chain: ChainData
+    id: str
+    start_block: int = None
+    end_block: int = None
+    argument_filters: dict = None
+
+
+def fetch_many_events(events: list[FetchEventParams], num_threads: int = 16) -> dict[str, pd.DataFrame]:
+    """Fetch many events concurrently"""
+    results = {}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+        # Map each submitted task to its index in the events list.
+        future_to_id = {
+            executor.submit(
+                fetch_events,
+                event=ep.event,
+                chain=ep.chain,
+                start_block=ep.start_block,
+                end_block=ep.end_block,
+                argument_filters=ep.argument_filters,
+            ): ep.id
+            for ep in events
+        }
+        # Process each future as it completes.
+        for future in concurrent.futures.as_completed(future_to_id):
+            # fail on any error in fetch_events
+            id_key = future_to_id[future]
+            results[id_key] = future.result()
+
+    return results
+
+
+def get_each_event_in_contract(
+    contract: Contract, chain: ChainData, start_block: int = None, end_block: int = None
+) -> dict[str, pd.DataFrame]:
     events_dict = dict()
     for event in contract.events:
         # add http fail retries?
-        events_dict[event.event_name] = fetch_events(event, end_block=end_block)
+        events_dict[event.event_name] = fetch_events(event, chain=chain, start_block=start_block, end_block=end_block)
     return events_dict

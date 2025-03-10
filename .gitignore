@@ -1,25 +1,16 @@
 __pycache__/
 *.pyc
 .env
-mainnet_launch/rebalance_plans/
-working_data/
-data_caching.log
-.vscode/launch.json
-test_fetching_functions.log
-hash_to_gas_used.json
-hash_to_gasPrice.json
-hash_to_gas_cost_in_ETH.json
-working_data/
-tx_hash_to_gas_info.lock
-verify_all_pages_work.log
-cache_thread_already_running.lock
-tx_hash_to_gas_info.db
-multicall_logs.db
+.vscode/
+.venv/
+.pytest_cache/
 
 
-working_data/
-mainnet_launch/rebalance_plans/
-
-mainnet_launch/database/autopool_dashboard.db
-mainnet_launch/database/tx_hash_to_gas_info.db
 mainnet_launch/data_fetching/rebalance_plans/
+mainnet_launch/database/autopool_dashboard.db
+mainnet_launch/app/finished_startup.txt
+
+production_usage.log
+test_pages.log
+
+working_data/
