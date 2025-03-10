@@ -1,14 +1,11 @@
 import pandas as pd
 import os
-import time
 import cProfile
 import pstats
 import io
 from functools import wraps
 from datetime import datetime
 import streamlit as st
-
-import concurrent.futures
 
 from mainnet_launch.data_fetching.add_info_to_dataframes import initialize_tx_hash_to_gas_info_db
 from mainnet_launch.data_fetching.get_state_by_block import _add_to_blocks_to_use_table
@@ -133,5 +130,15 @@ functions_to_run = [
 
 def first_run_of_db(production_logger):
     for f in functions_to_run:
+        start = datetime.now()
         log_usage(production_logger)(f)()
-        st.text(f.__name__)
+        time_taken = datetime.now() - start
+
+        minutes, seconds = divmod(time_taken.total_seconds(), 60)
+        formatted_time = f"{int(minutes)}:{int(seconds)}"
+
+        st.text(f"{f.__name__} | Start: {start:%H:%M:%S} | Duration: {formatted_time}")
+
+
+if __name__ == "__main__":
+    first_run_of_db(None)
