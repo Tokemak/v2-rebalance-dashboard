@@ -155,7 +155,7 @@ USDT_to_USDC_spot_price = Call(
 
 USDT_to_USDC_spot_price_2 = Call(
     "0xA5407eAE9Ba41422680e2e00537571bcC53efBfD",
-    ["get_dy(int128,int128,uint256)(uint256)", 2, 1, int(168)],
+    ["get_dy(int128,int128,uint256)(uint256)", 2, 1, int(1e6)],
     [("USDT_to_USDC_spot_price_2", safe_normalize_6_with_bool_success)],
 )
 
