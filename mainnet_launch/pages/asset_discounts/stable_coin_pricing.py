@@ -11,7 +11,7 @@ DAI = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
 USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 USDT = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
 GHO = "0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f"
-USDs = "0xdC035D45d973E3EC169d2276DDab16f1e407384F"
+USDs = "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # formerly DAI, and 1:1 convertable with dai?
 USDe = "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"
 
 crvUSD = "0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E"
@@ -27,7 +27,7 @@ USDC_USD_chainlink = "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6"
 USDT_USD_chainlik = "0x3E7d1eAB13ad0104d2750B8863b489D65364e32D"
 GHO_USD_chainlink = "0x3f12643D3f6f874d39C2a4c9f2Cd6f2DbAC877FC"
 crvUSD_USD_chainlink = "0xEEf0C605546958c1f899b6fB336C20671f9cD49F"
-USDs_USD_chainlink = "0xfF30586cD0F29eD462364C7e81375FC0C71219b1"
+USDs_USD_chainlink = "0xfF30586cD0F29eD462364C7e81375FC0C71219b1"  # Fomerly DAI
 
 
 @dataclass
@@ -153,10 +153,10 @@ USDT_to_USDC_spot_price = Call(
     [("USDT_to_USDC_spot_price", safe_normalize_6_with_bool_success)],
 )
 
-USDT_to_USDC_spot_price_2 = Call(
+USDT_to_USDC_spot_price2 = Call(
     "0xA5407eAE9Ba41422680e2e00537571bcC53efBfD",
     ["get_dy(int128,int128,uint256)(uint256)", 2, 1, int(1e6)],
-    [("USDT_to_USDC_spot_price_2", safe_normalize_6_with_bool_success)],
+    [("USDT_to_USDC_spot_price2", safe_normalize_6_with_bool_success)],
 )
 
 
@@ -166,7 +166,7 @@ usdt_constants = StableCoinConsants(
     decimals=6,
     backing_call=make_dummy_1_call("USDT_backing"),
     safe_price_call=make_chainlink_price_call(USDT_USD_chainlik, 6, "USDT_safe_price"),
-    spot_price_calls=[USDT_to_USDC_spot_price, USDT_to_USDC_spot_price_2],
+    spot_price_calls=[USDT_to_USDC_spot_price, USDT_to_USDC_spot_price2],
 )
 
 
