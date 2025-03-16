@@ -13,12 +13,13 @@ USDT = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
 GHO = "0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f"
 USDs = "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # formerly DAI, and 1:1 convertable with dai?
 USDe = "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"
+FRAX = "0xB9E1E3A9feFf48998E45Fa90847ed4D467E8BcfD"
 
 crvUSD = "0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E"
 scrvUSD = "0x0655977FEb2f289A4aB78af67BAB0d17aAb84367"
 sUSDs = "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"
 sUSDe = "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497"
-
+sFRAX = "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32"
 
 # chalink oracles
 DAI_USD_chainlink = "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9"
@@ -28,6 +29,7 @@ USDT_USD_chainlik = "0x3E7d1eAB13ad0104d2750B8863b489D65364e32D"
 GHO_USD_chainlink = "0x3f12643D3f6f874d39C2a4c9f2Cd6f2DbAC877FC"
 crvUSD_USD_chainlink = "0xEEf0C605546958c1f899b6fB336C20671f9cD49F"
 USDs_USD_chainlink = "0xfF30586cD0F29eD462364C7e81375FC0C71219b1"  # Fomerly DAI
+FRAX_USD_chainlink = "0xB9E1E3A9feFf48998E45Fa90847ed4D467E8BcfD"
 
 
 @dataclass
@@ -188,12 +190,12 @@ USDe_to_USDC_spot_price = Call(
     [("USDe_to_USDC_spot_price", safe_normalize_6_with_bool_success)],
 )
 
-sUSEe_to_USDC_spot_price = build_balancer_query_swap_call(
+sUSDe_to_USDC_spot_price = build_balancer_query_swap_call(
     "0xb819feef8f0fcdc268afe14162983a69f6bf179e000000000000000000000689",
     sUSDe,
     USDC,
     int(1e18),
-    "sUSEe_to_USDC_spot_price",
+    "sUSDe_to_USDC_spot_price",
     6,
 )
 
@@ -203,12 +205,11 @@ usde_constants = StableCoinConsants(
     decimals=18,
     backing_call=make_dummy_1_call("USDe_backing"),
     safe_price_call=make_chainlink_price_call(USDe_USD_chainlink, 18, "USDe_safe_price"),
-    spot_price_calls=[USDe_to_USDC_spot_price, sUSEe_to_USDC_spot_price],
+    spot_price_calls=[USDe_to_USDC_spot_price, sUSDe_to_USDC_spot_price],
 )
 
 
-# there is not another good source of sUSD liqudity
-# only 3rd party pahts
+# there is not another good source of sUSD liqudity, most of the stuff is thourgh the pegs
 sUSD_to_USDC_spot_price = Call(
     "0xA5407eAE9Ba41422680e2e00537571bcC53efBfD",
     ["get_dy(int128,int128,uint256)(uint256)", 3, 1, int(1e18)],
@@ -216,15 +217,43 @@ sUSD_to_USDC_spot_price = Call(
 )
 
 
+def _fee_to_usdc_amount(success: bool, fee_amount):
+    if success:
+        return 1 - (fee_amount / 1e18)
+
+
+sUSD_to_USDC_spot_price_via_peg = Call(
+    "0xA188EEC8F81263234dA3622A406892F3D630f98c",  # peg stabitily module
+    ["tout()(uint256)"],
+    [("sUSD_to_USDC_spot_price_via_peg", _fee_to_usdc_amount)],
+)
+
 usds_constants = StableCoinConsants(
     token_address=USDs,
     symbol="USDs",
     decimals=18,
     backing_call=make_dummy_1_call("USDs_backing"),
     safe_price_call=make_chainlink_price_call(USDs_USD_chainlink, 18, "USDs_safe_price"),
-    spot_price_calls=[
-        sUSD_to_USDC_spot_price,
-    ],
+    spot_price_calls=[sUSD_to_USDC_spot_price, sUSD_to_USDC_spot_price_via_peg],
+)
+
+sUSDS_to_FRAX_spot_price = Call(
+    "0x81A2612F6dEA269a6Dd1F6DeAb45C5424EE2c4b7",
+    ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+    [("sUSDS_to_FRAX_spot_price", safe_normalize_with_bool_success)],
+)
+
+sUSDs_constants = StableCoinConsants(
+    token_address=sUSDs,
+    symbol="sUSDs",
+    decimals=18,
+    backing_call=Call(
+        sUSDs,
+        ["convertToAssets(uint256)(uint256)", int(1e18)],
+        [("sUSDs_backing", safe_normalize_with_bool_success)],
+    ),
+    safe_price_call=None,
+    spot_price_calls=[sUSDS_to_FRAX_spot_price],
 )
 
 
@@ -262,13 +291,20 @@ GHO_to_USDC_spot_price = build_balancer_query_swap_call(
 )
 
 
+GHO_to_crvUSD_spot_price = Call(
+    "0x635EF0056A597D13863B73825CcA297236578595",
+    ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+    [("GHO_to_crvUSD_spot_price", safe_normalize_with_bool_success)],
+)
+
+
 gho_constants = StableCoinConsants(
     token_address=GHO,
     symbol="GHO",
     decimals=18,
     backing_call=make_dummy_1_call("GHO_backing"),
     safe_price_call=make_chainlink_price_call(GHO_USD_chainlink, 18, "GHO_safe_price"),
-    spot_price_calls=[GHO_to_USDC_spot_price],
+    spot_price_calls=[GHO_to_USDC_spot_price, GHO_to_crvUSD_spot_price],
 )
 
 
@@ -300,18 +336,43 @@ sUSDe_constants = StableCoinConsants(
     spot_price_calls=None,
 )
 
-sUSDs_constants = StableCoinConsants(
-    token_address=sUSDs,
-    symbol="sUSDs",
+
+FRAX_to_USDe_spot_price = Call(
+    "0x5dc1BF6f1e983C0b21EfB003c105133736fA0743",
+    ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+    [("FRAX_to_USDe_spot_price", safe_normalize_with_bool_success)],
+)
+
+
+FRAX_constants = StableCoinConsants(
+    token_address=FRAX,
+    symbol="FRAX",
+    decimals=18,
+    backing_call=make_dummy_1_call("FRAX_backing"),
+    safe_price_call=make_chainlink_price_call(FRAX_USD_chainlink, 18, "FRAX_safe_price"),
+    spot_price_calls=[FRAX_to_USDe_spot_price],
+)
+
+
+sFRAX_to_crvUSD_spot_price = Call(
+    "0x5dc1BF6f1e983C0b21EfB003c105133736fA0743",
+    ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+    [("sFRAX_to_crvUSD_spot_price", safe_normalize_with_bool_success)],
+)
+
+sFRAX_constants = StableCoinConsants(
+    token_address=sFRAX,
+    symbol="sFRAX",
     decimals=18,
     backing_call=Call(
-        sUSDs,
+        sFRAX,
         ["convertToAssets(uint256)(uint256)", int(1e18)],
-        [("sUSDs_backing", safe_normalize_with_bool_success)],
+        [("sFRAX_backing", safe_normalize_with_bool_success)],
     ),
     safe_price_call=None,
-    spot_price_calls=None,
+    spot_price_calls=[sFRAX_to_crvUSD_spot_price],
 )
+
 
 stablecoin_constants = [
     dai_constants,
@@ -321,9 +382,11 @@ stablecoin_constants = [
     usds_constants,
     gho_constants,
     crvUSD_constants,
+    FRAX_constants,
     scrvUSD_constants,
     sUSDe_constants,
     sUSDs_constants,
+    sFRAX_constants,
 ]
 
 
