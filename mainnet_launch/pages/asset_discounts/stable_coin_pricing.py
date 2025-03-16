@@ -346,7 +346,7 @@ stablecoin_constants = [
 # # swap_kind = 0
 # # user_data = b""
 
-
+# how to get the
 # arg1 = ( pool_id,
 #         swap_kind,
 #         sUSDe,
