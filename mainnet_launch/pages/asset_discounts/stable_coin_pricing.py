@@ -289,6 +289,66 @@ GHO_to_USDC_spot_price = build_balancer_query_swap_call(
     "GHO_to_USDC_spot_price",
     6,
 )
+balancer_batch_router_address = "0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1"
+
+
+aUSDT = "0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8"
+aUSDC = "0xD4fa2D31b7968E448877f69A96DE69f5de8cD23E"
+aGHO = "0xC71Ea051a5F82c67ADcF634c36FFE6334793D24C"
+
+aUSDT_backing = Call(
+    aUSDT,
+    ["convertToAssets(uint256)(uint256)", int(1e18)],
+    [("aUSDT_backing", safe_normalize_with_bool_success)],
+)
+
+aUSDC_backing = Call(
+    aUSDC,
+    ["convertToAssets(uint256)(uint256)", int(1e18)],
+    [("aUSDC_backing", safe_normalize_with_bool_success)],
+)
+
+aGHO_backing = Call(
+    aGHO,
+    ["convertToAssets(uint256)(uint256)", int(1e18)],
+    [("aGHO_backing", safe_normalize_with_bool_success)],
+)
+
+def _normalize_6_first_value(success, amountOutList):
+    if success:
+        return amountOutList[0] /1e6
+
+def make_balancer_router_query(
+    name, 
+    pool_address,
+    token_in,
+    token_out,
+    amount_in,
+):
+    # simple one hop path
+
+    paths = [
+        (
+            token_in,  # tokenIn
+            [(pool_address, token_out, False)],  # steps as a list of SwapPathStep tuples
+            int(amount_in),  # exactAmountIn as an integer
+            0,  # minAmountOut
+        )
+    ]
+    return Call(
+        balancer_batch_router_address,
+        [
+            "querySwapExactIn((address,(address,address,bool)[],uint256,uint256)[],address,bytes)(uint256[],address[],uint256[])",
+            paths,
+            "0x0000000000000000000000000000000000000000",
+            b"",
+        ],
+        [(name, _normalize_6_first_value),],
+    )
+
+
+Balancer_GHO_USDC_USDT_pool = "0x85B2b559bC2D21104C4DEFdd6EFcA8A20343361D"
+aGHO_to_aUSDC_spot_price = make_balancer_router_query('aGHO_to_aUSDC_spot_price', Balancer_GHO_USDC_USDT_pool, aGHO, aUSDC, 1e18)
 
 
 GHO_to_crvUSD_spot_price = Call(
@@ -304,7 +364,7 @@ gho_constants = StableCoinConsants(
     decimals=18,
     backing_call=make_dummy_1_call("GHO_backing"),
     safe_price_call=make_chainlink_price_call(GHO_USD_chainlink, 18, "GHO_safe_price"),
-    spot_price_calls=[GHO_to_USDC_spot_price, GHO_to_crvUSD_spot_price],
+    spot_price_calls=[GHO_to_USDC_spot_price, GHO_to_crvUSD_spot_price, aGHO_to_aUSDC_spot_price, aUSDT_backing, aUSDC_backing, aGHO_backing],
 )
 
 
@@ -339,7 +399,7 @@ sUSDe_constants = StableCoinConsants(
 
 FRAX_to_USDe_spot_price = Call(
     "0x5dc1BF6f1e983C0b21EfB003c105133736fA0743",
-    ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+    ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
     [("FRAX_to_USDe_spot_price", safe_normalize_with_bool_success)],
 )
 
@@ -353,12 +413,12 @@ FRAX_constants = StableCoinConsants(
     spot_price_calls=[FRAX_to_USDe_spot_price],
 )
 
-
 sFRAX_to_crvUSD_spot_price = Call(
-    "0x5dc1BF6f1e983C0b21EfB003c105133736fA0743",
-    ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+    "0x73a0cba58c19ed5F27C6590BD792eC38dE4815Ea",
+    ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
     [("sFRAX_to_crvUSD_spot_price", safe_normalize_with_bool_success)],
 )
+
 
 sFRAX_constants = StableCoinConsants(
     token_address=sFRAX,
