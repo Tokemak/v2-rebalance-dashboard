@@ -314,12 +314,14 @@ aGHO_backing = Call(
     [("aGHO_backing", safe_normalize_with_bool_success)],
 )
 
+
 def _normalize_6_first_value(success, amountOutList):
     if success:
-        return amountOutList[0] /1e6
+        return amountOutList[0] / 1e6
+
 
 def make_balancer_router_query(
-    name, 
+    name,
     pool_address,
     token_in,
     token_out,
@@ -343,12 +345,16 @@ def make_balancer_router_query(
             "0x0000000000000000000000000000000000000000",
             b"",
         ],
-        [(name, _normalize_6_first_value),],
+        [
+            (name, _normalize_6_first_value),
+        ],
     )
 
 
 Balancer_GHO_USDC_USDT_pool = "0x85B2b559bC2D21104C4DEFdd6EFcA8A20343361D"
-aGHO_to_aUSDC_spot_price = make_balancer_router_query('aGHO_to_aUSDC_spot_price', Balancer_GHO_USDC_USDT_pool, aGHO, aUSDC, 1e18)
+aGHO_to_aUSDC_spot_price = make_balancer_router_query(
+    "aGHO_to_aUSDC_spot_price", Balancer_GHO_USDC_USDT_pool, aGHO, aUSDC, 1e18
+)
 
 
 GHO_to_crvUSD_spot_price = Call(
@@ -364,7 +370,14 @@ gho_constants = StableCoinConsants(
     decimals=18,
     backing_call=make_dummy_1_call("GHO_backing"),
     safe_price_call=make_chainlink_price_call(GHO_USD_chainlink, 18, "GHO_safe_price"),
-    spot_price_calls=[GHO_to_USDC_spot_price, GHO_to_crvUSD_spot_price, aGHO_to_aUSDC_spot_price, aUSDT_backing, aUSDC_backing, aGHO_backing],
+    spot_price_calls=[
+        GHO_to_USDC_spot_price,
+        GHO_to_crvUSD_spot_price,
+        aGHO_to_aUSDC_spot_price,
+        aUSDT_backing,
+        aUSDC_backing,
+        aGHO_backing,
+    ],
 )
 
 
