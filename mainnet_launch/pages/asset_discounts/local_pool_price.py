@@ -51,6 +51,10 @@ USDs_USD_chainlink = "0xfF30586cD0F29eD462364C7e81375FC0C71219b1"
 FRAX_USD_chainlink = "0xB9E1E3A9feFf48998E45Fa90847ed4D467E8BcfD"
 sUSDe_USD_chainlink = "0xFF3BC18cCBd5999CE63E788A1c250a88626aD099"
 
+USDC_ETH_chainlink = "0x986b5E1e1755e3C2440e960477f25201B0a8bbD4"  # correct
+DAI_ETH_chainlink = "0x773616E4d11A78F511299002da57A0a94577F1f4"  # correct
+USDT_ETH_chainlink = "0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46"
+
 
 def _constant_1(*args):
     return 1.0
@@ -90,6 +94,23 @@ def make_chainlink_price_call(chainlink_oracle: str, decimals: int, name: str):
         ["latestRoundData()((uint80,int128,uint256,uint256,uint80))"],
         [(f"{name}", cleaning_function)],
     )
+
+
+def build_safe_price_calls() -> list[Call]:
+    return [
+        make_chainlink_price_call(DAI_USD_chainlink, 18, "DAI_to_USD_safe_price"),
+        make_chainlink_price_call(USDe_USD_chainlink, 18, "USDe_to_USD_safe_price"),
+        make_chainlink_price_call(USDC_USD_chainlink, 6, "USDC_to_USD_safe_price"),
+        make_chainlink_price_call(USDT_USD_chainlik, 6, "USDT_to_USD_safe_price"),
+        make_chainlink_price_call(GHO_USD_chainlink, 18, "GHO_to_USD_safe_price"),
+        make_chainlink_price_call(crvUSD_USD_chainlink, 18, "crvUSD_to_USD_safe_price"),
+        make_chainlink_price_call(USDs_USD_chainlink, 18, "USDs_to_USD_safe_price"),
+        make_chainlink_price_call(FRAX_USD_chainlink, 18, "FRAX_to_USD_safe_price"),
+        make_chainlink_price_call(sUSDe_USD_chainlink, 18, "sUSDe_to_USD_safe_price"),
+        make_chainlink_price_call(USDC_ETH_chainlink, 18, "USDC_to_ETH_safe_price"),
+        make_chainlink_price_call(USDT_ETH_chainlink, 18, "USDT_to_ETH_safe_price"),
+        make_chainlink_price_call(DAI_ETH_chainlink, 18, "DAI_to_ETH_safe_price"),
+    ]
 
 
 def build_balancer_query_swap_call(
@@ -168,7 +189,7 @@ def make_balancer_router_query(
     if token_out_decimals == 18:
         cleaning_function = _normalize_18_first_value
     elif token_out_decimals == 6:
-        cleaning_function = _normalize_18_first_value
+        cleaning_function = _normalize_6_first_value
 
     return Call(
         balancer_batch_router_address,
@@ -182,20 +203,6 @@ def make_balancer_router_query(
             (name, cleaning_function),
         ],
     )
-
-
-def build_safe_price_calls() -> list[Call]:
-    return [
-        make_chainlink_price_call(DAI_USD_chainlink, 18, "DAI_safe_price"),
-        make_chainlink_price_call(USDe_USD_chainlink, 18, "USDe_safe_price"),
-        make_chainlink_price_call(USDC_USD_chainlink, 6, "USDC_safe_price"),
-        make_chainlink_price_call(USDT_USD_chainlik, 6, "USDT_safe_price"),
-        make_chainlink_price_call(GHO_USD_chainlink, 18, "GHO_safe_price"),
-        make_chainlink_price_call(crvUSD_USD_chainlink, 18, "crvUSD_safe_price"),
-        make_chainlink_price_call(USDs_USD_chainlink, 18, "USDs_safe_price"),
-        make_chainlink_price_call(FRAX_USD_chainlink, 18, "FRAX_safe_price"),
-        make_chainlink_price_call(sUSDe_USD_chainlink, 18, "sUSDe_safe_price"),
-    ]
 
 
 def build_backing_calls() -> list[Call]:
@@ -481,12 +488,12 @@ def _build_balancer_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
         pool_name="GHO_USDC_USDT_v2_pool",
     )
 
-    GHO_USDC_USDT_boosted_pool = "0x85B2b559bC2D21104C4DEFdd6EFcA8A20343361D"
-    # we don't ahve spot prices for the aaveWrapped version
+    # GHO_USDC_USDT_boosted_pool = "0x85B2b559bC2D21104C4DEFdd6EFcA8A20343361D"
+    # # we don't ahve spot prices for the aaveWrapped version
 
-    aGHO_to_aUSDC_spot_price_call = make_balancer_router_query(
-        "GHO_USDC_USDT_boosted_pool__aGHO_to_aUSDC", GHO_USDC_USDT_boosted_pool, aGHO, aUSDC, 1e18
-    )
+    # aGHO_to_aUSDC_spot_price_call = make_balancer_router_query(
+    #     "GHO_USDC_USDT_boosted_pool__aGHO_to_aUSDC", GHO_USDC_USDT_boosted_pool, aGHO, aUSDC, 1e18
+    # )
 
     return [GHO_USDC_USDT_v2_pool]
 
@@ -495,7 +502,7 @@ def build_all_local_pool_prices():
     curve_pool_local_token_price = _build_curve_pool_local_price()
     balancer_pool_local_token_price = _build_balancer_pool_local_price()
 
-    return [*curve_pool_local_token_price, *balancer_pool_local_token_price]
+    return [*curve_pool_local_token_price]
 
 
 # def _build_pool_price_calls():
