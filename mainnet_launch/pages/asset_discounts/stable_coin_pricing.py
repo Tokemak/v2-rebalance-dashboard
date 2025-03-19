@@ -331,9 +331,9 @@ def make_balancer_router_query(
 
     paths = [
         (
-            token_in,  # tokenIn
-            [(pool_address, token_out, False)],  # steps as a list of SwapPathStep tuples
-            int(amount_in),  # exactAmountIn as an integer
+            token_in,
+            [(pool_address, token_out, False)],  # SwapPathStep
+            int(amount_in),
             0,  # minAmountOut
         )
     ]

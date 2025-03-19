@@ -35,6 +35,11 @@ sUSDs = "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"
 sUSDe = "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497"
 sFRAX = "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32"
 
+aUSDT = "0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8"
+aUSDC = "0xD4fa2D31b7968E448877f69A96DE69f5de8cD23E"
+aGHO = "0xC71Ea051a5F82c67ADcF634c36FFE6334793D24C"
+
+
 # chalink oracles
 DAI_USD_chainlink = "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9"
 USDe_USD_chainlink = "0xa569d910839Ae8865Da8F8e70FfFb0cBA869F961"
@@ -44,6 +49,7 @@ GHO_USD_chainlink = "0x3f12643D3f6f874d39C2a4c9f2Cd6f2DbAC877FC"
 crvUSD_USD_chainlink = "0xEEf0C605546958c1f899b6fB336C20671f9cD49F"
 USDs_USD_chainlink = "0xfF30586cD0F29eD462364C7e81375FC0C71219b1"
 FRAX_USD_chainlink = "0xB9E1E3A9feFf48998E45Fa90847ed4D467E8BcfD"
+sUSDe_USD_chainlink = "0xFF3BC18cCBd5999CE63E788A1c250a88626aD099"
 
 
 def _constant_1(*args):
@@ -135,12 +141,18 @@ def _normalize_6_first_value(success, amountOutList):
         return amountOutList[0] / 1e6
 
 
+def _normalize_18_first_value(success, amountOutList):
+    if success:
+        return amountOutList[0] / 1e18
+
+
 def make_balancer_router_query(
     name,
     pool_address,
     token_in,
     token_out,
     amount_in,
+    token_out_decimals,
 ):
     # simple one hop path
     balancer_batch_router_address = "0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1"
@@ -152,6 +164,12 @@ def make_balancer_router_query(
             0,  # minAmountOut
         )
     ]
+
+    if token_out_decimals == 18:
+        cleaning_function = _normalize_18_first_value
+    elif token_out_decimals == 6:
+        cleaning_function = _normalize_18_first_value
+
     return Call(
         balancer_batch_router_address,
         [
@@ -161,7 +179,7 @@ def make_balancer_router_query(
             b"",
         ],
         [
-            (name, _normalize_6_first_value),
+            (name, cleaning_function),
         ],
     )
 
@@ -176,14 +194,11 @@ def build_safe_price_calls() -> list[Call]:
         make_chainlink_price_call(crvUSD_USD_chainlink, 18, "crvUSD_safe_price"),
         make_chainlink_price_call(USDs_USD_chainlink, 18, "USDs_safe_price"),
         make_chainlink_price_call(FRAX_USD_chainlink, 18, "FRAX_safe_price"),
+        make_chainlink_price_call(sUSDe_USD_chainlink, 18, "sUSDe_safe_price"),
     ]
 
 
 def build_backing_calls() -> list[Call]:
-
-    aUSDT = "0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8"
-    aUSDC = "0xD4fa2D31b7968E448877f69A96DE69f5de8cD23E"
-    aGHO = "0xC71Ea051a5F82c67ADcF634c36FFE6334793D24C"
 
     aUSDT_backing = Call(
         aUSDT,
@@ -281,7 +296,6 @@ def _build_curve_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
         pool_name="crvUSD_USDT_pool",
     )
 
-
     crvUSD_GHO_pool = TokenLocalPoolPriceDetails(
         calls=[
             Call(
@@ -298,15 +312,183 @@ def _build_curve_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
         pool_name="crvUSD_GHO_pool",
     )
 
+    crvUSD_USDe_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            Call(
+                "0xF55B0f6F2Da5ffDDb104b58a60F2862745960442",
+                ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+                [("crvUSD_USDe_pool__crvUSD_to_USDe", safe_normalize_with_bool_success)],
+            ),
+            Call(
+                "0xF55B0f6F2Da5ffDDb104b58a60F2862745960442",
+                ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+                [("crvUSD_USDe_pool__USDe_to_crvUSD", safe_normalize_with_bool_success)],
+            ),
+        ],
+        pool_name="crvUSD_USDe_pool",
+    )
 
+    scrvUSD_sUSDe_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            Call(
+                "0xd29f8980852c2c76fC3f6E96a7Aa06E0BedCC1B1",
+                ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+                [("scrvUSD_sUSDe_pool__scrvUSD_to_sUSDe", safe_normalize_with_bool_success)],
+            ),
+            Call(
+                "0xd29f8980852c2c76fC3f6E96a7Aa06E0BedCC1B1",
+                ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+                [("scrvUSD_sUSDe_pool__sUSDe_to_scrvUSD", safe_normalize_with_bool_success)],
+            ),
+        ],
+        pool_name="scrvUSD_sUSDe_pool",
+    )
 
+    # don't have a scrvUSD safe price so we can't do this
+    # I don't see a crvUSD-USDs pool but I do see a scrvUSD-sUSDs pool
 
+    crvUSD_FRAX_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            Call(
+                "0x0CD6f267b2086bea681E922E19D40512511BE538",
+                ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+                [("crvUSD_FRAX_pool__crvUSD_to_FRAX", safe_normalize_with_bool_success)],
+            ),
+            Call(
+                "0x0CD6f267b2086bea681E922E19D40512511BE538",
+                ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+                [("crvUSD_FRAX_pool__FRAX_to_crvUSD", safe_normalize_with_bool_success)],
+            ),
+        ],
+        pool_name="crvUSD_FRAX_pool",
+    )
 
-    return [crvUSD_USDC_pool, crvUSD_USDT_pool,crvUSD_GHO_pool]
+    USDe_DAI_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            Call(
+                "0xF36a4BA50C603204c3FC6d2dA8b78A7b69CBC67d",
+                ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+                [("USDe_DAI_pool__DAI_to_USDe", safe_normalize_with_bool_success)],
+            ),
+            Call(
+                "0xF36a4BA50C603204c3FC6d2dA8b78A7b69CBC67d",
+                ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+                [("USDe_DAI_pool__USDe_to_DAI", safe_normalize_with_bool_success)],
+            ),
+        ],
+        pool_name="USDe_DAI_pool",
+    )
+
+    # https://curve.fi/dex/ethereum/pools/factory-stable-ng-12/deposit/ USDC-USDe
+
+    USDe_USDC_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            Call(
+                "0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72",
+                ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e6)],
+                [("USDe_USDC_pool__USDC_to_USDe", safe_normalize_with_bool_success)],
+            ),
+            Call(
+                "0x02950460E2b9529D0E00284A5fA2d7bDF3fA4d72",
+                ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+                [("USDe_USDC_pool__USDe_to_USDC", safe_normalize_6_with_bool_success)],
+            ),
+        ],
+        pool_name="USDe_USDC_pool",
+    )
+
+    crvUSD_sUSDe_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            Call(
+                "0x57064F49Ad7123C92560882a45518374ad982e85",
+                ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+                [("crvUSD_sUSDe_pool__sUSDe_to_crvUSD", safe_normalize_with_bool_success)],
+            ),
+            Call(
+                "0x57064F49Ad7123C92560882a45518374ad982e85",
+                ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+                [("crvUSD_sUSDe_pool__crvUSD_to_sUSDe", safe_normalize_with_bool_success)],
+            ),
+        ],
+        pool_name="crvUSD_sUSDe_pool",
+    )
+
+    return [
+        crvUSD_USDC_pool,
+        crvUSD_USDT_pool,
+        crvUSD_GHO_pool,
+        crvUSD_USDe_pool,
+        crvUSD_FRAX_pool,
+        USDe_DAI_pool,
+        USDe_USDC_pool,
+        crvUSD_sUSDe_pool,
+    ]
 
 
 def _build_balancer_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
-    return []
+
+    GHO_USDC_USDT_v2_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            build_balancer_query_swap_call(
+                "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
+                GHO,
+                USDC,
+                int(1e18),
+                "GHO_USDC_USDT_v2_GHO_to_USDC",
+                6,
+            ),
+            build_balancer_query_swap_call(
+                "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
+                GHO,
+                USDC,
+                int(1e6),
+                "GHO_USDC_USDT_v2_USDC_to_GHO",
+                18,
+            ),
+            build_balancer_query_swap_call(
+                "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
+                GHO,
+                USDT,
+                int(1e18),
+                "GHO_USDC_USDT_v2_GHO_to_USDT",
+                6,
+            ),
+            build_balancer_query_swap_call(
+                "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
+                USDT,
+                GHO,
+                int(1e6),
+                "GHO_USDC_USDT_v2_USDT_to_GHO",
+                18,
+            ),
+            build_balancer_query_swap_call(
+                "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
+                USDC,
+                USDT,
+                int(1e6),
+                "GHO_USDC_USDT_v2_USDC_to_USDT",
+                18,
+            ),
+            build_balancer_query_swap_call(
+                "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
+                USDT,
+                USDC,
+                int(1e6),
+                "GHO_USDC_USDT_v2_USDT_to_USDC",
+                18,
+            ),
+        ],
+        pool_name="GHO_USDC_USDT_v2_pool",
+    )
+
+    GHO_USDC_USDT_boosted_pool = "0x85B2b559bC2D21104C4DEFdd6EFcA8A20343361D"
+    # we don't ahve spot prices for the aaveWrapped version
+
+    aGHO_to_aUSDC_spot_price_call = make_balancer_router_query(
+        "GHO_USDC_USDT_boosted_pool__aGHO_to_aUSDC", GHO_USDC_USDT_boosted_pool, aGHO, aUSDC, 1e18
+    )
+
+    return [GHO_USDC_USDT_v2_pool]
 
 
 def build_all_local_pool_prices():
@@ -322,11 +504,11 @@ def build_all_local_pool_prices():
 #     crvUSD_USDC_pool = ""
 #     crvUSD_USDT_pool = ""
 #     crvUSD_USDe_pool = ""
-#     crvUSD_USDS_pool = ""
+#     crvUSD_USDS_pool = "" # this pool exists but has no liqudity
 #     GHO_crvUSD_pool = ""
 #     FRAX_crvUSD_pool = ""
 #     crvUSD_sUSDe_pool = ""
-#     USDT_GHO_USDC_pool = ""
-#     USDe_USDC_pool = ""
+#     USDT_GHO_USDC_pool = "" # bal pool
+#     USDe_USDC_pool = ""https://balancer.fi/pools/ethereum/v2/0xb819feef8f0fcdc268afe14162983a69f6bf179e000000000000000000000689
 #     GHO_USDC_pool = ""
-#     GYD_USDC_pool = ""
+# GYD_USDC_pool = "" skip
