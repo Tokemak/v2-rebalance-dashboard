@@ -27,7 +27,7 @@ USDT = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
 GHO = "0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f"
 USDs = "0xdC035D45d973E3EC169d2276DDab16f1e407384F"
 USDe = "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"
-FRAX = "0xB9E1E3A9feFf48998E45Fa90847ed4D467E8BcfD"
+FRAX = "0x853d955aCEf822Db058eb8505911ED77F175b99e"
 
 crvUSD = "0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E"
 scrvUSD = "0x0655977FEb2f289A4aB78af67BAB0d17aAb84367"
@@ -38,6 +38,24 @@ sFRAX = "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32"
 aUSDT = "0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8"
 aUSDC = "0xD4fa2D31b7968E448877f69A96DE69f5de8cD23E"
 aGHO = "0xC71Ea051a5F82c67ADcF634c36FFE6334793D24C"
+
+stable_coin_tuples = [
+    (DAI, "DAI"),
+    (USDC, "USDC"),
+    (USDT, "USDT"),
+    (GHO, "GHO"),
+    (USDs, "USDs"),
+    (USDe, "USDe"),
+    (FRAX, "FRAX"),
+    (crvUSD, "crvUSD"),
+    (scrvUSD, "scrvUSD"),
+    (sUSDs, "sUSDs"),
+    (sUSDe, "sUSDe"),
+    (sFRAX, "sFRAX"),
+    (aUSDT, "aUSDT"),
+    (aUSDC, "aUSDC"),
+    (aGHO, "aGHO"),
+]
 
 
 # chalink oracles
@@ -434,75 +452,119 @@ def _build_curve_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
 
 def _build_balancer_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
 
-    GHO_USDC_USDT_v2_pool = TokenLocalPoolPriceDetails(
-        calls=[
-            build_balancer_query_swap_call(
-                "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
-                GHO,
-                USDC,
-                int(1e18),
-                "GHO_USDC_USDT_v2_GHO_to_USDC",
-                6,
-            ),
-            build_balancer_query_swap_call(
-                "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
-                GHO,
-                USDC,
-                int(1e6),
-                "GHO_USDC_USDT_v2_USDC_to_GHO",
-                18,
-            ),
-            build_balancer_query_swap_call(
-                "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
-                GHO,
-                USDT,
-                int(1e18),
-                "GHO_USDC_USDT_v2_GHO_to_USDT",
-                6,
-            ),
-            build_balancer_query_swap_call(
-                "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
-                USDT,
-                GHO,
-                int(1e6),
-                "GHO_USDC_USDT_v2_USDT_to_GHO",
-                18,
-            ),
-            build_balancer_query_swap_call(
-                "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
-                USDC,
-                USDT,
-                int(1e6),
-                "GHO_USDC_USDT_v2_USDC_to_USDT",
-                18,
-            ),
-            build_balancer_query_swap_call(
-                "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
-                USDT,
-                USDC,
-                int(1e6),
-                "GHO_USDC_USDT_v2_USDT_to_USDC",
-                18,
-            ),
-        ],
-        pool_name="GHO_USDC_USDT_v2_pool",
-    )
-
-    # GHO_USDC_USDT_boosted_pool = "0x85B2b559bC2D21104C4DEFdd6EFcA8A20343361D"
-    # # we don't ahve spot prices for the aaveWrapped version
-
-    # aGHO_to_aUSDC_spot_price_call = make_balancer_router_query(
-    #     "GHO_USDC_USDT_boosted_pool__aGHO_to_aUSDC", GHO_USDC_USDT_boosted_pool, aGHO, aUSDC, 1e18
+    # GHO_USDC_USDT_v2_pool = TokenLocalPoolPriceDetails(
+    #     calls=[
+    #         build_balancer_query_swap_call(
+    #             "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
+    #             GHO,
+    #             USDC,
+    #             int(1e18),
+    #             "GHO_USDC_USDT_v2_GHO_to_USDC",
+    #             6,
+    #         ),
+    #         build_balancer_query_swap_call(
+    #             "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
+    #             GHO,
+    #             USDC,
+    #             int(1e6),
+    #             "GHO_USDC_USDT_v2_USDC_to_GHO",
+    #             18,
+    #         ),
+    #         # build_balancer_query_swap_call(
+    #         #     "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
+    #         #     GHO,
+    #         #     USDT,
+    #         #     int(1e18),
+    #         #     "GHO_USDC_USDT_v2_GHO_to_USDT",
+    #         #     6,
+    #         # ),
+    #         # build_balancer_query_swap_call(
+    #         #     "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
+    #         #     USDT,
+    #         #     GHO,
+    #         #     int(1e6),
+    #         #     "GHO_USDC_USDT_v2_USDT_to_GHO",
+    #         #     18,
+    #         # ),
+    #         build_balancer_query_swap_call(
+    #             "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
+    #             USDC,
+    #             USDT,
+    #             int(1e6),
+    #             "GHO_USDC_USDT_v2_USDC_to_USDT",
+    #             18,
+    #         ),
+    #         build_balancer_query_swap_call(
+    #             "0x8353157092ed8be69a9df8f95af097bbf33cb2af0000000000000000000005d9",
+    #             USDT,
+    #             USDC,
+    #             int(1e6),
+    #             "GHO_USDC_USDT_v2_USDT_to_USDC",
+    #             18,
+    #         ),
+    #     ],
+    #     pool_name="GHO_USDC_USDT_v2",
     # )
 
-    return [GHO_USDC_USDT_v2_pool]
+    GHO_USDC_USDT_boosted_pool_address = "0x85B2b559bC2D21104C4DEFdd6EFcA8A20343361D"
+
+    GHO_USDC_USDT_boosted_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            make_balancer_router_query(
+                "GHO_USDC_USDT_boosted__aGHO_to_aUSDC", GHO_USDC_USDT_boosted_pool_address, aGHO, aUSDC, 1e18, 6
+            ),
+            make_balancer_router_query(
+                "GHO_USDC_USDT_boosted__aUSDC_to_aGHO", GHO_USDC_USDT_boosted_pool_address, aUSDC, aGHO, 1e6, 18
+            ),
+            make_balancer_router_query(
+                "GHO_USDC_USDT_boosted__aUSDT_to_aUSDC", GHO_USDC_USDT_boosted_pool_address, aUSDT, aUSDC, 1e6, 6
+            ),
+        ],
+        pool_name="GHO_USDC_USDT_boosted",
+    )
+
+    return [GHO_USDC_USDT_boosted_pool]
+
+
+def build_safe_to_usdc_token_price(blocks: list[int], method: str) -> pd.DataFrame:
+
+    safe_price_calls = build_safe_price_calls()
+    backing_calls = build_backing_calls()
+
+    raw_df = get_raw_state_by_blocks([*safe_price_calls, *backing_calls], blocks, ETH_CHAIN)
+
+    safe_to_usdc_price_df = pd.DataFrame(index=raw_df.index)
+    if method == "(Token-ETH) / (USDC-ETH)":
+        safe_to_usdc_price_df["DAI_safe_price"] = raw_df["DAI_to_ETH_safe_price"] / raw_df["USDC_to_ETH_safe_price"]
+        safe_to_usdc_price_df["USDT_safe_price"] = raw_df["USDT_to_ETH_safe_price"] / raw_df["USDC_to_ETH_safe_price"]
+
+    elif method == "(Token-USD) / (USDC-USD)":
+        safe_to_usdc_price_df["DAI_safe_price"] = raw_df["DAI_to_USD_safe_price"] / raw_df["USDC_to_USD_safe_price"]
+        safe_to_usdc_price_df["USDT_safe_price"] = raw_df["USDT_to_USD_safe_price"] / raw_df["USDC_to_USD_safe_price"]
+    else:
+        raise ValueError("invalid method")
+
+    safe_to_usdc_price_df["USDe_safe_price"] = raw_df["USDe_to_USD_safe_price"] / raw_df["USDC_to_USD_safe_price"]
+    safe_to_usdc_price_df["GHO_safe_price"] = raw_df["GHO_to_USD_safe_price"] / raw_df["USDC_to_USD_safe_price"]
+    safe_to_usdc_price_df["crvUSD_safe_price"] = raw_df["crvUSD_to_USD_safe_price"] / raw_df["USDC_to_USD_safe_price"]
+    safe_to_usdc_price_df["USDs_safe_price"] = raw_df["USDs_to_USD_safe_price"] / raw_df["USDC_to_USD_safe_price"]
+    safe_to_usdc_price_df["FRAX_safe_price"] = raw_df["FRAX_to_USD_safe_price"] / raw_df["USDC_to_USD_safe_price"]
+    safe_to_usdc_price_df["sUSDe_safe_price"] = raw_df["sUSDe_to_USD_safe_price"] / raw_df["USDC_to_USD_safe_price"]
+    safe_to_usdc_price_df["USDC_safe_price"] = 1.0
+
+    # balancer boosted pools
+    safe_to_usdc_price_df["aGHO_safe_price"] = safe_to_usdc_price_df["GHO_safe_price"] * raw_df["aGHO_backing"]
+    safe_to_usdc_price_df["aUSDC_safe_price"] = safe_to_usdc_price_df["USDC_safe_price"] * raw_df["aUSDC_backing"]
+    safe_to_usdc_price_df["aUSDT_safe_price"] = safe_to_usdc_price_df["USDT_safe_price"] * raw_df["aUSDT_backing"]
+
+    return safe_to_usdc_price_df
 
 
 def build_all_local_pool_prices():
     curve_pool_local_token_price = _build_curve_pool_local_price()
     balancer_pool_local_token_price = _build_balancer_pool_local_price()
 
-    return [*curve_pool_local_token_price]
+    return [*curve_pool_local_token_price, *balancer_pool_local_token_price]
 
 
 # def _build_pool_price_calls():
