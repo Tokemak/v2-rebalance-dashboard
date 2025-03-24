@@ -69,7 +69,7 @@ def add_new_rebalance_events_for_each_autopool_to_table(run_anyway: bool = False
             )
             write_dataframe_to_table(new_rebalance_events_df, REBALANCE_EVENTS_TABLE)
 
-    # make sure that all teh autopool shave some data
+    # make sure that all the autopool save some data
     for autopool in ALL_AUTOPOOLS:
         rebalance_events_df = get_all_rows_in_table_by_autopool(REBALANCE_EVENTS_TABLE, autopool)
         if len(rebalance_events_df) == 0:
@@ -621,12 +621,10 @@ def make_expoded_box_plot(df: pd.DataFrame, col: str, resolution: str = "1W"):
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import AUTO_ETH
+    from mainnet_launch.constants import DINERO_ETH
     from mainnet_launch.database.database_operations import drop_table
 
     # drop_table(REBALANCE_EVENTS_TABLE)
 
-    new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
-        AUTO_ETH, AUTO_ETH.chain.block_autopool_first_deployed
-    )
+    new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(DINERO_ETH, 22082075)
     print(new_rebalance_events_df.head())
