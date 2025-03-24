@@ -249,4 +249,5 @@ if __name__ == "__main__":
     from mainnet_launch.constants import ETH_CHAIN
 
     b = build_blocks_to_use(ETH_CHAIN)
-    print(b)
+    print(b[0], b[-1])
+    pass
