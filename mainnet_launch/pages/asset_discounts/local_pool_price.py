@@ -12,6 +12,8 @@ from multicall import Call
 from dataclasses import dataclass
 
 import pandas as pd
+import numpy as np
+
 from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_6_with_bool_success,
     safe_normalize_with_bool_success,
@@ -293,6 +295,7 @@ def build_backing_calls() -> list[Call]:
 class TokenLocalPoolPriceDetails:
     calls: list[Call]
     pool_name: str
+    pool_address: str = None
 
 
 def _build_curve_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
@@ -581,6 +584,7 @@ def _build_balancer_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
             ),
         ],
         pool_name="GHO_USDC_USDT_boosted",
+        pool_address=GHO_USDC_USDT_boosted_pool_address,
     )
 
     sUSDe_USDC_balancer_pool = TokenLocalPoolPriceDetails(
@@ -603,6 +607,7 @@ def _build_balancer_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
             ),
         ],
         pool_name="sUSDe_USDC_balancer_pool",
+        pool_address="0xb819feeF8F0fcDC268AfE14162983A69f6BF179E",
     )
 
     return [GHO_USDC_USDT_boosted_pool, sUSDe_USDC_balancer_pool]
@@ -653,6 +658,77 @@ def build_all_local_pool_prices():
 
     return [*curve_pool_local_token_price, *balancer_pool_local_token_price]
 
+
+
+
+def _build_curve_swap_fee_calls() -> list[Call]:
+    curve_pools = _build_curve_pool_local_price()
+    token_local_price_call_list = [t.calls for t in curve_pools]
+    token_local_price_calls = [c for calls in token_local_price_call_list for c in calls]
+    FEE_PRECISION = 1e10
+
+    def _compute_fee_as_portion(success: bool, fee: int):
+        if success:
+            return fee / FEE_PRECISION
+        return np.nan
+
+    pool_name_tuples = []
+    for c in token_local_price_calls:
+        pool_address = c.target
+        pool_name = c.returns[0][0].split("__")[0]
+
+        pool_name_tuples.append((pool_name, pool_address))
+    pool_name_tuples = set(pool_name_tuples)
+    pool_name_tuples
+
+    curve_fee_calls = [
+        Call(
+            pool,
+            ["fee()(uint256)"],
+            [(f"{pool_name}_fee", _compute_fee_as_portion)],
+        )
+        for pool_name, pool in pool_name_tuples
+    ]
+    return curve_fee_calls
+
+
+def _build_balancer_swap_fee_calls() -> list[Call]:
+
+    FEE_PRECISION = 1e18
+
+    def _compute_fee_as_portion(success: bool, fee: int):
+        if success:
+            return fee / FEE_PRECISION
+        return np.nan
+
+    # def _compute_fee_as_portion_agg(success: bool,args):
+    #     aggregateSwapFeePercentage, aggregateYieldFeePercentage = args
+    #     # return args
+    #     if success:
+    #         return aggregateSwapFeePercentage / FEE_PRECISION
+    #     return np.nan
+
+
+    balancer_fee_calls = [
+        Call(
+            "0x85B2b559bC2D21104C4DEFdd6EFcA8A20343361D",
+            ["getStaticSwapFeePercentage()(uint256)"],
+            [("GHO_USDC_USDT_boosted_fee", _compute_fee_as_portion)],
+        ),
+        Call(
+            "0xb819feeF8F0fcDC268AfE14162983A69f6BF179E",
+            ["getSwapFeePercentage()(uint256)"],
+            [("sUSDe_USDC_balancer_pool_fee", _compute_fee_as_portion )],
+        ),
+    ]
+
+    return balancer_fee_calls
+
+
+def build_fee_calls() -> list[Call]:
+    curve_fee_calls = _build_curve_swap_fee_calls()
+    balancer_fee_calls = _build_balancer_swap_fee_calls()
+    return [*curve_fee_calls, *balancer_fee_calls]
 
 # def _build_pool_price_calls():
 
