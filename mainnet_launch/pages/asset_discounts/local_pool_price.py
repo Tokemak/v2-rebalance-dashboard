@@ -659,8 +659,6 @@ def build_all_local_pool_prices():
     return [*curve_pool_local_token_price, *balancer_pool_local_token_price]
 
 
-
-
 def _build_curve_swap_fee_calls() -> list[Call]:
     curve_pools = _build_curve_pool_local_price()
     token_local_price_call_list = [t.calls for t in curve_pools]
@@ -708,7 +706,6 @@ def _build_balancer_swap_fee_calls() -> list[Call]:
     #         return aggregateSwapFeePercentage / FEE_PRECISION
     #     return np.nan
 
-
     balancer_fee_calls = [
         Call(
             "0x85B2b559bC2D21104C4DEFdd6EFcA8A20343361D",
@@ -718,7 +715,7 @@ def _build_balancer_swap_fee_calls() -> list[Call]:
         Call(
             "0xb819feeF8F0fcDC268AfE14162983A69f6BF179E",
             ["getSwapFeePercentage()(uint256)"],
-            [("sUSDe_USDC_balancer_pool_fee", _compute_fee_as_portion )],
+            [("sUSDe_USDC_balancer_pool_fee", _compute_fee_as_portion)],
         ),
     ]
 
@@ -729,6 +726,7 @@ def build_fee_calls() -> list[Call]:
     curve_fee_calls = _build_curve_swap_fee_calls()
     balancer_fee_calls = _build_balancer_swap_fee_calls()
     return [*curve_fee_calls, *balancer_fee_calls]
+
 
 # def _build_pool_price_calls():
 
