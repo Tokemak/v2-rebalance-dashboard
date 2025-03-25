@@ -34,6 +34,7 @@ scrvUSD = "0x0655977FEb2f289A4aB78af67BAB0d17aAb84367"
 sUSDs = "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"
 sUSDe = "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497"
 sFRAX = "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32"
+sDAI = "0x83F20F44975D03b1b09e64809B757c47f942BEeA"
 
 aUSDT = "0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8"
 aUSDC = "0xD4fa2D31b7968E448877f69A96DE69f5de8cD23E"
@@ -69,8 +70,8 @@ USDs_USD_chainlink = "0xfF30586cD0F29eD462364C7e81375FC0C71219b1"
 FRAX_USD_chainlink = "0xB9E1E3A9feFf48998E45Fa90847ed4D467E8BcfD"
 sUSDe_USD_chainlink = "0xFF3BC18cCBd5999CE63E788A1c250a88626aD099"
 
-USDC_ETH_chainlink = "0x986b5E1e1755e3C2440e960477f25201B0a8bbD4"  # correct
-DAI_ETH_chainlink = "0x773616E4d11A78F511299002da57A0a94577F1f4"  # correct
+USDC_ETH_chainlink = "0x986b5E1e1755e3C2440e960477f25201B0a8bbD4"
+DAI_ETH_chainlink = "0x773616E4d11A78F511299002da57A0a94577F1f4"
 USDT_ETH_chainlink = "0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46"
 
 
@@ -263,6 +264,12 @@ def build_backing_calls() -> list[Call]:
         [("scrvUSD_backing", safe_normalize_with_bool_success)],
     )
 
+    sDAI_backing = Call(
+        sDAI,
+        ["convertToAssets(uint256)(uint256)", int(1e18)],
+        [("sDAI_backing", safe_normalize_with_bool_success)],
+    )
+
     return [
         make_dummy_1_call("DAI_backing"),
         make_dummy_1_call("USDe_backing"),
@@ -278,6 +285,7 @@ def build_backing_calls() -> list[Call]:
         sUSDs_backing,
         sUSDe_backing,
         scrvUSD_backing,
+        sDAI_backing,
     ]
 
 
@@ -358,12 +366,12 @@ def _build_curve_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
             Call(
                 "0xd29f8980852c2c76fC3f6E96a7Aa06E0BedCC1B1",
                 ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
-                [("scrvUSD_sUSDe_pool__scrvUSD_to_sUSDe", safe_normalize_with_bool_success)],
+                [("scrvUSD_sUSDe_pool__sUSDe_to_scrvUSD", safe_normalize_with_bool_success)],
             ),
             Call(
                 "0xd29f8980852c2c76fC3f6E96a7Aa06E0BedCC1B1",
                 ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
-                [("scrvUSD_sUSDe_pool__sUSDe_to_scrvUSD", safe_normalize_with_bool_success)],
+                [("scrvUSD_sUSDe_pool__scrvUSD_to_sUSDe", safe_normalize_with_bool_success)],
             ),
         ],
         pool_name="scrvUSD_sUSDe_pool",
@@ -438,6 +446,54 @@ def _build_curve_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
         pool_name="crvUSD_sUSDe_pool",
     )
 
+    sUSDe_sUSDs_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            Call(
+                "0x3CEf1AFC0E8324b57293a6E7cE663781bbEFBB79",
+                ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+                [("sUSDe_sUSDs_pool__sUSDs_to_sUSDe", safe_normalize_with_bool_success)],
+            ),
+            Call(
+                "0x3CEf1AFC0E8324b57293a6E7cE663781bbEFBB79",
+                ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+                [("sUSDe_sUSDs_pool__sUSDe_to_sUSDs", safe_normalize_with_bool_success)],
+            ),
+        ],
+        pool_name="sUSDe_sUSDs_pool",
+    )
+
+    scrvUSD_sUSDs_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            Call(
+                "0xfD1627E3f3469C8392C8c3A261D8F0677586e5e1",
+                ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+                [("scrvUSD_sUSDs_pool__sUSDs_to_scrvUSD", safe_normalize_with_bool_success)],
+            ),
+            Call(
+                "0xfD1627E3f3469C8392C8c3A261D8F0677586e5e1",
+                ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+                [("scrvUSD_sUSDs_pool__scrvUSD_to_sUSDs", safe_normalize_with_bool_success)],
+            ),
+        ],
+        pool_name="scrvUSD_sUSDs_pool",
+    )
+
+    sDAI_sUSDe_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            Call(
+                "0x167478921b907422F8E88B43C4Af2B8BEa278d3A",
+                ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+                [("sDAI_sUSDe_pool__sUSDe_to_sDAI", safe_normalize_with_bool_success)],
+            ),
+            Call(
+                "0x167478921b907422F8E88B43C4Af2B8BEa278d3A",
+                ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+                [("sDAI_sUSDe_pool__sDAI_to_sUSDe", safe_normalize_with_bool_success)],
+            ),
+        ],
+        pool_name="sDAI_sUSDe_pool",
+    )
+
     return [
         crvUSD_USDC_pool,
         crvUSD_USDT_pool,
@@ -447,6 +503,10 @@ def _build_curve_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
         USDe_DAI_pool,
         USDe_USDC_pool,
         crvUSD_sUSDe_pool,
+        scrvUSD_sUSDe_pool,
+        sUSDe_sUSDs_pool,
+        scrvUSD_sUSDs_pool,
+        sDAI_sUSDe_pool,
     ]
 
 
@@ -523,7 +583,29 @@ def _build_balancer_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
         pool_name="GHO_USDC_USDT_boosted",
     )
 
-    return [GHO_USDC_USDT_boosted_pool]
+    sUSDe_USDC_balancer_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            build_balancer_query_swap_call(
+                "0xb819feef8f0fcdc268afe14162983a69f6bf179e000000000000000000000689",
+                sUSDe,
+                USDC,
+                int(1e18),
+                "sUSDe_USDC_balancer_pool__sUSDe_to_USDC",
+                6,
+            ),
+            build_balancer_query_swap_call(
+                "0xb819feef8f0fcdc268afe14162983a69f6bf179e000000000000000000000689",
+                USDC,
+                sUSDe,
+                int(1e6),
+                "sUSDe_USDC_balancer_pool__USDC_to_sUSDe",
+                18,
+            ),
+        ],
+        pool_name="sUSDe_USDC_balancer_pool",
+    )
+
+    return [GHO_USDC_USDT_boosted_pool, sUSDe_USDC_balancer_pool]
 
 
 def build_safe_to_usdc_token_price(blocks: list[int], method: str) -> pd.DataFrame:
@@ -551,6 +633,11 @@ def build_safe_to_usdc_token_price(blocks: list[int], method: str) -> pd.DataFra
     safe_to_usdc_price_df["FRAX_safe_price"] = raw_df["FRAX_to_USD_safe_price"] / raw_df["USDC_to_USD_safe_price"]
     safe_to_usdc_price_df["sUSDe_safe_price"] = raw_df["sUSDe_to_USD_safe_price"] / raw_df["USDC_to_USD_safe_price"]
     safe_to_usdc_price_df["USDC_safe_price"] = 1.0
+
+    safe_to_usdc_price_df["scrvUSD_safe_price"] = safe_to_usdc_price_df["crvUSD_safe_price"] * raw_df["scrvUSD_backing"]
+    safe_to_usdc_price_df["sDAI_safe_price"] = safe_to_usdc_price_df["DAI_safe_price"] * raw_df["sDAI_backing"]
+    safe_to_usdc_price_df["sUSDs_safe_price"] = safe_to_usdc_price_df["USDs_safe_price"] * raw_df["sUSDs_backing"]
+    safe_to_usdc_price_df["sFRAX_safe_price"] = safe_to_usdc_price_df["FRAX_safe_price"] * raw_df["FRAX_backing"]
 
     # balancer boosted pools
     safe_to_usdc_price_df["aGHO_safe_price"] = safe_to_usdc_price_df["GHO_safe_price"] * raw_df["aGHO_backing"]
