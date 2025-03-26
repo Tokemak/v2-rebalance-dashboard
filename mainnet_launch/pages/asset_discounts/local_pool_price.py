@@ -272,6 +272,12 @@ def build_backing_calls() -> list[Call]:
         [("sDAI_backing", safe_normalize_with_bool_success)],
     )
 
+    sFRAX_backing = Call(
+        sFRAX,
+        ["pricePerShare()(uint256)"],
+        [("sFRAX_backing", safe_normalize_with_bool_success)],
+    )
+
     return [
         make_dummy_1_call("DAI_backing"),
         make_dummy_1_call("USDe_backing"),
@@ -288,6 +294,7 @@ def build_backing_calls() -> list[Call]:
         sUSDe_backing,
         scrvUSD_backing,
         sDAI_backing,
+        sFRAX_backing,
     ]
 
 
@@ -642,7 +649,7 @@ def build_safe_to_usdc_token_price(blocks: list[int], method: str) -> pd.DataFra
     safe_to_usdc_price_df["scrvUSD_safe_price"] = safe_to_usdc_price_df["crvUSD_safe_price"] * raw_df["scrvUSD_backing"]
     safe_to_usdc_price_df["sDAI_safe_price"] = safe_to_usdc_price_df["DAI_safe_price"] * raw_df["sDAI_backing"]
     safe_to_usdc_price_df["sUSDs_safe_price"] = safe_to_usdc_price_df["USDs_safe_price"] * raw_df["sUSDs_backing"]
-    safe_to_usdc_price_df["sFRAX_safe_price"] = safe_to_usdc_price_df["FRAX_safe_price"] * raw_df["FRAX_backing"]
+    safe_to_usdc_price_df["sFRAX_safe_price"] = safe_to_usdc_price_df["FRAX_safe_price"] * raw_df["sFRAX_backing"]
 
     # balancer boosted pools
     safe_to_usdc_price_df["aGHO_safe_price"] = safe_to_usdc_price_df["GHO_safe_price"] * raw_df["aGHO_backing"]
