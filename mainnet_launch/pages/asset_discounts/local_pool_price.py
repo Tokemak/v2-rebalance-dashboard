@@ -504,6 +504,48 @@ def _build_curve_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
         pool_name="sDAI_sUSDe_pool",
     )
 
+    DAI_USDC_USDT_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            Call(
+                "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7",
+                ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+                [("DAI_USDC_USDT_pool__DAI_to_USDC", safe_normalize_6_with_bool_success)],
+            ),
+        ],
+        pool_name="DAI_USDC_USDT_pool",
+    )
+
+    # NOTE frxUSD not FRAX
+
+    FRAX_sUSDs_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            Call(
+                "0x81A2612F6dEA269a6Dd1F6DeAb45C5424EE2c4b7",
+                ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+                [("FRAX_sUSDs_pool__FRAX_to_sUSDs", safe_normalize_with_bool_success)],
+            ),
+            Call(
+                "0x81A2612F6dEA269a6Dd1F6DeAb45C5424EE2c4b7",
+                ["get_dy(int128,int128,uint256)(uint256)", 1, 0, int(1e18)],
+                [("FRAX_sUSDs_pool__sUSDs_to_FRAX", safe_normalize_with_bool_success)],
+            ),
+        ],
+        pool_name="FRAX_sUSDs_pool",
+    )
+
+    #
+
+    FRAX_USDC_pool = TokenLocalPoolPriceDetails(
+        calls=[
+            Call(
+                "0xDcEF968d416a41Cdac0ED8702fAC8128A64241A2",
+                ["get_dy(int128,int128,uint256)(uint256)", 0, 1, int(1e18)],
+                [("FRAX_USDC_pool__FRAX_to_USDC", safe_normalize_6_with_bool_success)],
+            ),
+        ],
+        pool_name="FRAX_USDC_pool",
+    )
+
     return [
         crvUSD_USDC_pool,
         crvUSD_USDT_pool,
@@ -517,6 +559,10 @@ def _build_curve_pool_local_price() -> list[TokenLocalPoolPriceDetails]:
         sUSDe_sUSDs_pool,
         scrvUSD_sUSDs_pool,
         sDAI_sUSDe_pool,
+        # added later as spot checks
+        DAI_USDC_USDT_pool,
+        FRAX_sUSDs_pool,
+        FRAX_USDC_pool,
     ]
 
 
