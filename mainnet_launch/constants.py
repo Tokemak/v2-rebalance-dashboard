@@ -66,10 +66,11 @@ class AutopoolConstants:
     autopool_strategy_addr: str
     solver_rebalance_plans_bucket: str
     chain: ChainData
-    base_asset: str  # AutopoolETH.asset()
+    base_asset: str
+    decimals: int
 
     def __hash__(self):
-        return hash(self.chain)
+        return hash(self.autopool_addr)
 
 
 ETH_CHAIN: ChainData = ChainData(
@@ -181,6 +182,7 @@ AUTO_ETH = AutopoolConstants(
     solver_rebalance_plans_bucket=os.environ["AUTO_ETH_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
+    decimals=18,
 )
 
 BAL_ETH = AutopoolConstants(
@@ -190,6 +192,7 @@ BAL_ETH = AutopoolConstants(
     solver_rebalance_plans_bucket=os.environ["BAL_ETH_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
+    decimals=18,
 )
 
 AUTO_LRT = AutopoolConstants(
@@ -199,6 +202,7 @@ AUTO_LRT = AutopoolConstants(
     solver_rebalance_plans_bucket=os.environ["AUTO_LRT_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
+    decimals=18,
 )
 
 BASE_ETH = AutopoolConstants(
@@ -208,6 +212,7 @@ BASE_ETH = AutopoolConstants(
     solver_rebalance_plans_bucket=os.environ["BASE_ETH_BUCKET"],
     chain=BASE_CHAIN,
     base_asset=WETH(BASE_CHAIN),
+    decimals=18,
 )
 
 DINERO_ETH = AutopoolConstants(
@@ -217,6 +222,7 @@ DINERO_ETH = AutopoolConstants(
     solver_rebalance_plans_bucket=os.environ["DINERO_ETH_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
+    decimals=18,
 )
 
 
@@ -227,6 +233,7 @@ AUTO_USD = AutopoolConstants(
     solver_rebalance_plans_bucket=os.environ["AUTO_USD_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=USDC(ETH_CHAIN),
+    decimals=6,
 )
 
 

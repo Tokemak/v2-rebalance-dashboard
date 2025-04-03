@@ -3,6 +3,7 @@ from multicall import Call
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
+    safe_normalize_6_with_bool_success,
     build_blocks_to_use,
 )
 
@@ -30,7 +31,7 @@ def add_new_nav_per_share_to_table():
 
 
 def _fetch_nav_per_share_from_external_source(chain: ChainData, blocks: list[int]):
-    calls = [nav_per_share_call(a.name, a.autopool_addr) for a in ALL_AUTOPOOLS if a.chain == chain]
+    calls = [nav_per_share_call(a.name, a.autopool_addr, a.decimals) for a in ALL_AUTOPOOLS if a.chain == chain]
     nav_per_share_df = get_raw_state_by_blocks(calls=calls, blocks=blocks, chain=chain, include_block_number=True)
 
     column_names = [a.name for a in ALL_AUTOPOOLS if a.chain == chain]
@@ -41,11 +42,16 @@ def _fetch_nav_per_share_from_external_source(chain: ChainData, blocks: list[int
     return long_nav_per_share_df
 
 
-def nav_per_share_call(name: str, autopool_vault_address: str) -> Call:
+def nav_per_share_call(name: str, autopool_vault_address: str, decimals: int) -> Call:
+    if decimals == 18:
+        cleaning_function = safe_normalize_with_bool_success
+    elif decimals == 6:
+        cleaning_function = safe_normalize_6_with_bool_success
+
     return Call(
         autopool_vault_address,
         ["convertToAssets(uint256)(uint256)", int(1e18)],
-        [(name, safe_normalize_with_bool_success)],
+        [(name, cleaning_function)],
     )
 
 
