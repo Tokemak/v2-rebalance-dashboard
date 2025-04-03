@@ -62,8 +62,8 @@ class ChainData:
 @dataclass(frozen=True)
 class AutopoolConstants:
     name: str
-    autopool_eth_addr: str
-    autopool_eth_strategy_addr: str
+    autopool_addr: str
+    autopool_strategy_addr: str
     solver_rebalance_plans_bucket: str
     chain: ChainData
     base_asset: str  # AutopoolETH.asset()
@@ -153,6 +153,10 @@ STATS_CALCULATOR_REGISTRY = TokemakAddress(
     eth="0xaE6b250841fA7520AF843c776aA58E23060E2124", base="0x22dd2189728B40409476F4F80CA8f2f6BdB217D2"
 )
 
+USDC = TokemakAddress(
+    eth="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", base="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+)
+
 
 def time_decorator(func):
     def wrapper(*args, **kwargs):
@@ -170,51 +174,60 @@ TEST_LOG_FILE_NAME = "test_pages.log"
 STARTUP_LOG_FILE = ROOT_DIR / "startup.csv"
 
 
-AUTO_ETH: AutopoolConstants = AutopoolConstants(
+AUTO_ETH = AutopoolConstants(
     name="autoETH",
-    autopool_eth_addr="0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56",
-    autopool_eth_strategy_addr="0xf5f6addB08c5e6091e5FdEc7326B21bEEd942235",
+    autopool_addr="0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56",
+    autopool_strategy_addr="0xf5f6addB08c5e6091e5FdEc7326B21bEEd942235",
     solver_rebalance_plans_bucket=os.environ["AUTO_ETH_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
 )
 
-BAL_ETH: AutopoolConstants = AutopoolConstants(
+BAL_ETH = AutopoolConstants(
     name="balETH",
-    autopool_eth_addr="0x6dC3ce9C57b20131347FDc9089D740DAf6eB34c5",
-    autopool_eth_strategy_addr="0xabe104560D0B390309bcF20b73Dca335457AA32e",
+    autopool_addr="0x6dC3ce9C57b20131347FDc9089D740DAf6eB34c5",
+    autopool_strategy_addr="0xabe104560D0B390309bcF20b73Dca335457AA32e",
     solver_rebalance_plans_bucket=os.environ["BAL_ETH_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
 )
 
-AUTO_LRT: AutopoolConstants = AutopoolConstants(
+AUTO_LRT = AutopoolConstants(
     name="autoLRT",
-    autopool_eth_addr="0xE800e3760FC20aA98c5df6A9816147f190455AF3",
-    autopool_eth_strategy_addr="0x72a726c10220280049687E58B7b05fb03d579109",
+    autopool_addr="0xE800e3760FC20aA98c5df6A9816147f190455AF3",
+    autopool_strategy_addr="0x72a726c10220280049687E58B7b05fb03d579109",
     solver_rebalance_plans_bucket=os.environ["AUTO_LRT_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
 )
 
-BASE_ETH: AutopoolConstants = AutopoolConstants(
+BASE_ETH = AutopoolConstants(
     "baseETH",
-    autopool_eth_addr="0xAADf01DD90aE0A6Bb9Eb908294658037096E0404",
-    autopool_eth_strategy_addr="0xe72a466d426F735BfeE91Db19dc509735B65b8dc",
+    autopool_addr="0xAADf01DD90aE0A6Bb9Eb908294658037096E0404",
+    autopool_strategy_addr="0xe72a466d426F735BfeE91Db19dc509735B65b8dc",
     solver_rebalance_plans_bucket=os.environ["BASE_ETH_BUCKET"],
     chain=BASE_CHAIN,
     base_asset=WETH(BASE_CHAIN),
 )
 
-DINERO_ETH: AutopoolConstants = AutopoolConstants(
+DINERO_ETH = AutopoolConstants(
     "dineroETH",
-    autopool_eth_addr="0x35911af1B570E26f668905595dEd133D01CD3E5a",
-    autopool_eth_strategy_addr="0x2Ade538C621A117afc4D485C79b16DD5769bC921",
+    autopool_addr="0x35911af1B570E26f668905595dEd133D01CD3E5a",
+    autopool_strategy_addr="0x2Ade538C621A117afc4D485C79b16DD5769bC921",
     solver_rebalance_plans_bucket=os.environ["DINERO_ETH_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
 )
 
 
-ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
-# ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH]
+AUTO_USD = AutopoolConstants(
+    "autoUSD",
+    autopool_addr="0xa7569A44f348d3D70d8ad5889e50F78E33d80D35",
+    autopool_strategy_addr="0x000000000000000000000000000000000000dEaD",
+    solver_rebalance_plans_bucket=os.environ["AUTO_USD_BUCKET"],
+    chain=ETH_CHAIN,
+    base_asset=USDC(ETH_CHAIN),
+)
+
+
+ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH, AUTO_USD]

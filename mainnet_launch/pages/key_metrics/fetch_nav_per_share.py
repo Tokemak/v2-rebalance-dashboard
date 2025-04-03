@@ -30,7 +30,7 @@ def add_new_nav_per_share_to_table():
 
 
 def _fetch_nav_per_share_from_external_source(chain: ChainData, blocks: list[int]):
-    calls = [nav_per_share_call(a.name, a.autopool_eth_addr) for a in ALL_AUTOPOOLS if a.chain == chain]
+    calls = [nav_per_share_call(a.name, a.autopool_addr) for a in ALL_AUTOPOOLS if a.chain == chain]
     nav_per_share_df = get_raw_state_by_blocks(calls=calls, blocks=blocks, chain=chain, include_block_number=True)
 
     column_names = [a.name for a in ALL_AUTOPOOLS if a.chain == chain]

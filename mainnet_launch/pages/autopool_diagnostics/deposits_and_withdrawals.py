@@ -60,7 +60,7 @@ def add_new_autopool_deposit_and_withdraw_events_to_table():
 def _fetch_autopool_deposit_and_withdraw_events_from_external_source(
     autopool: AutopoolConstants, start_block: int
 ) -> pd.DataFrame:
-    contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+    contract = autopool.chain.client.eth.contract(autopool.autopool_addr, abi=AUTOPOOL_VAULT_ABI)
     deposit_df = fetch_events(
         contract.events.Deposit,
         autopool.chain,

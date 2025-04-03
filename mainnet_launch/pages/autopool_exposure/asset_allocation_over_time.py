@@ -142,7 +142,7 @@ def _make_idle_eth_call(autopool: AutopoolConstants) -> Call:
 
     balance_of_call = Call(
         WETH(autopool.chain),
-        ["balanceOf(address)(uint256)", autopool.autopool_eth_addr],
+        ["balanceOf(address)(uint256)", autopool.autopool_addr],
         [
             (f"autopool_idle", safe_normalize_with_bool_success),
         ],
@@ -170,7 +170,7 @@ def _make_destination_asset_reserves_calls(dest: DestinationDetails) -> list[Cal
 
     balance_of_call = Call(
         dest.vaultAddress,
-        ["balanceOf(address)(uint256)", dest.autopool.autopool_eth_addr],
+        ["balanceOf(address)(uint256)", dest.autopool.autopool_addr],
         [
             (f"{unique_id}_autopool_lp_tokens", safe_normalize_with_bool_success),
         ],

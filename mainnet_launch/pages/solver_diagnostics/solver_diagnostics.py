@@ -123,7 +123,7 @@ def ensure_all_rebalance_plans_are_loaded_from_s3_bucket():
 @st.cache_data(ttl=STREAMLIT_IN_MEMORY_CACHE_TIME)
 def _load_solver_df(autopool: AutopoolConstants) -> pd.DataFrame:
     # not setup for if there are no rebalance plans
-    autopool_plans = [p for p in SOLVER_REBALANCE_PLANS_DIR.glob("*.json") if autopool.autopool_eth_addr in str(p)]
+    autopool_plans = [p for p in SOLVER_REBALANCE_PLANS_DIR.glob("*.json") if autopool.autopool_addr in str(p)]
 
     if len(autopool_plans) == 0:
         return None

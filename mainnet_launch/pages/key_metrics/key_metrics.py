@@ -100,7 +100,7 @@ def _get_percent_deployed(allocation_df: pd.DataFrame, autopool: AutopoolConstan
 
     daily_allocation_df = allocation_df.resample("1D").last()
     destinations = get_destination_details(autopool)
-    autopool_name = [dest.vault_name for dest in destinations if dest.vaultAddress == autopool.autopool_eth_addr][0]
+    autopool_name = [dest.vault_name for dest in destinations if dest.vaultAddress == autopool.autopool_addr][0]
 
     tvl_according_to_allocation_df = float(daily_allocation_df.iloc[-1].sum())
 

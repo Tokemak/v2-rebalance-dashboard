@@ -105,10 +105,10 @@ def make_idle_destination_details(chain: ChainData) -> list[DestinationDetails]:
         if autopool.chain == chain:
             idle_details.append(
                 DestinationDetails(
-                    vaultAddress=Web3.toChecksumAddress(autopool.autopool_eth_addr),
+                    vaultAddress=Web3.toChecksumAddress(autopool.autopool_addr),
                     exchangeName="tokemak",
                     dexPool=None,
-                    lpTokenAddress=Web3.toChecksumAddress(autopool.autopool_eth_addr),
+                    lpTokenAddress=Web3.toChecksumAddress(autopool.autopool_addr),
                     lpTokenSymbol=None,
                     lpTokenName=None,
                     autopool=autopool,
@@ -126,7 +126,7 @@ def _fetch_destination_details_from_external_source(
     blocks = [b for b in build_blocks_to_use(chain) if b >= highest_block_already_fetched]
     # returns a list of all destinations along with their autopools even if the destinations have been replaced
     pools_and_destinations_df = fetch_pools_and_destinations_df(chain, blocks)
-    autopool_pool_address_to_autopool = {a.autopool_eth_addr.lower(): a for a in ALL_AUTOPOOLS}
+    autopool_pool_address_to_autopool = {a.autopool_addr.lower(): a for a in ALL_AUTOPOOLS}
 
     if highest_block_already_fetched == chain.block_autopool_first_deployed:
         all_destination_details: list[DestinationDetails] = make_idle_destination_details(chain)

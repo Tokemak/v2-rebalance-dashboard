@@ -172,7 +172,7 @@ def _combine_migrated_destinations(
         for dest in destination_details:
             # this the case when calling before an autopool exists
             if row["current_destinations"] is not None:
-                if dest.vaultAddress in [*row["current_destinations"], autopool.autopool_eth_addr]:
+                if dest.vaultAddress in [*row["current_destinations"], autopool.autopool_addr]:
                     summary_stats_data = row[dest.vaultAddress]
                     if summary_stats_data is not None:
                         # overwrite the ownShares so that it counts the shares in deprecated destinations
@@ -197,7 +197,7 @@ def _fetch_autopool_destination_df(
         for a, list_of_destinations in zip(
             getPoolsAndDestinations["autopools"], getPoolsAndDestinations["destinations"]
         ):
-            if a["poolAddress"].lower() == autopool.autopool_eth_addr.lower():
+            if a["poolAddress"].lower() == autopool.autopool_addr.lower():
                 return [Web3.toChecksumAddress(dest["vaultAddress"]) for dest in list_of_destinations]
 
     pools_and_destinations_df = fetch_pools_and_destinations_df(autopool.chain, blocks)
@@ -271,7 +271,7 @@ def _build_summary_stats_call(
 
     # cleaning_function = build_summary_stats_cleaning_function(autopool)
     return Call(
-        autopool.autopool_eth_strategy_addr,
+        autopool.autopool_strategy_addr,
         [
             f"getDestinationSummaryStats(address,uint8,uint256)({return_types})",
             dest.vaultAddress,

@@ -5,6 +5,8 @@ import subprocess
 import time
 import psutil
 import traceback
+import platform
+
 
 from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit
 from mainnet_launch.constants import ALL_AUTOPOOLS, TEST_LOG_FILE_NAME, AutopoolConstants
@@ -41,15 +43,17 @@ def get_memory_usage():
 
 
 def open_log_in_vscode(log_file):
-    if os.path.exists(log_file):
-        try:
-            subprocess.run(["code", log_file], check=True)
-        except Exception as e:
-            testing_logger.error(f"Could not open log file in VS Code: {e}")
-    else:
-        # Create the file if it doesn’t exist and then open it
+    # Create the file if it doesn't exist
+    if not os.path.exists(log_file):
         open(log_file, "w").close()
-        subprocess.run(["code", log_file], check=True)
+
+    try:
+        if platform.system() == "Darwin":  # macOS
+            subprocess.run(["open", "-a", "Visual Studio Code", log_file], check=True)
+        else:
+            subprocess.run(["code", log_file], check=True)
+    except Exception as e:
+        testing_logger.error(f"Could not open log file in VS Code: {e}")
 
 
 def log_and_time_function(page_name, func, autopool: AutopoolConstants):

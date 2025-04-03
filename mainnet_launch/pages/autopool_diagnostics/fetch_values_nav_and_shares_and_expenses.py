@@ -59,12 +59,12 @@ def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants, blocks: list
 
     calls = [
         Call(
-            autopool.autopool_eth_addr,
+            autopool.autopool_addr,
             ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
             [("actual_nav", handle_getAssetBreakdown)],
         ),
         Call(
-            autopool.autopool_eth_addr,
+            autopool.autopool_addr,
             ["totalSupply()(uint256)"],
             [("actual_shares", safe_normalize_with_bool_success)],
         ),
@@ -108,10 +108,10 @@ def _fetch_daily_nav_lost_to_rebalances(autopool: AutopoolConstants) -> pd.DataF
     rebalance_df = fetch_rebalance_events_df(autopool)
 
     rebalance_from_idle_df = rebalance_df[
-        rebalance_df["outDestinationVault"].str.lower() == autopool.autopool_eth_addr.lower()
+        rebalance_df["outDestinationVault"].str.lower() == autopool.autopool_addr.lower()
     ].copy()
     rebalance_not_from_idle_df = rebalance_df[
-        ~(rebalance_df["outDestinationVault"].str.lower() == autopool.autopool_eth_addr.lower())
+        ~(rebalance_df["outDestinationVault"].str.lower() == autopool.autopool_addr.lower())
     ].copy()
 
     # clip swap cost to 0

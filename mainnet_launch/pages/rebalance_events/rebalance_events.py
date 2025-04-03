@@ -355,9 +355,7 @@ def _fetch_lp_token_validated_spot_price(blocks: list[int], autopool: AutopoolCo
     validated_spot_price_df = get_raw_state_by_blocks(
         get_validated_spot_price_calls, blocks, chain=autopool.chain, include_block_number=True
     )
-    validated_spot_price_df[autopool.autopool_eth_addr] = (
-        1.0  # movements to or from the autopool itself are always in WETH
-    )
+    validated_spot_price_df[autopool.autopool_addr] = 1.0  # movements to or from the autopool itself are always in WETH
     validated_spot_price_df = validated_spot_price_df.reset_index(drop=True)
     return validated_spot_price_df
 
@@ -373,7 +371,7 @@ def fetch_events_needed_for_rebalance_events(autopool: AutopoolConstants, start_
             chain=autopool.chain,
             id="weth_to_autopool",
             start_block=start_block,
-            argument_filters={"to": autopool.autopool_eth_addr},
+            argument_filters={"to": autopool.autopool_addr},
         )
     )
     event_dfs_to_fetch.append(
@@ -382,13 +380,13 @@ def fetch_events_needed_for_rebalance_events(autopool: AutopoolConstants, start_
             chain=autopool.chain,
             id="weth_from_autopool",
             start_block=start_block,
-            argument_filters={"from": autopool.autopool_eth_addr},
+            argument_filters={"from": autopool.autopool_addr},
         )
     )
 
     # --- Strategy events ---
     strategy_contract = autopool.chain.client.eth.contract(
-        autopool.autopool_eth_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI
+        autopool.autopool_strategy_addr, abi=AUTOPOOL_ETH_STRATEGY_ABI
     )
     event_dfs_to_fetch.append(
         FetchEventParams(
@@ -475,7 +473,7 @@ def _combine_rebalance_event_data(
         lambda x: Web3.toChecksumAddress(x[0])
     )
 
-    rebalance_to_idle_df["inDestinationVault"] = autopool.autopool_eth_addr
+    rebalance_to_idle_df["inDestinationVault"] = autopool.autopool_addr
 
     valid_weth_from_autopool = weth_from_autopool[~weth_from_autopool["hash"].duplicated(keep=False)].copy()
     valid_weth_from_autopool["weth_from_autopool"] = valid_weth_from_autopool["value"] / 1e18

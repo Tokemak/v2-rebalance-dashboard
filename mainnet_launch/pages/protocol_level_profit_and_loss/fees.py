@@ -38,7 +38,7 @@ def add_new_fee_events_to_table():
             highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
                 AUTOPOOL_FEE_EVENTS_TABLE, autopool
             )
-            vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+            vault_contract = autopool.chain.client.eth.contract(autopool.autopool_addr, abi=AUTOPOOL_VAULT_ABI)
 
             streaming_fee_df = fetch_events(
                 vault_contract.events.FeeCollected, chain=autopool.chain, start_block=highest_block_already_fetched
@@ -100,7 +100,7 @@ def add_new_debt_reporting_events_to_table():
                 DESTINATION_DEBT_REPORTING_EVENTS_TABLE, autopool
             )
             highest_block_already_fetched = autopool.chain.block_autopool_first_deployed
-            vault_contract = autopool.chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+            vault_contract = autopool.chain.client.eth.contract(autopool.autopool_addr, abi=AUTOPOOL_VAULT_ABI)
             debt_reporting_events_df = fetch_events(
                 vault_contract.events.DestinationDebtReporting,
                 chain=autopool.chain,
