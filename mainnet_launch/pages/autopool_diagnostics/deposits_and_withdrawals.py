@@ -68,8 +68,8 @@ def _fetch_autopool_deposit_and_withdraw_events_from_external_source(
     )
     withdraw_df = fetch_events(contract.events.Withdraw, autopool.chain, start_block=start_block)
 
-    deposit_df["normalized_assets"] = deposit_df["assets"].apply(lambda x: int(x) / 1e18)
-    withdraw_df["normalized_assets"] = withdraw_df["assets"].apply(lambda x: int(x) / 1e18)
+    deposit_df["normalized_assets"] = deposit_df["assets"].apply(lambda x: int(x) / (10 ** autopool.decimals))
+    withdraw_df["normalized_assets"] = withdraw_df["assets"].apply(lambda x: int(x) / (10 ** autopool.decimals))
 
     cols = ["hash", "log_index", "block", "event", "normalized_assets"]
 
@@ -143,3 +143,9 @@ def _make_scatter_plot_figure(
     )
 
     return fig
+
+
+if __name__ == '__main__':
+    from mainnet_launch.constants import *
+    df = _fetch_autopool_deposit_and_withdraw_events_from_external_source(AUTO_USD, 20_000_000)
+    pass

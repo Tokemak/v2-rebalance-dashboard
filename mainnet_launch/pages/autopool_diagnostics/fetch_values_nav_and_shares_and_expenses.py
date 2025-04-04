@@ -3,8 +3,6 @@
 import pandas as pd
 from multicall import Call
 
-from mainnet_launch.constants import AutopoolConstants, AUTO_ETH
-
 from mainnet_launch.pages.rebalance_events.rebalance_events import (
     fetch_rebalance_events_df,
 )
@@ -23,7 +21,6 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
-    run_read_only_query,
     get_earliest_block_from_table_with_autopool,
     get_all_rows_in_table_by_autopool,
 )
@@ -54,8 +51,7 @@ def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants, blocks: list
     def handle_getAssetBreakdown(success, AssetBreakdown):
         if success:
             totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
-            return int(totalIdle + totalDebt) / 1e18
-        return None
+            return int(totalIdle + totalDebt) /( 10 ** autopool.decimals)
 
     calls = [
         Call(
@@ -83,7 +79,7 @@ def fetch_actual_nav_and_actual_shares(autopool: AutopoolConstants) -> pd.DataFr
 
 
 def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
-    daily_nav_shares_df = fetch_actual_nav_and_actual_shares(autopool)
+    daily_nav_shares_df = fetch_actual_nav_and_actual_shares(autopool) # updated decimals
     cumulative_new_shares_df = _fetch_daily_shares_minted_to_fees(autopool)
     cumulative_rebalance_from_idle_swap_cost, cumulative_rebalance_not_from_idle_swap_cost = (
         _fetch_daily_nav_lost_to_rebalances(autopool)
@@ -122,12 +118,12 @@ def _fetch_daily_nav_lost_to_rebalances(autopool: AutopoolConstants) -> pd.DataF
     daily_rebalance_not_from_idle_swap_cost.name = "rebalance_not_idle_swap_cost"
 
     # daily_rebalance_from_idle_swap_cost = (
-    #     (rebalance_from_idle_df["outEthValue"] - rebalance_from_idle_df["inEthValue"]).resample("1D").sum()
+    #     (rebalance_from_idle_df["OutBaseAssetValue"] - rebalance_from_idle_df["inBaseAssetValue"]).resample("1D").sum()
     # )
     # daily_rebalance_from_idle_swap_cost.name = "rebalance_from_idle_swap_cost"
 
     # daily_rebalance_not_from_idle_swap_cost = (
-    #     (rebalance_not_from_idle_df["outEthValue"] - rebalance_not_from_idle_df["inEthValue"]).resample("1D").sum()
+    #     (rebalance_not_from_idle_df["OutBaseAssetValue"] - rebalance_not_from_idle_df["inBaseAssetValue"]).resample("1D").sum()
     # )
     # daily_rebalance_not_from_idle_swap_cost.name = "rebalance_not_idle_swap_cost"
 
@@ -155,9 +151,11 @@ def _fetch_implied_extra_nav_if_price_return_is_zero(autopool: AutopoolConstants
 
 
 if __name__ == "__main__":
-    df = fetch_nav_and_shares_and_factors_that_impact_nav_per_share(AUTO_ETH)
-    print(df.columns)
-    print(df.shape)
-    print(df.head())
+    from mainnet_launch.constants import AutopoolConstants, AUTO_USD
 
-    print(df.tail())
+    autopool = AUTO_USD
+    blocks = build_blocks_to_use(autopool.chain)
+    if len(blocks) > 0:
+        nav_and_shares_df = _fetch_actual_nav_per_share_by_day(autopool, blocks)
+    
+    pass

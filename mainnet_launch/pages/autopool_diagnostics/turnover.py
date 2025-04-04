@@ -53,10 +53,10 @@ def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
 
         avg_tvl = float(total_nav_series[total_nav_series.index >= window].mean())
 
-        total_volume_with_rebalances_to_same_destination = recent_df["outEthValue"].sum()
+        total_volume_with_rebalances_to_same_destination = recent_df["OutBaseAssetValue"].sum()
         total_volume_without_rebalances_to_same_destination = recent_df[
             ~recent_df["is_rebalance_between_the_same_destination"]
-        ]["outEthValue"].sum()
+        ]["OutBaseAssetValue"].sum()
 
         record = {
             "window": window_name,

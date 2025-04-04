@@ -86,7 +86,9 @@ def add_new_rebalance_events_for_each_autopool_to_table(run_anyway: bool = False
 def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     add_new_rebalance_events_for_each_autopool_to_table()
     rebalance_events_df = get_all_rows_in_table_by_autopool(REBALANCE_EVENTS_TABLE, autopool)
-    rebalance_events_df["actual_swap_cost"] = rebalance_events_df["outEthValue"] - rebalance_events_df["inEthValue"]
+    rebalance_events_df["actual_swap_cost"] = (
+        rebalance_events_df["OutBaseAssetValue"] - rebalance_events_df["inBaseAssetValue"]
+    )
     return rebalance_events_df
 
 
@@ -101,9 +103,9 @@ def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, 
 
         swapCost = float(row["swap_cost"])
 
-        inEthValue = row["spot_value_in"]
-        outEthValue = row["spot_value_out"]
-        slippage = swapCost / outEthValue
+        inBaseAssetValue = row["spot_value_in"]
+        OutBaseAssetValue = row["spot_value_out"]
+        slippage = swapCost / OutBaseAssetValue
 
         in_destination_symbol = destination_vault_address_to_symbol[row["inDestinationVault"]]
         out_destination_symbol = destination_vault_address_to_symbol[row["outDestinationVault"]]
@@ -129,8 +131,8 @@ def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, 
                 "in_compositeReturn": in_compositeReturn,
                 "predicted_increase_after_swap_cost": predicted_increase_after_swap_cost,
                 "predicted_gain_during_swap_cost_off_set_period": predicted_gain_during_swap_cost_off_set_period,
-                "inEthValue": inEthValue,
-                "outEthValue": outEthValue,
+                "inBaseAssetValue": inBaseAssetValue,
+                "OutBaseAssetValue": OutBaseAssetValue,
                 "out_destination": row["outDestinationVault"],
                 "in_destination": row["inDestinationVault"],
                 "offset_period": offset_period,
@@ -154,8 +156,8 @@ def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, 
                 "in_compositeReturn": in_compositeReturn,
                 "predicted_increase_after_swap_cost": None,
                 "predicted_gain_during_swap_cost_off_set_period": None,
-                "inEthValue": inEthValue,
-                "outEthValue": outEthValue,
+                "inBaseAssetValue": inBaseAssetValue,
+                "OutBaseAssetValue": OutBaseAssetValue,
                 "out_destination": row["outDestinationVault"],
                 "in_destination": row["inDestinationVault"],
                 "offset_period": None,
@@ -197,8 +199,8 @@ def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, 
         "event",
         "hash",
         "block",
-        "outEthValue",
-        "inEthValue",
+        "OutBaseAssetValue",
+        "inBaseAssetValue",
         "moveName",
         "gasCostInETH",
         "out_compositeReturn",  # does this exist in the rebalance events somewhere
@@ -564,8 +566,8 @@ def _add_composite_return_figures(clean_rebalance_df: pd.DataFrame) -> go.Figure
 
 def _add_in_out_eth_value(clean_rebalance_df: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["outEthValue"], name="Out ETH Value"))
-    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["inEthValue"], name="In ETH Value"))
+    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["OutBaseAssetValue"], name="Out ETH Value"))
+    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["inBaseAssetValue"], name="In ETH Value"))
     fig.update_yaxes(title_text="ETH")
     fig.update_layout(
         title="In/Out ETH Values",
@@ -628,9 +630,9 @@ if __name__ == "__main__":
     from mainnet_launch.constants import AUTO_USD
     from mainnet_launch.database.database_operations import drop_table
 
-    # drop_table(REBALANCE_EVENTS_TABLE)
+    drop_table(REBALANCE_EVENTS_TABLE)
 
-    new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
-        AUTO_USD, AUTO_USD.chain.block_autopool_first_deployed
-    )
-    print(new_rebalance_events_df.head())
+    # new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
+    #     AUTO_USD, AUTO_USD.chain.block_autopool_first_deployed
+    # )
+    # print(new_rebalance_events_df.head())

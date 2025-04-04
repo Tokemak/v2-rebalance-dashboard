@@ -46,8 +46,8 @@ from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts impor
 CONTENT_FUNCTIONS = {
     "Key Metrics": fetch_and_render_key_metrics_data,
     "Autopool Exposure": fetch_and_render_destination_allocation_over_time_data,
-    "Autopool CRM": fetch_and_render_weighted_crm_data,
-    "Rebalance Events": fetch_and_render_rebalance_events_data,
+    "Autopool CRM": fetch_and_render_weighted_crm_data,  # depends on API
+    "Rebalance Events": fetch_and_render_rebalance_events_data,  # no composite return numbers onchain
     "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
     "Destination Diagnostics": fetch_and_render_destination_apr_data,
     "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,

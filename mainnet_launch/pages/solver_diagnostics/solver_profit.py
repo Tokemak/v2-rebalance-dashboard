@@ -78,7 +78,7 @@ def _make_solver_histograms(clean_rebalance_df: pd.DataFrame) -> go.Figure:
     cols = [
         "gasCostInETH",
         "solver_profit",
-        "outEthValue",
+        "OutBaseAssetValue",
         "swapCost",
         "break_even_days",
         "slippage",
@@ -125,7 +125,7 @@ def _make_solver_box_plot_figures(clean_rebalance_df: pd.DataFrame) -> go.Figure
     cols = [
         "gasCostInETH",
         "solver_profit",
-        "outEthValue",
+        "OutBaseAssetValue",
         "swapCost",
         "break_even_days",
         "slippage",

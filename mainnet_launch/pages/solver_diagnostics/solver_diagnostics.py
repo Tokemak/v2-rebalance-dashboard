@@ -168,7 +168,7 @@ def _make_proposed_vs_actual_rebalance_scatter_plot(
         mode="markers",
         name="Actual Rebalances",
         marker=dict(symbol="x", color="red", size=12),
-        text=rebalance_event_df["outEthValue"],
+        text=rebalance_event_df["OutBaseAssetValue"],
         hovertemplate="Actual ETH Amount Out: %{text}<extra></extra>",
     )
 

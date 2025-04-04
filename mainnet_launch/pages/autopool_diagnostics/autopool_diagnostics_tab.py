@@ -17,11 +17,11 @@ from mainnet_launch.constants import AutopoolConstants
 
 
 def fetch_and_render_autopool_diagnostics_data(autopool: AutopoolConstants):
-    fetch_and_render_autopool_fee_data(autopool)
-    fetch_and_render_turnover_data(autopool)
-    fetch_and_render_autopool_deposit_and_withdraw_stats_data(autopool)
-    fetch_and_render_autopool_destination_counts_data(autopool)
-    fetch_and_render_autopool_return_and_expenses_metrics(autopool)
+    fetch_and_render_autopool_fee_data(autopool)  # can't test until it has fees
+    fetch_and_render_turnover_data(autopool) # depends on rebalance events
+    fetch_and_render_autopool_deposit_and_withdraw_stats_data(autopool) # works updated decimals
+    fetch_and_render_autopool_destination_counts_data(autopool) # depends on get destination summary stats
+    fetch_and_render_autopool_return_and_expenses_metrics(autopool) # depends on rebalance events
     fetch_and_render_autopool_rewardliq_plot(autopool)
 
 
