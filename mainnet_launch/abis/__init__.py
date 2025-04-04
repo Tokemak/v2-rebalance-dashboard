@@ -46,6 +46,8 @@ with open(ABI_DIR / "tokemak_stats_calculator_registry_abi.json", "r") as fin:
 with open(ABI_DIR / "autopilot_router_abi.json", "r") as fin:
     AUTOPILOT_ROUTER_ABI = json.load(fin)
 
-
 with open(ABI_DIR / "autopool_main_rewarder_abi.json", "r") as fin:
     AUTOPOOL_MAIN_REWARDER_ABI = json.load(fin)
+
+with open(ABI_DIR / "autopool_vault_no_strategy_abi.json", "r") as fin:
+    AUTOPOOL_VAULT_NO_STRATEGY_CONTRACT_ABI = json.load(fin)

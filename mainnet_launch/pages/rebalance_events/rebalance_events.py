@@ -201,8 +201,8 @@ def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, 
         "inEthValue",
         "moveName",
         "gasCostInETH",
-        "out_compositeReturn",
-        "in_compositeReturn",
+        "out_compositeReturn",  # does this exist in the rebalance events somewhere
+        "in_compositeReturn",  # I don't think so, have to get it from another source. the API
         "predicted_gain_during_swap_cost_off_set_period",
         "swapCost",
         "slippage",
@@ -309,9 +309,11 @@ def _add_spot_value_of_rebalance_events(rebalance_df: pd.DataFrame, autopool: Au
     validated_spot_price_df = _fetch_lp_token_validated_spot_price(rebalance_df["block"] - 1, autopool)
     validated_spot_price_df["block"] = validated_spot_price_df["block"] + 1  # set the block to be the blocks +1
     rebalance_df = pd.merge(rebalance_df, validated_spot_price_df, on="block", how="left")
-    rebalance_df["amount_deposited"] = rebalance_df["amount_deposited"].combine_first(rebalance_df["weth_to_autopool"])
+    rebalance_df["amount_deposited"] = rebalance_df["amount_deposited"].combine_first(
+        rebalance_df["base_asset_to_autopool"]
+    )
     rebalance_df["amount_withdrawn"] = rebalance_df["amount_withdrawn"].combine_first(
-        rebalance_df["weth_from_autopool"]
+        rebalance_df["base_asset_from_autopool"]
     )
 
     def _compute_value_out_of_autopool(row):
@@ -364,21 +366,21 @@ def fetch_events_needed_for_rebalance_events(autopool: AutopoolConstants, start_
     event_dfs_to_fetch = []
 
     # --- WETH Transfer events ---
-    weth_contract = autopool.chain.client.eth.contract(WETH(autopool.chain), abi=ERC_20_ABI)
+    base_asset_contract = autopool.chain.client.eth.contract(autopool.base_asset, abi=ERC_20_ABI)
     event_dfs_to_fetch.append(
         FetchEventParams(
-            event=weth_contract.events.Transfer,
+            event=base_asset_contract.events.Transfer,
             chain=autopool.chain,
-            id="weth_to_autopool",
+            id="base_asset_to_autopool",
             start_block=start_block,
             argument_filters={"to": autopool.autopool_addr},
         )
     )
     event_dfs_to_fetch.append(
         FetchEventParams(
-            event=weth_contract.events.Transfer,
+            event=base_asset_contract.events.Transfer,
             chain=autopool.chain,
-            id="weth_from_autopool",
+            id="base_asset_from_autopool",
             start_block=start_block,
             argument_filters={"from": autopool.autopool_addr},
         )
@@ -436,8 +438,8 @@ def fetch_events_needed_for_rebalance_events(autopool: AutopoolConstants, start_
     results = fetch_many_events(event_dfs_to_fetch, num_threads=16)
     rebalance_between_destinations_df = results["rebalance_between_destinations"]
     rebalance_to_idle_df = results["rebalance_to_idle"]
-    weth_to_autopool = results["weth_to_autopool"]
-    weth_from_autopool = results["weth_from_autopool"]
+    base_asset_to_autopool = results["base_asset_to_autopool"]
+    base_asset_from_autopool = results["base_asset_from_autopool"]
 
     UnderlyingDeposited_df = pd.concat([results[key] for key in results.keys() if "Underlying_deposited_" in key])
     UnderlyingWithdraw_df = pd.concat([results[key] for key in results.keys() if "Underlying_withdraw_" in key])
@@ -445,8 +447,8 @@ def fetch_events_needed_for_rebalance_events(autopool: AutopoolConstants, start_
     return (
         rebalance_between_destinations_df,
         rebalance_to_idle_df,
-        weth_to_autopool,
-        weth_from_autopool,
+        base_asset_to_autopool,
+        base_asset_from_autopool,
         UnderlyingDeposited_df,
         UnderlyingWithdraw_df,
     )
@@ -456,8 +458,8 @@ def _combine_rebalance_event_data(
     autopool: AutopoolConstants,
     rebalance_between_destinations_df: pd.DataFrame,
     rebalance_to_idle_df: pd.DataFrame,
-    weth_to_autopool: pd.DataFrame,
-    weth_from_autopool: pd.DataFrame,
+    base_asset_to_autopool: pd.DataFrame,
+    base_asset_from_autopool: pd.DataFrame,
     UnderlyingDeposited_df: pd.DataFrame,
     UnderlyingWithdraw_df: pd.DataFrame,
 ):
@@ -475,11 +477,13 @@ def _combine_rebalance_event_data(
 
     rebalance_to_idle_df["inDestinationVault"] = autopool.autopool_addr
 
-    valid_weth_from_autopool = weth_from_autopool[~weth_from_autopool["hash"].duplicated(keep=False)].copy()
-    valid_weth_from_autopool["weth_from_autopool"] = valid_weth_from_autopool["value"] / 1e18
+    valid_base_asset_from_autopool = base_asset_from_autopool[
+        ~base_asset_from_autopool["hash"].duplicated(keep=False)
+    ].copy()
+    valid_base_asset_from_autopool["base_asset_from_autopool"] = valid_base_asset_from_autopool["value"] / 1e18
 
-    valid_weth_to_autopool = weth_to_autopool[~weth_to_autopool["hash"].duplicated(keep=False)].copy()
-    valid_weth_to_autopool["weth_to_autopool"] = valid_weth_to_autopool["value"] / 1e18
+    valid_base_asset_to_autopool = base_asset_to_autopool[~base_asset_to_autopool["hash"].duplicated(keep=False)].copy()
+    valid_base_asset_to_autopool["base_asset_to_autopool"] = valid_base_asset_to_autopool["value"] / 1e18
 
     valid_underlying_withdraw_df = UnderlyingWithdraw_df[~UnderlyingWithdraw_df["hash"].duplicated(keep=False)].copy()
     valid_underlying_withdraw_df["amount_withdrawn"] = valid_underlying_withdraw_df["amount"] / 1e18
@@ -496,9 +500,11 @@ def _combine_rebalance_event_data(
     rebalance_df = pd.merge(
         rebalance_df, valid_underlying_deposited_df[["amount_deposited", "hash"]], on="hash", how="left"
     )
-    rebalance_df = pd.merge(rebalance_df, valid_weth_to_autopool[["weth_to_autopool", "hash"]], on="hash", how="left")
     rebalance_df = pd.merge(
-        rebalance_df, valid_weth_from_autopool[["weth_from_autopool", "hash"]], on="hash", how="left"
+        rebalance_df, valid_base_asset_to_autopool[["base_asset_to_autopool", "hash"]], on="hash", how="left"
+    )
+    rebalance_df = pd.merge(
+        rebalance_df, valid_base_asset_from_autopool[["base_asset_from_autopool", "hash"]], on="hash", how="left"
     )
     return rebalance_df
 
@@ -507,8 +513,8 @@ def fetch_rebalance_events_and_actual_weth_and_lp_tokens_moved(autopool: Autopoo
     (
         rebalance_between_destinations_df,
         rebalance_to_idle_df,
-        weth_to_autopool,
-        weth_from_autopool,
+        base_asset_to_autopool,
+        base_asset_from_autopool,
         UnderlyingDeposited_df,
         UnderlyingWithdraw_df,
     ) = fetch_events_needed_for_rebalance_events(autopool, start_block)
@@ -517,8 +523,8 @@ def fetch_rebalance_events_and_actual_weth_and_lp_tokens_moved(autopool: Autopoo
         autopool,
         rebalance_between_destinations_df,
         rebalance_to_idle_df,
-        weth_to_autopool,
-        weth_from_autopool,
+        base_asset_to_autopool,
+        base_asset_from_autopool,
         UnderlyingDeposited_df,
         UnderlyingWithdraw_df,
     )
@@ -619,12 +625,12 @@ def make_expoded_box_plot(df: pd.DataFrame, col: str, resolution: str = "1W"):
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import AUTO_ETH
+    from mainnet_launch.constants import AUTO_USD
     from mainnet_launch.database.database_operations import drop_table
 
     # drop_table(REBALANCE_EVENTS_TABLE)
 
     new_rebalance_events_df = fetch_rebalance_events_df_from_external_source(
-        AUTO_ETH, AUTO_ETH.chain.block_autopool_first_deployed
+        AUTO_USD, AUTO_USD.chain.block_autopool_first_deployed
     )
     print(new_rebalance_events_df.head())
