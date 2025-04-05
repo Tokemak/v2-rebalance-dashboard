@@ -1,16 +1,17 @@
 import pandas as pd
 from multicall import Multicall, Call
 import datetime
-import streamlit as st
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 import nest_asyncio
 import asyncio
-from mainnet_launch.app.app_config import STREAMLIT_IN_MEMORY_CACHE_TIME, SEMAPHORE_LIMITS_FOR_MULTICALL
+import random
+from mainnet_launch.app.app_config import SEMAPHORE_LIMITS_FOR_MULTICALL
 from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     get_earliest_block_from_table_with_chain,
     get_all_rows_in_table_by_chain,
-    drop_table,
 )
 from mainnet_launch.database.should_update_database import should_update_table
 
@@ -182,27 +183,75 @@ def identity_function(value):
 BLOCKS_TO_USE_TABLE = "BLOCKS_TO_USE_TABLE"
 
 
+def _fetch_blocks_to_use_from_external_source(start_block: int, end_block: int, chain: ChainData) -> pd.DataFrame:
+    """Returns a table of block, timestamp in chain for the highest block in each day between start and end block"""
+    block_timestamp_cache = {}
+
+    def get_block_timestamp(block: int, chain: ChainData) -> pd.Timestamp:
+        if block not in block_timestamp_cache:
+            max_attempts = 3
+            current_attempt = 0
+            while current_attempt < max_attempts:
+                try:
+                    block_timestamp_cache[block] = pd.to_datetime(
+                        chain.client.eth.get_block(int(block)).timestamp, unit="s", utc=True
+                    )
+                    break
+                except Exception as e:
+                    if current_attempt < max_attempts:
+                        raise e
+                    else:
+                        time.sleep((2**current_attempt) + random.uniform(0, 1))
+                        current_attempt += 1
+
+        return block_timestamp_cache[block]
+
+    def is_last_block_of_day(block: int, chain: ChainData) -> bool:
+        # a block is the highest block in a day
+        # if and only if that the (block + 1).date() is the day after block.date()
+        current_day = get_block_timestamp(block, chain).date()
+        possible_next_day = get_block_timestamp(block + 1, chain).date()
+        return (possible_next_day - current_day) == pd.Timedelta("1 days")
+
+    def find_last_block_of_day(block: int, chain: ChainData) -> None | tuple[int, pd.Timestamp]:
+        initial_time = get_block_timestamp(block, chain)
+        # don't save anything for the current day
+        if initial_time.date() == datetime.datetime.now().date():
+            return None
+        day_start = initial_time.normalize()  # midnigh of this day, (in the past)
+        current_block = block
+        while not is_last_block_of_day(current_block, chain):
+            current_time = get_block_timestamp(current_block, chain)
+            seconds_difference = (day_start - current_time).total_seconds()
+            offset = seconds_difference // int(chain.approx_seconds_per_block)
+            current_block += offset
+        final_timestamp = get_block_timestamp(current_block, chain)
+        return (current_block, final_timestamp)
+
+    blocks = [b for b in range(start_block, end_block, 84600 // int(2 * chain.approx_seconds_per_block))]
+    results = []
+    with ThreadPoolExecutor(max_workers=len(blocks)) as executor:
+        futures = [executor.submit(find_last_block_of_day, b, chain) for b in blocks]
+        for future in as_completed(futures):
+            result = future.result()
+            if result is not None:
+                results.append(result)
+
+    df = pd.DataFrame.from_records(results, columns=["block", "timestamp"]).sort_values("block").drop_duplicates()
+    df["chain"] = chain.name
+    return df
+
+
 def _add_to_blocks_to_use_table():
-    # drop_table(BLOCKS_TO_USE_TABLE)
-    if should_update_table(BLOCKS_TO_USE_TABLE, max_latency=pd.Timedelta("1 hour")):
+    if should_update_table(BLOCKS_TO_USE_TABLE, max_latency=pd.Timedelta("23 hour")):
         for chain in ALL_CHAINS:
             highest_block = get_earliest_block_from_table_with_chain(BLOCKS_TO_USE_TABLE, chain)
-            hour_blocks = _build_blocks_to_use_dont_clip(chain, start_block=highest_block, approx_num_blocks_per_day=48)
-
-            # Retrieve the raw state for the given blocks, including block numbers
-            df = get_raw_state_by_blocks([], hour_blocks, chain, include_block_number=True)
-            df["chain"] = chain.name
-            df = df.reset_index()
-            write_dataframe_to_table(df, BLOCKS_TO_USE_TABLE)
+            df = _fetch_blocks_to_use_from_external_source(highest_block, chain.client.eth.block_number, chain)
+            if len(df) > 0:
+                write_dataframe_to_table(df, BLOCKS_TO_USE_TABLE)
 
 
-# 180 seconds, too slow
-
-
-# get the highest block for each day
-def build_blocks_to_use(
-    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 4
-) -> list[int]:
+def build_blocks_to_use(chain: ChainData, start_block: int | None = None, end_block: int | None = None) -> list[int]:
 
     _add_to_blocks_to_use_table()
 
@@ -214,39 +263,16 @@ def build_blocks_to_use(
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
     return [int(b) for b in blocks if (b >= start_block) and (b <= end_block)]
 
-    # """Returns a block approx every 6 hours. by default between when autopool was first deployed to the current block"""
-    # # this is not the number of seconds between blocks is not constant
-    # start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    # first_minute_of_current_day = datetime.datetime.combine(
-    #     datetime.datetime.now(datetime.timezone.utc).date(), datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
-    # )
-    # # this is not correct
-    # end_block = chain.client.eth.block_number if end_block is None else end_block
-    # end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
-    # blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
-
-    # while end_block_date_time > first_minute_of_current_day:
-    #     end_block = end_block - blocks_hop
-    #     end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
-    # blocks = [b for b in range(start_block, end_block, blocks_hop)]
-    # return blocks
-
-
-def _build_blocks_to_use_dont_clip(
-    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 48
-) -> list[int]:
-    """Returns a block approx every 6 hours. by default between when autopool was first deployed to the current block"""
-    # this is not the number of seconds between blocks is not constant
-    start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    end_block = chain.client.eth.block_number if end_block is None else end_block
-    blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
-
-    blocks = [b for b in range(start_block, end_block, blocks_hop)]
-    return blocks
-
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import ETH_CHAIN
+    from mainnet_launch.constants import *
+    from mainnet_launch.database.database_operations import drop_table
 
-    b = build_blocks_to_use(ETH_CHAIN)
-    print(b)
+    drop_table(BLOCKS_TO_USE_TABLE)
+
+    @time_decorator
+    def a():
+
+        _add_to_blocks_to_use_table()
+
+    a()
