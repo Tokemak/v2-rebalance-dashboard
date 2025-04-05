@@ -29,8 +29,8 @@ from mainnet_launch.pages.solver_diagnostics.bps_lost_to_rebalances import fetch
 
 
 def fetch_and_render_solver_diagnositics_data(autopool: AutopoolConstants):
-    fetch_and_render_solver_diagnostics_data(autopool)
-    fetch_and_render_solver_profit_data(autopool)
+    fetch_and_render_solver_diagnostics_data(autopool)  # depends on rebalance events
+    fetch_and_render_solver_profit_data(autopool)  # depneds on fetch_rebalance_events_df
     fetch_and_render_bps_lost_to_rebalances(autopool)
 
 
@@ -304,6 +304,6 @@ def _add_add_rank_count(solver_df):
 
 if __name__ == "__main__":
     # streamlit run mainnet_launch/pages/solver_diagnostics/solver_diagnostics.py
-    from mainnet_launch.constants import DINERO_ETH
+    from mainnet_launch.constants import *
 
-    fetch_and_render_solver_diagnositics_data(DINERO_ETH)
+    fetch_and_render_solver_diagnositics_data(AUTO_USD)

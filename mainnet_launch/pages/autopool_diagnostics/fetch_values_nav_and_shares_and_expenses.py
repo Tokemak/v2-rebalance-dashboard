@@ -51,7 +51,7 @@ def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants, blocks: list
     def handle_getAssetBreakdown(success, AssetBreakdown):
         if success:
             totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
-            return int(totalIdle + totalDebt) /( 10 ** autopool.decimals)
+            return int(totalIdle + totalDebt) / (10**autopool.decimals)
 
     calls = [
         Call(
@@ -79,7 +79,7 @@ def fetch_actual_nav_and_actual_shares(autopool: AutopoolConstants) -> pd.DataFr
 
 
 def fetch_nav_and_shares_and_factors_that_impact_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
-    daily_nav_shares_df = fetch_actual_nav_and_actual_shares(autopool) # updated decimals
+    daily_nav_shares_df = fetch_actual_nav_and_actual_shares(autopool)  # updated decimals
     cumulative_new_shares_df = _fetch_daily_shares_minted_to_fees(autopool)
     cumulative_rebalance_from_idle_swap_cost, cumulative_rebalance_not_from_idle_swap_cost = (
         _fetch_daily_nav_lost_to_rebalances(autopool)
@@ -157,5 +157,5 @@ if __name__ == "__main__":
     blocks = build_blocks_to_use(autopool.chain)
     if len(blocks) > 0:
         nav_and_shares_df = _fetch_actual_nav_per_share_by_day(autopool, blocks)
-    
+
     pass
