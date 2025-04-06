@@ -39,8 +39,8 @@ def add_new_asset_oracle_and_discount_price_rows_to_table():
     if should_update_table(ASSET_BACKING_AND_PRICES):
         for chain in ALL_CHAINS:
             highest_block_already_fetched = get_earliest_block_from_table_with_chain(ASSET_BACKING_AND_PRICES, chain)
-            asset_oracle_and_backing_df = _fetch_backing_and_oracle_price_df_from_external_source(
-                chain, highest_block_already_fetched
+            asset_oracle_and_backing_df = fetch_lst_asset_prices_df(
+                highest_block_already_fetched, chain, 
             )
             asset_oracle_and_backing_df["chain"] = chain.name
             write_dataframe_to_table(asset_oracle_and_backing_df, ASSET_BACKING_AND_PRICES)
@@ -84,7 +84,7 @@ def _fetch_lst_calc_addresses_df(chain: ChainData) -> pd.DataFrame:
     return lst_calcs[["lst", "symbol", "calculatorAddress"]]
 
 
-def _fetch_backing_and_oracle_price_df_from_external_source(chain: ChainData, start_block: int) -> pd.DataFrame:
+def fetch_lst_asset_prices_df(start_block: int, chain: ChainData) -> pd.DataFrame:
 
     lst_calcs = _fetch_lst_calc_addresses_df(chain)
 

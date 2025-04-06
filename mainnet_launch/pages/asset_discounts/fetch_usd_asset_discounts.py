@@ -8,6 +8,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     get_raw_state_by_blocks,
     build_blocks_to_use,
+    make_dummy_1_call
 )
 from mainnet_launch.constants import ETH_CHAIN, ChainData
 
@@ -54,20 +55,6 @@ stablecoin_tuples = [
     (aUSDC, "aUSDC"),
     (aGHO, "aGHO"),
 ]
-
-
-def _constant_1(*args):
-    return 1.0
-
-
-def _make_dummy_1_call(name: str) -> Call:
-    return Call(
-        "0x0000000000000000000000000000000000000000",
-        [
-            "dummy()(uint256)",
-        ],
-        [(name, _constant_1)],
-    )
 
 
 def _build_autoUSD_token_backing_calls() -> list[Call]:
@@ -123,14 +110,14 @@ def _build_autoUSD_token_backing_calls() -> list[Call]:
     )
 
     return [
-        _make_dummy_1_call("DAI_backing"),
-        _make_dummy_1_call("USDe_backing"),
-        _make_dummy_1_call("USDC_backing"),
-        _make_dummy_1_call("USDT_backing"),
-        _make_dummy_1_call("GHO_backing"),
-        _make_dummy_1_call("crvUSD_backing"),
-        _make_dummy_1_call("USDs_backing"),
-        _make_dummy_1_call("FRAX_backing"),
+        make_dummy_1_call("DAI_backing"),
+        make_dummy_1_call("USDe_backing"),
+        make_dummy_1_call("USDC_backing"),
+        make_dummy_1_call("USDT_backing"),
+        make_dummy_1_call("GHO_backing"),
+        make_dummy_1_call("crvUSD_backing"),
+        make_dummy_1_call("USDs_backing"),
+        make_dummy_1_call("FRAX_backing"),
         aUSDT_backing,
         aUSDC_backing,
         aGHO_backing,
@@ -171,23 +158,6 @@ def _convert_wide_df_to_long(wide_df: pd.DataFrame) -> pd.DataFrame:
     return long_df
 
 
-def _fetch_stable_coin_asset_prices_df(start_block, chain: ChainData) -> pd.DataFrame:
-    if chain != ETH_CHAIN:
-        raise ValueError("Only checking prices on mainnet, only expected ETH_CHAIN")
-    backing_calls = _build_autoUSD_token_backing_calls()
-    safe_price_calls = _build_autoUSD_token_safe_price_calls()
-    blocks = build_blocks_to_use(ETH_CHAIN, start_block)
-    wide_df = get_raw_state_by_blocks(
-        [*backing_calls, *safe_price_calls], blocks, ETH_CHAIN, include_block_number=True
-    ).reset_index()
-    autoUSD_start_block = 22032640
-    # this is to make the scale line up with autoETH,might change it later. not attached
-    wide_df = wide_df.loc[wide_df["block"] < autoUSD_start_block, :] = None
-    wide_df = wide_df.drop("block", axis=1)
-    long_df = _convert_wide_df_to_long(wide_df)
-    return long_df
-
-
 def _long_df_to_backing_safe_price_and_discount_dfs(long_df: pd.DataFrame):
     long_df["percent_discount"] = 100 * ((long_df["safe_price"] - long_df["backing"]) / long_df["backing"])
 
@@ -202,3 +172,20 @@ def _long_df_to_backing_safe_price_and_discount_dfs(long_df: pd.DataFrame):
     )
 
     return percent_discount_df, safe_price_df, backing_df
+
+
+def fetch_stable_coin_asset_prices_df(start_block:int, chain: ChainData) -> pd.DataFrame:
+    if chain != ETH_CHAIN:
+        raise ValueError("Only checking prices on mainnet, only expected ETH_CHAIN")
+    backing_calls = _build_autoUSD_token_backing_calls()
+    safe_price_calls = _build_autoUSD_token_safe_price_calls()
+    blocks = build_blocks_to_use(ETH_CHAIN, start_block)
+    wide_df = get_raw_state_by_blocks(
+        [*backing_calls, *safe_price_calls], blocks, ETH_CHAIN, include_block_number=True
+    ).reset_index()
+    autoUSD_start_block = 22032640
+    # this is to make the scale line up with autoETH, might change it later. not attached
+    wide_df = wide_df.loc[wide_df["block"] < autoUSD_start_block, :] = None
+    wide_df = wide_df.drop("block", axis=1)
+    long_df = _convert_wide_df_to_long(wide_df)
+    return long_df

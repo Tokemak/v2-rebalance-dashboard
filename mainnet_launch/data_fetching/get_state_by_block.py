@@ -180,6 +180,21 @@ def identity_function(value):
     return value
 
 
+def constant_1(*args):
+    return 1.0
+
+
+def make_dummy_1_call(name: str) -> Call:
+    return Call(
+        "0x0000000000000000000000000000000000000000",
+        [
+            "dummy()(uint256)",
+        ],
+        [(name, constant_1)],
+    )
+
+
+
 BLOCKS_TO_USE_TABLE = "BLOCKS_TO_USE_TABLE"
 
 

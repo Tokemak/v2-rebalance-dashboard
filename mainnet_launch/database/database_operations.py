@@ -348,7 +348,7 @@ def get_all_tables_info() -> pd.DataFrame:
 
 def ensure_table_has_current_data_by_chain(
     table_name: str,
-    fetch_data_from_external_source_function: Callable[[ChainData, int], pd.DataFrame],
+    fetch_data_from_external_source_function: Callable[[int, ChainData], pd.DataFrame],
     only_mainnet: bool = False,
 ):
     if should_update_table(table_name):
@@ -362,7 +362,7 @@ def ensure_table_has_current_data_by_chain(
 
 
 def ensure_table_has_current_data_by_autopool(
-    table_name: str, fetch_data_from_external_source_function: Callable[[AutopoolConstants, int], pd.DataFrame]
+    table_name: str, fetch_data_from_external_source_function: Callable[[int, AutopoolConstants], pd.DataFrame]
 ):
     if should_update_table(table_name):
         for autopool in ALL_AUTOPOOLS:

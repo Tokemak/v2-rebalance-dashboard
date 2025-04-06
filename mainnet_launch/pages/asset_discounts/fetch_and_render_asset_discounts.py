@@ -35,7 +35,35 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 
 
+from mainnet_launch.pages.asset_discounts.fetch_eth_asset_discounts import fetch_lst_asset_prices_df
+from mainnet_launch.pages.asset_discounts.fetch_usd_asset_discounts import fetch_stable_coin_asset_prices_df
+
+
+
+# most readable
+
+
+
+
+# fetch all the data in one gropu of calls
+
+# safe it 
+
+# then split it apart
+
+
+
 ASSET_BACKING_AND_PRICES = "ASSET_BACKING_AND_PRICES"
+
+
+
+
+
+
+
+
+
+
 
 
 def add_new_asset_oracle_and_discount_price_rows_to_table():
