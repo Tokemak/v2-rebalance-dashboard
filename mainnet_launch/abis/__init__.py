@@ -49,5 +49,13 @@ with open(ABI_DIR / "autopilot_router_abi.json", "r") as fin:
 with open(ABI_DIR / "autopool_main_rewarder_abi.json", "r") as fin:
     AUTOPOOL_MAIN_REWARDER_ABI = json.load(fin)
 
+
+# AUTO_USD
 with open(ABI_DIR / "autopool_vault_no_strategy_abi.json", "r") as fin:
     AUTOPOOL_VAULT_NO_STRATEGY_CONTRACT_ABI = json.load(fin)
+
+with open(ABI_DIR / "self_spot_eth_oracle_abi.json", "r") as fin:
+    SELF_SPOT_ETH_ORACLE_ABI = json.load(fin)
+
+with open(ABI_DIR / "solver_root_oracle_abi.json", "r") as fin:
+    SOLVER_ROOT_ORACLE_ABI = json.load(fin)
