@@ -1,12 +1,13 @@
 import sqlite3
-from typing import Optional
+from typing import Optional, Callable
 
 import pandas as pd
 
-from mainnet_launch.constants import DB_FILE, AutopoolConstants, ChainData
+from mainnet_launch.constants import DB_FILE, AutopoolConstants, ChainData, ALL_AUTOPOOLS, ALL_CHAINS, ETH_CHAIN
 from mainnet_launch.database.should_update_database import (
     write_timestamp_table_was_last_updated,
     TABLE_NAME_TO_LAST_UPDATED,
+    should_update_table,
 )
 
 # TODO, make the timestamps cleaner by not handling them after reading the db but instead here.
@@ -125,10 +126,12 @@ def write_dataframe_to_table(df: pd.DataFrame, table_name: str, verify_data_stor
         df (pd.DataFrame): DataFrame containing data to be written.
         table_name (str): Name of the target table.
     """
-    if df is None:
-        raise ValueError("df cannot be None")
 
     table_exists = does_table_exist(table_name)
+
+    if (len(df) == 0) and table_exists:
+        write_timestamp_table_was_last_updated(table_name, cursor)
+
     try:
         with sqlite3.connect(DB_FILE) as conn:
             df_to_write = convert_timestamps_to_iso(df)
@@ -341,6 +344,32 @@ def get_all_tables_info() -> pd.DataFrame:
                 )
 
         return pd.DataFrame(results)
+
+
+def ensure_table_has_current_data_by_chain(
+    table_name: str,
+    fetch_data_from_external_source_function: Callable[[ChainData, int], pd.DataFrame],
+    only_mainnet: bool = False,
+):
+    if should_update_table(table_name):
+        chains_to_check = [ETH_CHAIN] if only_mainnet else ALL_CHAINS
+
+        for chain in chains_to_check:
+            highest_block_already_fetched = get_earliest_block_from_table_with_chain(table_name, chain)
+            new_rows_df = fetch_data_from_external_source_function(chain, highest_block_already_fetched)
+            new_rows_df["chain"] = chain.name
+            write_dataframe_to_table(new_rows_df, table_name)
+
+
+def ensure_table_has_current_data_by_autopool(
+    table_name: str, fetch_data_from_external_source_function: Callable[[AutopoolConstants, int], pd.DataFrame]
+):
+    if should_update_table(table_name):
+        for autopool in ALL_AUTOPOOLS:
+            highest_block_already_fetched = get_all_rows_in_table_by_autopool(table_name, autopool)
+            new_rows_df = fetch_data_from_external_source_function(autopool, highest_block_already_fetched)
+            new_rows_df["autopool"] = autopool.name
+            write_dataframe_to_table(new_rows_df, table_name)
 
 
 if __name__ == "__main__":

@@ -38,7 +38,6 @@ ASSET_BACKING_AND_PRICES = "ASSET_BACKING_AND_PRICES"
 def add_new_asset_oracle_and_discount_price_rows_to_table():
     if should_update_table(ASSET_BACKING_AND_PRICES):
         for chain in ALL_CHAINS:
-            # must add BASE as well purely for the support
             highest_block_already_fetched = get_earliest_block_from_table_with_chain(ASSET_BACKING_AND_PRICES, chain)
             asset_oracle_and_backing_df = _fetch_backing_and_oracle_price_df_from_external_source(
                 chain, highest_block_already_fetched
@@ -156,7 +155,7 @@ def _extract_backing_price_and_percent_discount_dfs(long_df: pd.DataFrame, chain
 
     long_df = add_timestamp_to_df_with_block_column(long_df, chain).reset_index()
 
-    long_df["percent_discount"] = 100 - (100 * long_df["oracle_price"] / long_df["backing"])
+    long_df["percent_discount"] = 100 * ((long_df["oracle_price"] - long_df["backing"]) / long_df["backing"])
 
     wide_backing_df = long_df[["timestamp", "symbol", "backing"]].pivot(
         index="timestamp", columns="symbol", values="backing"
