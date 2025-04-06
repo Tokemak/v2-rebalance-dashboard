@@ -10,9 +10,12 @@ from mainnet_launch.pages.gas_costs.keeper_network_gas_costs import (
 
 from mainnet_launch.pages.protocol_level_profit_and_loss.fees import (
     AUTOPOOL_FEE_EVENTS_TABLE,
+)
+from mainnet_launch.pages.protocol_level_profit_and_loss.debt_reporting import (
     DESTINATION_DEBT_REPORTING_EVENTS_TABLE,
     add_new_debt_reporting_events_to_table,
 )
+
 from mainnet_launch.database.database_operations import run_read_only_query
 from mainnet_launch.database.should_update_database import should_update_table
 

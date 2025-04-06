@@ -1,7 +1,7 @@
 from mainnet_launch.pages.protocol_level_profit_and_loss.fees import (
     fetch_and_render_autopool_fee_data,
-    fetch_and_render_autopool_rewardliq_plot,
 )
+from mainnet_launch.pages.protocol_level_profit_and_loss.debt_reporting import fetch_and_render_autopool_rewardliq_plot
 from mainnet_launch.pages.autopool_diagnostics.deposits_and_withdrawals import (
     fetch_and_render_autopool_deposit_and_withdraw_stats_data,
 )

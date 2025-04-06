@@ -29,7 +29,6 @@ from mainnet_launch.database.should_update_database import (
 
 
 AUTOPOOL_FEE_EVENTS_TABLE = "AUTOPOOL_FEE_EVENTS_TABLE"
-DESTINATION_DEBT_REPORTING_EVENTS_TABLE = "DESTINATION_DEBT_REPORTING_EVENTS_TABLE"
 
 
 def add_new_fee_events_to_table():
@@ -92,75 +91,6 @@ def fetch_autopool_fee_data(autopool: AutopoolConstants):
     streaming_fee_df.columns = [f"{autopool.name}_streaming"]
 
     return periodic_fee_df, streaming_fee_df
-
-
-# TODO move this into another file
-def add_new_debt_reporting_events_to_table():
-    if should_update_table(DESTINATION_DEBT_REPORTING_EVENTS_TABLE):
-
-        for autopool in ALL_AUTOPOOLS:
-            highest_block_already_fetched = get_earliest_block_from_table_with_autopool(
-                DESTINATION_DEBT_REPORTING_EVENTS_TABLE, autopool
-            )
-            debt_reporting_events_df = _fetch_debt_reporting_events_from_an_external_source(
-                autopool, highest_block_already_fetched
-            )
-            write_dataframe_to_table(debt_reporting_events_df, DESTINATION_DEBT_REPORTING_EVENTS_TABLE)
-
-
-def _fetch_debt_reporting_events_from_an_external_source(
-    autopool: AutopoolConstants, highest_block_already_fetched: int
-):
-    vault_contract = autopool.chain.client.eth.contract(autopool.autopool_addr, abi=AUTOPOOL_VAULT_ABI)
-    debt_reporting_events_df = fetch_events(
-        vault_contract.events.DestinationDebtReporting,
-        chain=autopool.chain,
-        start_block=highest_block_already_fetched,
-    )
-
-    debt_reporting_events_df = add_timestamp_to_df_with_block_column(
-        debt_reporting_events_df, autopool.chain
-    ).reset_index()
-    debt_reporting_events_df["eth_claimed"] = debt_reporting_events_df["claimed"] / 1e18  # claimed is in ETH
-    vault_to_name = {d.vaultAddress: d.vault_name for d in get_destination_details(autopool)}
-    debt_reporting_events_df["destinationName"] = debt_reporting_events_df["destination"].apply(
-        lambda x: vault_to_name[x]
-    )
-    debt_reporting_events_df["autopool"] = autopool.name
-    cols = ["eth_claimed", "hash", "destinationName", "autopool", "timestamp", "block", "log_index"]
-    debt_reporting_events_df = debt_reporting_events_df[cols].copy()
-    debt_reporting_events_df = add_transaction_gas_info_to_df_with_tx_hash(debt_reporting_events_df, autopool.chain)
-
-
-def fetch_autopool_destination_debt_reporting_events(autopool: AutopoolConstants) -> pd.DataFrame:
-    add_new_debt_reporting_events_to_table()
-    debt_reporting_events_df = get_all_rows_in_table_by_autopool(DESTINATION_DEBT_REPORTING_EVENTS_TABLE, autopool)
-    return debt_reporting_events_df
-
-
-def fetch_and_render_autopool_rewardliq_plot(autopool: AutopoolConstants):
-    debt_reporting_events_df = fetch_autopool_destination_debt_reporting_events(autopool)
-    destination_cumulative_sum = debt_reporting_events_df.pivot_table(
-        values="eth_claimed", columns="destinationName", index="timestamp", fill_value=0
-    ).cumsum()
-    cumulative_eth_claimed_area_plot = px.area(
-        destination_cumulative_sum, title="Cumulative ETH value of rewards claimed by destination"
-    )
-    cumulative_eth_claimed_area_plot.update_layout(yaxis_title="ETH", xaxis_title="Date")
-
-    individual_reward_claim_events_fig = px.scatter(
-        debt_reporting_events_df,
-        x=debt_reporting_events_df.index,
-        y="eth_claimed",
-        color="destinationName",
-        size="eth_claimed",
-        size_max=40,
-        title="Individual reward claiming and liquidation events",
-    )
-
-    individual_reward_claim_events_fig.update_layout(yaxis_title="ETH", xaxis_title="Date")
-    st.plotly_chart(cumulative_eth_claimed_area_plot, use_container_width=True)
-    st.plotly_chart(individual_reward_claim_events_fig, use_container_width=True)
 
 
 def fetch_and_render_autopool_fee_data(autopool: AutopoolConstants):
@@ -296,12 +226,3 @@ def _build_fee_figures(autopool: AutopoolConstants, fee_df: pd.DataFrame):
     )
 
     return daily_fee_fig, cumulative_fee_fig, weekly_fee_fig
-
-
-if __name__ == "__main__":
-    from mainnet_launch.constants import *
-    from mainnet_launch.database.database_operations import *
-
-    # drop_table(AUTOPOOL_FEE_EVENTS_TABLE)
-    df = _fetch_debt_reporting_events_from_an_external_source(AUTO_USD, 20_000_000)
-    pass
