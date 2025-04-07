@@ -37,7 +37,7 @@ from mainnet_launch.pages.autopool_diagnostics.fetch_values_nav_and_shares_and_e
     add_new_acutal_nav_and_acutal_shares_to_table,
 )
 from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import (
-    add_new_asset_oracle_and_discount_price_rows_to_table,
+    make_sure_safe_price_and_backing_rows_are_in_table,
 )
 from mainnet_launch.constants import STARTUP_LOG_FILE
 
@@ -124,7 +124,7 @@ functions_to_run = [
     add_new_autopool_deposit_and_withdraw_events_to_table,
     add_new_acutal_nav_and_acutal_shares_to_table,
     add_chainlink_upkeep_events_to_table,
-    add_new_asset_oracle_and_discount_price_rows_to_table,
+    make_sure_safe_price_and_backing_rows_are_in_table,
 ]
 
 

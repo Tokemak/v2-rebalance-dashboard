@@ -194,7 +194,6 @@ def make_dummy_1_call(name: str) -> Call:
     )
 
 
-
 BLOCKS_TO_USE_TABLE = "BLOCKS_TO_USE_TABLE"
 
 

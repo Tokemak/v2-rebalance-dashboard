@@ -13,7 +13,7 @@ from mainnet_launch.constants import (
 )
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
-from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import _fetch_lst_calc_addresses_df
+from mainnet_launch.pages.asset_discounts.fetch_eth_asset_discounts import _fetch_lst_calc_addresses_df
 
 from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
@@ -25,12 +25,6 @@ from mainnet_launch.database.should_update_database import should_update_table
 
 from mainnet_launch.abis import STATS_CALCULATOR_REGISTRY_ABI
 
-from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import (
-    ASSET_BACKING_AND_PRICES,
-    add_new_asset_oracle_and_discount_price_rows_to_table,
-    get_all_rows_in_table_by_chain,
-    _extract_backing_price_and_percent_discount_dfs,
-)
 
 from multicall import Call
 from mainnet_launch.data_fetching.get_state_by_block import (
@@ -179,7 +173,7 @@ def _make_destination_asset_reserves_calls(dest: DestinationDetails) -> list[Cal
 
 
 def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
-
+    # works with autoUSD
     add_new_asset_allocation_data_to_table()
 
     assets_df = get_all_rows_in_table_by_autopool(AUTOPOOL_ASSET_ALLOCATION_TABLE, autopool)

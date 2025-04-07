@@ -356,7 +356,7 @@ def ensure_table_has_current_data_by_chain(
 
         for chain in chains_to_check:
             highest_block_already_fetched = get_earliest_block_from_table_with_chain(table_name, chain)
-            new_rows_df = fetch_data_from_external_source_function(chain, highest_block_already_fetched)
+            new_rows_df = fetch_data_from_external_source_function(highest_block_already_fetched, chain)
             new_rows_df["chain"] = chain.name
             write_dataframe_to_table(new_rows_df, table_name)
 

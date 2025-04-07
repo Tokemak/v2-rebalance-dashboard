@@ -1,260 +1,167 @@
 import pandas as pd
-import plotly.graph_objects as go
-import streamlit as st
 import plotly.express as px
-from mainnet_launch.constants import (
-    AutopoolConstants,
-    STATS_CALCULATOR_REGISTRY,
-    ALL_CHAINS,
-    ROOT_PRICE_ORACLE,
-    ChainData,
-    ETH_CHAIN,
-)
-from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
-from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
+import streamlit as st
 
-
+from mainnet_launch.constants import ETH_CHAIN, ChainData
 from mainnet_launch.database.database_operations import (
-    write_dataframe_to_table,
-    get_earliest_block_from_table_with_chain,
+    ensure_table_has_current_data_by_chain,
     get_all_rows_in_table_by_chain,
 )
-from mainnet_launch.database.should_update_database import should_update_table
-
-from mainnet_launch.abis import STATS_CALCULATOR_REGISTRY_ABI
-
-
-from multicall import Call
-from mainnet_launch.data_fetching.get_state_by_block import (
-    identity_with_bool_success,
-    get_raw_state_by_blocks,
-    get_state_by_one_block,
-    safe_normalize_with_bool_success,
-    build_blocks_to_use,
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use, get_raw_state_by_blocks
+from mainnet_launch.pages.asset_discounts.fetch_eth_asset_discounts import build_lst_safe_price_and_backing_calls
+from mainnet_launch.pages.asset_discounts.fetch_usd_asset_discounts import (
+    build_stablecoin_safe_price_and_backing_calls,
+    stablecoin_tuples,
 )
 
-
-from mainnet_launch.pages.asset_discounts.fetch_eth_asset_discounts import fetch_lst_asset_prices_df
-from mainnet_launch.pages.asset_discounts.fetch_usd_asset_discounts import fetch_stable_coin_asset_prices_df
+ASSET_SAFE_PRICE_AND_BACKING = "ASSET_SAFE_PRICE_AND_BACKING"
 
 
+def fetch_asset_price_discount_from_external_source(start_block: int, chain: ChainData) -> pd.DataFrame:
+    if chain != ETH_CHAIN:
+        raise ValueError(f"Only checking prices on mainnet, only expected ETH_CHAIN found {chain.name=}")
 
-# most readable
+    lst_calls = build_lst_safe_price_and_backing_calls()
+    stablecoin_calls = build_stablecoin_safe_price_and_backing_calls()
+    blocks = build_blocks_to_use(ETH_CHAIN, start_block)
 
-
-
-
-# fetch all the data in one gropu of calls
-
-# safe it 
-
-# then split it apart
-
-
-
-ASSET_BACKING_AND_PRICES = "ASSET_BACKING_AND_PRICES"
-
-
-
-
-
-
-
-
-
-
-
-
-def add_new_asset_oracle_and_discount_price_rows_to_table():
-    if should_update_table(ASSET_BACKING_AND_PRICES):
-        for chain in ALL_CHAINS:
-            # must add BASE as well purely for the support
-            highest_block_already_fetched = get_earliest_block_from_table_with_chain(ASSET_BACKING_AND_PRICES, chain)
-            asset_oracle_and_backing_df = _fetch_backing_and_oracle_price_df_from_external_source(
-                chain, highest_block_already_fetched
-            )
-            asset_oracle_and_backing_df["chain"] = chain.name
-            write_dataframe_to_table(asset_oracle_and_backing_df, ASSET_BACKING_AND_PRICES)
-
-
-def _fetch_lst_calc_addresses_df(chain: ChainData) -> pd.DataFrame:
-    # returns a dataframe of the LST address, LST.symbol, and LST calculator
-    # 3 total http calls total, fine not to have a table for htis
-    stats_calculator_registry_contract = chain.client.eth.contract(
-        STATS_CALCULATOR_REGISTRY(chain), abi=STATS_CALCULATOR_REGISTRY_ABI
-    )
-
-    StatCalculatorRegistered = fetch_events(stats_calculator_registry_contract.events.StatCalculatorRegistered, chain)
-
-    lstTokenAddress_calls = [
-        Call(
-            a,
-            ["lstTokenAddress()(address)"],
-            [(a, identity_with_bool_success)],
-        )
-        for a in StatCalculatorRegistered["calculatorAddress"]
-    ]
-
-    calculator_to_lst_address = get_state_by_one_block(
-        lstTokenAddress_calls, chain.client.eth.block_number, chain=chain
-    )
-    StatCalculatorRegistered["lst"] = StatCalculatorRegistered["calculatorAddress"].map(calculator_to_lst_address)
-    lst_calcs = StatCalculatorRegistered[~StatCalculatorRegistered["lst"].isna()].copy()
-
-    symbol_calls = [
-        Call(
-            a,
-            ["symbol()(string)"],
-            [(a, identity_with_bool_success)],
-        )
-        for a in lst_calcs["lst"]
-    ]
-    calculator_to_lst_address = get_state_by_one_block(symbol_calls, chain.client.eth.block_number, chain=chain)
-    lst_calcs["symbol"] = lst_calcs["lst"].map(calculator_to_lst_address)
-
-    return lst_calcs[["lst", "symbol", "calculatorAddress"]]
-
-
-def _fetch_backing_and_oracle_price_df_from_external_source(chain: ChainData, start_block: int) -> pd.DataFrame:
-
-    lst_calcs = _fetch_lst_calc_addresses_df(chain)
-
-    token_symbols_to_ignore = ["OETH", "stETH", "eETH"]
-    # skip stETH and eETH because they are captured in wstETH and weETH
-    # skip OETH because we dropped it in October 2024,
-    lst_calcs = lst_calcs[~lst_calcs["symbol"].isin(token_symbols_to_ignore)].copy()
-
-    oracle_price_calls = [
-        Call(
-            ROOT_PRICE_ORACLE(chain),
-            ["getPriceInEth(address)(uint256)", lst],
-            [(f"{symbol}_oracle_price", safe_normalize_with_bool_success)],
-        )
-        for (lst, symbol) in zip(lst_calcs["lst"], lst_calcs["symbol"])
-    ]
-
-    backing_calls = [
-        Call(
-            calculatorAddress,
-            ["calculateEthPerToken()(uint256)"],
-            [(f"{symbol}_backing", safe_normalize_with_bool_success)],
-        )
-        for (calculatorAddress, symbol) in zip(lst_calcs["calculatorAddress"], lst_calcs["symbol"])
-    ]
-
-    blocks = build_blocks_to_use(chain, start_block=start_block)
-    wide_oracle_and_backing_df = get_raw_state_by_blocks(
-        [*oracle_price_calls, *backing_calls], blocks, chain, include_block_number=True
-    )
-
-    long_oracle_and_backing_df = _raw_price_and_backing_data_to_long_format(wide_oracle_and_backing_df)
-    long_oracle_and_backing_df["percent_discount"] = 100 - (
-        100 * long_oracle_and_backing_df["oracle_price"] / long_oracle_and_backing_df["backing"]
-    )
-
-    return long_oracle_and_backing_df
-
-
-def _raw_price_and_backing_data_to_long_format(wide_df: pd.DataFrame) -> pd.DataFrame:
-    # takes the wide dataframe and makes it long instead
-    # this is so that new LSTs can be added without breaking the table
-
-    # timestamp	                    symbol	backing	    oracle_price
-    # 0	2024-09-15 02:04:47+00:00	cbETH	1.081472	1.079332
-    # 1	2024-09-15 08:06:23+00:00	cbETH	1.081472	1.079332
-
-    backing_df = wide_df[[c for c in wide_df.columns if (("_backing" in c) or (c == "block"))]]
-    long_backing_df = backing_df.melt(id_vars=["block"], var_name="symbol", value_name="backing")
-    long_backing_df["symbol"] = long_backing_df["symbol"].apply(lambda x: str(x).replace("_backing", ""))
-
-    oracle_price_df = wide_df[[c for c in wide_df.columns if (("_oracle_price" in c) or (c == "block"))]]
-    long_oracle_price_df = oracle_price_df.melt(id_vars=["block"], var_name="symbol", value_name="oracle_price")
-    long_oracle_price_df["symbol"] = long_oracle_price_df["symbol"].apply(lambda x: str(x).replace("_oracle_price", ""))
-
-    long_df = pd.merge(long_backing_df, long_oracle_price_df, on=["block", "symbol"])
+    wide_df = get_raw_state_by_blocks([*lst_calls, *stablecoin_calls], blocks, ETH_CHAIN)
+    # long_df has columns timestamp, symbol, backing, safe_price
+    # this format is so that the table won't break when a new token is added
+    long_df = _convert_wide_df_to_long(wide_df)
     return long_df
 
 
-def _extract_backing_price_and_percent_discount_dfs(long_df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
-    # convert the long_df (as it is stored on disk) and converts it back into the wide format
-    # to use elsewhere
-    # timestamp	cbETH_backing	cbETH_oracle_price
-    # 2024-09-15 02:04:47+00:00	1.081472	1.079332
-    # 2024-09-15 08:06:23+00:00	1.081472	1.079332
+def _convert_wide_df_to_long(wide_df: pd.DataFrame) -> pd.DataFrame:
+    # might need to remove block
+    backing_cols = [col for col in wide_df.columns if col.endswith("_backing")]
+    backing_df = wide_df[backing_cols].copy()
+    backing_df.columns = [col.replace("_backing", "") for col in backing_df.columns]
+    long_backing_df = backing_df.reset_index().melt(id_vars=["timestamp"], var_name="symbol", value_name="backing")
 
-    # this does not maintain column order
+    safe_price_cols = [col for col in wide_df.columns if col.endswith("_safe_price")]
+    safe_price_df = wide_df[safe_price_cols].copy()
+    safe_price_df.columns = [col.replace("_safe_price", "") for col in safe_price_df.columns]
+    long_safe_price_df = safe_price_df.reset_index().melt(
+        id_vars=["timestamp"], var_name="symbol", value_name="safe_price"
+    )
 
-    long_df = add_timestamp_to_df_with_block_column(long_df, chain).reset_index()
+    long_df = pd.merge(long_backing_df, long_safe_price_df, on=["timestamp", "symbol"])
+    return long_df
 
-    long_df["percent_discount"] = 100 - (100 * long_df["oracle_price"] / long_df["backing"])
 
-    wide_backing_df = long_df[["timestamp", "symbol", "backing"]].pivot(
+def _long_df_to_backing_safe_price_and_discount_dfs(long_df: pd.DataFrame):
+    backing_df = long_df.reset_index()[["timestamp", "symbol", "backing"]].pivot(
         index="timestamp", columns="symbol", values="backing"
     )
-    wide_oracle_price_df = long_df[["timestamp", "symbol", "oracle_price"]].pivot(
-        index="timestamp", columns="symbol", values="oracle_price"
+    safe_price_df = long_df.reset_index()[["timestamp", "symbol", "safe_price"]].pivot(
+        index="timestamp", columns="symbol", values="safe_price"
     )
-    wide_percent_discount_df = long_df[["timestamp", "symbol", "percent_discount"]].pivot(
+    percent_discount_df = long_df.reset_index()[["timestamp", "symbol", "percent_discount"]].pivot(
         index="timestamp", columns="symbol", values="percent_discount"
     )
 
-    wide_backing_df["WETH"] = 1
-    wide_oracle_price_df["WETH"] = 1
-    wide_percent_discount_df["WETH"] = 0
-
-    wide_backing_df["stETH"] = 1  # the definition of stETH
-    wide_oracle_price_df["WETH"] = 1
-    wide_oracle_price_df["stETH"] = wide_oracle_price_df["wstETH"] / wide_backing_df["wstETH"]
-    wide_percent_discount_df["WETH"] = 0
-    wide_percent_discount_df["stETH"] = wide_percent_discount_df["wstETH"]
-
-    return wide_backing_df, wide_oracle_price_df, wide_percent_discount_df
+    return percent_discount_df, safe_price_df, backing_df
 
 
+def make_sure_safe_price_and_backing_rows_are_in_table():
+    # note, I don't like this pattern of a seperate function here all the time
+    ensure_table_has_current_data_by_chain(
+        table_name=ASSET_SAFE_PRICE_AND_BACKING,
+        fetch_data_from_external_source_function=fetch_asset_price_discount_from_external_source,
+        only_mainnet=True,
+    )
+
+
+def load_asset_and_safe_price_df():
+    
 def fetch_and_render_asset_oracle_and_backing():
-    add_new_asset_oracle_and_discount_price_rows_to_table()
-    long_asset_oracle_and_backing_df = get_all_rows_in_table_by_chain(ASSET_BACKING_AND_PRICES, ETH_CHAIN)
-    # by default only show the price and discount data for Ethereum
-    # all the assets are on ethereum
-    wide_backing_df, wide_oracle_price_df, wide_percent_discount_df = _extract_backing_price_and_percent_discount_dfs(
-        long_asset_oracle_and_backing_df, ETH_CHAIN
+    make_sure_safe_price_and_backing_rows_are_in_table()
+
+    long_df = get_all_rows_in_table_by_chain(ASSET_SAFE_PRICE_AND_BACKING, ETH_CHAIN)
+    long_df["percent_discount"] = 100 * ((long_df["safe_price"] - long_df["backing"]) / long_df["backing"])
+
+    stablecoin_symbols = [a[1] for a in stablecoin_tuples]
+
+    long_stablecoin_df = long_df[long_df["symbol"].isin(stablecoin_symbols)].copy()
+
+    # this just shows the time after autoUSD launched
+    # not attached to this, but we don't have safe prices from before this point
+    # so there is not a clean way to make the charts line up
+    long_stablecoin_df.loc[long_stablecoin_df.index < "Mar-12-2025", ["safe_price", "backing", "percent_discount"]] = (
+        None
     )
 
-    backing_figure = px.line(wide_backing_df, title="Backing", labels={"index": "Date", "value": "ETH"})
-    oracle_price_figure = px.line(wide_oracle_price_df, title="Oracle Price", labels={"index": "Date", "value": "ETH"})
-    percent_discount_figure = px.line(
-        wide_percent_discount_df, title="Percent Discount", labels={"index": "Date", "value": "Percent"}
-    )
+    long_lst_df = long_df[~long_df["symbol"].isin(stablecoin_symbols)].copy()
 
-    st.header("Asset Backing, Oracle Price and Percent Discount")
-    st.plotly_chart(percent_discount_figure, use_container_width=True)
-    st.plotly_chart(oracle_price_figure, use_container_width=True)
-    st.plotly_chart(backing_figure, use_container_width=True)
+    st.title("Asset Safe Price and Backing")
+    for (
+        name,
+        sub_long_df,
+    ) in zip(
+        ["LSTs and LRTs", "Stablecoins"],
+        [
+            long_lst_df,
+            long_stablecoin_df,
+        ],
+    ):
+        st.header(name)
+        percent_discount_df, safe_price_df, backing_df = _long_df_to_backing_safe_price_and_discount_dfs(sub_long_df)
 
-    with st.expander("Explanation"):
+        st.plotly_chart(
+            px.line(percent_discount_df, title="Percent Discount").update_yaxes(title_text="percent"),
+            use_container_width=True,
+        )
+
+        if name == "Stablecoins":
+            st.plotly_chart(
+                px.line(safe_price_df, title="Safe Price").update_yaxes(title_text="USDC"), use_container_width=True
+            )
+            st.plotly_chart(
+                px.line(backing_df, title="Backing").update_yaxes(title_text="USD"), use_container_width=True
+            )
+
+        elif name == "LSTs and LRTs":
+            st.plotly_chart(
+                px.line(safe_price_df, title="Safe Price").update_yaxes(title_text="ETH"), use_container_width=True
+            )
+            st.plotly_chart(
+                px.line(backing_df, title="Backing").update_yaxes(title_text="ETH"), use_container_width=True
+            )
+
+    with st.expander("Description"):
         st.markdown(
             """
-        ### Key Terms:
-        - **Oracle Price**: The "safe" value of an asset based on `RootPriceOracle.getPriceInEth()`.
-        - **Backing**: The underlying value of the asset on the consensus layer, based on `lstCalculator.calculateEthPerToken()`.
-        - **Percent Discount**: Calculated as:  
-        `100 - (100 * Oracle Price / Backing)`
+- **Percent Discount**
 
-        ### Examples:
+100 * (Safe Price - Backing) / Backing)
 
-        **Asset Trades at a Discount**  
-        - pxETH Oracle Price = `0.95`  
-        - pxETH Backing = `1`  
-        - Percent Discount = `100 - (100 * 0.95 / 1)` = **5% discount**
+- **Safe Price for LSTs and LRTs**
 
-        **Asset Trades at a Premium** 
-        - pxETH Oracle Price = `1.05`  
-        - pxETH Backing = `1`  
-        - Percent Discount = `100 - (100 * 1.05 / 1)` = **-5% discount** = **5% premium**
+`RootPriceOracle.getPriceinETH()` [0x61F8BE7FD721e80C0249829eaE6f0DAf21bc2CaC](https://etherscan.io/address/0x61F8BE7FD721e80C0249829eaE6f0DAf21bc2CaC)
 
-        ---
-        """
+
+- **Safe Price for Stablecoins**
+
+`SolverRootOracle.getPriceInQuote(token,USDC)` [0xdb8747a396d75d576dc7a10bb6c8f02f4a3c20f1](https://etherscan.io/address/0xdb8747a396d75d576dc7a10bb6c8f02f4a3c20f1)
+
+- **Backing for LSTs and LRTs**
+
+`LST_calculator.calculateEthPerToken()`
+
+- **Backing for Stablecoins**
+
+Backing is the custom backing call for each token or 1.0, if there is no onchain source and the implied price is 1.0
+
+eg for sUSDe it is  
+`sUSDs.convertToAssets(uint256)(uint256)`
+
+and 
+
+USDT = 1.0
+
+Note: new stablecoins must be added manually to these charts
+            """
         )
 
 
