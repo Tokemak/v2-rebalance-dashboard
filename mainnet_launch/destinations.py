@@ -86,8 +86,9 @@ class DestinationDetails:
 
 
 def add_new_destination_details_for_each_chain_to_table():
+    from mainnet_launch.constants import AUTO_USD
     if should_update_table(DESTINATION_DETAILS_TABLE):
-        for chain in ALL_CHAINS:
+        for chain in [ALL_CHAINS]:
             highest_block_already_fetched = get_earliest_block_from_table_with_chain(CHAIN_BLOCK_QUERIED_TABLE, chain)
             new_destination_details_df, new_highest_block = _fetch_destination_details_from_external_source(
                 chain, highest_block_already_fetched
@@ -190,9 +191,11 @@ def get_destination_details(autopool: AutopoolConstants) -> tuple[DestinationDet
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import BASE_CHAIN, ETH_CHAIN, BAL_ETH, AUTO_ETH
+    from mainnet_launch.constants import BASE_CHAIN, ETH_CHAIN, BAL_ETH, AUTO_ETH, AUTO_LRT
 
     details1 = get_destination_details(BAL_ETH)
     details2 = get_destination_details(AUTO_ETH)
 
-    pass
+    destination_details_df = get_all_rows_in_table_by_autopool(DESTINATION_DETAILS_TABLE, AUTO_LRT)
+    destination_details_df.to_csv('autolrt_destination_details.csv')
+

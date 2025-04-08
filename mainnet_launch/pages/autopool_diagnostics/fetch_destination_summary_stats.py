@@ -38,13 +38,16 @@ SUMMARY_STATS_FIELDS = [
     "incentiveApr",
     "safeTotalSupply",
     "priceReturn",
-    "maxDiscount",
-    "maxPremium",
+    "maxDiscount", # not used
+    "maxPremium", # not used
     "ownedShares",
     "compositeReturn",
     "pricePerShare",
     "pointsApr",
 ]
+
+
+
 
 
 def add_new_destination_summary_stats_to_table():
@@ -210,7 +213,6 @@ def _fetch_autopool_destination_df(
     points_df = get_raw_state_by_blocks(destination_points_calls, blocks, autopool.chain)
 
     def _add_points_value_to_summary_stats(summary_stats_cell, points_cell: float | None):
-
         if summary_stats_cell is None:
             return None
         else:
@@ -317,9 +319,28 @@ def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_f
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import DINERO_ETH
+    from mainnet_launch.constants import ALL_AUTOPOOLS
+    expected_to_have_boosts = ['0x4E12227b350E8f8fEEc41A58D36cE2fB2e2d4575', '0x2F7e096a400ded5D02762120b39A3aA4ABA072a4']
 
-    summary_stats_df = _fetch_destination_summary_stats_from_external_source(
-        DINERO_ETH, build_blocks_to_use(DINERO_ETH.chain, DINERO_ETH.chain.block_autopool_first_deployed)
-    )
+    all_destinations = [item for a in ALL_AUTOPOOLS for item in get_destination_details(a)]
+
+    for d in all_destinations:
+        if d.vaultAddress in expected_to_have_boosts:
+            print(d)
+
     pass
+    # points_calls = _build_destination_points_calls(all_destinations, AUTO_LRT.chain)
+    # blocks = build_blocks_to_use(AUTO_LRT.chain)
+    # points_df = get_raw_state_by_blocks(points_calls, blocks, AUTO_LRT.chain)
+    # vault_to_name = {a.vaultAddress:a.vault_name for a in all_destinations}
+
+    # points_df.columns = [vault_to_name[col] for col in points_df.columns]
+    
+
+    # print(points_df.tail())
+
+    # points_df.to_csv('autolrt_points_from_points_hooks.csv')
+    # # summary_stats_df = _fetch_destination_summary_stats_from_external_source(
+    # #     DINERO_ETH, build_blocks_to_use(DINERO_ETH.chain, DINERO_ETH.chain.block_autopool_first_deployed)
+    # # )
+    # # pass

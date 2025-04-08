@@ -73,8 +73,6 @@ def make_sure_safe_price_and_backing_rows_are_in_table():
     )
 
 
-def load_asset_and_safe_price_df():
-    
 def fetch_and_render_asset_oracle_and_backing():
     make_sure_safe_price_and_backing_rows_are_in_table()
 
