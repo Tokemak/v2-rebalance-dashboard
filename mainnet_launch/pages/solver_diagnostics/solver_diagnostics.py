@@ -75,7 +75,9 @@ def fetch_and_render_solver_diagnostics_data(autopool: AutopoolConstants):
 
 def ensure_all_rebalance_plans_are_loaded_from_s3_bucket():
     s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
-    for autopool in ALL_AUTOPOOLS:
+    from mainnet_launch.constants import AUTO_USD
+
+    for autopool in [*ALL_AUTOPOOLS, AUTO_USD]:
         response = s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket)
         solver_plans_names_on_remote = response.get("Contents")
         if solver_plans_names_on_remote is not None:
@@ -117,6 +119,17 @@ def ensure_all_rebalance_plans_are_loaded_from_s3_bucket():
                 s3_client.download_file(
                     autopool.solver_rebalance_plans_bucket, json_key, SOLVER_REBALANCE_PLANS_DIR / json_key
                 )
+
+
+def load_solver_plans(autopool: AutopoolConstants) -> list[dict]:
+    autopool_plans = [p for p in SOLVER_REBALANCE_PLANS_DIR.glob("*.json") if autopool.autopool_addr in str(p)]
+    plan_data = []
+    for plan_json in autopool_plans:
+        with open(plan_json, "r") as fin:
+            data = json.load(fin)
+            plan_data.append(data)
+
+    return plan_data
 
 
 # can be slow, requires loading a few thousand jsons.

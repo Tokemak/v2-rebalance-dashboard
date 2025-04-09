@@ -38,16 +38,13 @@ SUMMARY_STATS_FIELDS = [
     "incentiveApr",
     "safeTotalSupply",
     "priceReturn",
-    "maxDiscount", # not used
-    "maxPremium", # not used
+    "maxDiscount",  # not used
+    "maxPremium",  # not used
     "ownedShares",
     "compositeReturn",
     "pricePerShare",
     "pointsApr",
 ]
-
-
-
 
 
 def add_new_destination_summary_stats_to_table():
@@ -320,7 +317,11 @@ def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_f
 
 if __name__ == "__main__":
     from mainnet_launch.constants import ALL_AUTOPOOLS
-    expected_to_have_boosts = ['0x4E12227b350E8f8fEEc41A58D36cE2fB2e2d4575', '0x2F7e096a400ded5D02762120b39A3aA4ABA072a4']
+
+    expected_to_have_boosts = [
+        "0x4E12227b350E8f8fEEc41A58D36cE2fB2e2d4575",
+        "0x2F7e096a400ded5D02762120b39A3aA4ABA072a4",
+    ]
 
     all_destinations = [item for a in ALL_AUTOPOOLS for item in get_destination_details(a)]
 
@@ -335,7 +336,6 @@ if __name__ == "__main__":
     # vault_to_name = {a.vaultAddress:a.vault_name for a in all_destinations}
 
     # points_df.columns = [vault_to_name[col] for col in points_df.columns]
-    
 
     # print(points_df.tail())
 

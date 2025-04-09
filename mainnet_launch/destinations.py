@@ -87,6 +87,7 @@ class DestinationDetails:
 
 def add_new_destination_details_for_each_chain_to_table():
     from mainnet_launch.constants import AUTO_USD
+
     if should_update_table(DESTINATION_DETAILS_TABLE):
         for chain in [ALL_CHAINS]:
             highest_block_already_fetched = get_earliest_block_from_table_with_chain(CHAIN_BLOCK_QUERIED_TABLE, chain)
@@ -197,5 +198,4 @@ if __name__ == "__main__":
     details2 = get_destination_details(AUTO_ETH)
 
     destination_details_df = get_all_rows_in_table_by_autopool(DESTINATION_DETAILS_TABLE, AUTO_LRT)
-    destination_details_df.to_csv('autolrt_destination_details.csv')
-
+    destination_details_df.to_csv("autolrt_destination_details.csv")

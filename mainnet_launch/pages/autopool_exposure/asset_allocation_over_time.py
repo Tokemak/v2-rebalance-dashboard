@@ -10,7 +10,6 @@ from mainnet_launch.constants import (
     ROOT_PRICE_ORACLE,
     ChainData,
     WETH,
-    
 )
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
