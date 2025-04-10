@@ -28,7 +28,7 @@ WEB3_CLIENTS: dict[str, Web3] = {
 
 ROOT_DIR = Path(__file__).parent  # consider moving these to a setup file with the db initalization
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "data_fetching/rebalance_plans"
-SOLVER_AUGMENTED_REBALANCE_PLANS_DIR = ROOT_DIR / "data_fetching/rebalance_plans"
+SOLVER_AUGMENTED_REBALANCE_PLANS_DIR = ROOT_DIR / "data_fetching/augmented_rebalance_plans"
 
 WORKING_DATA_DIR = ROOT_DIR / "working_data"
 DB_DIR = ROOT_DIR / "database"
