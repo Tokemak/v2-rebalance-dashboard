@@ -44,7 +44,7 @@ stablecoin_tuples = [
     (sUSDs, "sUSDs"),
     (sUSDe, "sUSDe"),
     (sFRAX, "sFRAX"),
-    (sDAI, 'sDAI'),
+    (sDAI, "sDAI"),
     (aUSDT, "aUSDT"),
     (aUSDC, "aUSDC"),
     (aGHO, "aGHO"),

@@ -48,6 +48,7 @@ def _fetch_lst_calc_addresses_df(chain: ChainData) -> pd.DataFrame:
     lst_calcs["symbol"] = lst_calcs["lst"].map(calculator_to_lst_address)
     return lst_calcs[["lst", "symbol", "calculatorAddress"]]
 
+
 def build_backing_calls():
     lst_calcs = _fetch_lst_calc_addresses_df(ETH_CHAIN)
 

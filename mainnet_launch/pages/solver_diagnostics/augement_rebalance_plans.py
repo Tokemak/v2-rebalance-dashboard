@@ -1,8 +1,7 @@
-
 import json
 import pandas as pd
 
-from mainnet_launch.app.app_config import  NUM_S3_BUCKET_FETCHING_THREADS
+from mainnet_launch.app.app_config import NUM_S3_BUCKET_FETCHING_THREADS
 
 import time
 import concurrent.futures
@@ -14,71 +13,98 @@ from mainnet_launch.constants import (
     AutopoolConstants,
     ALL_AUTOPOOLS,
     SOLVER_AUGMENTED_REBALANCE_PLANS_DIR,
-    AUTO_USD, AUTO_ETH, ETH_CHAIN
+    AUTO_USD,
+    AUTO_ETH,
+    ETH_CHAIN,
 )
 
 from mainnet_launch.data_fetching.fetch_block_utils import get_nearest_block_before_timestamp_sync
 from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block, safe_normalize_with_bool_success
-from mainnet_launch.pages.asset_discounts.fetch_usd_asset_discounts import stablecoin_tuples, _build_autoUSD_token_backing_calls
+from mainnet_launch.pages.asset_discounts.fetch_usd_asset_discounts import (
+    stablecoin_tuples,
+    _build_autoUSD_token_backing_calls,
+)
+
 # I'm thinking about hard coding the LST backing calls
 
 
 from multicall import Call
 
 
-def _build_total_supply_call(name:str, token:str) -> Call:
+def _build_totalSupply_call(name: str, token: str) -> Call:
     # works for curve and not for balancer
     return Call(
-       name,
+        name,
         ["totalSupply()(uint256)"],
         [(token, safe_normalize_with_bool_success)],
     )
 
-def _build_getActualSupply_call(name:str, token:str) -> Call:
+
+def _build_getActualSupply_call(name: str, token: str) -> Call:
     return Call(
-       name,
+        name,
         ["getActualSupply()(uint256)"],
         [(token, safe_normalize_with_bool_success)],
     )
 
 
-def augment_a_single_plan(autopool:AutopoolConstants = AUTO_USD, plan_name_on_remote:str = 'rebalance_plan_1743377226_0xa7569A44f348d3D70d8ad5889e50F78E33d80D35.json'):
+def augment_a_single_plan(
+    autopool: AutopoolConstants = AUTO_USD,
+    plan_name_on_remote: str = "rebalance_plan_1743377226_0xa7569A44f348d3D70d8ad5889e50F78E33d80D35.json",
+):
     s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
-    rebalance_plan = json.loads(s3_client.get_object(Bucket=autopool.solver_rebalance_plans_bucket, Key=plan_name_on_remote)["Body"].read().decode())
-    
+    rebalance_plan = json.loads(
+        s3_client.get_object(Bucket=autopool.solver_rebalance_plans_bucket, Key=plan_name_on_remote)["Body"]
+        .read()
+        .decode()
+    )
+
     # only care about backing on ethereum by symbol
-    timestamp, block = get_nearest_block_before_timestamp_sync(rebalance_plan['timestamp'], autopool.chain)
-    rebalance_plan['block'] = block
-    rebalance_plan['block_timestamp'] = timestamp
+    # timestamp, block = get_nearest_block_before_timestamp_sync(rebalance_plan['timestamp'], autopool.chain)
+    rebalance_plan["block"] = 21163008  # block
+    rebalance_plan["block_timestamp"] = 1743377226  # timestamp
 
     backing_calls = _build_autoUSD_token_backing_calls()
-    backing_dict = get_state_by_one_block(backing_calls, block, ETH_CHAIN)
-    address_to_symbol = {a[0]:a[1] for a in stablecoin_tuples}
-    symbol_to_address = {a[1]:a[0] for a in stablecoin_tuples}
+    backing_dict = get_state_by_one_block(backing_calls, 21163008, ETH_CHAIN)
+    address_to_symbol = {a[0]: a[1] for a in stablecoin_tuples}
+    symbol_to_address = {a[1]: a[0] for a in stablecoin_tuples}
 
-    backing_dict = {symbol_to_address[k.replace('_backing', '')]:v for k, v in backing_dict.items() }
-    
-    total_supply_calls = 
+    backing_dict = {symbol_to_address[k.replace("_backing", "")]: v for k, v in backing_dict.items()}
+    dest_states = rebalance_plan["sod"]["destStates"]
+    total_supply_calls = [_build_totalSupply_call(dest["underlying"], dest["underlying"]) for dest in dest_states]
+    # NOTE combine into a single call
+    total_supply_dict = get_state_by_one_block(total_supply_calls, 21163008, ETH_CHAIN)
+    actual_supply_calls = [_build_getActualSupply_call(dest["underlying"], dest["underlying"]) for dest in dest_states]
+    acutal_supply_dict = get_state_by_one_block(actual_supply_calls, 21163008, ETH_CHAIN)
 
-    
-    dest_states = rebalance_plan['sod']['destStates']
-    
+    useble_total_supply_dict = {}
     for dest in dest_states:
-        tokenBacking = [backing_dict[token] for token in dest['underlyingTokens']]
-        dest['tokenBacking'] = tokenBacking
-    
+        if acutal_supply_dict[dest["underlying"]] != None:
+            useble_total_supply_dict[dest["underlying"]] = acutal_supply_dict[dest["underlying"]]
+        elif total_supply_dict[dest["underlying"]] != None:
+            useble_total_supply_dict[dest["underlying"]] = total_supply_dict[dest["underlying"]]
+        else:
+            raise ValueError("failed to get underlying total supply")
+
+    print(dest_states[0])
+
+    for dest in dest_states:
+        tokenBacking = [backing_dict[token] for token in dest["underlyingTokens"]]
+        dest["tokenBacking"] = tokenBacking
+        dest["lpTokenTotalSupply"] = useble_total_supply_dict[dest["underlying"]]
+
+        # add in fee + base apr
+        # add in token symbol
+    # what am I missing here?
     pass
 
 
-
-
-def fetch_asset_backing(rebalance_plan:dict, autopool:AutopoolConstants):
+def fetch_asset_backing(rebalance_plan: dict, autopool: AutopoolConstants):
     # build
     pass
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     augment_a_single_plan()
 #     s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 #     response = s3_client.list_objects_v2(Bucket=AUTO_USD.solver_rebalance_plans_bucket)
@@ -87,8 +113,6 @@ if __name__ == '__main__':
 #     print(all_rebalance_plans[0])
 #     # pass
 # pass
-
-
 
 
 def ensure_all_rebalance_plans_are_loaded_from_s3_bucket():
