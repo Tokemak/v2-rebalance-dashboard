@@ -48,6 +48,19 @@ def _fetch_lst_calc_addresses_df(chain: ChainData) -> pd.DataFrame:
     lst_calcs["symbol"] = lst_calcs["lst"].map(calculator_to_lst_address)
     return lst_calcs[["lst", "symbol", "calculatorAddress"]]
 
+def build_backing_calls():
+    lst_calcs = _fetch_lst_calc_addresses_df(ETH_CHAIN)
+
+    backing_calls = [
+        Call(
+            calculatorAddress,
+            ["calculateEthPerToken()(uint256)"],
+            [(f"{symbol}_backing", safe_normalize_with_bool_success)],
+        )
+        for (calculatorAddress, symbol) in zip(lst_calcs["calculatorAddress"], lst_calcs["symbol"])
+    ]
+    return backing_calls
+
 
 def build_lst_safe_price_and_backing_calls() -> list[Call]:
 

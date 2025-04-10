@@ -10,6 +10,8 @@ from web3.middleware import geth_poa_middleware
 
 load_dotenv()
 
+ALCHEMY_API_KEY = os.environ["ALCHEMY_URL"].split("/")[-1]
+
 eth_client = Web3(Web3.HTTPProvider(os.environ["ALCHEMY_URL"]))
 base_client = Web3(Web3.HTTPProvider(os.environ["ALCHEMY_URL"].replace("eth-mainnet", "base-mainnet")))
 base_client.middleware_onion.inject(geth_poa_middleware, layer=0)
@@ -26,11 +28,14 @@ WEB3_CLIENTS: dict[str, Web3] = {
 
 ROOT_DIR = Path(__file__).parent  # consider moving these to a setup file with the db initalization
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "data_fetching/rebalance_plans"
+SOLVER_AUGMENTED_REBALANCE_PLANS_DIR = ROOT_DIR / "data_fetching/rebalance_plans"
+
 WORKING_DATA_DIR = ROOT_DIR / "working_data"
 DB_DIR = ROOT_DIR / "database"
 DB_FILE = DB_DIR / "autopool_dashboard.db"
 
 os.makedirs(SOLVER_REBALANCE_PLANS_DIR, exist_ok=True)
+os.makedirs(SOLVER_AUGMENTED_REBALANCE_PLANS_DIR, exist_ok=True)
 os.makedirs(WORKING_DATA_DIR, exist_ok=True)
 
 
@@ -40,6 +45,7 @@ class ChainData:
     block_autopool_first_deployed: int
     approx_seconds_per_block: float
     chain_id: int
+    alchemy_network_enum: str
 
     def __hash__(self):
         return self.chain_id
@@ -74,12 +80,20 @@ class AutopoolConstants:
 
 
 ETH_CHAIN: ChainData = ChainData(
-    name="eth", block_autopool_first_deployed=20752910, approx_seconds_per_block=12.0, chain_id=1
+    name="eth",
+    block_autopool_first_deployed=20752910,
+    approx_seconds_per_block=12.0,
+    chain_id=1,
+    alchemy_network_enum="eth-mainnet",
 )
 # real start date was 21241103
 # but only has assets after 21901103
 BASE_CHAIN: ChainData = ChainData(
-    name="base", block_autopool_first_deployed=21901103, approx_seconds_per_block=2.0, chain_id=8453
+    name="base",
+    block_autopool_first_deployed=21901103,
+    approx_seconds_per_block=2.0,
+    chain_id=8453,
+    alchemy_network_enum="base-mainnet",
 )
 
 
