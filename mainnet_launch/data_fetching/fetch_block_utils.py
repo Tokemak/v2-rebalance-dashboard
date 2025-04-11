@@ -18,7 +18,6 @@ def get_nearest_block_before_timestamp_sync(timestamp: int, chain: ChainData) ->
     }
     headers = {"accept": "application/json"}
 
-    time.sleep(random.random() / 10)
     response = requests.get(url, headers=headers, params=params)
     attempts = 0
     while (response.status_code != 200) and attempts < 3:

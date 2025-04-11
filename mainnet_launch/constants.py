@@ -126,6 +126,9 @@ class TokemakAddress:
         else:
             raise ValueError(f"No address defined for chain: {chain.name}")
 
+    def get_every_address(self) -> list[str]:
+        return [self.eth, self.base]
+
 
 SYSTEM_REGISTRY = TokemakAddress(
     eth="0x2218F90A98b0C070676f249EF44834686dAa4285", base="0x18Dc926095A7A007C01Ef836683Fdef4c4371b4e"
