@@ -15,14 +15,14 @@ DAI = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
 USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 USDT = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
 GHO = "0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f"
-USDs = "0xdC035D45d973E3EC169d2276DDab16f1e407384F"
+USDS = "0xdC035D45d973E3EC169d2276DDab16f1e407384F"
 USDe = "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"
 FRAX = "0x853d955aCEf822Db058eb8505911ED77F175b99e"
 crvUSD = "0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E"
 frxUSD = "0xCAcd6fd266aF91b8AeD52aCCc382b4e165586E29"
 
 scrvUSD = "0x0655977FEb2f289A4aB78af67BAB0d17aAb84367"
-sUSDs = "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"
+sUSDS = "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"
 sUSDe = "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497"
 sFRAX = "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32"
 sDAI = "0x83F20F44975D03b1b09e64809B757c47f942BEeA"
@@ -40,13 +40,13 @@ stablecoin_tuples = [
     (USDC, "USDC"),
     (USDT, "USDT"),
     (GHO, "GHO"),
-    (USDs, "USDs"),
+    (USDS, "USDS"),
     (USDe, "USDe"),
     (FRAX, "FRAX"),
     (frxUSD, "frxUSD"),
     (crvUSD, "crvUSD"),
     (scrvUSD, "scrvUSD"),
-    (sUSDs, "sUSDs"),
+    (sUSDS, "sUSDS"),
     (sUSDe, "sUSDe"),
     (sFRAX, "sFRAX"),
     (sfrxUSD, "sfrxUSD"),
@@ -76,10 +76,10 @@ def _build_autoUSD_token_backing_calls() -> list[Call]:
         [("aGHO_backing", safe_normalize_with_bool_success)],
     )
 
-    sUSDs_backing = Call(
-        sUSDs,
+    sUSDS_backing = Call(
+        sUSDS,
         ["convertToAssets(uint256)(uint256)", int(1e18)],
-        [("sUSDs_backing", safe_normalize_with_bool_success)],
+        [("sUSDS_backing", safe_normalize_with_bool_success)],
     )
 
     sUSDe_backing = Call(
@@ -121,13 +121,13 @@ def _build_autoUSD_token_backing_calls() -> list[Call]:
         make_dummy_1_call("USDT_backing"),
         make_dummy_1_call("GHO_backing"),
         make_dummy_1_call("crvUSD_backing"),
-        make_dummy_1_call("USDs_backing"),
+        make_dummy_1_call("USDS_backing"),
         make_dummy_1_call("FRAX_backing"),
         make_dummy_1_call("frxUSD_backing"),
         aUSDT_backing,
         aUSDC_backing,
         aGHO_backing,
-        sUSDs_backing,
+        sUSDS_backing,
         sUSDe_backing,
         scrvUSD_backing,
         sDAI_backing,

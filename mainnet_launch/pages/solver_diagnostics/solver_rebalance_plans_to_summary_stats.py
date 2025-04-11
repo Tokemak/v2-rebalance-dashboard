@@ -3,7 +3,7 @@ import pandas as pd
 from mainnet_launch.pages.solver_diagnostics.solver_diagnostics import (
     _load_solver_df,
     ensure_all_rebalance_plans_are_loaded_from_s3_bucket,
-    SOLVER_REBALANCE_PLANS_DIR,
+    SOLVER_AUGMENTED_REBALANCE_PLANS_DIR,
     AUTO_ETH,
     load_solver_plans,
 )
@@ -20,13 +20,152 @@ def _get_destination_states(plan: dict):
         raise KeyError("No destStates found in the provided plan JSON.")
 
 
-def _set_value_or_raise(dict_to_update:dict, key, value) ->None
+# might not be needed
+def _set_value_or_raise(dict_to_update: dict, key, value) -> None:
     if key not in dict_to_update:
         dict_to_update[key] = value
     else:
         # sanity check that the same value is the same in each spot
         if dict_to_update[key] != value:
             raise ValueError("unexpected mismatch", f"{dict_to_update=} {dict_to_update[key]=} {value=}")
+
+
+# check
+
+# if top level ['timestamp'] != ['sod']['currentTimestamp']
+
+
+from dataclasses import dataclass
+
+
+@dataclass
+class PlanData:
+    autopool: str
+    chain: str
+    block: int
+    block_timestamp: int
+    solver_timestamp: int
+
+
+@dataclass
+class DestinationData:
+    destination_vault: str
+    name: str
+    poolType: str
+    pool: str
+    underlying: str
+    chain: str
+
+
+@dataclass
+class DestinationBlockData:
+    plan_data:PlanData
+    destination_data:DestinationData
+
+    pool_spot_price: float
+    pool_safe_price: float
+    pool_backing: float  # can infer the pool backing from the token backing
+    autopool_owned_shares: float
+    underlying_total_supply: float
+    incentive_apr: float
+    total_apr_in: float
+    total_apr_out: float
+
+
+
+@dataclass
+class DestinationTokenBlockData:
+    plan_data:PlanData
+    destination_data:DestinationData
+
+    token_address: str
+    token_symbol: str
+    safe_price: float
+    spot_price: float
+    backing: float
+    amount: float
+    decimals: int
+
+    discountViolationAddFlag: bool
+    discountViolationTrim1Flag: bool
+    discountViolationTrim2lag: bool
+    
+
+
+
+def _extract_plan_data(rebalance_plan: dict) -> PlanData:
+    return PlanData(
+        autopool=rebalance_plan["autopool"],
+        chain=rebalance_plan["chain"],
+        block=rebalance_plan["block"],
+        block_timestamp=rebalance_plan["block_timestamp"],
+        solver_timestamp=rebalance_plan["mainnet_block_timestamp"],
+    )
+
+
+def _extract_destination_data(dest: dict) -> DestinationData:
+    return DestinationData(
+        destination_vault=dest["address"],
+        name=dest["name"],
+        poolType=dest["poolType"],
+        pool=dest["pool"],
+        underlying=dest["underlying"],
+    )
+
+
+def _extract_destination_block_data(rebalance_plan: PlanData, dest: dict) -> DestinationBlockData:
+    total_pool_backing = [(amount / 10 ** tokenDecimals) * backing for (amount, tokenDecimals, backing) in zip(
+        dest['underlyingTokenAmounts'], dest['underlyingTokenDecimals'], dest['tokenBacking']
+    )]
+    pool_backing = total_pool_backing / dest['underlyingTotalSupply']
+    pool_backing = None
+
+    plan_data = _extract_plan_data(rebalance_plan)
+    destination_data = _extract_destination_data(dest)
+
+    return DestinationBlockData(
+        plan_data=plan_data,
+        destination_data=destination_data,
+
+        # values themselves
+        pool_spot_price=dest["spotPrice"],
+        pool_safe_price=dest["safePrice"],
+        pool_backing=pool_backing, 
+        autopool_owned_shares=dest["ownedShares"],
+        underlying_total_supply=dest["underlyingTotalSupply"],
+        incentive_apr=100 * dest["incentiveAPR"],
+        total_apr_in=100 * dest["totalAprIn"],
+        total_apr_out=100 * dest["totalAprOut"],
+    )
+
+
+def _extract_destination_token_block_data(rebalance_plan: PlanData, dest: dict) -> list[DestinationTokenBlockData]:
+
+    plan_data = _extract_plan_data(rebalance_plan)
+    destination_data = _extract_destination_data(dest)
+    
+    destination_token_block_data = []
+    for i in range(len(dest["underlyingTokens"])):
+        destination_token_block_data.append(
+            DestinationTokenBlockData(
+                plan_data=plan_data,
+                destination_data=destination_data,
+                token_address = dest['underlyingTokens'][i],
+                token_symbol = dest['underlyingTokenSymbols'][i],
+                safe_price = dest['tokenSafePrice'][i],
+                spot_price = dest['tokenSpotPrice'][i],
+                backing = dest['tokenBacking'][i],
+                amount = dest['underlyingTokenAmounts'][i] / (10 ** dest['tokenDecimals'][i]),
+                decimals = dest['tokenDecimals'][i],
+
+                discountViolationAddFlag = dest['discountViolationAddFlag'][i],
+                discountViolationTrim1Flag  = dest['discountViolationTrim1Flag'][i],
+                discountViolationTrim2Flag  = dest['discountViolationTrim2Flag'][i],
+
+            )
+        )
+    
+    return destination_token_block_data
 
 
 def _extract_data(plan: dict):
@@ -118,101 +257,119 @@ def _extract_data(plan: dict):
     )
 
 
+def _combine_plan_info(all_plans: list[str]):
+    token_safe_prices_records = []
+    token_spot_prices_records = []
+    pool_spot_prices_records = []
+    pool_safe_prices_records = []
+    autopool_owned_shares_records = []
+    pool_token_quantity_records = []
+    destination_incentive_apr_records = []
+    destination_total_apr_in_records = []
+    destination_total_apr_out_records = []
+    destination_fee_and_base_apr_records = []
+
+    for plan in autoETH_plans:
+        (
+            token_safe_prices,
+            token_spot_prices,
+            pool_spot_prices,
+            pool_safe_prices,
+            autopool_owned_shares,
+            pool_token_quantity,
+            destination_incentive_apr,
+            destination_total_apr_in,
+            destination_total_apr_out,
+            destination_fee_and_base_apr,
+        ) = _extract_data(plan)
+
+        token_safe_prices_records.append(token_safe_prices)
+        token_spot_prices_records.append(token_spot_prices)
+        pool_spot_prices_records.append(pool_spot_prices)
+        pool_safe_prices_records.append(pool_safe_prices)
+        autopool_owned_shares_records.append(autopool_owned_shares)
+        pool_token_quantity_records.append(pool_token_quantity)
+        destination_incentive_apr_records.append(destination_incentive_apr)
+        destination_total_apr_in_records.append(destination_total_apr_in)
+        destination_total_apr_out_records.append(destination_total_apr_out)
+        destination_fee_and_base_apr_records.append(destination_fee_and_base_apr)
+
+    df_token_safe_prices = pd.DataFrame.from_records(token_safe_prices_records).melt(
+        id_vars=["timestamp", "date"], var_name="token", value_name="safe_price"
+    )
+
+    df_pool_spot_prices = pd.DataFrame.from_records(pool_spot_prices_records).melt(
+        id_vars=["timestamp", "date"], var_name="pool", value_name="spot_price"
+    )
+    df_pool_safe_prices = pd.DataFrame.from_records(pool_safe_prices_records).melt(
+        id_vars=["timestamp", "date"], var_name="pool", value_name="safe_price"
+    )
+    df_autopool_owned_shares = pd.DataFrame.from_records(autopool_owned_shares_records).melt(
+        id_vars=["timestamp", "date"], var_name="pool", value_name="owned_shares"
+    )
+    df_destination_incentive_apr = pd.DataFrame.from_records(destination_incentive_apr_records).melt(
+        id_vars=["timestamp", "date"], var_name="pool", value_name="incentive_apr"
+    )
+    df_destination_total_apr_in = pd.DataFrame.from_records(destination_total_apr_in_records).melt(
+        id_vars=["timestamp", "date"], var_name="pool", value_name="total_apr_in"
+    )
+    df_destination_total_apr_out = pd.DataFrame.from_records(destination_total_apr_out_records).melt(
+        id_vars=["timestamp", "date"], var_name="pool", value_name="total_apr_out"
+    )
+    df_destination_fee_and_base_apr = pd.DataFrame.from_records(destination_fee_and_base_apr_records).melt(
+        id_vars=["timestamp", "date"], var_name="pool", value_name="fee_and_base_apr"
+    )
+
+    df_token_spot_prices = pd.DataFrame.from_records(token_spot_prices_records)  # not sure
+    df_pool_token_quantity = pd.DataFrame.from_records(pool_token_quantity_records)  # not sure
+
+    df_token_spot_prices = df_token_spot_prices.melt(
+        id_vars=["timestamp", "date"], var_name="token", value_name="spot_prices"
+    )
+    df_token_spot_prices["pool"] = df_token_spot_prices["token"].apply(lambda x: x[0])
+    df_token_spot_prices["token"] = df_token_spot_prices["token"].apply(lambda x: x[1])
+
+    df_pool_token_quantity = df_pool_token_quantity.melt(
+        id_vars=["timestamp", "date"], var_name="token", value_name="quantity"
+    )
+    df_pool_token_quantity["pool"] = df_pool_token_quantity["token"].apply(lambda x: x[0])
+    df_pool_token_quantity["token"] = df_pool_token_quantity["token"].apply(lambda x: x[1])
+
+    vault_dfs = [
+        df_pool_spot_prices,
+        df_pool_safe_prices,
+        df_autopool_owned_shares,
+        df_destination_incentive_apr,
+        df_destination_total_apr_in,
+        df_destination_total_apr_out,
+        df_destination_fee_and_base_apr,
+    ]
+
+    vault_level_data = functools.reduce(
+        lambda left, right: pd.merge(left, right, on=["timestamp", "date", "pool"], how="outer"), vault_dfs
+    )
+
+    token_level_data = df_token_safe_prices.copy()
 
 
-token_safe_prices_records = []
-token_spot_prices_records = []
-pool_spot_prices_records = []
-pool_safe_prices_records = []
-autopool_owned_shares_records = []
-pool_token_quantity_records = []
-destination_incentive_apr_records = []
-destination_total_apr_in_records = []
-destination_total_apr_out_records = []
-destination_fee_and_base_apr_records = []
-
-for plan in autoETH_plans:
-    (
-        token_safe_prices,
-        token_spot_prices,
-        pool_spot_prices,
-        pool_safe_prices,
-        autopool_owned_shares,
-        pool_token_quantity,
-        destination_incentive_apr,
-        destination_total_apr_in,
-        destination_total_apr_out,
-        destination_fee_and_base_apr,
-    ) = _extract_data(plan)
-
-    token_safe_prices_records.append(token_safe_prices)
-    token_spot_prices_records.append(token_spot_prices)
-    pool_spot_prices_records.append(pool_spot_prices)
-    pool_safe_prices_records.append(pool_safe_prices)
-    autopool_owned_shares_records.append(autopool_owned_shares)
-    pool_token_quantity_records.append(pool_token_quantity)
-    destination_incentive_apr_records.append(destination_incentive_apr)
-    destination_total_apr_in_records.append(destination_total_apr_in)
-    destination_total_apr_out_records.append(destination_total_apr_out)
-    destination_fee_and_base_apr_records.append(destination_fee_and_base_apr)
-
-df_token_safe_prices = pd.DataFrame.from_records(token_safe_prices_records).melt(
-    id_vars=["timestamp", "date"], var_name="token", value_name="safe_price"
-)
+if __name__ == "__main__":
+    pass
 
 
-df_pool_spot_prices = pd.DataFrame.from_records(pool_spot_prices_records).melt(
-    id_vars=["timestamp", "date"], var_name="pool", value_name="spot_price"
-)
-df_pool_safe_prices = pd.DataFrame.from_records(pool_safe_prices_records).melt(
-    id_vars=["timestamp", "date"], var_name="pool", value_name="safe_price"
-)
-df_autopool_owned_shares = pd.DataFrame.from_records(autopool_owned_shares_records).melt(
-    id_vars=["timestamp", "date"], var_name="pool", value_name="owned_shares"
-)
-df_destination_incentive_apr = pd.DataFrame.from_records(destination_incentive_apr_records).melt(
-    id_vars=["timestamp", "date"], var_name="pool", value_name="incentive_apr"
-)
-df_destination_total_apr_in = pd.DataFrame.from_records(destination_total_apr_in_records).melt(
-    id_vars=["timestamp", "date"], var_name="pool", value_name="total_apr_in"
-)
-df_destination_total_apr_out = pd.DataFrame.from_records(destination_total_apr_out_records).melt(
-    id_vars=["timestamp", "date"], var_name="pool", value_name="total_apr_out"
-)
-df_destination_fee_and_base_apr = pd.DataFrame.from_records(destination_fee_and_base_apr_records).melt(
-    id_vars=["timestamp", "date"], var_name="pool", value_name="fee_and_base_apr"
-)
 
 
-df_token_spot_prices = pd.DataFrame.from_records(token_spot_prices_records)  # not sure
-df_pool_token_quantity = pd.DataFrame.from_records(pool_token_quantity_records)  # not sure
-
-df_token_spot_prices = df_token_spot_prices.melt(
-    id_vars=["timestamp", "date"], var_name="token", value_name="spot_prices"
-)
-df_token_spot_prices["pool"] = df_token_spot_prices["token"].apply(lambda x: x[0])
-df_token_spot_prices["token"] = df_token_spot_prices["token"].apply(lambda x: x[1])
-
-df_pool_token_quantity = df_pool_token_quantity.melt(
-    id_vars=["timestamp", "date"], var_name="token", value_name="quantity"
-)
-df_pool_token_quantity["pool"] = df_pool_token_quantity["token"].apply(lambda x: x[0])
-df_pool_token_quantity["token"] = df_pool_token_quantity["token"].apply(lambda x: x[1])
-
-
-vault_dfs = [
-    df_pool_spot_prices,
-    df_pool_safe_prices,
-    df_autopool_owned_shares,
-    df_destination_incentive_apr,
-    df_destination_total_apr_in,
-    df_destination_total_apr_out,
-    df_destination_fee_and_base_apr,
-]
-
-vault_level_data = functools.reduce(
-    lambda left, right: pd.merge(left, right, on=["timestamp", "date", "pool"], how="outer"), vault_dfs
-)
-
-token_level_data = df_token_safe_prices.copy()
-
+# # maybe not needed
+# @dataclass
+# class TokenBlockData:
+#     # (token, block) -> value
+#     destination_vault_address: str
+#     autopool: str
+#     chain: str
+#     block: int
+#     block_timestamp: int
+#     solver_timestamp: int
+#     # peg_asset: str  # one of ['USDC', 'WETH']
+#     token_address: str
+#     token_symbol: str
+#     safe_price: float
+#     backing: float

@@ -54,56 +54,64 @@ def _build_symbol_call(name, address) -> Call:
     )
 
 
+def _build_decimals_call(name, address) -> Call:
+    return Call(
+        address,
+        ["decimals()(uint256)"],
+        [(name, identity_with_bool_success)],
+    )
+
+
+# TODO add
+# chain_name, autopool_name,
+# token decimals
 def augment_a_single_plan(
     autopool: AutopoolConstants,
     plan_name_on_remote: str,
 ) -> None:
-    try:
+    # try:
 
-        s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
-        s3_client.download_file(
-            autopool.solver_rebalance_plans_bucket,
-            plan_name_on_remote,
-            str(SOLVER_REBALANCE_PLANS_DIR / plan_name_on_remote),
+    s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+    s3_client.download_file(
+        autopool.solver_rebalance_plans_bucket,
+        plan_name_on_remote,
+        str(SOLVER_REBALANCE_PLANS_DIR / plan_name_on_remote),
+    )
+    with open(SOLVER_REBALANCE_PLANS_DIR / plan_name_on_remote, "r") as fin:
+        rebalance_plan = json.load(fin)
+
+    # get_nearest_block_before_timestamp_sync
+    # is slow ( 7 seconds), can be made faster by using a subgraph instead
+    block_timestamp, block = get_nearest_block_before_timestamp_sync(
+        rebalance_plan["timestamp"], autopool.chain
+    )  # slowest part of setup
+    rebalance_plan["block_timestamp"] = block_timestamp
+    rebalance_plan["block"] = block
+    rebalance_plan["autopool"] = autopool.name
+    rebalance_plan["chain"] = autopool.chain.name
+
+    if autopool.chain == ETH_CHAIN:
+        mainnet_block_timestamp, mainnet_block = block_timestamp, block
+    else:
+        mainnet_block_timestamp, mainnet_block = get_nearest_block_before_timestamp_sync(
+            rebalance_plan["timestamp"], ETH_CHAIN
         )
-        with open(SOLVER_REBALANCE_PLANS_DIR / plan_name_on_remote, "r") as fin:
-            rebalance_plan = json.load(fin)
+    rebalance_plan["mainnet_block"] = mainnet_block
+    rebalance_plan["mainnet_block_timestamp"] = mainnet_block_timestamp
+    _add_extra_data_to_rebalance_plan(autopool, rebalance_plan)
 
-        # get_nearest_block_before_timestamp_sync
-        # is slow ( 7 seconds), can be made faster by using a subgraph instead
-        block_timestamp, block = get_nearest_block_before_timestamp_sync(
-            rebalance_plan["timestamp"], autopool.chain
-        )  # slowest part of setup
-        rebalance_plan["block_timestamp"] = block_timestamp
-        rebalance_plan["block"] = block
+    with open(SOLVER_AUGMENTED_REBALANCE_PLANS_DIR / ("augmented_" + plan_name_on_remote), "w") as fout:
+        json.dump(rebalance_plan, fout, indent=4, sort_keys=True)
 
-        if autopool.chain == ETH_CHAIN:
-            mainnet_block_timestamp, mainnet_block = block_timestamp, block
-        else:
-            mainnet_block_timestamp, mainnet_block = get_nearest_block_before_timestamp_sync(
-                rebalance_plan["timestamp"], ETH_CHAIN
-            )
-        rebalance_plan["mainnet_block"] = mainnet_block
-        rebalance_plan["mainnet_block_timestamp"] = mainnet_block_timestamp
-
-        if autopool.base_asset in USDC.get_every_address():
-            _add_extra_data_to_stable_coin_rebalance_plan(autopool, rebalance_plan)
-        elif autopool.base_asset in WETH.get_every_address():
-            _add_extra_data_to_eth_rebalance_plan(autopool, rebalance_plan)
-        else:
-            raise ValueError(f"Unexpected { autopool.base_asset=}")
-
-        with open(SOLVER_AUGMENTED_REBALANCE_PLANS_DIR / ("augmented_" + plan_name_on_remote), "w") as fout:
-            json.dump(rebalance_plan, fout, indent=4)
-    except Exception as e:
-        with open(SOLVER_AUGMENTED_REBALANCE_PLANS_DIR / ("failed_" + plan_name_on_remote), "w") as fout:
-            fout.write(str(e) + str(type(e)))
+    # except Exception as e:
+    #     with open(SOLVER_AUGMENTED_REBALANCE_PLANS_DIR / ("failed_" + plan_name_on_remote), "w") as fout:
+    #         fout.write(str(e) + str(type(e)))
 
 
-def _add_extra_data_to_stable_coin_rebalance_plan(autopool: AutopoolConstants, rebalance_plan: dict) -> None:
+def _add_extra_data_to_rebalance_plan(autopool: AutopoolConstants, rebalance_plan: dict) -> None:
     dest_states = rebalance_plan["sod"]["destStates"]
 
-    backing_calls = _build_autoUSD_token_backing_calls()
+    backing_calls = [*_build_autoUSD_token_backing_calls(), *build_lst_backing_calls()]
 
     # backing is always fetched from mainnet
     backing = get_state_by_one_block(backing_calls, rebalance_plan["mainnet_block"], ETH_CHAIN)
@@ -119,45 +127,30 @@ def _add_extra_data_to_stable_coin_rebalance_plan(autopool: AutopoolConstants, r
             all_tokens.add(token)
 
     symbol_calls = [_build_symbol_call(token + "_symbol", token) for token in all_tokens]
+    decimal_calls = [_build_decimals_call(token + "_decimals", token) for token in all_tokens]
 
     this_block_this_chain_data = get_state_by_one_block(
-        [*symbol_calls, *underlying_total_supply_calls], rebalance_plan["block"], autopool.chain
+        [*symbol_calls, *underlying_total_supply_calls, *decimal_calls], rebalance_plan["block"], autopool.chain
     )
-
+    this_block_this_chain_data["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE_decimals"] = 18
+    this_block_this_chain_data["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE_symbol"] = "WETH"
     for dest in dest_states:
-        underlyingTokenSymbols = [this_block_this_chain_data[token + "_backing"] for token in dest["underlyingTokens"]]
+        # exclude the underlyign token itself for the balancer composable stable pools
+        underlyingTokenSymbols = [
+            this_block_this_chain_data[token + "_symbol"]
+            for token in dest["underlyingTokens"]
+            if ((token != dest["underlying"]) and (dest["poolType"] != "self"))
+        ]
         dest["underlyingTokenSymbols"] = underlyingTokenSymbols
-        dest["tokenBacking"] = [backing[token + "_backing"] for token in underlyingTokenSymbols]
-        dest["underlyingTotalSupply"] = this_block_this_chain_data[dest["underlying"] + "_underlying"]
-
-
-def _add_extra_data_to_eth_rebalance_plan(autopool: AutopoolConstants, rebalance_plan: dict) -> None:
-    dest_states = rebalance_plan["sod"]["destStates"]
-    backing_calls = build_lst_backing_calls()
-
-    # backing is always fetched from mainnet
-    backing = get_state_by_one_block(backing_calls, rebalance_plan["mainnet_block"], ETH_CHAIN)
-
-    # get the total supply of lp tokens in the destination  this autopool's chain
-    underlying_total_supply_calls = [
-        _build_underlyingTotalSupply_call(dest["underlying"] + "_underlying", dest["address"]) for dest in dest_states
-    ]
-
-    all_tokens = set()
-    for dest in dest_states:
-        for token in dest["underlyingTokens"]:
-            all_tokens.add(token)
-
-    symbol_calls = [_build_symbol_call(token + "_symbol", token) for token in all_tokens]
-
-    this_block_this_chain_data = get_state_by_one_block(
-        [*symbol_calls, *underlying_total_supply_calls], rebalance_plan["block"], autopool.chain
-    )
-
-    for dest in dest_states:
-        underlyingTokenSymbols = [this_block_this_chain_data[token + "_symbol"] for token in dest["underlyingTokens"]]
-        dest["underlyingTokenSymbols"] = underlyingTokenSymbols
-        dest["tokenBacking"] = [backing[token + "_backing"] for token in underlyingTokenSymbols]
+        try:
+            dest["tokenBacking"] = [backing[token + "_backing"] for token in underlyingTokenSymbols]
+        except Exception as e:
+            pass
+        dest["tokenDecimals"] = [
+            this_block_this_chain_data[token + "_decimals"]
+            for token in dest["underlyingTokens"]
+            if ((token != dest["underlying"]) and (dest["poolType"] != "self"))
+        ]
         dest["underlyingTotalSupply"] = this_block_this_chain_data[dest["underlying"] + "_underlying"]
 
 
@@ -181,7 +174,6 @@ def main():
             # As each future completes, retrieve the result or handle exceptions.
             for future in concurrent.futures.as_completed(futures):
                 future.result()
-
 
         print(autopool.name, "worked")
 

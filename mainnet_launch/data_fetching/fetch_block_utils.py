@@ -20,8 +20,8 @@ def get_nearest_block_before_timestamp_sync(timestamp: int, chain: ChainData) ->
 
     response = requests.get(url, headers=headers, params=params)
     attempts = 0
-    while (response.status_code != 200) and attempts < 3:
-        time.sleep((2**attempts) + random.random() / 10)
+    while (response.status_code != 200) and attempts < 5:
+        time.sleep((2**attempts) + (random.random() / 10))
         attempts += 1
 
         response = requests.get(url, headers=headers, params=params)
@@ -31,6 +31,9 @@ def get_nearest_block_before_timestamp_sync(timestamp: int, chain: ChainData) ->
         number = response.json()["data"][0]["block"]["number"]
     else:
         number = None
+
+    if number == None:
+        pass
     return timestamp, number
 
 
