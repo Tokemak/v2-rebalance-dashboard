@@ -136,6 +136,7 @@ def _add_extra_data_to_rebalance_plan(autopool: AutopoolConstants, rebalance_pla
     this_block_this_chain_data["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE_symbol"] = "WETH"
     for dest in dest_states:
         # exclude the underlyign token itself for the balancer composable stable pools
+        # toto fix with pool typets
         underlyingTokenSymbols = [
             this_block_this_chain_data[token + "_symbol"]
             for token in dest["underlyingTokens"]
@@ -145,7 +146,9 @@ def _add_extra_data_to_rebalance_plan(autopool: AutopoolConstants, rebalance_pla
         try:
             dest["tokenBacking"] = [backing[token + "_backing"] for token in underlyingTokenSymbols]
         except Exception as e:
+            print(dest['poolType'])
             pass
+            return
         dest["tokenDecimals"] = [
             this_block_this_chain_data[token + "_decimals"]
             for token in dest["underlyingTokens"]
@@ -154,21 +157,17 @@ def _add_extra_data_to_rebalance_plan(autopool: AutopoolConstants, rebalance_pla
         dest["underlyingTotalSupply"] = this_block_this_chain_data[dest["underlying"] + "_underlying"]
 
 
-@time_decorator
 def main():
     from mainnet_launch.constants import BASE_ETH, DINERO_ETH, AUTO_USD
     import numpy as np
 
-    failed = []
-
-    for autopool in [*ALL_AUTOPOOLS, AUTO_USD]:
+    for autopool in [AUTO_USD]:
 
         s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
         response = s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket)
         solver_plans_names_on_remote = response.get("Contents")
 
         all_rebalance_plans = [o["Key"] for o in solver_plans_names_on_remote]
-
         with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
             futures = {executor.submit(augment_a_single_plan, autopool, plan): plan for plan in all_rebalance_plans}
             # As each future completes, retrieve the result or handle exceptions.
@@ -189,7 +188,7 @@ if __name__ == "__main__":
 #         solver_plans_names_on_remote = response.get("Contents")
 #         if solver_plans_names_on_remote is not None:
 #             all_rebalance_plans = [o["Key"] for o in solver_plans_names_on_remote]
-#             local_rebalance_plans = [str(path).split("/")[-1] for path in SOLVER_REBALANCE_PLANS_DIR.glob("*.json")]
+#             local_rebalance_plan= [str(path).split("/")[-1] for path in SOLVER_REBALANCE_PLANS_DIR.glob("*.json")]
 #             rebalance_plans_to_fetch = [
 #                 json_path for json_path in all_rebalance_plans if json_path not in local_rebalance_plans
 #             ]
