@@ -1,11 +1,6 @@
 import json
-import pandas as pd
-
-from mainnet_launch.app.app_config import NUM_S3_BUCKET_FETCHING_THREADS
 
 from multicall import Call
-
-import time
 import concurrent.futures
 import boto3
 from botocore import UNSIGNED
@@ -13,14 +8,9 @@ from botocore.config import Config
 
 from mainnet_launch.constants import (
     AutopoolConstants,
-    ALL_AUTOPOOLS,
     SOLVER_AUGMENTED_REBALANCE_PLANS_DIR,
     SOLVER_REBALANCE_PLANS_DIR,
-    AUTO_USD,
-    time_decorator,
     ETH_CHAIN,
-    WETH,
-    USDC,
 )
 
 from mainnet_launch.data_fetching.fetch_block_utils import get_nearest_block_before_timestamp_sync
@@ -31,11 +21,10 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 from mainnet_launch.pages.asset_discounts.fetch_usd_asset_discounts import (
     _build_autoUSD_token_backing_calls,
-    stablecoin_tuples,
 )
 
 
-from mainnet_launch.pages.asset_discounts.fetch_eth_asset_discounts import build_lst_backing_calls, lst_tuples
+from mainnet_launch.pages.asset_discounts.fetch_eth_asset_discounts import build_lst_backing_calls
 
 
 def _build_underlyingTotalSupply_call(name, vault: str) -> Call:
@@ -62,9 +51,6 @@ def _build_decimals_call(name, address) -> Call:
     )
 
 
-# TODO add
-# chain_name, autopool_name,
-# token decimals
 def augment_a_single_plan(
     autopool: AutopoolConstants,
     plan_name_on_remote: str,
@@ -82,6 +68,7 @@ def augment_a_single_plan(
 
     # get_nearest_block_before_timestamp_sync
     # is slow ( 7 seconds), can be made faster by using a subgraph instead
+    # else this takes 5 minutes
     block_timestamp, block = get_nearest_block_before_timestamp_sync(
         rebalance_plan["timestamp"], autopool.chain
     )  # slowest part of setup
@@ -102,10 +89,6 @@ def augment_a_single_plan(
 
     with open(SOLVER_AUGMENTED_REBALANCE_PLANS_DIR / ("augmented_" + plan_name_on_remote), "w") as fout:
         json.dump(rebalance_plan, fout, indent=4, sort_keys=True)
-
-    # except Exception as e:
-    #     with open(SOLVER_AUGMENTED_REBALANCE_PLANS_DIR / ("failed_" + plan_name_on_remote), "w") as fout:
-    #         fout.write(str(e) + str(type(e)))
 
 
 def _add_extra_data_to_rebalance_plan(autopool: AutopoolConstants, rebalance_plan: dict) -> None:
@@ -134,27 +117,34 @@ def _add_extra_data_to_rebalance_plan(autopool: AutopoolConstants, rebalance_pla
     )
     this_block_this_chain_data["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE_decimals"] = 18
     this_block_this_chain_data["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE_symbol"] = "WETH"
+
     for dest in dest_states:
-        # exclude the underlyign token itself for the balancer composable stable pools
-        # toto fix with pool typets
-        underlyingTokenSymbols = [
-            this_block_this_chain_data[token + "_symbol"]
-            for token in dest["underlyingTokens"]
-            if ((token != dest["underlying"]) and (dest["poolType"] != "self"))
-        ]
-        dest["underlyingTokenSymbols"] = underlyingTokenSymbols
         try:
-            dest["tokenBacking"] = [backing[token + "_backing"] for token in underlyingTokenSymbols]
+            # fix the autoUSD pools
+            # exclude the underlyign token itself for the balancer composable stable pools
+            # toto fix with pool typets
+            underlyingTokenSymbols = [
+                this_block_this_chain_data[token + "_symbol"]
+                for token in dest["underlyingTokens"]
+                if ((token != dest["underlying"]) and (dest["poolType"] != "self"))
+            ]
+            dest["underlyingTokenSymbols"] = underlyingTokenSymbols
+            try:
+                dest["tokenBacking"] = [backing[token + "_backing"] for token in underlyingTokenSymbols]
+            except Exception as e:
+                print(dest["poolType"])
+                pass
+                return
+            dest["tokenDecimals"] = [
+                this_block_this_chain_data[token + "_decimals"]
+                for token in dest["underlyingTokens"]
+                if ((token != dest["underlying"]) and (dest["poolType"] != "self"))
+            ]
+            dest["underlyingTotalSupply"] = this_block_this_chain_data[dest["underlying"] + "_underlying"]
         except Exception as e:
-            print(dest['poolType'])
+            for k, v in dest:
+                print(k, v)
             pass
-            return
-        dest["tokenDecimals"] = [
-            this_block_this_chain_data[token + "_decimals"]
-            for token in dest["underlyingTokens"]
-            if ((token != dest["underlying"]) and (dest["poolType"] != "self"))
-        ]
-        dest["underlyingTotalSupply"] = this_block_this_chain_data[dest["underlying"] + "_underlying"]
 
 
 def main():
