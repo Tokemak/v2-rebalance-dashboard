@@ -205,7 +205,7 @@ def fetch_destination_summary_stats2(autopool: AutopoolConstants, summary_stats_
     # drop_table(DESTINATION_BLOCK_TABLE)
     # # drop_table(REBALANCE_PLAN_TABLE)
     # drop_table(DESTINATION_TOKEN_BLOCK_TABLE)
-    update_rebalance_plan_tables()
+    update_rebalance_plan_tables()  # todo make faster and not redundent
     # raise ValueError('s')
 
     query = f"""

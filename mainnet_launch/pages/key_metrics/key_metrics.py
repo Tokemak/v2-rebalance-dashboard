@@ -14,6 +14,7 @@ from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats i
 from mainnet_launch.destinations import get_destination_details
 
 
+# not certain if this should instead point at the solver rebalance plans
 def fetch_key_metrics_data(autopool: AutopoolConstants):
     blocks = build_blocks_to_use(autopool.chain)
 

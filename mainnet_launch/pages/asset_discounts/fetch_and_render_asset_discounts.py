@@ -14,6 +14,8 @@ from mainnet_launch.pages.asset_discounts.fetch_usd_asset_discounts import (
     stablecoin_tuples,
 )
 
+
+# not certain if this should point at the rebalance
 ASSET_SAFE_PRICE_AND_BACKING = "ASSET_SAFE_PRICE_AND_BACKING"
 
 

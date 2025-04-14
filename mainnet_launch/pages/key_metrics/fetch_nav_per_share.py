@@ -56,6 +56,7 @@ def nav_per_share_call(name: str, autopool_vault_address: str, decimals: int) ->
 
 
 def fetch_autopool_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
+    # not in the rebalance plans?
     add_new_nav_per_share_to_table()
     long_nav_per_share_df = get_all_rows_in_table_by_autopool(NAV_PER_SHARE_TABLE, autopool)
     nav_per_share_df = long_nav_per_share_df.pivot(
