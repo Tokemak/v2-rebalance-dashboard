@@ -23,14 +23,16 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
     asset_allocation_df.index = pd.to_datetime(asset_allocation_df.index, unit="s", utc=True)
     asset_allocation_df = asset_allocation_df.sort_index()
     asset_allocation_df = asset_allocation_df.resample("1d").last()
-    assets_percent_oracle_value_df = 100 * asset_allocation_df.div(asset_allocation_df.sum(axis=1), axis=0)
+    asset_percent_allocation_df = 100 * asset_allocation_df.div(asset_allocation_df.sum(axis=1), axis=0)
 
     st.plotly_chart(
-        px.bar(asset_allocation_df, title="TVL Safe Value by Asset", labels={"y": autopool.base_asset_symbol}),
+        px.bar(
+            asset_allocation_df, title="TVL Safe Value by Asset", labels={"yaxis_title": autopool.base_asset_symbol}
+        ),
         use_container_width=True,
     )
     st.plotly_chart(
-        px.bar(assets_percent_oracle_value_df, title="TVL Percent by Asset", labels={"value": "Percent"}),
+        px.bar(asset_percent_allocation_df, title="TVL Percent by Asset", labels={"value": "Percent"}),
         use_container_width=True,
     )
 
@@ -39,11 +41,7 @@ if __name__ == "__main__":
     from mainnet_launch.constants import ALL_AUTOPOOLS
 
     for a in ALL_AUTOPOOLS:
-        try:
-            fetch_and_render_asset_allocation_over_time(a)
-        except Exception as e:
-            print(a.name)
-    pass
+        fetch_and_render_asset_allocation_over_time(a)
 
 
 # import pandas as pd
