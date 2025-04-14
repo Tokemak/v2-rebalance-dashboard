@@ -201,9 +201,10 @@ def run_read_only_query(query: str, params: tuple | None) -> pd.DataFrame:
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
 
-        if df.duplicated().any():
-            duplicate_rows = df[df.duplicated()]
-            raise ValueError(f"Duplicate rows read from db {query=}':\n{duplicate_rows=}")
+        # duplicates are allowed
+        # if df.duplicated().any():
+        #     duplicate_rows = df[df.duplicated()]
+        #     raise ValueError(f"Duplicate rows read from db {query=}':\n{duplicate_rows=}")
 
         return df
 

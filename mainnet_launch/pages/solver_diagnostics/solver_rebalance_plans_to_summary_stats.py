@@ -61,12 +61,15 @@ class DestinationTokenBlockData:
     safe_price: float
     spot_price: float
     backing: float
-    amount: float
+    amount: float  # total amount in the pool, not just ours
     decimals: int
 
     discountViolationAddFlag: bool
     discountViolationTrim1Flag: bool
     discountViolationTrim2Flag: bool
+
+    # not certain this is the right place for it
+    portion_ownership: float
 
     def to_record(self) -> dict:
         # returns a flat dict repersentation of the class
@@ -83,6 +86,9 @@ def _extract_plan_data(rebalance_plan: dict) -> PlanData:
         block=rebalance_plan["block"],
         block_timestamp=rebalance_plan["block_timestamp"],
         solver_timestamp=rebalance_plan["mainnet_block_timestamp"],
+        # TODO switch over here in the database file
+        # block_timestamp=pd.to_datetime(rebalance_plan["block_timestamp"], unit='s', utc=True),
+        # solver_timestamp=pd.to_datetime(rebalance_plan["mainnet_block_timestamp"], unit='s', utc=True)
     )
 
 
@@ -138,6 +144,7 @@ def _extract_destination_token_block_data(plan_data: PlanData, dest: dict) -> li
                 discountViolationAddFlag=dest["discountViolationAddFlag"][i],
                 discountViolationTrim1Flag=dest["discountViolationTrim1Flag"][i],
                 discountViolationTrim2Flag=dest["discountViolationTrim2Flag"][i],
+                portion_ownership=(dest["ownedShares"] / 1e18) / dest["underlyingTotalSupply"],
             )
         )
 
@@ -189,16 +196,16 @@ def update_rebalance_plan_tables():
     destination_block_df = pd.concat(destination_block_dfs, axis=0)
     destination_token_block_df = pd.concat(destination_token_block_dfs, axis=0)
 
-    write_dataframe_to_table(plan_df, REBALANCE_PLAN_TABLE)
+    # write_dataframe_to_table(plan_df, REBALANCE_PLAN_TABLE)
     write_dataframe_to_table(destination_block_df, DESTINATION_BLOCK_TABLE)
     write_dataframe_to_table(destination_token_block_df, DESTINATION_TOKEN_BLOCK_TABLE)
 
 
 def fetch_destination_summary_stats2(autopool: AutopoolConstants, summary_stats_field: str):
     # drop_table(DESTINATION_BLOCK_TABLE)
-    # drop_table(REBALANCE_PLAN_TABLE)
+    # # drop_table(REBALANCE_PLAN_TABLE)
     # drop_table(DESTINATION_TOKEN_BLOCK_TABLE)
-    # update_rebalance_plan_tables()
+    update_rebalance_plan_tables()
     # raise ValueError('s')
 
     query = f"""
@@ -210,7 +217,6 @@ def fetch_destination_summary_stats2(autopool: AutopoolConstants, summary_stats_
     summary_stats_df = pd.pivot(
         long_summary_stats_df, columns="vault_name", values=summary_stats_field, index="block_timestamp"
     )
-    summary_stats_df.index = pd.to_datetime(summary_stats_df.index, unit="s", utc=True)
     return summary_stats_df
 
 
@@ -218,7 +224,8 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import AUTO_ETH
 
-    # drop_table(DESTINATION_TOKEN_BLOCK_TABLE)
+    drop_table(DESTINATION_TOKEN_BLOCK_TABLE)
+
     a = fetch_destination_summary_stats2(AUTO_ETH, "underlying_total_supply")
     print(a.tail())
 
