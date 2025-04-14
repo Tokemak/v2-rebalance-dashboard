@@ -30,9 +30,9 @@ sDAI = "0x83F20F44975D03b1b09e64809B757c47f942BEeA"
 sfrxUSD = "0xcf62F905562626CfcDD2261162a51fd02Fc9c5b6"
 
 
-aUSDT = "0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8"
-aUSDC = "0xD4fa2D31b7968E448877f69A96DE69f5de8cD23E"
-aGHO = "0xC71Ea051a5F82c67ADcF634c36FFE6334793D24C"
+waEthUSDT = "0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8"
+waEthUSDC = "0xD4fa2D31b7968E448877f69A96DE69f5de8cD23E"
+waEthLidoGHO = "0xC71Ea051a5F82c67ADcF634c36FFE6334793D24C"
 
 
 stablecoin_tuples = [
@@ -51,29 +51,29 @@ stablecoin_tuples = [
     (sFRAX, "sFRAX"),
     (sfrxUSD, "sfrxUSD"),
     (sDAI, "sDAI"),
-    (aUSDT, "aUSDT"),
-    (aUSDC, "aUSDC"),
-    (aGHO, "aGHO"),
+    (waEthUSDT, "waEthUSDT "),
+    (waEthUSDC, "waEthUSDC"),
+    (waEthLidoGHO, "waEthLidoGHO"),
 ]
 
 
 def _build_autoUSD_token_backing_calls() -> list[Call]:
-    aUSDT_backing = Call(
-        aUSDT,
+    waEthUSDT_backing = Call(
+        waEthUSDT,
         ["convertToAssets(uint256)(uint256)", int(1e18)],
-        [("aUSDT_backing", safe_normalize_with_bool_success)],
+        [("waEthUSDT_backing", safe_normalize_with_bool_success)],
     )
 
-    aUSDC_backing = Call(
-        aUSDC,
+    waEthUSDC_backing = Call(
+        waEthUSDC,
         ["convertToAssets(uint256)(uint256)", int(1e18)],
-        [("aUSDC_backing", safe_normalize_with_bool_success)],
+        [("waEthUSDC_backing", safe_normalize_with_bool_success)],
     )
 
-    aGHO_backing = Call(
-        aGHO,
+    waEthLidoGHO_backing = Call(
+        waEthLidoGHO,
         ["convertToAssets(uint256)(uint256)", int(1e18)],
-        [("aGHO_backing", safe_normalize_with_bool_success)],
+        [("waEthLidoGHO_backing", safe_normalize_with_bool_success)],
     )
 
     sUSDS_backing = Call(
@@ -124,9 +124,9 @@ def _build_autoUSD_token_backing_calls() -> list[Call]:
         make_dummy_1_call("USDS_backing"),
         make_dummy_1_call("FRAX_backing"),
         make_dummy_1_call("frxUSD_backing"),
-        aUSDT_backing,
-        aUSDC_backing,
-        aGHO_backing,
+        waEthUSDT_backing,
+        waEthUSDC_backing,
+        waEthLidoGHO_backing,
         sUSDS_backing,
         sUSDe_backing,
         scrvUSD_backing,

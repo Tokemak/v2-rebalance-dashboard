@@ -11,6 +11,7 @@ from mainnet_launch.constants import (
     SOLVER_AUGMENTED_REBALANCE_PLANS_DIR,
     SOLVER_REBALANCE_PLANS_DIR,
     ETH_CHAIN,
+    POINTS_HOOK,
 )
 
 from mainnet_launch.data_fetching.fetch_block_utils import get_nearest_block_before_timestamp_sync
@@ -25,6 +26,14 @@ from mainnet_launch.pages.asset_discounts.fetch_usd_asset_discounts import (
 
 
 from mainnet_launch.pages.asset_discounts.fetch_eth_asset_discounts import build_lst_backing_calls
+
+
+def _build_points_calls(name: str, destination_vault_address: str) -> Call:
+    return Call(
+        POINTS_HOOK(ETH_CHAIN),
+        ["destinationBoosts(address)(uint256)", destination_vault_address],
+        [(name, safe_normalize_with_bool_success)],
+    )
 
 
 def _build_underlyingTotalSupply_call(name, vault: str) -> Call:
@@ -88,16 +97,17 @@ def augment_a_single_plan(
     _add_extra_data_to_rebalance_plan(autopool, rebalance_plan)
 
     with open(SOLVER_AUGMENTED_REBALANCE_PLANS_DIR / ("augmented_" + plan_name_on_remote), "w") as fout:
-        json.dump(rebalance_plan, fout, indent=4, sort_keys=True)
+        json.dump(rebalance_plan, fout, indent=4)
 
 
 def _add_extra_data_to_rebalance_plan(autopool: AutopoolConstants, rebalance_plan: dict) -> None:
     dest_states = rebalance_plan["sod"]["destStates"]
+    points_calls = [_build_points_calls(dest["address"] + "_pointsAPR", dest["address"]) for dest in dest_states]
 
-    backing_calls = [*_build_autoUSD_token_backing_calls(), *build_lst_backing_calls()]
+    mainnet_calls = [*_build_autoUSD_token_backing_calls(), *build_lst_backing_calls(), *points_calls]
 
     # backing is always fetched from mainnet
-    backing = get_state_by_one_block(backing_calls, rebalance_plan["mainnet_block"], ETH_CHAIN)
+    this_block_mainnet_data = get_state_by_one_block(mainnet_calls, rebalance_plan["mainnet_block"], ETH_CHAIN)
 
     # get the total supply of lp tokens in the destination  this autopool's chain
     underlying_total_supply_calls = [
@@ -109,8 +119,8 @@ def _add_extra_data_to_rebalance_plan(autopool: AutopoolConstants, rebalance_pla
         for token in dest["underlyingTokens"]:
             all_tokens.add(token)
 
-    symbol_calls = [_build_symbol_call(token + "_symbol", token) for token in all_tokens]
-    decimal_calls = [_build_decimals_call(token + "_decimals", token) for token in all_tokens]
+    symbol_calls = [_build_symbol_call(token_address + "_symbol", token_address) for token_address in all_tokens]
+    decimal_calls = [_build_decimals_call(token_address + "_decimals", token_address) for token_address in all_tokens]
 
     this_block_this_chain_data = get_state_by_one_block(
         [*symbol_calls, *underlying_total_supply_calls, *decimal_calls], rebalance_plan["block"], autopool.chain
@@ -119,39 +129,53 @@ def _add_extra_data_to_rebalance_plan(autopool: AutopoolConstants, rebalance_pla
     this_block_this_chain_data["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE_symbol"] = "WETH"
 
     for dest in dest_states:
-        try:
-            # fix the autoUSD pools
-            # exclude the underlyign token itself for the balancer composable stable pools
-            # toto fix with pool typets
-            underlyingTokenSymbols = [
-                this_block_this_chain_data[token + "_symbol"]
-                for token in dest["underlyingTokens"]
-                if ((token != dest["underlying"]) and (dest["poolType"] != "self"))
-            ]
-            dest["underlyingTokenSymbols"] = underlyingTokenSymbols
-            try:
-                dest["tokenBacking"] = [backing[token + "_backing"] for token in underlyingTokenSymbols]
-            except Exception as e:
-                print(dest["poolType"])
-                pass
-                return
-            dest["tokenDecimals"] = [
-                this_block_this_chain_data[token + "_decimals"]
-                for token in dest["underlyingTokens"]
-                if ((token != dest["underlying"]) and (dest["poolType"] != "self"))
-            ]
-            dest["underlyingTotalSupply"] = this_block_this_chain_data[dest["underlying"] + "_underlying"]
-        except Exception as e:
-            for k, v in dest:
-                print(k, v)
-            pass
+        token_symbols = []
+        token_backing = []
+        token_decimals = []
+
+        for i in range(len(dest["underlyingTokens"])):
+            token_address = dest["underlyingTokens"][i]
+            token_symbol = this_block_this_chain_data[token_address + "_symbol"]
+
+            if token_symbol + "_backing" in this_block_mainnet_data:
+                # excludes tokens that we don't know the backing for, eg the balancer composable pool tokens
+                tokenBacking = this_block_mainnet_data[token_symbol + "_backing"]
+                tokenDecimals = this_block_this_chain_data[token_address + "_decimals"]
+
+                token_symbols.append(token_symbol)
+                token_backing.append(tokenBacking)
+                token_decimals.append(tokenDecimals)
+
+        # pool level
+        dest["underlyingTotalSupply"] = this_block_this_chain_data[dest["underlying"] + "_underlying"]
+        dest["pointsApr"] = this_block_mainnet_data[dest["address"] + "_pointsAPR"]
+
+        dest["underlyingTokenSymbols"] = token_symbols
+        dest["tokenBacking"] = token_backing
+        dest["tokenDecimals"] = token_decimals
+
+        # fix the autoUSD pools
+        # exclude the underlyign token itself for the balancer composable stable pools
+        # toto fix with pool typets
+        underlyingTokenSymbols = [
+            this_block_this_chain_data[token_address + "_symbol"] for token_address in dest["underlyingTokens"]
+        ]
+        dest["underlyingTokenSymbols"] = underlyingTokenSymbols
+        dest["tokenBacking"] = [
+            this_block_mainnet_data[token_symbol + "_backing"]
+            for token_symbol in underlyingTokenSymbols
+            if token_symbol + "_backing" in this_block_mainnet_data
+        ]
+        dest["tokenDecimals"] = [this_block_this_chain_data[token + "_decimals"] for token in dest["underlyingTokens"]]
+        dest["underlyingTotalSupply"] = this_block_this_chain_data[dest["underlying"] + "_underlying"]
+        dest["pointsApr"] = this_block_mainnet_data[dest["address"] + "_pointsAPR"]
 
 
 def main():
-    from mainnet_launch.constants import BASE_ETH, DINERO_ETH, AUTO_USD
+    from mainnet_launch.constants import ALL_AUTOPOOLS, BASE_ETH, DINERO_ETH, AUTO_USD, AUTO_LRT, BAL_ETH
     import numpy as np
 
-    for autopool in [AUTO_USD]:
+    for autopool in [*ALL_AUTOPOOLS, AUTO_USD]:
 
         s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
         response = s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket)

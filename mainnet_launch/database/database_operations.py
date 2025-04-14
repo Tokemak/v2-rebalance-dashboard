@@ -196,16 +196,13 @@ def load_table(table_name: str, where_clause: Optional[str] = None, params=None)
 
 
 def run_read_only_query(query: str, params: tuple | None) -> pd.DataFrame:
+    if params is not None:
+        if not isinstance(params, tuple):
+            raise TypeError(f"params must be a tuple was {type(params)=} {params=}")
     with sqlite3.connect(DB_FILE) as conn:
         df = pd.read_sql_query(query, conn, params=params)
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(df["timestamp"], format="ISO8601", utc=True)
-
-        # duplicates are allowed
-        # if df.duplicated().any():
-        #     duplicate_rows = df[df.duplicated()]
-        #     raise ValueError(f"Duplicate rows read from db {query=}':\n{duplicate_rows=}")
-
         return df
 
 

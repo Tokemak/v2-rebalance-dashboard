@@ -7,58 +7,92 @@ import streamlit as st
 from mainnet_launch.constants import AutopoolConstants
 from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import (
     fetch_destination_summary_stats,
-    get_destination_details,
 )
+
+from mainnet_launch.pages.solver_diagnostics.solver_rebalance_plans_to_summary_stats import DESTINATION_BLOCK_TABLE
+from mainnet_launch.database.database_operations import run_read_only_query
 
 
 def fetch_and_render_destination_apr_data(autopool: AutopoolConstants) -> go.Figure:
-    priceReturn_df = 100 * fetch_destination_summary_stats(autopool, "priceReturn")
-    baseApr_df = 100 * fetch_destination_summary_stats(autopool, "baseApr")
-    feeApr_df = 100 * fetch_destination_summary_stats(autopool, "feeApr")
-    incentiveApr_df = 100 * fetch_destination_summary_stats(autopool, "incentiveApr")
-    pointsApr_df = 100 * fetch_destination_summary_stats(autopool, "pointsApr")
+    pool_backing = fetch_destination_summary_stats(autopool, "pool_backing")
+    pool_safe_price = fetch_destination_summary_stats(autopool, "pool_safe_price")
+    price_return_df = (pool_backing - pool_safe_price).div(pool_backing)
+    incentiveApr_df = 100 * fetch_destination_summary_stats(autopool, "incentive_apr") * 0.9
+    total_apr_in = 100 * fetch_destination_summary_stats(autopool, "total_apr_in")
+    fee_plus_base_apr_df = total_apr_in - incentiveApr_df
+    pointsApr_df = 100 * fetch_destination_summary_stats(autopool, "points_apr")
 
-    st.title("Destination APR Components")
+    total_apr_out = 100 * fetch_destination_summary_stats(autopool, "total_apr_out")
+
+    st.subheader("Destination APR Components")
 
     destination_choice = st.selectbox("Select a destination", pointsApr_df.columns)
 
     plot_data = pd.DataFrame(
         {
-            "Price Return": priceReturn_df[destination_choice],
-            "Base APR": baseApr_df[destination_choice],
+            "Price Return": price_return_df[destination_choice],
+            "Base + Fee APR": fee_plus_base_apr_df[destination_choice],
             "Incentive APR": incentiveApr_df[destination_choice],
-            "Fee APR": feeApr_df[destination_choice],
             "Points APR": pointsApr_df[destination_choice],
+            "Total APR In": total_apr_in[destination_choice],
+            "Total APR Out": total_apr_out[destination_choice],
         },
         index=pointsApr_df.index,
     )
-    the_destinations = [d for d in get_destination_details(autopool) if d.vault_name == destination_choice]
 
-    apr_components_fig = px.line(plot_data, title=f"APR Components for {destination_choice}")
-    _apply_default_style(apr_components_fig)
+    st.plotly_chart(px.line(plot_data, title=f"APR Components {destination_choice}"), use_container_width=True)
 
-    st.plotly_chart(apr_components_fig, use_container_width=True)
-    st.write("Shows Unweighted Base, Fee, Incentive and Price Return of each Destination")
+    st.subheader("APR signals")
+    apr_choices = ["Price Return", "Base + Fee APR", "Incentive APR", "Points APR", "Total APR In", "Total APR Out"]
+    apr_choice = st.selectbox("Select a Signal", apr_choices)
 
-    with st.expander("Destination Addresses"):
-        st.text(f"{the_destinations[0].vault_name}")
-        for dest in the_destinations:
-            st.text(f"{dest.vaultAddress=} {dest.dexPool=} {dest.lpTokenAddress=}")
+    if apr_choice == "Price Return":
+        fig = px.line(price_return_df, title=apr_choice)
+    elif apr_choice == "Base + Fee APR":
+        fig = px.line(fee_plus_base_apr_df, title=apr_choice)
+    elif apr_choice == "Incentive APR":
+        fig = px.line(incentiveApr_df, title=apr_choice)
+    elif apr_choice == "Points APR":
+        fig = px.line(pointsApr_df, title=apr_choice)
+    elif apr_choice == "Total APR In":
+        fig = px.line(total_apr_in, title=apr_choice)
+    elif apr_choice == "Total APR Out":
+        fig = px.line(total_apr_out, title=apr_choice)
 
+    st.plotly_chart(fig, use_container_width=True)
 
-def _apply_default_style(fig: go.Figure) -> None:
+    vault_address_df = run_read_only_query(
+        f"""
+        SELECT DISTINCT
 
-    fig.update_traces(line=dict(width=3))
-    fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=80),
-        height=600,
-        width=600 * 3,
-        font=dict(size=16),
-        xaxis_title="",
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        xaxis=dict(showgrid=True, gridcolor="lightgray"),
-        yaxis=dict(showgrid=True, gridcolor="lightgray"),
-        colorway=px.colors.qualitative.Set2,
+        destination_vault,
+        vault_name, 
+        pool_type, 
+        pool, 
+        underlying
+        
+        FROM {DESTINATION_BLOCK_TABLE}
+
+        WHERE 
+
+        autopool = ?
+
+        """,
+        (autopool.name,),
     )
+
+    with st.expander("Description"):
+        st.markdown(
+            """                    
+                    Price Return (pool backing - pool safe price) / pool backing
+                    Fee + Base Apr = Total APR In - Incentive APR
+                    """
+        )
+
+        st.table(vault_address_df[vault_address_df["destination_vault"] == destination_choice])
+
+
+if __name__ == "__main__":
+    from mainnet_launch.constants import AUTO_USD
+
+    fetch_and_render_destination_apr_data(AUTO_USD)

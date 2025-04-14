@@ -19,15 +19,37 @@ class PlanData:
     block: int
     block_timestamp: int
     solver_timestamp: int
+    file_name: str
+
+
+def _extract_plan_data(rebalance_plan: dict) -> PlanData:
+    return PlanData(
+        autopool=rebalance_plan["autopool"],
+        chain=rebalance_plan["chain"],
+        block=rebalance_plan["block"],
+        block_timestamp=rebalance_plan["block_timestamp"],
+        solver_timestamp=rebalance_plan["mainnet_block_timestamp"],
+        file_name=rebalance_plan["file_name"],
+    )
 
 
 @dataclass
 class DestinationData:
     destination_vault: str
     vault_name: str
-    poolType: str
+    pool_type: str
     pool: str
     underlying: str
+
+
+def _extract_destination_data(dest: dict) -> DestinationData:
+    return DestinationData(
+        destination_vault=dest["address"],
+        vault_name=dest["name"].replace("Tokemak-Wrapped Ether-", ""),
+        pool_type=dest["poolType"],
+        pool=dest["pool"],
+        underlying=dest["underlying"],
+    )
 
 
 @dataclass
@@ -42,6 +64,7 @@ class DestinationBlockData:
     incentive_apr: float
     total_apr_in: float
     total_apr_out: float
+    points_apr: float
 
     def to_record(self) -> dict:
         # returns a flat dict
@@ -49,6 +72,31 @@ class DestinationBlockData:
         items.update(vars(items.pop("plan_data")))
         items.update(vars(items.pop("destination_data")))
         return items
+
+
+def _extract_destination_block_data(plan_data: PlanData, dest: dict) -> DestinationBlockData:
+    total_pool_backing = [
+        (amount / 10**tokenDecimals) * backing
+        for (amount, tokenDecimals, backing) in zip(
+            dest["underlyingTokenAmounts"], dest["tokenDecimals"], dest["tokenBacking"]
+        )
+    ]
+    pool_backing = sum(total_pool_backing) / dest["underlyingTotalSupply"]
+    destination_data = _extract_destination_data(dest)
+
+    return DestinationBlockData(
+        plan_data=plan_data,
+        destination_data=destination_data,
+        pool_spot_price=dest["spotPrice"],
+        pool_safe_price=dest["safePrice"],
+        pool_backing=pool_backing,
+        autopool_owned_shares=dest["ownedShares"] / 1e18,
+        underlying_total_supply=dest["underlyingTotalSupply"],
+        incentive_apr=dest["incentiveAPR"],
+        total_apr_in=dest["totalAprIn"],
+        total_apr_out=dest["totalAprOut"],
+        points_apr=dest["pointsApr"],
+    )
 
 
 @dataclass
@@ -79,56 +127,12 @@ class DestinationTokenBlockData:
         return items
 
 
-def _extract_plan_data(rebalance_plan: dict) -> PlanData:
-    return PlanData(
-        autopool=rebalance_plan["autopool"],
-        chain=rebalance_plan["chain"],
-        block=rebalance_plan["block"],
-        block_timestamp=rebalance_plan["block_timestamp"],
-        solver_timestamp=rebalance_plan["mainnet_block_timestamp"],
-        # TODO switch over here in the database file
-        # block_timestamp=pd.to_datetime(rebalance_plan["block_timestamp"], unit='s', utc=True),
-        # solver_timestamp=pd.to_datetime(rebalance_plan["mainnet_block_timestamp"], unit='s', utc=True)
-    )
-
-
-def _extract_destination_data(dest: dict) -> DestinationData:
-    return DestinationData(
-        destination_vault=dest["address"],
-        vault_name=dest["name"].replace("Tokemak-Wrapped Ether-", ""),
-        poolType=dest["poolType"],
-        pool=dest["pool"],
-        underlying=dest["underlying"],
-    )
-
-
-def _extract_destination_block_data(plan_data: PlanData, dest: dict) -> DestinationBlockData:
-    total_pool_backing = [
-        (amount / 10**tokenDecimals) * backing
-        for (amount, tokenDecimals, backing) in zip(
-            dest["underlyingTokenAmounts"], dest["tokenDecimals"], dest["tokenBacking"]
-        )
-    ]
-    pool_backing = sum(total_pool_backing) / dest["underlyingTotalSupply"]
-    destination_data = _extract_destination_data(dest)
-
-    return DestinationBlockData(
-        plan_data=plan_data,
-        destination_data=destination_data,
-        pool_spot_price=dest["spotPrice"],
-        pool_safe_price=dest["safePrice"],
-        pool_backing=pool_backing,
-        autopool_owned_shares=dest["ownedShares"] / 1e18,
-        underlying_total_supply=dest["underlyingTotalSupply"],
-        incentive_apr=dest["incentiveAPR"],
-        total_apr_in=dest["totalAprIn"],
-        total_apr_out=dest["totalAprOut"],
-    )
-
-
 def _extract_destination_token_block_data(plan_data: PlanData, dest: dict) -> list[DestinationTokenBlockData]:
     destination_data = _extract_destination_data(dest)
     destination_token_block_data = []
+
+    dest["underlyingTokens"] = [d for d in dest["underlyingTokens"] if d != dest["pool"]]
+
     for i in range(len(dest["underlyingTokens"])):
         destination_token_block_data.append(
             DestinationTokenBlockData(
@@ -154,6 +158,7 @@ def _extract_destination_token_block_data(plan_data: PlanData, dest: dict) -> li
 def _extract_all_token_plan_data(rebalance_plan_path: str):
     with open(rebalance_plan_path, "r") as fin:
         rebalance_plan = json.load(fin)
+        rebalance_plan["file_name"] = str(rebalance_plan_path).split("/")[-1].replace(".json", "")
 
         plan_data = _extract_plan_data(rebalance_plan)
         state_of_destinations = rebalance_plan["sod"]["destStates"]
@@ -173,8 +178,42 @@ def _extract_all_token_plan_data(rebalance_plan_path: str):
         return plan_df, destination_block_df, destination_token_block_df
 
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
 @time_decorator
-def update_rebalance_plan_tables():
+def update_rebalance_plan_tables_fast():
+    plans = [p for p in SOLVER_AUGMENTED_REBALANCE_PLANS_DIR.glob("*.json")]
+
+    print(len(plans))
+
+    plan_dfs = []
+    destination_block_dfs = []
+    destination_token_block_dfs = []
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(_extract_all_token_plan_data, p) for p in plans]
+
+        for future in as_completed(futures):
+            plan_df, destination_block_df, destination_token_block_df = future.result()
+            plan_dfs.append(plan_df)
+            destination_block_dfs.append(destination_block_df)
+            destination_token_block_dfs.append(destination_token_block_df)
+
+    plan_df = pd.concat(plan_dfs, axis=0)
+    destination_block_df = pd.concat(destination_block_dfs, axis=0)
+    destination_token_block_df = pd.concat(destination_token_block_dfs, axis=0)
+
+    drop_table(DESTINATION_BLOCK_TABLE)
+    drop_table(DESTINATION_TOKEN_BLOCK_TABLE)
+
+    # write_dataframe_to_table(plan_df, REBALANCE_PLAN_TABLE)
+    write_dataframe_to_table(destination_block_df, DESTINATION_BLOCK_TABLE)
+    write_dataframe_to_table(destination_token_block_df, DESTINATION_TOKEN_BLOCK_TABLE)
+
+
+@time_decorator
+def update_rebalance_plan_tables2():
     plans = [p for p in SOLVER_AUGMENTED_REBALANCE_PLANS_DIR.glob("*.json")]
 
     plan_dfs = []
@@ -184,7 +223,6 @@ def update_rebalance_plan_tables():
     failed = []
     for p in plans:
         try:
-            # too slow
             plan_df, destination_block_df, destination_token_block_df = _extract_all_token_plan_data(p)
             plan_dfs.append(plan_df)
             destination_block_dfs.append(destination_block_df)
@@ -205,11 +243,11 @@ def fetch_destination_summary_stats2(autopool: AutopoolConstants, summary_stats_
     # drop_table(DESTINATION_BLOCK_TABLE)
     # # drop_table(REBALANCE_PLAN_TABLE)
     # drop_table(DESTINATION_TOKEN_BLOCK_TABLE)
-    update_rebalance_plan_tables()  # todo make faster and not redundent
+    # update_rebalance_plan_tables()  # todo make faster and not redundent
     # raise ValueError('s')
-
+    # not certain, but I think distinct makes sense here
     query = f"""
-        SELECT vault_name, block_timestamp, {summary_stats_field} from {DESTINATION_BLOCK_TABLE}
+        SELECT DISTINCT vault_name, block_timestamp, {summary_stats_field} from {DESTINATION_BLOCK_TABLE}
         WHERE autopool = ?
         """
     params = (autopool.name,)
@@ -217,17 +255,19 @@ def fetch_destination_summary_stats2(autopool: AutopoolConstants, summary_stats_
     summary_stats_df = pd.pivot(
         long_summary_stats_df, columns="vault_name", values=summary_stats_field, index="block_timestamp"
     )
+    summary_stats_df.columns = sorted(summary_stats_df.columns)  # ensure a consistant order
     return summary_stats_df
 
 
 if __name__ == "__main__":
+    update_rebalance_plan_tables_fast()
 
-    from mainnet_launch.constants import AUTO_ETH
+    # from mainnet_launch.constants import AUTO_ETH
 
-    drop_table(DESTINATION_TOKEN_BLOCK_TABLE)
+    # drop_table(DESTINATION_TOKEN_BLOCK_TABLE)
 
-    a = fetch_destination_summary_stats2(AUTO_ETH, "underlying_total_supply")
-    print(a.tail())
+    # a = fetch_destination_summary_stats2(AUTO_ETH, "underlying_total_supply")
+    # print(a.tail())
 
-    print(a.tail(1).T)
-    pass
+    # print(a.tail(1).T)
+    # pass
