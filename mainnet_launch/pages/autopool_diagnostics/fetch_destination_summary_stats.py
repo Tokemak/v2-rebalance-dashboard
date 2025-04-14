@@ -295,7 +295,14 @@ def _build_destination_points_calls(destination_details: set[DestinationDetails]
     return destination_points_calls
 
 
+from mainnet_launch.pages.solver_diagnostics.solver_rebalance_plans_to_summary_stats import (
+    fetch_destination_summary_stats2,
+)
+
+
 def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_field: str):
+    return fetch_destination_summary_stats2(autopool, summary_stats_field)
+
     if summary_stats_field not in SUMMARY_STATS_FIELDS:
         raise ValueError(f"Can only fetch {SUMMARY_STATS_FIELDS=} you tried to fetch {summary_stats_field=}")
 

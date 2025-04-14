@@ -10,7 +10,6 @@ from mainnet_launch.database.database_operations import write_dataframe_to_table
 REBALANCE_PLAN_TABLE = "REBALANCE_PLAN_TABLE"
 DESTINATION_BLOCK_TABLE = "DESTINATION_BLOCK_DATA_TABLE"
 DESTINATION_TOKEN_BLOCK_TABLE = "DESTINATION_TOKEN_BLOCK_TABLE"
-drop_table(DESTINATION_TOKEN_BLOCK_TABLE)
 
 
 @dataclass
@@ -90,7 +89,7 @@ def _extract_plan_data(rebalance_plan: dict) -> PlanData:
 def _extract_destination_data(dest: dict) -> DestinationData:
     return DestinationData(
         destination_vault=dest["address"],
-        vault_name=dest["name"],
+        vault_name=dest["name"].replace("Tokemak-Wrapped Ether-", ""),
         poolType=dest["poolType"],
         pool=dest["pool"],
         underlying=dest["underlying"],
@@ -115,9 +114,9 @@ def _extract_destination_block_data(plan_data: PlanData, dest: dict) -> Destinat
         pool_backing=pool_backing,
         autopool_owned_shares=dest["ownedShares"] / 1e18,
         underlying_total_supply=dest["underlyingTotalSupply"],
-        incentive_apr=100 * dest["incentiveAPR"],
-        total_apr_in=100 * dest["totalAprIn"],
-        total_apr_out=100 * dest["totalAprOut"],
+        incentive_apr=dest["incentiveAPR"],
+        total_apr_in=dest["totalAprIn"],
+        total_apr_out=dest["totalAprOut"],
     )
 
 
@@ -178,6 +177,7 @@ def update_rebalance_plan_tables():
     failed = []
     for p in plans:
         try:
+            # too slow
             plan_df, destination_block_df, destination_token_block_df = _extract_all_token_plan_data(p)
             plan_dfs.append(plan_df)
             destination_block_dfs.append(destination_block_df)
@@ -194,8 +194,12 @@ def update_rebalance_plan_tables():
     write_dataframe_to_table(destination_token_block_df, DESTINATION_TOKEN_BLOCK_TABLE)
 
 
-def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_field: str):
-    update_rebalance_plan_tables()
+def fetch_destination_summary_stats2(autopool: AutopoolConstants, summary_stats_field: str):
+    # drop_table(DESTINATION_BLOCK_TABLE)
+    # drop_table(REBALANCE_PLAN_TABLE)
+    # drop_table(DESTINATION_TOKEN_BLOCK_TABLE)
+    # update_rebalance_plan_tables()
+    # raise ValueError('s')
 
     query = f"""
         SELECT vault_name, block_timestamp, {summary_stats_field} from {DESTINATION_BLOCK_TABLE}
@@ -206,7 +210,7 @@ def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_f
     summary_stats_df = pd.pivot(
         long_summary_stats_df, columns="vault_name", values=summary_stats_field, index="block_timestamp"
     )
-
+    summary_stats_df.index = pd.to_datetime(summary_stats_df.index, unit="s", utc=True)
     return summary_stats_df
 
 
@@ -214,7 +218,8 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import AUTO_ETH
 
-    a = fetch_destination_summary_stats(AUTO_ETH, "underlying_total_supply")
+    # drop_table(DESTINATION_TOKEN_BLOCK_TABLE)
+    a = fetch_destination_summary_stats2(AUTO_ETH, "underlying_total_supply")
     print(a.tail())
 
     print(a.tail(1).T)
