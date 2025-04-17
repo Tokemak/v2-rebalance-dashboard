@@ -25,5 +25,3 @@ def reset_dev_local_branch_to_match_production():
         print("Dev branch successfully reset to match production!")
     else:
         print("Error resetting dev branch:", response.status_code, response.text)
-
-
