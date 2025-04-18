@@ -92,9 +92,18 @@ class Destinations(Base):
     pool: Mapped[str] = mapped_column(nullable=False)
     underlying: Mapped[str] = mapped_column(nullable=False)
     # not certain here on the underlying ARRAY format,
-    underlying_tokens: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
 
     __table_args__ = (ForeignKeyConstraint(["block_deployed", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
+
+
+class DestinationTokens(Base):
+    __tablename__ = "destination_tokens"
+
+    destination_vault_address: Mapped[str] = mapped_column(
+        ForeignKey("destinations.destination_vault_address"), primary_key=True
+    )
+    underlying_asset: Mapped[str] = mapped_column(ForeignKey("tokens.address"), primary_key=True)
+    index: Mapped[int] = mapped_column(nullable=False)
 
 
 from sqlalchemy.orm import Mapped, mapped_column
