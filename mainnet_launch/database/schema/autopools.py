@@ -5,6 +5,7 @@ import pandas as pd
 
 from mainnet_launch.database.schema.base_tables import Base
 
+
 class AutopoolStates(Base):
     __tablename__ = "autopool_states"
 
