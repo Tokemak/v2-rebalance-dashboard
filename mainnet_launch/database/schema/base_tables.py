@@ -1,7 +1,7 @@
 # The primary objects
 
-from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_column, column_property
-from sqlalchemy import DateTime, ForeignKeyConstraint, create_engine, String, ForeignKey, select
+from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_column
+from sqlalchemy import DateTime, ForeignKey
 import pandas as pd
 
 
@@ -27,9 +27,7 @@ class Transactions(Base):
     to_address: Mapped[int] = mapped_column(nullable=False)
     effective_gas_price: Mapped[int] = mapped_column(nullable=False)
     gas_used: Mapped[int] = mapped_column(nullable=False)
-    # defined as gas_used * effective_gas_price
-    gas_cost_in_eth: Mapped[float] = mapped_column(nullable=False)
-    label: Mapped[str] = mapped_column(nullable=True)  # what kind of transaction this is (solver, rebalance etc?)
+    gas_cost_in_eth: Mapped[float] = mapped_column(nullable=False)  # gas_used * effective_gas_price
 
 
 class Tokens(Base):
@@ -69,7 +67,5 @@ class Destinations(Base):
     pool: Mapped[str] = mapped_column(nullable=False)
     underlying: Mapped[str] = mapped_column(nullable=False)
 
-    # not certain here on how to connect it to the 
+    # not certain here on how to connect it to the
     underlying_tokens: Mapped[list[str]] = mapped_column(nullable=False)
-
-

@@ -1,11 +1,9 @@
 # details about tokens themselves
-from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_column, column_property
-from sqlalchemy import DateTime, ForeignKeyConstraint, create_engine, String, ForeignKey, select
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, ForeignKey
 import pandas as pd
 
-from mainnet_launch.database.schema.base_tables import Base, Tokens, Blocks, Transactions, Destinations
-
+from mainnet_launch.database.schema.base_tables import Base
 
 class AutopoolStates(Base):
     __tablename__ = "autopool_states"
