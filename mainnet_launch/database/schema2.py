@@ -159,9 +159,9 @@ class DestinationState(Base):
     #
 
 
-# Create all tables as defined by the Base metadata.
-Base.metadata.create_all(engine)
-print("All tables have been created.")
+# # Create all tables as defined by the Base metadata.
+# # Base.metadata.create_all(engine)
+# print("All tables have been created.")
 
 
 def main():

@@ -1,31 +1,33 @@
 # The primary objects
-
-from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_column
-from sqlalchemy import DateTime, ForeignKey, ARRAY, String, ForeignKeyConstraint
-import pandas as pd
-
-
-class Base(MappedAsDataclass, DeclarativeBase):
-    """subclasses will be converted to dataclasses"""
-
-
+from dataclasses import asdict
 from dotenv import load_dotenv
 from urllib.parse import urlparse
 import os
+import pandas as pd
 
+
+from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_column
+from sqlalchemy import DateTime, ForeignKey, ARRAY, String, ForeignKeyConstraint, BigInteger
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 
 load_dotenv()
 
 tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
 
-engine = create_engine(
+ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
     f"@{tmpPostgres.hostname}{tmpPostgres.path}?sslmode=require",
     echo=True,  # Enable SQL query logging for debugging.
 )
-Base.metadata.drop_all(engine)
+
+
+class Base(MappedAsDataclass, DeclarativeBase):
+    """subclasses will be converted to dataclasses"""
+
+    def to_record(self):
+        return asdict(self)
 
 
 class Blocks(Base):
@@ -38,17 +40,16 @@ class Blocks(Base):
 
 class Transactions(Base):
     __tablename__ = "transactions"
+
     tx_hash: Mapped[str] = mapped_column(primary_key=True)
     block: Mapped[int] = mapped_column(nullable=False)
     chain_id: Mapped[int] = mapped_column(nullable=False)
 
-    from_address: Mapped[int] = mapped_column(nullable=False)
-    to_address: Mapped[int] = mapped_column(nullable=False)
-    effective_gas_price: Mapped[int] = mapped_column(nullable=False)
-    gas_used: Mapped[int] = mapped_column(nullable=False)
+    from_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    to_address: Mapped[str] = mapped_column(String(42), nullable=False)
+    effective_gas_price: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    gas_used: Mapped[int] = mapped_column(BigInteger, nullable=False)
     gas_cost_in_eth: Mapped[float] = mapped_column(nullable=False)  # gas_used * effective_gas_price
-
-    paid_by_tokemak: Mapped[bool] = mapped_column(nullable=False)  # useful for telling how much gas we're spending
 
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
@@ -104,11 +105,6 @@ class DestinationTokens(Base):
     )
     underlying_asset: Mapped[str] = mapped_column(ForeignKey("tokens.address"), primary_key=True)
     index: Mapped[int] = mapped_column(nullable=False)
-
-
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import DateTime, ForeignKey
-import pandas as pd
 
 
 class AutopoolStates(Base):
@@ -215,10 +211,6 @@ class AutopoolFees(Base):
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import ForeignKey
-
-
 class DestinationStates(Base):
     __tablename__ = "destination_states"
 
@@ -298,21 +290,12 @@ class DebtReporting(Base):
     )
 
 
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import ForeignKey
-
-
 class ChainlinkGasCosts(Base):
     __tablename__ = "chainlink_gas_costs"
 
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
     chainlink_topic_id: Mapped[int] = mapped_column(nullable=False)
     gas_cost_in_eth_with_chainlink_premium: Mapped[float] = mapped_column(nullable=False)
-
-
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import DateTime, ForeignKey
-import pandas as pd
 
 
 class RebalancePlan(Base):
@@ -402,10 +385,6 @@ class SolverProfit(Base):
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import ForeignKey
-
-
 class TokenValues(Base):
     # if the same token symbol can have different values on different chains at the same time
     __tablename__ = "token_values"
@@ -467,4 +446,18 @@ class IncentiveTokenLiquidations(Base):
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
-Base.metadata.create_all(engine)
+Session = sessionmaker(bind=ENGINE)
+if __name__ == "__main__":
+    from sqlalchemy import MetaData
+
+    # 1) Reflect the *actual* database schema
+    meta = MetaData()
+    meta.reflect(bind=ENGINE)
+
+    # 2) Drop *all* tables that exist in the DB right now
+    meta.drop_all(bind=ENGINE)
+    print("Dropped all existing tables.")
+
+    # 3) Create *only* the tables you have declared on Base
+    Base.metadata.create_all(bind=ENGINE)
+    print("Recreated all tables from ORM definitions.")
