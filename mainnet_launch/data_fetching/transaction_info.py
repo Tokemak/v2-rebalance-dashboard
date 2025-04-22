@@ -1,11 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from sqlalchemy import select, func
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 import pandas as pd
 
 
 from mainnet_launch.database.schema.full import Transactions, Blocks, Session
+from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts
+
 from mainnet_launch.constants import ChainData, ETH_CHAIN, time_decorator
 from mainnet_launch.data_fetching.block_timestamp import add_blocks_from_dataframe_to_database
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
@@ -40,15 +41,15 @@ def _fetch_all_new_transaction_records(tx_hashes: list[str], chain: ChainData) -
 
 def _extract_subset_of_hashes_not_already_in_transactions_table(possible_hashes: list[str]) -> list[str]:
     with Session() as session:
-         # unnest is similar to *[item1, item2 ...] unpacking
+        # unnest is similar to *[item1, item2 ...] unpacking
         sel_unnest = select(func.unnest(possible_hashes).label("tx_hash"))
         sel_existing = select(Transactions.tx_hash)
         stmt = sel_unnest.except_(sel_existing)
         return session.scalars(stmt).all()
 
 
-def _ensure_all_blocks_are_in_block_table(new_transactions_records: list[Transactions], chain) -> None:
-    blocks = list(set([t.block for t in new_transactions_records]))
+def _ensure_all_blocks_are_in_block_table(new_transactions: list[Transactions], chain: ChainData) -> None:
+    blocks = list(set([t.block for t in new_transactions]))
     blocks_to_fetch = _extract_subset_of_blocks_not_already_in_blocks_table(blocks, chain)
     if blocks_to_fetch:
         block_timestamp_df = get_raw_state_by_blocks([], blocks_to_fetch, chain, include_block_number=True)
@@ -60,7 +61,7 @@ def _extract_subset_of_blocks_not_already_in_blocks_table(blocks: list[int], cha
     if not blocks:
         return []
     with Session() as session:
-        sel_unnest = select(func.unnest(blocks).label("block")) 
+        sel_unnest = select(func.unnest(blocks).label("block"))
         sel_existing = select(Blocks.block).filter(Blocks.chain_id == chain.chain_id)
         stmt = sel_unnest.except_(sel_existing)
         return session.scalars(stmt).all()
@@ -70,25 +71,12 @@ def _extract_subset_of_blocks_not_already_in_blocks_table(blocks: list[int], cha
 def insert_many_transactions_into_table(tx_hashes: pd.Series | list[str], chain: ChainData) -> None:
     if isinstance(tx_hashes, pd.Series):
         tx_hashes = list(tx_hashes)
-    new_transactions_records = _fetch_all_new_transaction_records(tx_hashes, chain)
-    if not new_transactions_records:
+    new_transactions = _fetch_all_new_transaction_records(tx_hashes, chain)
+
+    if not new_transactions:
         return
-    _ensure_all_blocks_are_in_block_table(new_transactions_records, chain)
-
-    stmt = (
-        pg_insert(Transactions)
-        .values(new_transactions_records[0].to_record())  # shape placeholder; executemany will handle the rest
-        .on_conflict_do_nothing(index_elements=[Transactions.tx_hash])
-    )
-    CHUNK_SIZE = 1000
-
-    # 6) transaction‐scoped session: commits on success, rolls back on error
-    with Session.begin() as session:
-        # 7) chunk large batches to avoid blowing out query size
-        for i in range(0, len(new_transactions_records), CHUNK_SIZE):
-            batch = new_transactions_records[i : i + CHUNK_SIZE]
-            mappings = [tx.to_record() for tx in batch]
-            session.execute(stmt, mappings)
+    _ensure_all_blocks_are_in_block_table(new_transactions, chain)
+    insert_avoid_conflicts(new_transactions, Transactions, index_elements=[Transactions.tx_hash])
 
 
 from mainnet_launch.pages.rebalance_events.rebalance_events import *

@@ -1,23 +1,23 @@
 from datetime import datetime, timedelta, timezone
 import time
 
-from sqlalchemy.exc import SQLAlchemyError
 
 import pandas as pd
 import os
 import requests
 from dotenv import load_dotenv
 import numpy as np
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import select, func
 
 from mainnet_launch.database.schema.full import Blocks, Session
+from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts
 from mainnet_launch.constants import ALL_CHAINS, ChainData
 
 
 load_dotenv()
 
 
-def add_blocks_from_dataframe_to_database(df: pd.DataFrame, chunk_size: int = 1000):
+def add_blocks_from_dataframe_to_database(df: pd.DataFrame):
     if df.index.name == "timestamp":
         df["datetime"] = df.index
 
@@ -28,39 +28,8 @@ def add_blocks_from_dataframe_to_database(df: pd.DataFrame, chunk_size: int = 10
 
     df = df.copy()
     df["datetime"] = pd.to_datetime(df["datetime"], utc=True)
-    records = df.to_dict(orient="records")
-
-    stmt = (
-        pg_insert(Blocks)
-        .values(records[0])  # shape placeholder; executemany will handle the rest
-        .on_conflict_do_nothing(index_elements=[Blocks.block, Blocks.chain_id])
-    )
-
-    try:
-        # 6) transaction‐scoped session: commits on success, rolls back on error
-        with Session.begin() as session:
-            # 7) chunk large batches to avoid blowing out query size
-            for i in range(0, len(records), chunk_size):
-                batch = records[i : i + chunk_size]
-                session.execute(stmt, batch)
-    except SQLAlchemyError as e:
-        # 8) preserve full traceback for easier debugging
-        raise RuntimeError("Failed to insert blocks") from e
-
-
-def _compute_highest_timestamp_of_each_day(start_timestamp: int = 1726365887) -> list[int]:
-    # 1726365887 timestamp of block when autoETH was deployed
-    start_dt = datetime.fromtimestamp(start_timestamp, tz=timezone.utc)
-    yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
-
-    timestamps = []
-    current_day = start_dt.replace(hour=23, minute=59, second=59, microsecond=0)
-
-    while current_day.date() <= yesterday.date():
-        timestamps.append(int(current_day.timestamp()))
-        current_day += timedelta(days=1)
-
-    return timestamps
+    new_rows = [Blocks.from_record(r) for r in df.to_dict(orient="records")]
+    insert_avoid_conflicts(new_rows, Blocks, [Blocks.block, Blocks.chain_id])
 
 
 def _fetch_block_df_from_subgraph(
@@ -117,14 +86,41 @@ def _fetch_block_df_from_subgraph(
     return df[["block", "datetime", "chain_id"]]
 
 
-def main():
+def ensure_blocks_table_is_current(chain: ChainData):
+    with Session.begin() as session:
+        stmt = select(func.max(Blocks.datetime).label("max_datetime")).where(
+            Blocks.chain_id == chain.chain_id,
+        )
+        highest_datetime = session.scalars(stmt).one()
 
-    timestamps = _compute_highest_timestamp_of_each_day()
-
-    for chain in ALL_CHAINS:
-        blocks_df = _fetch_block_df_from_subgraph(chain, timestamps)
-        print(blocks_df.shape)
+    yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
+    if highest_datetime.date() < yesterday.date():
+        highest_timestamp = int(highest_datetime.timestamp())
+        print(highest_timestamp, "highest_timestamp")
+        new_timestamps = _compute_highest_timestamp_of_each_day(highest_timestamp)
+        print("adding", new_timestamps)
+        blocks_df = _fetch_block_df_from_subgraph(chain, new_timestamps)
         add_blocks_from_dataframe_to_database(blocks_df)
+
+
+def _compute_highest_timestamp_of_each_day(start_timestamp: int = 1726365887) -> list[int]:
+    # 1726365887 timestamp of block when autoETH was deployed
+    start_dt = datetime.fromtimestamp(start_timestamp, tz=timezone.utc)
+    first_second_of_today = datetime.now(tz=timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    timestamps = []
+    current_day = start_dt.replace(hour=23, minute=59, second=59, microsecond=0)
+
+    while current_day < first_second_of_today:
+        timestamps.append(int(current_day.timestamp()))
+        current_day += timedelta(days=1)
+
+    return timestamps
+
+
+def main():
+    for chain in ALL_CHAINS:
+        ensure_blocks_table_is_current(chain)
 
 
 if __name__ == "__main__":

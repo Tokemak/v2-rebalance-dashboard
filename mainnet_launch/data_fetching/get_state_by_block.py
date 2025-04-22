@@ -1,7 +1,7 @@
 import pandas as pd
 from multicall import Multicall, Call
 import datetime
-import streamlit as st
+from sqlalchemy import select, func
 
 import nest_asyncio
 import asyncio
@@ -16,6 +16,9 @@ from mainnet_launch.database.should_update_database import should_update_table
 
 
 from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS
+
+from mainnet_launch.database.schema.full import Blocks, Session
+from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_table_is_current
 
 # needed to run these functions in a jupyter notebook
 nest_asyncio.apply()
@@ -199,37 +202,31 @@ def _add_to_blocks_to_use_table():
 # 180 seconds, too slow
 
 
-# get the highest block for each day
-def build_blocks_to_use(
-    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 4
+def postgres_build_blocks_to_use(
+    chain: ChainData, start_block: int | None = None, end_block: int | None = None
 ) -> list[int]:
+    with Session.begin() as session:
+        stmt = (
+            select(func.max(Blocks.block).label("block"))
+            .where(
+                Blocks.chain_id == chain.chain_id,
+                Blocks.block >= start_block,
+                Blocks.block <= end_block,
+            )
+            .group_by(func.date_trunc("day", Blocks.datetime))
+            .order_by(func.date_trunc("day", Blocks.datetime))
+        )
+        highest_block_in_each_day = session.scalars(stmt).all()
 
-    _add_to_blocks_to_use_table()
+        return highest_block_in_each_day
 
-    df = get_all_rows_in_table_by_chain(BLOCKS_TO_USE_TABLE, chain)
-    if end_block is None:
-        end_block = df["block"].max()
-    daily_df = df.resample("1D").last()
-    blocks = daily_df["block"].to_list()
+
+def build_blocks_to_use(chain: ChainData, start_block: int | None = None, end_block: int | None = None) -> list[int]:
+
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    return [int(b) for b in blocks if (b >= start_block) and (b <= end_block)]
+    end_block = 100_000_000 if end_block is None else end_block
 
-    # """Returns a block approx every 6 hours. by default between when autopool was first deployed to the current block"""
-    # # this is not the number of seconds between blocks is not constant
-    # start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    # first_minute_of_current_day = datetime.datetime.combine(
-    #     datetime.datetime.now(datetime.timezone.utc).date(), datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
-    # )
-    # # this is not correct
-    # end_block = chain.client.eth.block_number if end_block is None else end_block
-    # end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
-    # blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
-
-    # while end_block_date_time > first_minute_of_current_day:
-    #     end_block = end_block - blocks_hop
-    #     end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
-    # blocks = [b for b in range(start_block, end_block, blocks_hop)]
-    # return blocks
+    return postgres_build_blocks_to_use(chain, start_block, end_block)
 
 
 def _build_blocks_to_use_dont_clip(

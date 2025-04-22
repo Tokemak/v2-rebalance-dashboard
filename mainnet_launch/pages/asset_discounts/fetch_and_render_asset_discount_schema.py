@@ -37,13 +37,61 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 from mainnet_launch.database.schema.full import Tokens, Blocks
 
 
-#
+def _build_lst_asset_and_price_calls(chain: ChainData) -> list[Call]:
+    stats_calculator_registry_contract = chain.client.eth.contract(
+        STATS_CALCULATOR_REGISTRY(chain), abi=STATS_CALCULATOR_REGISTRY_ABI
+    )
+    StatCalculatorRegistered_df = fetch_events(
+        stats_calculator_registry_contract.events.StatCalculatorRegistered, chain
+    )
+    lstTokenAddress_calls = [
+        Call(
+            a,
+            ["lstTokenAddress()(address)"],
+            [(a, identity_with_bool_success)],
+        )
+        for a in StatCalculatorRegistered_df["calculatorAddress"]
+    ]
+
+    calculator_to_lst_address = get_state_by_one_block(
+        lstTokenAddress_calls, chain.client.eth.block_number, chain=chain
+    )
+    StatCalculatorRegistered_df["lst"] = StatCalculatorRegistered_df["calculatorAddress"].map(calculator_to_lst_address)
+    lst_calcs = StatCalculatorRegistered_df[~StatCalculatorRegistered_df["lst"].isna()].copy()
+
+    symbol_calls = [
+        Call(
+            a,
+            ["symbol()(string)"],
+            [(a, identity_with_bool_success)],
+        )
+        for a in lst_calcs["lst"]
+    ]
+    calculator_to_lst_address = get_state_by_one_block(symbol_calls, chain.client.eth.block_number, chain=chain)
+    lst_calcs["symbol"] = lst_calcs["lst"].map(calculator_to_lst_address)
+
+    safe_price_calls = [
+        Call(
+            ROOT_PRICE_ORACLE(chain),
+            ["getPriceInEth(address)(uint256)", lst],
+            [(f"{symbol}_oracle_price", safe_normalize_with_bool_success)],
+        )
+        for (lst, symbol) in zip(lst_calcs["lst"], lst_calcs["symbol"])
+    ]
+
+    backing_calls = [
+        Call(
+            calculatorAddress,
+            ["calculateEthPerToken()(uint256)"],
+            [(f"{symbol}_backing", safe_normalize_with_bool_success)],
+        )
+        for (calculatorAddress, symbol) in zip(lst_calcs["calculatorAddress"], lst_calcs["symbol"])
+    ]
+
+    return [*safe_price_calls, *backing_calls]
 
 
-
-
-
-
+# tokens in the token universe
 
 
 def add_new_asset_oracle_and_discount_price_rows_to_table():

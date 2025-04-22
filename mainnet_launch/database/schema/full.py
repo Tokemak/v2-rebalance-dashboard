@@ -24,10 +24,29 @@ ENGINE = create_engine(
 
 
 class Base(MappedAsDataclass, DeclarativeBase):
-    """subclasses will be converted to dataclasses"""
 
-    def to_record(self):
+    def to_record(self) -> dict:
         return asdict(self)
+
+    @classmethod
+    def from_record(cls, record: dict):
+        return cls(**record)
+
+
+class LastAutopoolUpdated(Base):
+    __tablename__ = "last_autopool_updated"
+
+    table_name: Mapped[str] = mapped_column(primary_key=True)
+    block: Mapped[int] = mapped_column(nullable=False)
+    autopool: Mapped[str] = mapped_column(nullable=False)
+
+
+class LastChainUpdated(Base):
+    __tablename__ = "last_chain_updated"
+
+    table_name: Mapped[str] = mapped_column(primary_key=True)
+    block: Mapped[int] = mapped_column(nullable=False)
+    chain_id: Mapped[str] = mapped_column(nullable=False)
 
 
 class Blocks(Base):
@@ -61,7 +80,7 @@ class Tokens(Base):
     chain_id: Mapped[int] = mapped_column(nullable=False)
     symbol: Mapped[str] = mapped_column(nullable=False)
     name: Mapped[str] = mapped_column(nullable=False)
-    reference_asset: Mapped[str] = mapped_column(nullable=True)  # ETH? USDC? pxETH? None, for CRV / BAL
+    # reference_asset: Mapped[str] = mapped_column(nullable=True)  # ETH? USDC? pxETH? None, for CRV / BAL
 
 
 class Autopools(Base):
@@ -84,15 +103,18 @@ class Destinations(Base):
     __tablename__ = "destinations"
 
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    exchange_name: Mapped[str] = mapped_column(nullable=False)
 
     block_deployed: Mapped[int] = mapped_column(nullable=False)
     chain_id: Mapped[int] = mapped_column(nullable=False)
+
     name: Mapped[str] = mapped_column(nullable=False)
     symbol: Mapped[str] = mapped_column(nullable=False)
-    exchange_name: Mapped[str] = mapped_column(nullable=False)
+
     pool: Mapped[str] = mapped_column(nullable=False)
     underlying: Mapped[str] = mapped_column(nullable=False)
-    # not certain here on the underlying ARRAY format,
+    underlying_symbol: Mapped[str] = mapped_column(nullable=False)
+    underlying_name: Mapped[str] = mapped_column(nullable=False)
 
     __table_args__ = (ForeignKeyConstraint(["block_deployed", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
