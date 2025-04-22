@@ -205,6 +205,8 @@ def _add_to_blocks_to_use_table():
 def postgres_build_blocks_to_use(
     chain: ChainData, start_block: int | None = None, end_block: int | None = None
 ) -> list[int]:
+    ensure_blocks_table_is_current(chain)
+
     with Session.begin() as session:
         stmt = (
             select(func.max(Blocks.block).label("block"))

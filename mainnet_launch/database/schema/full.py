@@ -109,7 +109,7 @@ class Destinations(Base):
     chain_id: Mapped[int] = mapped_column(nullable=False)
 
     name: Mapped[str] = mapped_column(nullable=False)
-    symbol: Mapped[str] = mapped_column(nullable=False)
+    symbol: Mapped[str] = mapped_column(nullable=False)  # not certain here on if we should have both names and symbols
 
     pool: Mapped[str] = mapped_column(nullable=False)
     underlying: Mapped[str] = mapped_column(nullable=False)

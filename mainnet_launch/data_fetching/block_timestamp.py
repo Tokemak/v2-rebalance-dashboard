@@ -93,6 +93,10 @@ def ensure_blocks_table_is_current(chain: ChainData):
         )
         highest_datetime = session.scalars(stmt).one()
 
+    if highest_datetime is None:
+        # when autoETH was deployed
+        highest_datetime = datetime.fromtimestamp(1726365887, tz=timezone.utc)
+
     yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
     if highest_datetime.date() < yesterday.date():
         highest_timestamp = int(highest_datetime.timestamp())
