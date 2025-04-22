@@ -7,9 +7,10 @@ import pandas as pd
 from mainnet_launch.database.schema.full import Destinations, LastAutopoolUpdated, Session
 from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts
 
-from mainnet_launch.constants import AutopoolConstants, ChainData, ALL_CHAINS
+from mainnet_launch.constants import AutopoolConstants, ChainData, ALL_CHAINS, ALL_AUTOPOOLS
 
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import fetch_pools_and_destinations_df
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 
 def fetch_all_destinations_for_autopool(autopool: AutopoolConstants) -> list[Destinations]:
@@ -20,19 +21,46 @@ def fetch_all_destinations_for_autopool(autopool: AutopoolConstants) -> list[Des
     :return: List of Destinations ORM instances.
     """
     with Session.begin() as session:
-        results = (
+        destinations = (
             session.execute(select(Destinations).where(Destinations.autopool == autopool.autopool_eth_addr))
             .scalars()
             .all()
         )
-    return results
+    return destinations
+
+
+def make_idle_destination_details(chain: ChainData) -> list[Destinations]:
+    # Idle is not included in pools and destinations
+    idle_details = []
+
+    for autopool in ALL_AUTOPOOLS:
+        if autopool.chain == chain:
+            idle_details.append(
+                Destinations(
+                    destination_vault_address=autopool.autopool_eth_addr),
+                    exchangeName="tokemak",
+
+                    chain_id=autopool.chain.chain_id,
+                    name=  autopool.symbol,
+
+                    symbol = autopool.symbol
+                    dexPool=None,
+                    lpTokenAddress=Web3.toChecksumAddress(autopool.autopool_eth_addr),
+                    lpTokenSymbol=autopool.symbol,
+                    lpTokenName=None,
+                    autopool=autopool,
+                    vault_name=None,  # added later with an onchain call
+                )
+            )
+
+    return idle_details
 
 
 def _fetch_destination_details_from_external_source(
     chain: ChainData, highest_block_already_fetched: int
 ) -> pd.DataFrame:
 
-    blocks = [b for b in build_blocks_to_use(chain) if b >= highest_block_already_fetched]
+    blocks = build_blocks_to_use(chain, start_block=highest_block_already_fetched)
     # returns a list of all destinations along with their autopools even if the destinations have been replaced
     pools_and_destinations_df = fetch_pools_and_destinations_df(chain, blocks)
     autopool_pool_address_to_autopool = {a.autopool_eth_addr.lower(): a for a in ALL_AUTOPOOLS}
