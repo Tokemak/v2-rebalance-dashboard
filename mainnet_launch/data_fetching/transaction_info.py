@@ -40,17 +40,14 @@ def _fetch_all_new_transaction_records(tx_hashes: list[str], chain: ChainData) -
 
 def _extract_subset_of_hashes_not_already_in_transactions_table(possible_hashes: list[str]) -> list[str]:
     with Session() as session:
-        # 1) a SELECT over the unnest()
+         # unnest is similar to *[item1, item2 ...] unpacking
         sel_unnest = select(func.unnest(possible_hashes).label("tx_hash"))
-        # 2) a SELECT of the existing tx_hashes
         sel_existing = select(Transactions.tx_hash)
-        # 3) subtract them
         stmt = sel_unnest.except_(sel_existing)
         return session.scalars(stmt).all()
 
 
 def _ensure_all_blocks_are_in_block_table(new_transactions_records: list[Transactions], chain) -> None:
-    # make sure that the block timestamps are already saved
     blocks = list(set([t.block for t in new_transactions_records]))
     blocks_to_fetch = _extract_subset_of_blocks_not_already_in_blocks_table(blocks, chain)
     if blocks_to_fetch:
@@ -63,7 +60,7 @@ def _extract_subset_of_blocks_not_already_in_blocks_table(blocks: list[int], cha
     if not blocks:
         return []
     with Session() as session:
-        sel_unnest = select(func.unnest(blocks).label("block"))  # unnest is similar to *[item1, item2 ...] unpacking
+        sel_unnest = select(func.unnest(blocks).label("block")) 
         sel_existing = select(Blocks.block).filter(Blocks.chain_id == chain.chain_id)
         stmt = sel_unnest.except_(sel_existing)
         return session.scalars(stmt).all()
