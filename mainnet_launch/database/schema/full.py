@@ -77,10 +77,14 @@ class Tokens(Base):
     __tablename__ = "tokens"
 
     address: Mapped[str] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(nullable=False)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
     symbol: Mapped[str] = mapped_column(nullable=False)
     name: Mapped[str] = mapped_column(nullable=False)
+    decimals: Mapped[int] = mapped_column(nullable=False)
     # reference_asset: Mapped[str] = mapped_column(nullable=True)  # ETH? USDC? pxETH? None, for CRV / BAL
+
+
+# check out a data access layer
 
 
 class Autopools(Base):
@@ -103,10 +107,10 @@ class Destinations(Base):
     __tablename__ = "destinations"
 
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
-    exchange_name: Mapped[str] = mapped_column(nullable=False)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
 
+    exchange_name: Mapped[str] = mapped_column(nullable=False)
     block_deployed: Mapped[int] = mapped_column(nullable=False)
-    chain_id: Mapped[int] = mapped_column(nullable=False)
 
     name: Mapped[str] = mapped_column(nullable=False)
     symbol: Mapped[str] = mapped_column(nullable=False)  # not certain here on if we should have both names and symbols
@@ -460,7 +464,8 @@ class IncentiveTokenLiquidations(Base):
     buy_amount: Mapped[float] = mapped_column(nullable=False)
     sell_amount: Mapped[float] = mapped_column(nullable=False)
 
-    denominated_in: Mapped[str] = mapped_column(nullable=False)
+    # can get what this is denomicated in form looking up the table,
+    denominated_in: Mapped[str] = mapped_column(nullable=False)  # USDC, WETH
 
     incentive_calculator_price_diff_with_acheived: Mapped[float] = mapped_column(nullable=False)
     safe_price_diff_with_acheived: Mapped[float] = mapped_column(nullable=False)
@@ -483,3 +488,17 @@ if __name__ == "__main__":
     # 3) Create *only* the tables you have declared on Base
     Base.metadata.create_all(bind=ENGINE)
     print("Recreated all tables from ORM definitions.")
+# from sqlalchemy_schemadisplay import create_schema_graph
+# from mainnet_launch.database.schema.full import Base
+
+# # Build the graph from your ORM metadata
+# graph = create_schema_graph(
+#     metadata=Base.metadata,
+#     show_datatypes=False,    # you can turn this on if you like
+#     show_indexes=False,
+#     rankdir='LR'             # left-to-right layout
+# )
+
+# # Write out to a PNG (or .pdf, .svg, etc)
+# graph.write_png('schema.png')
+# print("Wrote schema.png")

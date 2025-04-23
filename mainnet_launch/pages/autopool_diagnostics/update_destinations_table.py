@@ -54,11 +54,7 @@ def make_idle_destination_details(chain: ChainData) -> list[Destinations]:
     return idle_details
 
 
-
-
-
 DestinationVaultFactory
-
 
 
 def _fetch_destinations_from_external_source(
@@ -72,7 +68,7 @@ def _fetch_destinations_from_external_source(
     pools_and_destinations_df = fetch_pools_and_destinations_df(chain, blocks)
     autopool_pool_address_to_autopool = {a.autopool_eth_addr.lower(): a for a in ALL_AUTOPOOLS}
 
-    all_destination_details:list[Destinations] = make_idle_destination_details(chain)
+    all_destination_details: list[Destinations] = make_idle_destination_details(chain)
 
     def _add_to_all_destination_details(row):
         for on_chain_autopool_data, list_of_destinations in zip(
@@ -99,7 +95,6 @@ def _fetch_destinations_from_external_source(
     pools_and_destinations_df.apply(_add_to_all_destination_details, axis=1)
 
     unique_destination_vault_addressses = set([dest.vaultAddress for dest in all_destination_details])
-
 
 
 def _fetch_destination_details_from_external_source2(

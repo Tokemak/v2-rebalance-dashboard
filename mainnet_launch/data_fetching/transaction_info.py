@@ -58,6 +58,7 @@ def _ensure_all_blocks_are_in_block_table(new_transactions: list[Transactions], 
 
 
 def _extract_subset_of_blocks_not_already_in_blocks_table(blocks: list[int], chain: ChainData) -> list[int]:
+    # make sure all the big blocks of sql are in one file
     if not blocks:
         return []
     with Session() as session:
