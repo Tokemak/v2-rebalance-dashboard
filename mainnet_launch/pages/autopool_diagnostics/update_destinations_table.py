@@ -54,7 +54,7 @@ def make_idle_destination_details(chain: ChainData) -> list[Destinations]:
     return idle_details
 
 
-DestinationVaultFactory
+# DestinationVaultFactory
 
 
 def _fetch_destinations_from_external_source(

@@ -11,7 +11,7 @@ from sqlalchemy import DateTime, ForeignKey, ARRAY, String, ForeignKeyConstraint
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-
+# check out a data access layer
 load_dotenv()
 
 tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
@@ -78,21 +78,19 @@ class Tokens(Base):
 
     address: Mapped[str] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
+
     symbol: Mapped[str] = mapped_column(nullable=False)
     name: Mapped[str] = mapped_column(nullable=False)
     decimals: Mapped[int] = mapped_column(nullable=False)
     # reference_asset: Mapped[str] = mapped_column(nullable=True)  # ETH? USDC? pxETH? None, for CRV / BAL
 
 
-# check out a data access layer
-
-
 class Autopools(Base):
     __tablename__ = "autopools"
     vault_address: Mapped[str] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     block_deployed: Mapped[int] = mapped_column(nullable=False)
-    chain_id: Mapped[int] = mapped_column(nullable=False)
 
     name: Mapped[str] = mapped_column(nullable=False)
     symbol: Mapped[str] = mapped_column(nullable=False)
@@ -115,6 +113,7 @@ class Destinations(Base):
     name: Mapped[str] = mapped_column(nullable=False)
     symbol: Mapped[str] = mapped_column(nullable=False)  # not certain here on if we should have both names and symbols
 
+    pool_type: Mapped[str] = mapped_column(nullable=False)
     pool: Mapped[str] = mapped_column(nullable=False)
     underlying: Mapped[str] = mapped_column(nullable=False)
     underlying_symbol: Mapped[str] = mapped_column(nullable=False)
@@ -126,19 +125,30 @@ class Destinations(Base):
 class DestinationTokens(Base):
     __tablename__ = "destination_tokens"
 
-    destination_vault_address: Mapped[str] = mapped_column(
-        ForeignKey("destinations.destination_vault_address"), primary_key=True
-    )
-    underlying_asset: Mapped[str] = mapped_column(ForeignKey("tokens.address"), primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    underlying_asset: Mapped[str] = mapped_column(primary_key=True)
     index: Mapped[int] = mapped_column(nullable=False)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["destination_vault_address", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+        ForeignKeyConstraint(
+            ["underlying_asset", "chain_id"],
+            ["tokens.address", "tokens.chain_id"],
+        ),
+    )
 
 
 class AutopoolStates(Base):
     __tablename__ = "autopool_states"
 
-    block: Mapped[int] = mapped_column(primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    autopool_vault_address: Mapped[str] = mapped_column(ForeignKey("autopools.vault_address"), primary_key=True)
+
+    block: Mapped[int] = mapped_column(primary_key=True)
 
     total_shares: Mapped[float] = mapped_column(nullable=False)
     total_nav: Mapped[float] = mapped_column(nullable=False)
@@ -150,16 +160,19 @@ class AutopoolStates(Base):
 
     active_destinations: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
 
-    __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
+    __table_args__ = (
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+    )
 
 
 class AutopoolTokenStates(Base):
     __tablename__ = "autopool_token_states"
 
-    block: Mapped[int] = mapped_column(primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    token_address: Mapped[str] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    autopool_vault_address: Mapped[str] = mapped_column(ForeignKey("autopools.vault_address"), primary_key=True)
-    token_address: Mapped[str] = mapped_column(ForeignKey("tokens.address"), primary_key=True)
+    block: Mapped[int] = mapped_column(primary_key=True)
 
     amount: Mapped[float] = mapped_column(nullable=False)
     total_safe_value: Mapped[float] = mapped_column(nullable=False)
@@ -180,16 +193,20 @@ class AutopoolTokenStates(Base):
     dex_aggregator_quote_to_base_asset_50_percent: Mapped[float] = mapped_column(nullable=False)
     dex_aggregator_quote_to_base_asset_100_percent: Mapped[float] = mapped_column(nullable=False)
 
-    __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
+    __table_args__ = (
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+    )
 
 
 class AutopoolDeposit(Base):
     __tablename__ = "autopool_deposit"
 
-    block: Mapped[int] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(primary_key=True)
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
-    autopool_vault_address: Mapped[str] = mapped_column(ForeignKey("autopools.vault_address"), primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    block: Mapped[int] = mapped_column(primary_key=True)
 
     shares: Mapped[float] = mapped_column(nullable=False)
     base_asset_amount: Mapped[float] = mapped_column(nullable=False)  # quantity of (WETH) or USDC or pxETH
@@ -197,14 +214,19 @@ class AutopoolDeposit(Base):
     user: Mapped[str] = mapped_column(nullable=False)
     nav_per_share: Mapped[str] = mapped_column(nullable=False)
 
+    __table_args__ = (
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+    )
+
 
 class AutopoolWithdrawal(Base):
     __tablename__ = "autopool_withdrawal"
 
-    block: Mapped[int] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
-    autopool_vault_address: Mapped[str] = mapped_column(ForeignKey("autopools.vault_address"), primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    block: Mapped[int] = mapped_column(primary_key=True)
 
     shares: Mapped[float] = mapped_column(nullable=False)
     base_asset_amount: Mapped[float] = mapped_column(nullable=False)  # quantity of (WETH) or USDC or pxETH
@@ -217,32 +239,35 @@ class AutopoolWithdrawal(Base):
     )  # the actual ratio of base asset amount / shares they got out
     slippage: Mapped[float] = mapped_column(nullable=False)
 
-    __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
+    __table_args__ = (
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+    )
 
 
 class AutopoolFees(Base):
     __tablename__ = "autopool_fees"
-
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
-    autopool_vault_address: Mapped[str] = mapped_column(ForeignKey("autopools.vault_address"), primary_key=True)
 
-    event_name: Mapped[str] = mapped_column(nullable=False)
+    event_name: Mapped[str] = mapped_column(primary_key=True)
 
     denominated_in: Mapped[str] = mapped_column(nullable=False)
     minted_shares: Mapped[float] = mapped_column(nullable=False)
     minted_shares_value: Mapped[float] = mapped_column(nullable=False)
 
-    __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
+    __table_args__ = (
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+    )
 
 
 class DestinationStates(Base):
     __tablename__ = "destination_states"
 
-    destination_vault_address: Mapped[str] = mapped_column(
-        ForeignKey("destinations.destination_vault_address"), primary_key=True
-    )
+    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     # information about the destination itself at this moment in time
@@ -261,13 +286,19 @@ class DestinationStates(Base):
     underlying_safe_price: Mapped[float] = mapped_column(nullable=False)
     underlying_spot_price: Mapped[float] = mapped_column(nullable=False)
     underlying_backing: Mapped[float] = mapped_column(nullable=False)
-    denominated_in: Mapped[str] = mapped_column(nullable=False)
+    # denominated_in: Mapped[str] = mapped_column(nullable=False) # should live in the destination
 
     safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
     safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
     spot_backing_discount: Mapped[float] = mapped_column(nullable=True)
 
-    __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
+    __table_args__ = (
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        ForeignKeyConstraint(
+            ["destination_vault_address", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+    )
 
 
 class AutopoolDestinationStates(Base):
@@ -275,7 +306,7 @@ class AutopoolDestinationStates(Base):
     __tablename__ = "autopool_destination_states"
 
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
-    autopool_vault_address: Mapped[str] = mapped_column(ForeignKey("autopools.vault_address"), primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
@@ -293,6 +324,7 @@ class AutopoolDestinationStates(Base):
             ["destination_vault_address", "block", "chain_id"],
             ["destination_states.destination_vault_address", "destination_states.block", "destination_states.chain_id"],
         ),
+        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
     )
 
 
@@ -300,7 +332,7 @@ class DebtReporting(Base):
     __tablename__ = "debt_reporting"
 
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
-    autopool_vault_address: Mapped[str] = mapped_column(ForeignKey("autopools.vault_address"), primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False)
@@ -311,8 +343,13 @@ class DebtReporting(Base):
     __table_args__ = (
         ForeignKeyConstraint(
             ["destination_vault_address", "block", "chain_id"],
-            ["destination_states.destination_vault_address", "destination_states.block", "destination_states.chain_id"],
+            [
+                "destination_states.destination_vault_address",
+                "destination_states.block",
+                "destination_states.chain_id",
+            ],
         ),
+        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
     )
 
 
@@ -330,18 +367,20 @@ class RebalancePlan(Base):
     file_name: Mapped[str] = mapped_column(nullable=False, primary_key=True)
 
     datetime_generated: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
-    autopool: Mapped[str] = mapped_column(ForeignKey("autopools.vault_address"))
+    autopool: Mapped[str] = mapped_column(nullable=False)
+    chain_id: Mapped[int] = mapped_column(nullable=False)
+
     dex_aggregator: Mapped[str] = mapped_column(nullable=False)
 
     solver_address: Mapped[str] = mapped_column(nullable=False)
     rebalance_type: Mapped[str] = mapped_column(nullable=False)
 
     # sometimes this has different destinations but the same underlying token. that means
-    destination_out: Mapped[str] = mapped_column(ForeignKey("destinations.destination_vault_address"), nullable=False)
-    token_out: Mapped[str] = mapped_column(ForeignKey("tokens.address"), nullable=False)
+    destination_out: Mapped[str] = mapped_column(nullable=False)
+    token_out: Mapped[str] = mapped_column(nullable=False)
 
-    destination_in: Mapped[str] = mapped_column(ForeignKey("destinations.destination_vault_address"), nullable=False)
-    token_in: Mapped[str] = mapped_column(ForeignKey("tokens.address"), nullable=False)
+    destination_in: Mapped[str] = mapped_column(nullable=False)
+    token_in: Mapped[str] = mapped_column(nullable=False)
 
     move_name: Mapped[str] = mapped_column(nullable=False)  # f"{data['destinationOut']} -> {data['destinationIn']}"
 
@@ -367,6 +406,20 @@ class RebalancePlan(Base):
 
     projected_swap_cost: Mapped[float] = mapped_column(nullable=False)
     projected_slippage: Mapped[float] = mapped_column(nullable=False)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["destination_in", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+        ForeignKeyConstraint(
+            ["destination_out", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+        ForeignKeyConstraint(["token_in", "chain_id"], ["tokens.address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["token_out", "chain_id"], ["tokens.address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["autopool", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+    )
 
     # dex steps here?
 
@@ -412,37 +465,47 @@ class SolverProfit(Base):
 
 
 class TokenValues(Base):
-    # if the same token symbol can have different values on different chains at the same time
     __tablename__ = "token_values"
 
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    tokenAddress: Mapped[str] = mapped_column(ForeignKey("tokens.address"), primary_key=True)
+    token_address: Mapped[str] = mapped_column(primary_key=True)
 
     denomiated_in: Mapped[str] = mapped_column(nullable=False)
     backing: Mapped[float] = mapped_column(nullable=True)
     safe_price: Mapped[float] = mapped_column(nullable=True)
 
-    __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
+    __table_args__ = (
+        # link back to blocks
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        # composite FK into tokens(address, chain_id)
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.address", "tokens.chain_id"]),
+    )
 
 
 class DestinationTokenValues(Base):
-    # information about one token in a destination
-
     __tablename__ = "destination_token_values"
 
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    token_address: Mapped[str] = mapped_column(ForeignKey("tokens.address"), primary_key=True)
-    destination_address: Mapped[str] = mapped_column(primary_key=True)
+    token_address: Mapped[str] = mapped_column(nullable=False)
+    destination_address: Mapped[str] = mapped_column(nullable=False)
 
     spot_price: Mapped[float] = mapped_column(nullable=True)
     quantity: Mapped[float] = mapped_column(nullable=False)
-
     safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
     spot_backing_discount: Mapped[float] = mapped_column(nullable=True)
 
-    __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
+    __table_args__ = (
+        # point (block, chain_id) → blocks
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        # composite FK into tokens(address, chain_id)
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.address", "tokens.chain_id"]),
+        # composite FK into destinations(destination_vault_address, chain_id)
+        ForeignKeyConstraint(
+            ["destination_address", "chain_id"], ["destinations.destination_vault_address", "destinations.chain_id"]
+        ),
+    )
 
 
 class IncentiveTokenLiquidations(Base):
@@ -452,7 +515,7 @@ class IncentiveTokenLiquidations(Base):
 
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    token_address: Mapped[str] = mapped_column(ForeignKey("tokens.address"), primary_key=True)
+    token_address: Mapped[str] = mapped_column(primary_key=True)
     destination_address: Mapped[str] = mapped_column(primary_key=True)  # what destination this token is sold for
 
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False)
@@ -470,7 +533,16 @@ class IncentiveTokenLiquidations(Base):
     incentive_calculator_price_diff_with_acheived: Mapped[float] = mapped_column(nullable=False)
     safe_price_diff_with_acheived: Mapped[float] = mapped_column(nullable=False)
 
-    __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
+    __table_args__ = (
+        # point (block, chain_id) → blocks
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        # composite FK into tokens(address, chain_id)
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.address", "tokens.chain_id"]),
+        # composite FK into destinations(destination_vault_address, chain_id)
+        ForeignKeyConstraint(
+            ["destination_address", "chain_id"], ["destinations.destination_vault_address", "destinations.chain_id"]
+        ),
+    )
 
 
 Session = sessionmaker(bind=ENGINE)
@@ -488,17 +560,3 @@ if __name__ == "__main__":
     # 3) Create *only* the tables you have declared on Base
     Base.metadata.create_all(bind=ENGINE)
     print("Recreated all tables from ORM definitions.")
-# from sqlalchemy_schemadisplay import create_schema_graph
-# from mainnet_launch.database.schema.full import Base
-
-# # Build the graph from your ORM metadata
-# graph = create_schema_graph(
-#     metadata=Base.metadata,
-#     show_datatypes=False,    # you can turn this on if you like
-#     show_indexes=False,
-#     rankdir='LR'             # left-to-right layout
-# )
-
-# # Write out to a PNG (or .pdf, .svg, etc)
-# graph.write_png('schema.png')
-# print("Wrote schema.png")
