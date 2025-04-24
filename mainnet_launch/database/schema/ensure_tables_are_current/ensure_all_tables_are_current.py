@@ -12,13 +12,19 @@ from mainnet_launch.database.schema.ensure_tables_are_current.update_destination
     ensure_destinations_are_current,
 )
 from mainnet_launch.database.schema.ensure_tables_are_current.update_autopools_table import ensure_autopools_is_current
+from mainnet_launch.database.schema.full import drop_and_full_rebuild_db
 
 
 from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
 
 
+# this took ensure_database_is_current took 732.4539 seconds. from 0
+# the second one took 5 seconds
 @time_decorator
-def ensure_database_is_current():
+def ensure_database_is_current(full_reset_and_refetch: bool = False):
+    if full_reset_and_refetch:
+        drop_and_full_rebuild_db()
+
     ensure_blocks_is_current()
     ensure_destinations_are_current()
     ensure_autopools_is_current()

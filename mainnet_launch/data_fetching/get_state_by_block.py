@@ -205,10 +205,8 @@ def _add_to_blocks_to_use_table():
 def postgres_build_blocks_to_use(
     chain: ChainData, start_block: int | None = None, end_block: int | None = None
 ) -> list[int]:
-    
 
-
-    ensure_blocks_is_current()
+    # ensure_blocks_is_current()
 
     # TODO switch this to postgres version
     with Session.begin() as session:

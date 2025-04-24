@@ -5,7 +5,8 @@ from urllib.parse import urlparse
 import os
 import pandas as pd
 
-
+from sqlalchemy import MetaData
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_column
 from sqlalchemy import DateTime, ForeignKey, ARRAY, String, ForeignKeyConstraint, BigInteger
 from sqlalchemy import create_engine
@@ -550,9 +551,7 @@ class IncentiveTokenLiquidations(Base):
     )
 
 
-Session = sessionmaker(bind=ENGINE)
-if __name__ == "__main__":
-    from sqlalchemy import MetaData
+def drop_and_full_rebuild_db():
 
     # 1) Reflect the *actual* database schema
     meta = MetaData()
@@ -565,3 +564,6 @@ if __name__ == "__main__":
     # 3) Create *only* the tables you have declared on Base
     Base.metadata.create_all(bind=ENGINE)
     print("Recreated all tables from ORM definitions.")
+
+
+Session = sessionmaker(bind=ENGINE)
