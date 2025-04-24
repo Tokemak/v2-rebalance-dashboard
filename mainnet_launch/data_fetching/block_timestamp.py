@@ -10,7 +10,7 @@ import numpy as np
 from sqlalchemy import select, func
 
 from mainnet_launch.database.schema.full import Blocks, Session
-from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts
+from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_highest_value_in_field_where
 from mainnet_launch.constants import ALL_CHAINS, ChainData
 
 
@@ -100,9 +100,7 @@ def ensure_blocks_table_is_current(chain: ChainData):
     yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
     if highest_datetime.date() < yesterday.date():
         highest_timestamp = int(highest_datetime.timestamp())
-        print(highest_timestamp, "highest_timestamp")
         new_timestamps = _compute_highest_timestamp_of_each_day(highest_timestamp)
-        print("adding", new_timestamps)
         blocks_df = _fetch_block_df_from_subgraph(chain, new_timestamps)
         add_blocks_from_dataframe_to_database(blocks_df)
 
@@ -120,6 +118,16 @@ def _compute_highest_timestamp_of_each_day(start_timestamp: int = 1726365887) ->
         current_day += timedelta(days=1)
 
     return timestamps
+
+
+def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> list[Blocks]:
+    # note does not exclude blocks that are already here can refetch
+    # TODO exclude blocks already fetch
+    from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
+
+    df = get_raw_state_by_blocks([], blocks, chain, include_block_number=True)
+    df["chain_id"] = chain.chain_id
+    add_blocks_from_dataframe_to_database(df)
 
 
 def main():

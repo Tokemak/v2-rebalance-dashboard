@@ -82,7 +82,6 @@ class Tokens(Base):
     symbol: Mapped[str] = mapped_column(nullable=False)
     name: Mapped[str] = mapped_column(nullable=False)
     decimals: Mapped[int] = mapped_column(nullable=False)
-    # reference_asset: Mapped[str] = mapped_column(nullable=True)  # ETH? USDC? pxETH? None, for CRV / BAL
 
 
 class Autopools(Base):
@@ -127,7 +126,7 @@ class DestinationTokens(Base):
 
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    underlying_asset: Mapped[str] = mapped_column(primary_key=True)
+    token_address: Mapped[str] = mapped_column(primary_key=True)
     index: Mapped[int] = mapped_column(nullable=False)
 
     __table_args__ = (
@@ -136,7 +135,7 @@ class DestinationTokens(Base):
             ["destinations.destination_vault_address", "destinations.chain_id"],
         ),
         ForeignKeyConstraint(
-            ["underlying_asset", "chain_id"],
+            ["token_address", "chain_id"],
             ["tokens.address", "tokens.chain_id"],
         ),
     )
