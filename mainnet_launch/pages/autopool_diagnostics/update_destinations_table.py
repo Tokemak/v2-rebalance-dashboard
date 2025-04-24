@@ -1,18 +1,16 @@
 import pandas as pd
 from multicall import Call
 
-from mainnet_launch.database.schema.full import Destinations
-from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_highest_value_in_field_where
-from mainnet_launch.constants import ChainData, ALL_CHAINS
 
-
-from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, ChainData
+from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, ChainData, ALL_CHAINS
 from mainnet_launch.abis import DESTINATION_VAULT_REGISTRY_ABI
+
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block, identity_with_bool_success
-from mainnet_launch.database.schema.full import Destinations, DestinationTokens, Tokens
-
 from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
+
+from mainnet_launch.database.schema.full import Destinations, DestinationTokens, Tokens
+from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_highest_value_in_field_where
 
 
 def _fetch_token_rows(token_addresses: list[str], chain: ChainData):
@@ -196,7 +194,6 @@ def _make_destination_vault_dicts(DestinationVaultRegistered: pd.DataFrame, chai
 def ensure_destinations_are_current() -> None:
     """
     Make sure that the Destinations, DestinationTokens and Tokens tables are current for all the underlying tokens in each of the destinations
-
     """
     for chain in ALL_CHAINS:
         highest_block_already_found = get_highest_value_in_field_where(

@@ -67,6 +67,7 @@ class AutopoolConstants:
     solver_rebalance_plans_bucket: str
     chain: ChainData
     base_asset: str  # AutopoolETH.asset()
+    block_deployed: int
 
     def __hash__(self):
         return hash(self.chain)
@@ -177,6 +178,7 @@ AUTO_ETH: AutopoolConstants = AutopoolConstants(
     solver_rebalance_plans_bucket=os.environ["AUTO_ETH_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
+    block_deployed=20722908,
 )
 
 BAL_ETH: AutopoolConstants = AutopoolConstants(
@@ -186,6 +188,7 @@ BAL_ETH: AutopoolConstants = AutopoolConstants(
     solver_rebalance_plans_bucket=os.environ["BAL_ETH_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
+    block_deployed=20722909,
 )
 
 AUTO_LRT: AutopoolConstants = AutopoolConstants(
@@ -195,6 +198,7 @@ AUTO_LRT: AutopoolConstants = AutopoolConstants(
     solver_rebalance_plans_bucket=os.environ["AUTO_LRT_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
+    block_deployed=20722910,
 )
 
 BASE_ETH: AutopoolConstants = AutopoolConstants(
@@ -204,6 +208,7 @@ BASE_ETH: AutopoolConstants = AutopoolConstants(
     solver_rebalance_plans_bucket=os.environ["BASE_ETH_BUCKET"],
     chain=BASE_CHAIN,
     base_asset=WETH(BASE_CHAIN),
+    block_deployed=21241103,
 )
 
 DINERO_ETH: AutopoolConstants = AutopoolConstants(
@@ -213,8 +218,8 @@ DINERO_ETH: AutopoolConstants = AutopoolConstants(
     solver_rebalance_plans_bucket=os.environ["DINERO_ETH_BUCKET"],
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
+    block_deployed=21718586,
 )
 
 
 ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
-# ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH]

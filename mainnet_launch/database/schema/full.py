@@ -73,6 +73,7 @@ class Transactions(Base):
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
+# yes, holdable asests, no incentive tokens
 class Tokens(Base):
     __tablename__ = "tokens"
 
@@ -84,22 +85,25 @@ class Tokens(Base):
     decimals: Mapped[int] = mapped_column(nullable=False)
 
 
+# done
 class Autopools(Base):
     __tablename__ = "autopools"
     vault_address: Mapped[str] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
-    block_deployed: Mapped[int] = mapped_column(nullable=False)
+    block_deployed: Mapped[int] = mapped_column(nullable=False)  # not certain I care about this
 
     name: Mapped[str] = mapped_column(nullable=False)
     symbol: Mapped[str] = mapped_column(nullable=False)
-    strategy_address: Mapped[str] = mapped_column(nullable=True)
+
     # not certain if the strategy address can be changed
+    strategy_address: Mapped[str] = mapped_column(nullable=True)
+
     base_asset: Mapped[str] = mapped_column(nullable=False)
 
     __table_args__ = (ForeignKeyConstraint(["block_deployed", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
-
+# current
 class Destinations(Base):
     __tablename__ = "destinations"
 
@@ -120,7 +124,7 @@ class Destinations(Base):
 
     __table_args__ = (ForeignKeyConstraint(["block_deployed", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
-
+# current
 class DestinationTokens(Base):
     __tablename__ = "destination_tokens"
 
