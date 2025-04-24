@@ -1,29 +1,18 @@
-"""Make sure that the destination table is current"""
-
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import select, func
 import pandas as pd
-from web3 import Web3
+from multicall import Call
 
-from mainnet_launch.database.schema.full import Destinations, LastAutopoolUpdated, Session
+from mainnet_launch.database.schema.full import Destinations
 from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_highest_value_in_field_where
-
-from mainnet_launch.constants import AutopoolConstants, ChainData, ALL_CHAINS, ALL_AUTOPOOLS
-
-from mainnet_launch.pages.autopool_diagnostics.lens_contract import fetch_pools_and_destinations_df
-from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
+from mainnet_launch.constants import ChainData, ALL_CHAINS
 
 
-from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, WETH, ETH_CHAIN, eth_client, ChainData, time_decorator
+from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, ChainData
 from mainnet_launch.abis import DESTINATION_VAULT_REGISTRY_ABI
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block, identity_with_bool_success
 from mainnet_launch.database.schema.full import Destinations, DestinationTokens, Tokens
 
 from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
-
-from multicall import Call, Multicall
-from web3 import Web3
 
 
 def _fetch_token_rows(token_addresses: list[str], chain: ChainData):
@@ -220,7 +209,7 @@ def ensure_destinations_are_current() -> None:
 
         DestinationVaultRegistered = fetch_events(
             contract.events.DestinationVaultRegistered,
-            start_block=highest_block_already_found + 1, # +1 avoids fetching the last event again
+            start_block=highest_block_already_found + 1,  # +1 avoids fetching the last event again
             end_block=chain.client.eth.block_number,
             chain=chain,
         )
@@ -255,11 +244,11 @@ def ensure_destinations_are_current() -> None:
                 underlying_symbol=underlying_symbol_dict[v],
                 underlying_name=underlying_name_dict[v],
             )
-            for v in DestinationVaultRegistered['vaultAddress']
+            for v in DestinationVaultRegistered["vaultAddress"]
         ]
 
         destination_tokens = []
-        for v in DestinationVaultRegistered['vaultAddress']:
+        for v in DestinationVaultRegistered["vaultAddress"]:
             for index, token_address in enumerate(underlying_tokens_dict[v]):
                 destination_tokens.append(
                     DestinationTokens(
@@ -283,11 +272,6 @@ def ensure_destinations_are_current() -> None:
                 DestinationTokens.token_address,
             ],
         )
-
-
-
-
-
 
 
 # def fetch_all_destinations_for_autopool(autopool: AutopoolConstants) -> list[Destinations]:
