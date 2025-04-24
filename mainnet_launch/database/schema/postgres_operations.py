@@ -40,9 +40,8 @@ def insert_avoid_conflicts(
             session.execute(sql, batch)
 
 
-def get_highest_value_in_field_where(
-    table: Base, column: InstrumentedAttribute, where_clause: OperatorExpression = Blocks.chain_id == 1
-):
+def get_highest_value_in_field_where(table: Base, column: InstrumentedAttribute, where_clause: OperatorExpression):
+    # eg `where_clause = Blocks.chain_id == 1`
     with Session.begin() as session:
         where_sql = _where_clause_to_string(where_clause, session)
 

@@ -7,10 +7,13 @@ import os
 import requests
 from dotenv import load_dotenv
 import numpy as np
-from sqlalchemy import select, func
 
-from mainnet_launch.database.schema.full import Blocks, Session
-from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_highest_value_in_field_where
+from mainnet_launch.database.schema.full import Blocks
+from mainnet_launch.database.schema.postgres_operations import (
+    insert_avoid_conflicts,
+    get_subset_not_already_in_column,
+    get_highest_value_in_field_where,
+)
 from mainnet_launch.constants import ALL_CHAINS, ChainData
 
 
@@ -86,27 +89,27 @@ def _fetch_block_df_from_subgraph(
     return df[["block", "datetime", "chain_id"]]
 
 
-def ensure_blocks_table_is_current(chain: ChainData):
-    with Session.begin() as session:
-        stmt = select(func.max(Blocks.datetime).label("max_datetime")).where(
-            Blocks.chain_id == chain.chain_id,
+def ensure_blocks_is_current():
+    """Make sure that we have a the highest block for each day (UTC) since Sep-10-2024 (when autoETH was deployed)"""
+    for chain in ALL_CHAINS:
+
+        highest_datetime = get_highest_value_in_field_where(
+            Blocks, Blocks.datetime, where=Blocks.chain_id == chain.chain_id
         )
-        highest_datetime = session.scalars(stmt).one()
 
-    if highest_datetime is None:
-        # when autoETH was deployed
-        highest_datetime = datetime.fromtimestamp(1726365887, tz=timezone.utc)
+        if highest_datetime is None:
+            # when autoETH was deployed
+            highest_datetime = datetime.fromtimestamp(1726365887, tz=timezone.utc)
 
-    yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
-    if highest_datetime.date() < yesterday.date():
-        highest_timestamp = int(highest_datetime.timestamp())
-        new_timestamps = _compute_highest_timestamp_of_each_day(highest_timestamp)
-        blocks_df = _fetch_block_df_from_subgraph(chain, new_timestamps)
-        add_blocks_from_dataframe_to_database(blocks_df)
+        yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
+        if highest_datetime.date() < yesterday.date():
+            highest_timestamp = int(highest_datetime.timestamp())
+            new_timestamps = _compute_highest_timestamp_of_each_day(highest_timestamp)
+            blocks_df = _fetch_block_df_from_subgraph(chain, new_timestamps)
+            add_blocks_from_dataframe_to_database(blocks_df)
 
 
-def _compute_highest_timestamp_of_each_day(start_timestamp: int = 1726365887) -> list[int]:
-    # 1726365887 timestamp of block when autoETH was deployed
+def _compute_highest_timestamp_of_each_day(start_timestamp: int) -> list[int]:
     start_dt = datetime.fromtimestamp(start_timestamp, tz=timezone.utc)
     first_second_of_today = datetime.now(tz=timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -121,18 +124,16 @@ def _compute_highest_timestamp_of_each_day(start_timestamp: int = 1726365887) ->
 
 
 def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> list[Blocks]:
-    # note does not exclude blocks that are already here can refetch
-    # TODO exclude blocks already fetch
+
     from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
 
-    df = get_raw_state_by_blocks([], blocks, chain, include_block_number=True)
-    df["chain_id"] = chain.chain_id
-    add_blocks_from_dataframe_to_database(df)
-
-
-def main():
-    for chain in ALL_CHAINS:
-        ensure_blocks_table_is_current(chain)
+    blocks_to_add = get_subset_not_already_in_column(
+        table=Blocks, column=Blocks.block, values=blocks, where_clause=Blocks.chain_id == chain.chain_id
+    )
+    if blocks_to_add:
+        df = get_raw_state_by_blocks([], blocks_to_add, chain, include_block_number=True)
+        df["chain_id"] = chain.chain_id
+        add_blocks_from_dataframe_to_database(df)
 
 
 if __name__ == "__main__":

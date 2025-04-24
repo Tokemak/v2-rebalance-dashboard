@@ -103,6 +103,7 @@ class Autopools(Base):
 
     __table_args__ = (ForeignKeyConstraint(["block_deployed", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
+
 # current
 class Destinations(Base):
     __tablename__ = "destinations"
@@ -123,6 +124,7 @@ class Destinations(Base):
     underlying_name: Mapped[str] = mapped_column(nullable=False)
 
     __table_args__ = (ForeignKeyConstraint(["block_deployed", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
+
 
 # current
 class DestinationTokens(Base):
