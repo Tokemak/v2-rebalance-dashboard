@@ -94,12 +94,11 @@ def ensure_blocks_is_current():
     for chain in ALL_CHAINS:
 
         highest_datetime = get_highest_value_in_field_where(
-            Blocks, Blocks.datetime, where=Blocks.chain_id == chain.chain_id
+            Blocks, Blocks.datetime, where_clause=Blocks.chain_id == chain.chain_id
         )
 
         if highest_datetime is None:
-            # when autoETH was deployed
-            highest_datetime = datetime.fromtimestamp(1726365887, tz=timezone.utc)
+            highest_datetime = datetime.fromtimestamp(1726365887, tz=timezone.utc)  # when autoETH was deployed
 
         yesterday = datetime.now(tz=timezone.utc) - timedelta(days=1)
         if highest_datetime.date() < yesterday.date():
@@ -137,4 +136,4 @@ def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> list[
 
 
 if __name__ == "__main__":
-    main()
+    ensure_blocks_is_current()
