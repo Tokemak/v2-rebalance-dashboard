@@ -1,8 +1,6 @@
 """helper functions for postgres"""
 
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-
-from mainnet_launch.database.schema.full import Session, Blocks, Base, LastAutopoolUpdated, LastChainUpdated
+from mainnet_launch.database.schema.full import Session, Base
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import OperatorExpression
 from sqlalchemy import text
