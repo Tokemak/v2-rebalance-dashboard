@@ -1,9 +1,12 @@
 """helper functions for postgres"""
 
-from mainnet_launch.database.schema.full import Session, Base
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import OperatorExpression
-from sqlalchemy import text
+from sqlalchemy import text, select
+import pandas as pd
+
+from mainnet_launch.database.schema.full import Session, Base
+
 
 CHUNK_SIZE = 1000
 
@@ -56,7 +59,7 @@ def get_highest_value_in_field_where(table: Base, column: InstrumentedAttribute,
 def get_subset_not_already_in_column(
     table: Base, column: InstrumentedAttribute, values: list[any], where_clause: OperatorExpression | None
 ):
-    # returns[ a for a in all_values if a not in table[column] given where_clause]
+    # returns[ a for a in values if a not in (table[column] given where_clause)]
     with Session.begin() as session:
         if where_clause is not None:
             where_sql = _where_clause_to_string(where_clause, session)
@@ -86,6 +89,52 @@ def _where_clause_to_string(where_clause: OperatorExpression, session) -> str:
     compiled_where = where_clause.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
     where_clause_as_sql = str(compiled_where)
     return where_clause_as_sql
+
+
+def get_full_table_as_df(table: Base, where_clause: OperatorExpression | None = None) -> pd.DataFrame:
+    with Session.begin() as session:
+        if where_clause is not None:
+            where_sql = _where_clause_to_string(where_clause, session)
+            where_sql = f"WHERE {where_sql}"
+        else:
+            where_sql = ""
+
+        sql = text(
+            f"""
+            SELECT *
+            FROM {table.__tablename__}
+            {where_sql}
+        """
+        )
+
+        df = pd.read_sql(sql, con=session.get_bind())
+        return df
+
+
+def get_full_table_as_orm(table: Base, where_clause: OperatorExpression | None = None) -> list[Base]:
+    with Session.begin() as session:
+        if where_clause is not None:
+            where_sql = _where_clause_to_string(where_clause, session)
+            where_sql = f"WHERE {where_sql}"
+        else:
+            where_sql = ""
+
+        sql = text(
+            f"""
+            SELECT *
+              FROM {table.__tablename__}
+            {where_sql}
+        """
+        )
+
+        return [table.from_tuple(tup) for tup in session.execute(sql).all()]
+
+
+if __name__ == "__main__":
+    from mainnet_launch.database.schema.full import Blocks
+
+    all_blocks = get_full_table_as_orm(Blocks, Blocks.chain_id == 1)
+    print(all_blocks[0])
 
 
 # def insert_avoid_conflicts2(

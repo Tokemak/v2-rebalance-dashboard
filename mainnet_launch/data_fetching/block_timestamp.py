@@ -42,7 +42,7 @@ def _fetch_block_df_from_subgraph(
 ) -> pd.DataFrame:
     timestamps_less_15_seconds = []
     for t in timestamps:
-        for i in range(50):
+        for i in range(20):  # there should be a block at least in the 20 seconds prior to end of timestamp
             timestamps_less_15_seconds.append(t - i)
 
     match chain.name:

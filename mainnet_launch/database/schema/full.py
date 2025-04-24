@@ -33,6 +33,12 @@ class Base(MappedAsDataclass, DeclarativeBase):
     def from_record(cls, record: dict):
         return cls(**record)
 
+    @classmethod
+    def from_tuple(cls, tup: tuple):
+        # returns an instance of this class from the ordered tuple
+        col_names = [c.name for c in cls.__table__.columns]
+        return cls(**dict(zip(col_names, tup)))
+
 
 class LastAutopoolUpdated(Base):
     __tablename__ = "last_autopool_updated"
