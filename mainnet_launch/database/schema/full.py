@@ -325,8 +325,8 @@ class AutopoolDestinationStates(Base):
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
-    amount: Mapped[float] = mapped_column(nullable=False)  # how many lp tokens this autopool has here
-    total_safe_value: Mapped[float] = mapped_column(nullable=False)
+    amount: Mapped[float] = mapped_column(nullable=False)  # how many lp tokens this autopool has here, lens contract
+    total_safe_value: Mapped[float] = mapped_column(nullable=False) # given the value of the lp tokens in the pool how much value does the atuopool have here
     total_spot_value: Mapped[float] = mapped_column(nullable=False)
     total_backing_value: Mapped[float] = mapped_column(nullable=False)
 

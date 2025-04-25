@@ -133,6 +133,15 @@ def _fetch_destination_summary_stats_from_external_source(chain: ChainData):
         _fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(chain, missing_blocks)
     )
 
+    new_rows = _fetch_autopool_and_destination_states(chain, missing_blocks, autopool_to_all_ever_active_destinations)
+
+
+def _fetch_autopool_and_destination_states(
+    chain: ChainData, missing_blocks: list[int], autopool_to_all_ever_active_destinations
+):
+    # DestinationStates # DestinationTokenValues #TokenValues ( I think I can get get this from the safe and spot price oracle)
+    pass
+
 
 if __name__ == "__main__":
     from mainnet_launch.constants import ETH_CHAIN
