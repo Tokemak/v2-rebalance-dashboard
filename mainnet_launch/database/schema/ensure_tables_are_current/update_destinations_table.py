@@ -1,5 +1,6 @@
 import pandas as pd
 from multicall import Call
+from web3 import Web3
 
 
 from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, ChainData, ALL_CHAINS
@@ -51,7 +52,7 @@ def _fetch_token_rows(token_addresses: list[str], chain: ChainData):
 
     tokens = [
         Tokens(
-            address=t,
+            address=Web3.toChecksumAddress(t),
             chain_id=chain.chain_id,
             symbol=symbol_dict[t],
             name=name_dict[t],
@@ -229,15 +230,15 @@ def ensure_destinations_are_current() -> None:
 
         destinations = [
             Destinations(
-                destination_vault_address=v,
+                destination_vault_address=Web3.toChecksumAddress(v),
                 chain_id=chain.chain_id,
                 exchange_name=exchange_name_dict[v],
                 block_deployed=vault_to_block[v],
                 name=name_dict[v],
                 symbol=symbol_dict[v],
                 pool_type=pool_type_dict[v],
-                pool=pool_dict[v],
-                underlying=underlying_dict[v],
+                pool=Web3.toChecksumAddress(pool_dict[v]),
+                underlying=Web3.toChecksumAddress(underlying_dict[v]),
                 underlying_symbol=underlying_symbol_dict[v],
                 underlying_name=underlying_name_dict[v],
             )
@@ -249,7 +250,10 @@ def ensure_destinations_are_current() -> None:
             for index, token_address in enumerate(underlying_tokens_dict[v]):
                 destination_tokens.append(
                     DestinationTokens(
-                        destination_vault_address=v, chain_id=chain.chain_id, token_address=token_address, index=index
+                        destination_vault_address=Web3.toChecksumAddress(v),
+                        chain_id=chain.chain_id,
+                        token_address=Web3.toChecksumAddress(token_address),
+                        index=index,
                     )
                 )
 

@@ -70,7 +70,7 @@ def _fetch_block_df_from_subgraph(
             timestamp
           }}
         }}"""
-        r = requests.post(url, json={"query": query}, timeout=30)
+        r = requests.post(url, json={"query": query}, timeout=15)
         r.raise_for_status()
         page = r.json()["data"]["blocks"]
         records.extend(page)
@@ -92,7 +92,7 @@ def _fetch_block_df_from_subgraph(
 def ensure_blocks_is_current():
     """Make sure that we have a the highest block for each day (UTC) since Sep-10-2024 (when autoETH was deployed)"""
     for chain in ALL_CHAINS:
-
+        # this is not correct it assumes taht you have all the blocks already h that is not a good assumption
         highest_datetime = get_highest_value_in_field_where(
             Blocks, Blocks.datetime, where_clause=Blocks.chain_id == chain.chain_id
         )
