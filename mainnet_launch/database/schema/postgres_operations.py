@@ -132,6 +132,63 @@ def get_full_table_as_orm(table: Base, where_clause: OperatorExpression | None =
         return [table.from_tuple(tup) for tup in session.execute(sql).all()]
 
 
+def generic_merge_tables_as_df(
+    left: type[Base],
+    right: type[Base],
+    left_join_columns: list[InstrumentedAttribute],
+    right_join_columns: list[InstrumentedAttribute],
+    where_clause: OperatorExpression | None = None,
+) -> pd.DataFrame:
+    """
+    Fully merges two tables on arbitrary column pairs:
+      SELECT l.*, r.*
+      FROM <left>  AS l
+      JOIN <right> AS r
+        ON (l.left_join_columns[i] = r.right_join_columns[i] AND ...)
+      [WHERE <where_clause>]
+
+    Arguments:
+      left                -- ORM class for the “left” table
+      right               -- ORM class for the “right” table
+      left_join_columns   -- list of InstrumentedAttribute on left side
+      right_join_columns  -- list of InstrumentedAttribute on right side (same length)
+      where_clause        -- optional SQLAlchemy boolean expression for filtering
+    """
+    if len(left_join_columns) != len(right_join_columns):
+        raise ValueError("left_join_columns and right_join_columns must be the same length")
+
+    left_table = left.__tablename__
+    right_table = right.__tablename__
+
+    # build the ON clause
+    on_clauses = []
+    for lcol, rcol in zip(left_join_columns, right_join_columns):
+        on_clauses.append(f"l.{lcol.key} = r.{rcol.key}")
+    on_sql = " AND ".join(on_clauses)
+
+    # build WHERE fragment
+    with Session.begin() as session:
+        if where_clause is not None:
+            raw_where = _where_clause_to_string(where_clause, session)
+            where_sql = f"WHERE {raw_where}"
+        else:
+            where_sql = ""
+
+        sql = text(
+            f"""
+            SELECT
+              l.*,    -- all columns from left
+              r.*     -- all columns from right
+            FROM {left_table}  AS l
+            JOIN {right_table} AS r
+              ON {on_sql}
+            {where_sql}
+        """
+        )
+
+        return pd.read_sql(sql, con=session.get_bind())
+
+
 if __name__ == "__main__":
     from mainnet_launch.database.schema.full import Blocks
 
