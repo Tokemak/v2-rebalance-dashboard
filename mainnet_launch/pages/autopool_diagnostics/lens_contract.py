@@ -1,5 +1,7 @@
 from multicall import Call
 import pandas as pd
+from web3 import Web3
+
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
 )
@@ -26,7 +28,7 @@ def parse_autopool(autopool_data):
         "shutdownStatus": autopool_data[10],
         "rewarder": autopool_data[11],
         "strategy": autopool_data[12],
-        "totalSupply": autopool_data[13],
+        "totalSupply": autopool_data[13],  # useful for the autopool state
         "totalAssets": autopool_data[14],
         "totalIdle": autopool_data[15],
         "totalDebt": autopool_data[16],
@@ -119,6 +121,25 @@ def get_pools_and_destinations_call(chain: ChainData) -> Call:
     )
 
 
+def _extract_only_autopools_and_destinations(success, response) -> dict:
+    if success:
+        autopools_data, destinations_data = response
+
+        autopool_vault_address = [a[0] for a in autopools_data]
+        destination_vault_addresses = []
+        for destinations_list in destinations_data:
+            destination_vault_addresses.append([Web3.toChecksumAddress(d[0]) for d in destinations_list])
+        return {Web3.toChecksumAddress(a): d for a, d in zip(autopool_vault_address, destination_vault_addresses)}
+
+
+def get_pools_and_destinations_call_only_autopools_and_destinations(chain: ChainData) -> Call:
+    return Call(
+        LENS_CONTRACT(chain),
+        [GET_POOLS_AND_DESTINATIONS_SIGNATURE],
+        [["getPoolsAndDestinations", _extract_only_autopools_and_destinations]],
+    )
+
+
 def _clean_summary_stats_info(success, summary_stats):
     if success is True:
         summary = {
@@ -167,6 +188,12 @@ def build_proxyGetDestinationSummaryStats_call(
 
 def fetch_pools_and_destinations_df(chain: ChainData, blocks: list[int]) -> pd.DataFrame:
     calls = [get_pools_and_destinations_call(chain)]
+    pools_and_destinations_df = get_raw_state_by_blocks(calls, blocks, chain=chain, include_block_number=True)
+    return pools_and_destinations_df
+
+
+def fetch_active_destinations_by_autopool_by_block(chain: ChainData, blocks: list[int]) -> pd.DataFrame:
+    calls = [get_pools_and_destinations_call_only_autopools_and_destinations(chain)]
     pools_and_destinations_df = get_raw_state_by_blocks(calls, blocks, chain=chain, include_block_number=True)
     return pools_and_destinations_df
 

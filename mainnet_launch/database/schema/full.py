@@ -284,17 +284,20 @@ class DestinationStates(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     # information about the destination itself at this moment in time
 
-    incentive_apr: Mapped[float] = mapped_column(nullable=False)
+    incentive_apr: Mapped[float] = mapped_column(nullable=False)  # get destination SummaryStats
     fee_and_base_apr: Mapped[float] = mapped_column(nullable=False)
     points_apr: Mapped[float] = mapped_column(nullable=True)
 
-    total_apr_in: Mapped[float] = mapped_column(nullable=True)
+    total_apr_in: Mapped[float] = mapped_column(
+        nullable=True
+    )  # get destination summaryStats (in, and out) are seperate calls
     total_apr_out: Mapped[float] = mapped_column(nullable=True)
 
     undelrying_token_total_staked: Mapped[float] = mapped_column(nullable=True)
     underlying_token_total_supply: Mapped[float] = mapped_column(nullable=False)
     safe_total_supply: Mapped[float] = mapped_column(nullable=True)  # only for pre autoUSD destinations
 
+    # in units of LP toekns, eg 1.00??
     underlying_safe_price: Mapped[float] = mapped_column(nullable=False)
     underlying_spot_price: Mapped[float] = mapped_column(nullable=False)
     underlying_backing: Mapped[float] = mapped_column(nullable=False)
