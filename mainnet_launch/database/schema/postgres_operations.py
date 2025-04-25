@@ -3,6 +3,8 @@
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import OperatorExpression
 from sqlalchemy import text, select
+from psycopg2.extras import execute_values
+
 import pandas as pd
 
 from mainnet_launch.database.schema.full import Session, Base
@@ -20,25 +22,25 @@ def insert_avoid_conflicts(
         else:
             return
 
-    rows_as_records = [r.to_record() for r in new_rows]
+    rows_as_tuples = [r.to_tuple() for r in new_rows]
 
-    cols = list(rows_as_records[0].keys())
+    cols = list(new_rows[0].to_record().keys())
     col_list = ", ".join(cols)
-    placeholder = ", ".join(f":{c}" for c in cols)
     conflict_cols = ", ".join(col.key for col in index_elements)
 
-    sql = text(
-        f"""
+    sql = f"""
         INSERT INTO {table.__tablename__} ({col_list})
-        VALUES ({placeholder})
+        VALUES %s
         ON CONFLICT ({conflict_cols}) DO NOTHING
         """
-    )
 
-    with Session.begin() as session:
-        for i in range(0, len(rows_as_records), CHUNK_SIZE):
-            batch = rows_as_records[i : i + CHUNK_SIZE]
-            session.execute(sql, batch)
+    with Session.begin() as sess:
+        conn = sess.connection().connection
+        # bulk insert chunk size rows at a time
+        with conn.cursor() as cur:
+            for i in range(0, len(rows_as_tuples), CHUNK_SIZE):
+                batch = rows_as_tuples[i : i + CHUNK_SIZE]
+                execute_values(cur, sql, batch)
 
 
 def get_highest_value_in_field_where(table: Base, column: InstrumentedAttribute, where_clause: OperatorExpression):
@@ -122,7 +124,7 @@ def get_full_table_as_orm(table: Base, where_clause: OperatorExpression | None =
         sql = text(
             f"""
             SELECT *
-              FROM {table.__tablename__}
+            FROM {table.__tablename__}
             {where_sql}
         """
         )

@@ -39,7 +39,15 @@ class Base(MappedAsDataclass, DeclarativeBase):
         col_names = [c.name for c in cls.__table__.columns]
         return cls(**dict(zip(col_names, tup)))
 
+    def to_tuple(self) -> tuple:
+        """
+        Returns a tuple of this instance's column values in the order defined by the table's columns.
+        """
+        # Use the table's column order to extract attribute values
+        return tuple(getattr(self, c.name) for c in self.__table__.columns)
 
+
+# I think this is an anti pattern, I don't want to keep it
 class LastAutopoolUpdated(Base):
     __tablename__ = "last_autopool_updated"
 
@@ -326,7 +334,9 @@ class AutopoolDestinationStates(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     amount: Mapped[float] = mapped_column(nullable=False)  # how many lp tokens this autopool has here, lens contract
-    total_safe_value: Mapped[float] = mapped_column(nullable=False) # given the value of the lp tokens in the pool how much value does the atuopool have here
+    total_safe_value: Mapped[float] = mapped_column(
+        nullable=False
+    )  # given the value of the lp tokens in the pool how much value does the atuopool have here
     total_spot_value: Mapped[float] = mapped_column(nullable=False)
     total_backing_value: Mapped[float] = mapped_column(nullable=False)
 
