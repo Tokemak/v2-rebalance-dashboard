@@ -52,7 +52,7 @@ def _fetch_token_rows(token_addresses: list[str], chain: ChainData):
 
     tokens = [
         Tokens(
-            address=Web3.toChecksumAddress(t),
+            token_address=Web3.toChecksumAddress(t),
             chain_id=chain.chain_id,
             symbol=symbol_dict[t],
             name=name_dict[t],
@@ -258,9 +258,12 @@ def ensure_destinations_are_current() -> None:
                 )
 
         tokens = _fetch_token_rows(set([t.token_address for t in destination_tokens]), chain)
-        ensure_all_blocks_are_in_table([d.block_deployed for d in destinations], chain)
+        blocks_to_make_sure_exist = [d.block_deployed for d in destinations]
 
-        insert_avoid_conflicts(tokens, Tokens, index_elements=[Tokens.address, Tokens.chain_id])
+        ensure_all_blocks_are_in_table(blocks_to_make_sure_exist, chain)
+
+        insert_avoid_conflicts(tokens, Tokens, index_elements=[Tokens.token_address, Tokens.chain_id])
+
         insert_avoid_conflicts(
             destinations, Destinations, index_elements=[Destinations.destination_vault_address, Destinations.chain_id]
         )
@@ -273,6 +276,10 @@ def ensure_destinations_are_current() -> None:
                 DestinationTokens.token_address,
             ],
         )
+
+
+if __name__ == "__main__":
+    ensure_destinations_are_current()
 
 
 # def fetch_all_destinations_for_autopool(autopool: AutopoolConstants) -> list[Destinations]:

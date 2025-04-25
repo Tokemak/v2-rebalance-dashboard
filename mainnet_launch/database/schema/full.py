@@ -92,7 +92,7 @@ class Transactions(Base):
 class Tokens(Base):
     __tablename__ = "tokens"
 
-    address: Mapped[str] = mapped_column(primary_key=True)
+    token_address: Mapped[str] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     symbol: Mapped[str] = mapped_column(nullable=False)
@@ -157,7 +157,7 @@ class DestinationTokens(Base):
         ),
         ForeignKeyConstraint(
             ["token_address", "chain_id"],
-            ["tokens.address", "tokens.chain_id"],
+            ["tokens.token_address", "tokens.chain_id"],
         ),
     )
 
@@ -215,7 +215,7 @@ class AutopoolTokenStates(Base):
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
         ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
     )
 
@@ -441,8 +441,8 @@ class RebalancePlan(Base):
             ["destination_out", "chain_id"],
             ["destinations.destination_vault_address", "destinations.chain_id"],
         ),
-        ForeignKeyConstraint(["token_in", "chain_id"], ["tokens.address", "tokens.chain_id"]),
-        ForeignKeyConstraint(["token_out", "chain_id"], ["tokens.address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["token_in", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["token_out", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
         ForeignKeyConstraint(["autopool", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
     )
 
@@ -504,7 +504,7 @@ class TokenValues(Base):
         # link back to blocks
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
         # composite FK into tokens(address, chain_id)
-        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
     )
 
 
@@ -514,7 +514,7 @@ class DestinationTokenValues(Base):
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     token_address: Mapped[str] = mapped_column(nullable=False)
-    destination_address: Mapped[str] = mapped_column(nullable=False)
+    destination_vault_address: Mapped[str] = mapped_column(nullable=False)
 
     spot_price: Mapped[float] = mapped_column(nullable=True)
     quantity: Mapped[float] = mapped_column(nullable=False)
@@ -525,10 +525,11 @@ class DestinationTokenValues(Base):
         # point (block, chain_id) → blocks
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
         # composite FK into tokens(address, chain_id)
-        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
         # composite FK into destinations(destination_vault_address, chain_id)
         ForeignKeyConstraint(
-            ["destination_address", "chain_id"], ["destinations.destination_vault_address", "destinations.chain_id"]
+            ["destination_vault_address", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
         ),
     )
 
@@ -541,7 +542,7 @@ class IncentiveTokenLiquidations(Base):
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     token_address: Mapped[str] = mapped_column(primary_key=True)
-    destination_address: Mapped[str] = mapped_column(primary_key=True)  # what destination this token is sold for
+    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)  # what destination this token is sold for
 
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False)
 
@@ -562,10 +563,11 @@ class IncentiveTokenLiquidations(Base):
         # point (block, chain_id) → blocks
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
         # composite FK into tokens(address, chain_id)
-        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
         # composite FK into destinations(destination_vault_address, chain_id)
         ForeignKeyConstraint(
-            ["destination_address", "chain_id"], ["destinations.destination_vault_address", "destinations.chain_id"]
+            ["destination_vault_address", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
         ),
     )
 
@@ -586,3 +588,7 @@ def drop_and_full_rebuild_db():
 
 
 Session = sessionmaker(bind=ENGINE)
+
+
+if __name__ == "__main__":
+    drop_and_full_rebuild_db()

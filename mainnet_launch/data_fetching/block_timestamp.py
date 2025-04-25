@@ -130,7 +130,7 @@ def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> list[
         table=Blocks, column=Blocks.block, values=blocks, where_clause=Blocks.chain_id == chain.chain_id
     )
     if blocks_to_add:
-        df = get_raw_state_by_blocks([], blocks_to_add, chain, include_block_number=True)
+        df = get_raw_state_by_blocks([], blocks, chain, include_block_number=True)
         df["chain_id"] = chain.chain_id
         add_blocks_from_dataframe_to_database(df)
 

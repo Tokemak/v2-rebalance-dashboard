@@ -105,7 +105,7 @@ async def async_safe_get_raw_state_by_block(
     # block 12336033 (Apr-29-2021) on mainnet
     # block 5022 (Jun-15-2023) on Base
     # mostly a non issue but keep in mind that this only works on recent (within last 3 years) data
-
+    print(22347870 in blocks_as_ints)
     get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls(chain)
     pending_multicalls = [
         Multicall(
@@ -131,7 +131,7 @@ async def async_safe_get_raw_state_by_block(
         if len(calls_remaining) == 0:
             break
 
-    df = pd.DataFrame.from_records(responses)
+    df = pd.DataFrame.from_records(responses)  # has 22347870 at this point
     if len(df) == 0:
         print(
             "failed to fetch any data. consider trying again if expected to get data, but with a smaller semaphore_limit"
@@ -145,12 +145,14 @@ async def async_safe_get_raw_state_by_block(
     df["block"] = df["block"].astype(int)
     if not include_block_number:
         df.drop(columns="block", inplace=True)
-    if len(df) > 0:
-        current_date = datetime.datetime.now(datetime.timezone.utc).date()
-        current_utc_datetime = datetime.datetime.combine(
-            current_date, datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
-        )
-        df = df[df.index < current_utc_datetime].copy()
+    # get all blocks even those in the current day
+
+    # if len(df) > 0:
+    #     current_date = datetime.datetime.now(datetime.timezone.utc).date()
+    #     current_utc_datetime = datetime.datetime.combine(
+    #         current_date, datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
+    #     )
+    #     df = df[df.index < current_utc_datetime].copy()
     return df
 
 

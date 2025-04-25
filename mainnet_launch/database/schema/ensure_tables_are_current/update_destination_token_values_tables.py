@@ -49,8 +49,11 @@ def ensure_destination_token_values_are_current():
         all_destination_tokens_orm: list[DestinationTokens] = get_full_table_as_orm(
             DestinationTokens, where_clause=DestinationTokens.chain_id == chain.chain_id
         )
+        all_destinations: list[Destinations] = get_full_table_as_orm(
+            Destinations, where_clause=Destinations.chain_id == chain.chain_id
+        )
 
-        # getSpotPriceInETH(token_address, pool)
+        # ROOT_PRICE_ORACLE getSpotPriceInETH(token_address, pool)
         ROOT_PRICE_ORACLE
 
         print(all_destination_tokens_orm[0])

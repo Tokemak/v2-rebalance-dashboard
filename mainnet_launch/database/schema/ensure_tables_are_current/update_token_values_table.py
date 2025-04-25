@@ -48,10 +48,10 @@ def ensure_token_values_are_current():
 
         def _extract_token_values_by_row(row: dict):
             for token in all_tokens_orm:
-                backing = row.get(f"{token.address}_backing")
+                backing = row.get(f"{token.token_address}_backing")
                 backing = None if pd.isna(backing) else float(backing)
 
-                safe_price = row[f"{token.address}_safe"]
+                safe_price = row[f"{token.token_address}_safe"]
                 safe_price = None if pd.isna(safe_price) else float(safe_price)
                 if token.address == WETH(chain):
                     pass
@@ -79,8 +79,8 @@ def _build_safe_price_calls(tokens: list[Tokens], chain: ChainData) -> pd.DataFr
     safe_price_eth_calls = [
         Call(
             ROOT_PRICE_ORACLE(chain),
-            ["getPriceInEth(address)(uint256)", t.address],
-            [(t.address + "_safe", safe_normalize_with_bool_success)],
+            ["getPriceInEth(address)(uint256)", t.token_address],
+            [(t.token_address + "_safe", safe_normalize_with_bool_success)],
         )
         for t in tokens
     ]

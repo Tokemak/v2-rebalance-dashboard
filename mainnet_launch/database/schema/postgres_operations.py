@@ -2,7 +2,7 @@
 
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import OperatorExpression
-from sqlalchemy import text, select
+from sqlalchemy import text, bindparam, ARRAY
 from psycopg2.extras import execute_values
 
 import pandas as pd
@@ -52,7 +52,7 @@ def get_highest_value_in_field_where(table: Base, column: InstrumentedAttribute,
             f"""
             SELECT MAX({column.key})
               FROM {table.__tablename__}
-             WHERE {where_sql}
+             {where_sql}
         """
         )
         return session.execute(sql).scalar_one_or_none()
@@ -61,45 +61,47 @@ def get_highest_value_in_field_where(table: Base, column: InstrumentedAttribute,
 def get_subset_not_already_in_column(
     table: Base, column: InstrumentedAttribute, values: list[any], where_clause: OperatorExpression | None
 ):
+
+    orms = get_full_table_as_orm(table, where_clause=where_clause)
+
+    existing = [getattr(obj, column.key) for obj in orms]
+
+    return [v for v in values if v not in existing]
+
+    # this is running into issues with unnest. doing in python here, slight optimization to do it in sql
     # returns[ a for a in values if a not in (table[column] given where_clause)]
-    with Session.begin() as session:
-        if where_clause is not None:
-            where_sql = _where_clause_to_string(where_clause, session)
-            where_sql = f"WHERE {where_sql}"
-        else:
-            where_sql = ""
+    # with Session.begin() as session:
+    #     col = column.property.columns[0]
+    #     base_type = str(col.type).split("(")[0]
+    #     where_sql = _where_clause_to_string(where_clause, session)
 
-        sql = text(
-            f"""
-            SELECT v
-              FROM unnest(:values) AS v
-            EXCEPT
-            SELECT {column.key}
-              FROM {table.__tablename__}
-            {where_sql}
-        """
-        )
-
-        return session.execute(sql, {"values": values}).scalars().all()
+    #     sql = text(f"""
+    #         SELECT v
+    #           FROM unnest(:values:: {base_type}[]) AS t(v)
+    #         EXCEPT
+    #         SELECT {column.key}
+    #           FROM {table.__tablename__}
+    #         {where_sql}
+    #     """)
+    #     # Now :values is literally a PG array
+    #     return session.execute(sql, {"values": values}).scalars().all()
 
 
-def _where_clause_to_string(where_clause: OperatorExpression, session) -> str:
+def _where_clause_to_string(where_clause: OperatorExpression | None, session) -> str:
     """
     where_clause like `Blocks.chain_id == ETH_CHAIN.chain_id`
     """
-    dialect = session.get_bind().dialect
-    compiled_where = where_clause.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
-    where_clause_as_sql = str(compiled_where)
-    return where_clause_as_sql
+    if where_clause is not None:
+        dialect = session.get_bind().dialect
+        compiled_where = where_clause.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+        return f"WHERE {str(compiled_where)}"
+    else:
+        return ""
 
 
 def get_full_table_as_df(table: Base, where_clause: OperatorExpression | None = None) -> pd.DataFrame:
     with Session.begin() as session:
-        if where_clause is not None:
-            where_sql = _where_clause_to_string(where_clause, session)
-            where_sql = f"WHERE {where_sql}"
-        else:
-            where_sql = ""
+        where_sql = _where_clause_to_string(where_clause, session)
 
         sql = text(
             f"""
@@ -115,11 +117,7 @@ def get_full_table_as_df(table: Base, where_clause: OperatorExpression | None = 
 
 def get_full_table_as_orm(table: Base, where_clause: OperatorExpression | None = None) -> list[Base]:
     with Session.begin() as session:
-        if where_clause is not None:
-            where_sql = _where_clause_to_string(where_clause, session)
-            where_sql = f"WHERE {where_sql}"
-        else:
-            where_sql = ""
+        where_sql = _where_clause_to_string(where_clause, session)
 
         sql = text(
             f"""
@@ -130,6 +128,30 @@ def get_full_table_as_orm(table: Base, where_clause: OperatorExpression | None =
         )
 
         return [table.from_tuple(tup) for tup in session.execute(sql).all()]
+
+
+def natural_left_right_using_where(
+    left: Base,
+    right: Base,
+    using: list[InstrumentedAttribute],
+    where_clause: OperatorExpression | None = None,
+) -> pd.DataFrame:
+
+    with Session.begin() as session:
+        where_sql = _where_clause_to_string(where_clause, session)
+        cols = ", ".join(col.key for col in using)
+        using_sql = f"({cols})"
+        sql = text(
+            f"""
+            SELECT *
+            FROM {left.__tablename__}
+            JOIN {right.__tablename__}
+            USING {using_sql}
+            {where_sql}
+        """
+        )
+
+        return pd.read_sql(sql, con=session.get_bind())
 
 
 def generic_merge_tables_as_df(
@@ -168,11 +190,7 @@ def generic_merge_tables_as_df(
 
     # build WHERE fragment
     with Session.begin() as session:
-        if where_clause is not None:
-            raw_where = _where_clause_to_string(where_clause, session)
-            where_sql = f"WHERE {raw_where}"
-        else:
-            where_sql = ""
+        where_sql = _where_clause_to_string(where_clause, session)
 
         sql = text(
             f"""
