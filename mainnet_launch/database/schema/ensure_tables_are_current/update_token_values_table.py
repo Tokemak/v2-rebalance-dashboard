@@ -56,8 +56,11 @@ def ensure_token_values_are_current():
 
                 safe_price = row[f"{token.token_address}_safe"]
                 safe_price = None if pd.isna(safe_price) else float(safe_price)
-                if token.token_address == WETH(chain):
-                    pass
+
+                if (safe_price is not None) and (backing is not None):
+                    safe_backing_spread = (safe_price - backing) / backing
+                else:
+                    safe_backing_spread = None
 
                 new_token_values_row = TokenValues(
                     block=int(row["block"]),
@@ -66,6 +69,7 @@ def ensure_token_values_are_current():
                     denomiated_in=WETH(chain),
                     backing=backing,
                     safe_price=safe_price,
+                    safe_backing_spread=safe_backing_spread,
                 )
                 new_token_values_rows.append(new_token_values_row)
 

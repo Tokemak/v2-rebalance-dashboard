@@ -499,11 +499,10 @@ class TokenValues(Base):
     denomiated_in: Mapped[str] = mapped_column(nullable=False)
     backing: Mapped[float] = mapped_column(nullable=True)
     safe_price: Mapped[float] = mapped_column(nullable=True)
+    safe_backing_spread: Mapped[float] = mapped_column(nullable=True)
 
     __table_args__ = (
-        # link back to blocks
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        # composite FK into tokens(address, chain_id)
         ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
     )
 
@@ -513,20 +512,17 @@ class DestinationTokenValues(Base):
 
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    token_address: Mapped[str] = mapped_column(nullable=False)
-    destination_vault_address: Mapped[str] = mapped_column(nullable=False)
+    token_address: Mapped[str] = mapped_column(primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
 
     spot_price: Mapped[float] = mapped_column(nullable=True)
-    quantity: Mapped[float] = mapped_column(nullable=False)
+    quantity: Mapped[float] = mapped_column(nullable=True)  # how many of this asset is in this pool.
     safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
     spot_backing_discount: Mapped[float] = mapped_column(nullable=True)
 
     __table_args__ = (
-        # point (block, chain_id) → blocks
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        # composite FK into tokens(address, chain_id)
         ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
-        # composite FK into destinations(destination_vault_address, chain_id)
         ForeignKeyConstraint(
             ["destination_vault_address", "chain_id"],
             ["destinations.destination_vault_address", "destinations.chain_id"],
@@ -535,8 +531,6 @@ class DestinationTokenValues(Base):
 
 
 class IncentiveTokenLiquidations(Base):
-    # information about sold incentive tokens
-
     __tablename__ = "incentive_token_liquidations"
 
     block: Mapped[int] = mapped_column(primary_key=True)
@@ -560,11 +554,8 @@ class IncentiveTokenLiquidations(Base):
     safe_price_diff_with_acheived: Mapped[float] = mapped_column(nullable=False)
 
     __table_args__ = (
-        # point (block, chain_id) → blocks
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        # composite FK into tokens(address, chain_id)
         ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
-        # composite FK into destinations(destination_vault_address, chain_id)
         ForeignKeyConstraint(
             ["destination_vault_address", "chain_id"],
             ["destinations.destination_vault_address", "destinations.chain_id"],

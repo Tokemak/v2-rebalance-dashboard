@@ -17,22 +17,25 @@ from mainnet_launch.database.schema.ensure_tables_are_current.update_token_value
     ensure_token_values_are_current,
 )
 
+from mainnet_launch.database.schema.ensure_tables_are_current.update_destination_token_values_tables import (
+    ensure_destination_token_values_are_current,
+)
+
 
 from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
 
 
-# this took ensure_database_is_current took 732.4539 seconds. from 0
-# the second one took 5 seconds
 @time_decorator
 def ensure_database_is_current(full_reset_and_refetch: bool = False):
     if full_reset_and_refetch:
         drop_and_full_rebuild_db()
-    # not sure on this part why it takes so long
-    ensure_blocks_is_current()  # this is the part that takes forever 750 seconds (only sometimes)
+        
+    ensure_blocks_is_current()
     ensure_destinations_are_current()
     ensure_autopools_is_current()
     ensure_token_values_are_current()
-    # add destination token values
+    ensure_destination_token_values_are_current()
+
     # add destiantion states
     # add autopool destiation states
     # add autopool destiations tates
