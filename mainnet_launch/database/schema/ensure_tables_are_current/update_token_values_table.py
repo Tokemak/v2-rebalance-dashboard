@@ -39,6 +39,9 @@ def ensure_token_values_are_current():
             possible_blocks,
             where_clause=TokenValues.chain_id == chain.chain_id,
         )
+        if len(missing_blocks) == 0:
+            # early stop if we already have all the blocks
+            return
 
         all_tokens_orm: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
 
@@ -53,13 +56,13 @@ def ensure_token_values_are_current():
 
                 safe_price = row[f"{token.token_address}_safe"]
                 safe_price = None if pd.isna(safe_price) else float(safe_price)
-                if token.address == WETH(chain):
+                if token.token_address == WETH(chain):
                     pass
 
                 new_token_values_row = TokenValues(
                     block=int(row["block"]),
                     chain_id=chain.chain_id,
-                    token_address=token.address,
+                    token_address=token.token_address,
                     denomiated_in=WETH(chain),
                     backing=backing,
                     safe_price=safe_price,
