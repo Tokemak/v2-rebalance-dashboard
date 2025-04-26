@@ -29,13 +29,14 @@ from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_curren
 def ensure_database_is_current(full_reset_and_refetch: bool = False):
     if full_reset_and_refetch:
         drop_and_full_rebuild_db()
-        
+
     ensure_blocks_is_current()
     ensure_destinations_are_current()
     ensure_autopools_is_current()
     ensure_token_values_are_current()
     ensure_destination_token_values_are_current()
 
+    # AutopoolDestinationStates (depends on Destination)
     # add destiantion states
     # add autopool destiation states
     # add autopool destiations tates

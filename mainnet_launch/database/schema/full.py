@@ -47,23 +47,6 @@ class Base(MappedAsDataclass, DeclarativeBase):
         return tuple(getattr(self, c.name) for c in self.__table__.columns)
 
 
-# I think this is an anti pattern, I don't want to keep it
-class LastAutopoolUpdated(Base):
-    __tablename__ = "last_autopool_updated"
-
-    table_name: Mapped[str] = mapped_column(primary_key=True)
-    block: Mapped[int] = mapped_column(nullable=False)
-    autopool: Mapped[str] = mapped_column(nullable=False)
-
-
-class LastChainUpdated(Base):
-    __tablename__ = "last_chain_updated"
-
-    table_name: Mapped[str] = mapped_column(primary_key=True)
-    block: Mapped[int] = mapped_column(nullable=False)
-    chain_id: Mapped[str] = mapped_column(nullable=False)
-
-
 class Blocks(Base):
     __tablename__ = "blocks"
 
@@ -162,6 +145,7 @@ class DestinationTokens(Base):
     )
 
 
+# needed
 class AutopoolStates(Base):
     __tablename__ = "autopool_states"
 
@@ -178,7 +162,7 @@ class AutopoolStates(Base):
     weighted_average_total_apr_in: Mapped[float] = mapped_column(nullable=False)
     weighted_average_safe_backing_discount: Mapped[float] = mapped_column(nullable=False)  # price return
 
-    active_destinations: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
+    # active_destinations: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
@@ -186,6 +170,7 @@ class AutopoolStates(Base):
     )
 
 
+# needed
 class AutopoolTokenStates(Base):
     __tablename__ = "autopool_token_states"
 
@@ -220,6 +205,7 @@ class AutopoolTokenStates(Base):
     )
 
 
+# extra
 class AutopoolDeposit(Base):
     __tablename__ = "autopool_deposit"
 
@@ -240,6 +226,7 @@ class AutopoolDeposit(Base):
     )
 
 
+# extra
 class AutopoolWithdrawal(Base):
     __tablename__ = "autopool_withdrawal"
 
@@ -265,6 +252,7 @@ class AutopoolWithdrawal(Base):
     )
 
 
+# extra
 class AutopoolFees(Base):
     __tablename__ = "autopool_fees"
     autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
@@ -284,6 +272,8 @@ class AutopoolFees(Base):
     )
 
 
+# depends on Destination Token States for safe and spot values
+# needed
 class DestinationStates(Base):
     __tablename__ = "destination_states"
 
@@ -324,6 +314,9 @@ class DestinationStates(Base):
     )
 
 
+# depends on DestinationTokenState for value,
+# just need destination total supply here as well
+# needed
 class AutopoolDestinationStates(Base):
     # information about this one autopool's lp tokens at this destination
     __tablename__ = "autopool_destination_states"
@@ -353,6 +346,7 @@ class AutopoolDestinationStates(Base):
     )
 
 
+# extra
 class DebtReporting(Base):
     __tablename__ = "debt_reporting"
 
@@ -378,6 +372,7 @@ class DebtReporting(Base):
     )
 
 
+# extra
 class ChainlinkGasCosts(Base):
     __tablename__ = "chainlink_gas_costs"
 
@@ -386,6 +381,7 @@ class ChainlinkGasCosts(Base):
     gas_cost_in_eth_with_chainlink_premium: Mapped[float] = mapped_column(nullable=False)
 
 
+# needed
 class RebalancePlan(Base):
     __tablename__ = "rebalance_plan"
 
@@ -449,6 +445,7 @@ class RebalancePlan(Base):
     # dex steps here?
 
 
+# needed
 class RebalanceEvents(Base):
     __tablename__ = "rebalance_events"
 
@@ -474,6 +471,7 @@ class RebalanceEvents(Base):
     predicted_increase_after_swap_cost: Mapped[float] = mapped_column(nullable=False)
 
 
+# extra
 class SolverProfit(Base):
     __tablename__ = "solver_profit"
 
@@ -489,6 +487,7 @@ class SolverProfit(Base):
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
+# done
 class TokenValues(Base):
     __tablename__ = "token_values"
 
@@ -507,6 +506,7 @@ class TokenValues(Base):
     )
 
 
+# done
 class DestinationTokenValues(Base):
     __tablename__ = "destination_token_values"
 
@@ -530,6 +530,7 @@ class DestinationTokenValues(Base):
     )
 
 
+# extra
 class IncentiveTokenLiquidations(Base):
     __tablename__ = "incentive_token_liquidations"
 
@@ -563,23 +564,33 @@ class IncentiveTokenLiquidations(Base):
     )
 
 
-def drop_and_full_rebuild_db():
+# # I think this is an anti pattern, I don't want to keep it
+# class LastAutopoolUpdated(Base):
+#     __tablename__ = "last_autopool_updated"
 
-    # 1) Reflect the *actual* database schema
+#     table_name: Mapped[str] = mapped_column(primary_key=True)
+#     block: Mapped[int] = mapped_column(nullable=False)
+#     autopool: Mapped[str] = mapped_column(nullable=False)
+
+
+# class LastChainUpdated(Base):
+#     __tablename__ = "last_chain_updated"
+
+#     table_name: Mapped[str] = mapped_column(primary_key=True)
+#     block: Mapped[int] = mapped_column(nullable=False)
+#     chain_id: Mapped[str] = mapped_column(nullable=False)
+
+
+def drop_and_full_rebuild_db():
     meta = MetaData()
     meta.reflect(bind=ENGINE)
-
-    # 2) Drop *all* tables that exist in the DB right now
     meta.drop_all(bind=ENGINE)
     print("Dropped all existing tables.")
-
-    # 3) Create *only* the tables you have declared on Base
     Base.metadata.create_all(bind=ENGINE)
     print("Recreated all tables from ORM definitions.")
 
 
 Session = sessionmaker(bind=ENGINE)
-
 
 if __name__ == "__main__":
     drop_and_full_rebuild_db()
