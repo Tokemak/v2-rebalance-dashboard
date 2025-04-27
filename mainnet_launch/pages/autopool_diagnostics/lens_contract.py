@@ -6,6 +6,13 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
 )
 from mainnet_launch.constants import LENS_CONTRACT, ChainData
+from mainnet_launch.database.schema.full import (
+    Autopools,
+    Destinations,
+)
+from mainnet_launch.database.schema.postgres_operations import (
+    get_full_table_as_orm,
+)
 
 block_number = 20929842
 
@@ -196,6 +203,34 @@ def fetch_active_destinations_by_autopool_by_block(chain: ChainData, blocks: lis
     calls = [get_pools_and_destinations_call_only_autopools_and_destinations(chain)]
     pools_and_destinations_df = get_raw_state_by_blocks(calls, blocks, chain=chain, include_block_number=True)
     return pools_and_destinations_df
+
+
+def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
+    chain: ChainData, missing_blocks: list[int]
+) -> dict[str, list[Destinations]]:
+    all_destinations_orm: list[Destinations] = get_full_table_as_orm(
+        Destinations, where_clause=Destinations.chain_id == chain.chain_id
+    )
+    all_autopools_orm: list[Autopools] = get_full_table_as_orm(
+        Autopools, where_clause=Autopools.chain_id == chain.chain_id
+    )
+
+    raw_df = fetch_active_destinations_by_autopool_by_block(chain, missing_blocks)
+
+    active_destinations_by_autopool_df = pd.DataFrame.from_records(raw_df["getPoolsAndDestinations"].values)
+    # make a bunch of summary stats calls
+    # split up by autopools to avoid max gas costs
+    autopool_to_all_ever_active_destinations: dict[str | list[Destinations]] = {}
+    for autopool in all_autopools_orm:
+        this_autopool_destinations = set()
+        all_ever_active_destinations = active_destinations_by_autopool_df[autopool.vault_address].dropna().values
+        for active_destinations_at_this_block in all_ever_active_destinations:
+            this_autopool_destinations.update(active_destinations_at_this_block)
+
+        autopool_to_all_ever_active_destinations[autopool.vault_address] = [
+            d for d in all_destinations_orm if d.destination_vault_address in this_autopool_destinations
+        ]
+    return autopool_to_all_ever_active_destinations
 
     # # Process and return results
 

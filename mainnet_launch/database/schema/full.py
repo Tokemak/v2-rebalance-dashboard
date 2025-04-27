@@ -158,6 +158,7 @@ class AutopoolStates(Base):
     total_nav: Mapped[float] = mapped_column(nullable=False)
     nav_per_share: Mapped[float] = mapped_column(nullable=False)
 
+    # despends on autopool destination states
     weighted_average_total_apr_out: Mapped[float] = mapped_column(nullable=False)
     weighted_average_total_apr_in: Mapped[float] = mapped_column(nullable=False)
     weighted_average_safe_backing_discount: Mapped[float] = mapped_column(nullable=False)  # price return
@@ -179,7 +180,9 @@ class AutopoolTokenStates(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
 
-    amount: Mapped[float] = mapped_column(nullable=False)
+    amount: Mapped[float] = mapped_column(
+        nullable=False
+    )  # amount of the base asset token (eg WETH, pxETH, not LP tokens)
     total_safe_value: Mapped[float] = mapped_column(nullable=False)
     total_spot_value: Mapped[float] = mapped_column(nullable=False)
     total_backing_value: Mapped[float] = mapped_column(nullable=False)
@@ -189,14 +192,14 @@ class AutopoolTokenStates(Base):
     # how much do we get out if we try and sell everything here
 
     # how good this quote is for
-    dex_aggregator_init_datetime: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
-    dex_aggregator_cutoff_datetime: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
+    # dex_aggregator_init_datetime: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
+    # dex_aggregator_cutoff_datetime: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    dex_aggregator_quote_to_base_asset_1_percent: Mapped[float] = mapped_column(nullable=False)
-    dex_aggregator_quote_to_base_asset_10_percent: Mapped[float] = mapped_column(nullable=False)
-    dex_aggregator_quote_to_base_asset_33_percent: Mapped[float] = mapped_column(nullable=False)
-    dex_aggregator_quote_to_base_asset_50_percent: Mapped[float] = mapped_column(nullable=False)
-    dex_aggregator_quote_to_base_asset_100_percent: Mapped[float] = mapped_column(nullable=False)
+    # dex_aggregator_quote_to_base_asset_1_percent: Mapped[float] = mapped_column(nullable=False)
+    # dex_aggregator_quote_to_base_asset_10_percent: Mapped[float] = mapped_column(nullable=False)
+    # dex_aggregator_quote_to_base_asset_33_percent: Mapped[float] = mapped_column(nullable=False)
+    # dex_aggregator_quote_to_base_asset_50_percent: Mapped[float] = mapped_column(nullable=False)
+    # dex_aggregator_quote_to_base_asset_100_percent: Mapped[float] = mapped_column(nullable=False)
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
@@ -326,6 +329,7 @@ class AutopoolDestinationStates(Base):
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
+    # maybe rename to "balance_of?" not certain
     amount: Mapped[float] = mapped_column(nullable=False)  # how many lp tokens this autopool has here, lens contract
     total_safe_value: Mapped[float] = mapped_column(
         nullable=False
