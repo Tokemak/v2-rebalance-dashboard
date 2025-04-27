@@ -152,15 +152,15 @@ class AutopoolStates(Base):
 
     autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-
     block: Mapped[int] = mapped_column(primary_key=True)
 
+    # these are view on the autopool_vault_address
     # primary
-    total_shares: Mapped[float] = mapped_column(nullable=False)
-    total_nav: Mapped[float] = mapped_column(nullable=False)
-    nav_per_share: Mapped[float] = mapped_column(nullable=False)
+    total_shares: Mapped[float] = mapped_column(nullable=False)  # vault.totalSupply
+    total_nav: Mapped[float] = mapped_column(nullable=False)  # nav
+    nav_per_share: Mapped[float] = mapped_column(nullable=False)  # nav per share
 
-    # despends on autopool destination states
+    # despends on autopool destination states # go by safe value
     weighted_average_total_apr_out: Mapped[float] = mapped_column(nullable=False)
     weighted_average_total_apr_in: Mapped[float] = mapped_column(nullable=False)
     weighted_average_safe_backing_discount: Mapped[float] = mapped_column(nullable=False)  # price return
@@ -182,12 +182,9 @@ class AutopoolTokenStates(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
 
-    # depends on autopool Destination states
-    # is technically a view only table
-    # expect for the quotes
-    amount: Mapped[float] = mapped_column(
-        nullable=True
-    )  # amount of the base asset token (eg WETH, pxETH, not LP tokens)
+    # need to know % ownership of each destiation
+    # and quantity, safe, spot and backing value of each token by destiatnion
+    amount: Mapped[float] = mapped_column(nullable=True)
 
     # depends on tokenValues and
     total_safe_value: Mapped[float] = mapped_column(nullable=True)
