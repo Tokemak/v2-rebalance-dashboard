@@ -148,7 +148,6 @@ def ensure_destination_token_values_are_current():
             where_clause=DestinationTokenValues.chain_id == chain.chain_id,
         )
         if len(missing_blocks) == 0:
-            # early stop
             continue
 
         full_destination_df = natural_left_right_using_where(

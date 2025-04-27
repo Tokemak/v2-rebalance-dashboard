@@ -39,8 +39,7 @@ def ensure_token_values_are_current():
             where_clause=TokenValues.chain_id == chain.chain_id,
         )
         if len(missing_blocks) == 0:
-            # early stop if we already have all the blocks
-            return
+            continue
 
         all_tokens_orm: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
 

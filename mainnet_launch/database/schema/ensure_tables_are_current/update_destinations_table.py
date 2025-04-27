@@ -225,7 +225,7 @@ def ensure_destinations_are_current() -> None:
         )
         if len(DestinationVaultRegistered) == 0:
             # early stop if no vaults
-            return
+            continue
 
         (
             symbol_dict,

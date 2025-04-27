@@ -6,7 +6,6 @@ import os
 import pandas as pd
 
 from sqlalchemy import MetaData
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_column
 from sqlalchemy import DateTime, ForeignKey, ARRAY, String, ForeignKeyConstraint, BigInteger
 from sqlalchemy import create_engine
@@ -20,7 +19,7 @@ tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
 ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
     f"@{tmpPostgres.hostname}{tmpPostgres.path}?sslmode=require",
-    echo=True,  # Enable SQL query logging for debugging.
+    echo=False,  # Enable SQL query logging for debugging.
 )
 
 
