@@ -62,7 +62,7 @@ def _fetch_autopool_state_dicts(autopool_vault_addresses: list[str], chain: Chai
     return symbol_dict, name_dict, strategy_dict, asset_dict
 
 
-def ensure_autopools_is_current() -> None:
+def ensure_autopools_are_current() -> None:
     """
     Make sure that the Destinations, DestinationTokens and Tokens tables are current for all the underlying tokens in each of the destinations
     """
@@ -100,4 +100,4 @@ def ensure_autopools_is_current() -> None:
 
 
 if __name__ == "__main__":
-    ensure_autopools_is_current()
+    ensure_autopools_are_current()

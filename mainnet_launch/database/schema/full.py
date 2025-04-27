@@ -165,8 +165,6 @@ class AutopoolStates(Base):
     weighted_average_total_apr_in: Mapped[float] = mapped_column(nullable=False)
     weighted_average_safe_backing_discount: Mapped[float] = mapped_column(nullable=False)  # price return
 
-    # active_destinations: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
-
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
         ForeignKeyConstraint(
@@ -188,13 +186,13 @@ class AutopoolTokenStates(Base):
     # is technically a view only table
     # expect for the quotes
     amount: Mapped[float] = mapped_column(
-        nullable=False
+        nullable=True
     )  # amount of the base asset token (eg WETH, pxETH, not LP tokens)
 
     # depends on tokenValues and
-    total_safe_value: Mapped[float] = mapped_column(nullable=False)
-    total_spot_value: Mapped[float] = mapped_column(nullable=False)
-    total_backing_value: Mapped[float] = mapped_column(nullable=False)
+    total_safe_value: Mapped[float] = mapped_column(nullable=True)
+    total_spot_value: Mapped[float] = mapped_column(nullable=True)
+    total_backing_value: Mapped[float] = mapped_column(nullable=True)
 
     # feature does not exist
     # some way of measuing how much of total liquidity is owned by this autopool
@@ -292,8 +290,7 @@ class AutopoolFees(Base):
     )
 
 
-# depends on Destination Token States for safe and spot values
-# needed
+# done
 class DestinationStates(Base):
     __tablename__ = "destination_states"
 
@@ -336,9 +333,7 @@ class DestinationStates(Base):
     )
 
 
-# depends on DestinationTokenState for value,
-# just need destination total supply here as well
-# needed
+# done
 class AutopoolDestinationStates(Base):
     # information about this one autopool's lp tokens at this destination
     __tablename__ = "autopool_destination_states"
@@ -374,6 +369,7 @@ class AutopoolDestinationStates(Base):
 
 # extra
 class DebtReporting(Base):
+    # double check what this is used for
     __tablename__ = "debt_reporting"
 
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
@@ -382,7 +378,7 @@ class DebtReporting(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False)
 
-    denominated_in: Mapped[str] = mapped_column(nullable=False)
+    # denominated_in: Mapped[str] = mapped_column(nullable=False) # autopools.base_asset (can skip)
     base_asset_value: Mapped[float] = mapped_column(nullable=False)
 
     __table_args__ = (

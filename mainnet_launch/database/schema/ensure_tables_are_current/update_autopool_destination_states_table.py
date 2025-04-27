@@ -162,7 +162,7 @@ def _extract_new_autopool_destination_state_rows(
     return new_autopool_destination_state_rows
 
 
-def ensure_autopool_destination_states_is_current():
+def ensure_autopool_destination_states_are_current():
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)
 
@@ -205,4 +205,4 @@ def ensure_autopool_destination_states_is_current():
 
 
 if __name__ == "__main__":
-    ensure_autopool_destination_states_is_current()
+    ensure_autopool_destination_states_are_current()
