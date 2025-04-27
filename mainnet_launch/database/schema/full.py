@@ -121,6 +121,8 @@ class Destinations(Base):
     underlying_symbol: Mapped[str] = mapped_column(nullable=False)
     underlying_name: Mapped[str] = mapped_column(nullable=False)
 
+    denominated_in: Mapped[str] = mapped_column(nullable=False)  # DestinationVaultAddress.baseAsset()
+
     __table_args__ = (ForeignKeyConstraint(["block_deployed", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
@@ -302,7 +304,6 @@ class DestinationStates(Base):
     underlying_safe_price: Mapped[float] = mapped_column(nullable=False)
     underlying_spot_price: Mapped[float] = mapped_column(nullable=False)
     underlying_backing: Mapped[float] = mapped_column(nullable=False)
-    denominated_in: Mapped[str] = mapped_column(nullable=False)  # should live in the destination
 
     safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
     safe_spot_spread: Mapped[float] = mapped_column(nullable=True)

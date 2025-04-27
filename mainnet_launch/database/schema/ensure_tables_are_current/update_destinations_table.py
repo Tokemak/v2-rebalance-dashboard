@@ -122,6 +122,15 @@ def _make_destination_vault_dicts(DestinationVaultRegistered: pd.DataFrame, chai
         for v in vaults
     ]
 
+    base_asset_calls = [
+        Call(
+            v,
+            "baseAsset()(address)",
+            [(v + "_base_asset", identity_with_bool_success)],
+        )
+        for v in vaults
+    ]
+
     underlying_tokens_calls = [
         Call(
             v,
@@ -137,6 +146,7 @@ def _make_destination_vault_dicts(DestinationVaultRegistered: pd.DataFrame, chai
         *exchange_name_calls,
         *underlying_calls,
         *pool_calls,
+        *base_asset_calls,
         *underlying_tokens_calls,
     ]
 
@@ -150,6 +160,7 @@ def _make_destination_vault_dicts(DestinationVaultRegistered: pd.DataFrame, chai
     exchange_name_dict = {v: raw[f"{v}_exchange_name"] for v in vaults}
     underlying_dict = {v: raw[f"{v}_underlying"] for v in vaults}
     pool_dict = {v: raw[f"{v}_pool"] for v in vaults}
+    base_asset_dict = {v: raw[f"{v}_base_asset"] for v in vaults}
     underlying_tokens_dict = {v: raw[f"{v}_underlyingTokens"] for v in vaults}
 
     underlying_symbol_calls = [
@@ -185,6 +196,7 @@ def _make_destination_vault_dicts(DestinationVaultRegistered: pd.DataFrame, chai
         exchange_name_dict,
         underlying_dict,
         pool_dict,
+        base_asset_dict,
         underlying_tokens_dict,
         underlying_symbol_dict,
         underlying_name_dict,
@@ -222,6 +234,7 @@ def ensure_destinations_are_current() -> None:
             exchange_name_dict,
             underlying_dict,
             pool_dict,
+            base_asset_dict,
             underlying_tokens_dict,
             underlying_symbol_dict,
             underlying_name_dict,
@@ -241,6 +254,7 @@ def ensure_destinations_are_current() -> None:
                 underlying=Web3.toChecksumAddress(underlying_dict[v]),
                 underlying_symbol=underlying_symbol_dict[v],
                 underlying_name=underlying_name_dict[v],
+                denominated_in=base_asset_dict[v],
             )
             for v in DestinationVaultRegistered["vaultAddress"]
         ]
