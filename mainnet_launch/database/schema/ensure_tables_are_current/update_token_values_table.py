@@ -68,7 +68,7 @@ def ensure_token_values_are_current():
                     denomiated_in=WETH(chain),
                     backing=backing,
                     safe_price=safe_price,
-                    safe_backing_spread=safe_backing_spread,
+                    safe_backing_discount=safe_backing_spread,
                 )
                 new_token_values_rows.append(new_token_values_row)
 
