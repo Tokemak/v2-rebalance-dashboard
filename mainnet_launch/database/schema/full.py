@@ -285,7 +285,7 @@ class DestinationStates(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     # information about the destination itself at this moment in time
 
-    incentive_apr: Mapped[float] = mapped_column(nullable=False)  # get destination SummaryStats
+    incentive_apr: Mapped[float] = mapped_column(nullable=False)
     fee_and_base_apr: Mapped[float] = mapped_column(nullable=False)
     points_apr: Mapped[float] = mapped_column(nullable=True)
 
@@ -294,15 +294,15 @@ class DestinationStates(Base):
     )  # get destination summaryStats (in, and out) are seperate calls
     total_apr_out: Mapped[float] = mapped_column(nullable=True)
 
-    undelrying_token_total_staked: Mapped[float] = mapped_column(nullable=True)
+    # underlying_token_total_staked: Mapped[float] = mapped_column(nullable=True) # pretty sure I don't need this
     underlying_token_total_supply: Mapped[float] = mapped_column(nullable=False)
     safe_total_supply: Mapped[float] = mapped_column(nullable=True)  # only for pre autoUSD destinations
 
-    # in units of LP toekns, eg 1.00??
+    # this is as lp tokens # via
     underlying_safe_price: Mapped[float] = mapped_column(nullable=False)
     underlying_spot_price: Mapped[float] = mapped_column(nullable=False)
     underlying_backing: Mapped[float] = mapped_column(nullable=False)
-    # denominated_in: Mapped[str] = mapped_column(nullable=False) # should live in the destination
+    denominated_in: Mapped[str] = mapped_column(nullable=False)  # should live in the destination
 
     safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
     safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
@@ -331,6 +331,8 @@ class AutopoolDestinationStates(Base):
 
     # maybe rename to "balance_of?" not certain
     amount: Mapped[float] = mapped_column(nullable=False)  # how many lp tokens this autopool has here, lens contract
+
+    # all
     total_safe_value: Mapped[float] = mapped_column(
         nullable=False
     )  # given the value of the lp tokens in the pool how much value does the atuopool have here
@@ -339,7 +341,7 @@ class AutopoolDestinationStates(Base):
 
     percent_ownership: Mapped[float] = mapped_column(
         nullable=False
-    )  # 100  * underlying_owned_amount / destination_states.underlying_token_total_supply
+    )  # 100  * amount / destination_states.underlying_token_total_supply
 
     __table_args__ = (
         ForeignKeyConstraint(

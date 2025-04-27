@@ -38,7 +38,9 @@ from mainnet_launch.constants import (
     ChainData,
 )
 
-raise ValueError("not done")
+from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
+    fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks,
+)
 
 
 def _clean_summary_stats_info(success, summary_stats):
@@ -94,32 +96,33 @@ def _build_summary_stats_call(
     )
 
 
-def _fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
-    chain: ChainData, missing_blocks: list[int]
-):
-    all_destinations_orm: list[Destinations] = get_full_table_as_orm(
-        Destinations, where_clause=Destinations.chain_id == chain.chain_id
-    )
-    all_autopools_orm: list[Autopools] = get_full_table_as_orm(
-        Autopools, where_clause=Autopools.chain_id == chain.chain_id
-    )
+# moved to lens contract
+# def _fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
+#     chain: ChainData, missing_blocks: list[int]
+# ):
+#     all_destinations_orm: list[Destinations] = get_full_table_as_orm(
+#         Destinations, where_clause=Destinations.chain_id == chain.chain_id
+#     )
+#     all_autopools_orm: list[Autopools] = get_full_table_as_orm(
+#         Autopools, where_clause=Autopools.chain_id == chain.chain_id
+#     )
 
-    raw_df = fetch_active_destinations_by_autopool_by_block(chain, missing_blocks)
+#     raw_df = fetch_active_destinations_by_autopool_by_block(chain, missing_blocks)
 
-    active_destinations_by_autopool_df = pd.DataFrame.from_records(raw_df["getPoolsAndDestinations"].values)
-    # make a bunch of summary stats calls
-    # split up by autopools to avoid max gas costs
-    autopool_to_all_ever_active_destinations: dict[str | list[Destinations]] = {}
-    for autopool in all_autopools_orm:
-        this_autopool_destinations = set()
-        all_ever_active_destinations = active_destinations_by_autopool_df[autopool.vault_address].dropna().values
-        for active_destinations_at_this_block in all_ever_active_destinations:
-            this_autopool_destinations.update(active_destinations_at_this_block)
+#     active_destinations_by_autopool_df = pd.DataFrame.from_records(raw_df["getPoolsAndDestinations"].values)
+#     # make a bunch of summary stats calls
+#     # split up by autopools to avoid max gas costs
+#     autopool_to_all_ever_active_destinations: dict[str | list[Destinations]] = {}
+#     for autopool in all_autopools_orm:
+#         this_autopool_destinations = set()
+#         all_ever_active_destinations = active_destinations_by_autopool_df[autopool.vault_address].dropna().values
+#         for active_destinations_at_this_block in all_ever_active_destinations:
+#             this_autopool_destinations.update(active_destinations_at_this_block)
 
-        autopool_to_all_ever_active_destinations[autopool.vault_address] = [
-            d for d in all_destinations_orm if d.destination_vault_address in this_autopool_destinations
-        ]
-    return autopool_to_all_ever_active_destinations
+#         autopool_to_all_ever_active_destinations[autopool.vault_address] = [
+#             d for d in all_destinations_orm if d.destination_vault_address in this_autopool_destinations
+#         ]
+#     return autopool_to_all_ever_active_destinations
 
 
 def _fetch_destination_summary_stats_from_external_source(chain: ChainData):
@@ -153,57 +156,57 @@ if __name__ == "__main__":
 # def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_field: str):
 #     if summary_stats_field not in SUMMARY_STATS_FIELDS:
 #         raise ValueError(f"Can only fetch {SUMMARY_STATS_FIELDS=} you tried to fetch {summary_stats_field=}")
-# TODO
+# # TODO
 
 
-def _fetch_destination_summary_stats_from_external_source2(chain: ChainData):
+# def _fetch_destination_summary_stats_from_external_source2(chain: ChainData):
 
-    # step one,
-    # assumes blocks is constant
-    possible_blocks = build_blocks_to_use(chain)
+#     # step one,
+#     # assumes blocks is constant
+#     possible_blocks = build_blocks_to_use(chain)
 
-    missing_blocks = get_subset_not_already_in_column(
-        DestinationStates,
-        DestinationStates.block,
-        possible_blocks,
-        where_clause=DestinationStates.chain_id == chain.chain_id,
-    )
+#     missing_blocks = get_subset_not_already_in_column(
+#         DestinationStates,
+#         DestinationStates.block,
+#         possible_blocks,
+#         where_clause=DestinationStates.chain_id == chain.chain_id,
+#     )
 
-    all_destinations_orm = get_full_table_as_orm(Destinations, where_clause=Destinations.chain_id == chain.chain_id)
-    all_autopools_orm = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
+#     all_destinations_orm = get_full_table_as_orm(Destinations, where_clause=Destinations.chain_id == chain.chain_id)
+#     all_autopools_orm = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
 
-    autopool_and_vault_by_block = fetch_pools_and_destinations_df(chain, missing_blocks)
-    pass
+#     autopool_and_vault_by_block = fetch_pools_and_destinations_df(chain, missing_blocks)
+#     pass
 
-    # approach 1, get all combinations of (dest, autopool) handle the extra downstream.
-    # i'm not sure that is right, I think i should jsut fetch what I need
-    # calls = []
+#     # approach 1, get all combinations of (dest, autopool) handle the extra downstream.
+#     # i'm not sure that is right, I think i should jsut fetch what I need
+#     # calls = []
 
-    # for a in all_autopools_orm:
-    #     for dest in all_destinations_orm:
-    #         calls.append(_build_summary_stats_call(a, dest))
+#     # for a in all_autopools_orm:
+#     #     for dest in all_destinations_orm:
+#     #         calls.append(_build_summary_stats_call(a, dest))
 
-    # state = get_state_by_one_block(calls, max(missing_blocks), chain)
-    # new_destination_states_rows = []
-    # new_autopool_states_rows = []
+#     # state = get_state_by_one_block(calls, max(missing_blocks), chain)
+#     # new_destination_states_rows = []
+#     # new_autopool_states_rows = []
 
-    # for (autopool_vault_address, destination_vault_address), summary_stats_response in state.items():
-    #     if summary_stats_response is not None:
-    #         DestinationStates(
-    #             destination_vault_address=destination_vault_address, block=max(missing_blocks),
-    #             chain_id=chain.chain_id,
-    #             incentive_apr=
-    #         )
+#     # for (autopool_vault_address, destination_vault_address), summary_stats_response in state.items():
+#     #     if summary_stats_response is not None:
+#     #         DestinationStates(
+#     #             destination_vault_address=destination_vault_address, block=max(missing_blocks),
+#     #             chain_id=chain.chain_id,
+#     #             incentive_apr=
+#     #         )
 
-    #     if response is not None:
-    #         single_destination_summary_stats = destination_states.get(destination_vault_address)
-    #         if single_destination_summary_stats is not None:
-    #             for k, v in single_destination_summary_stats.items():
-    #                 found = response[k]
-    #                 if v != found:
-    #                     pass
-    #                     raise ValueError('expected the same destination to have the same state ')
-    #         else:
-    #             destination_states[destination_vault_address] = response
+#     #     if response is not None:
+#     #         single_destination_summary_stats = destination_states.get(destination_vault_address)
+#     #         if single_destination_summary_stats is not None:
+#     #             for k, v in single_destination_summary_stats.items():
+#     #                 found = response[k]
+#     #                 if v != found:
+#     #                     pass
+#     #                     raise ValueError('expected the same destination to have the same state ')
+#     #         else:
+#     #             destination_states[destination_vault_address] = response
 
-    return destination_states
+#     return destination_states

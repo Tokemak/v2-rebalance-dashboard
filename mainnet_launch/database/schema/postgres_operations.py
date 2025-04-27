@@ -61,15 +61,12 @@ def get_highest_value_in_field_where(table: Base, column: InstrumentedAttribute,
 def get_subset_not_already_in_column(
     table: Base, column: InstrumentedAttribute, values: list[any], where_clause: OperatorExpression | None
 ):
-
     orms = get_full_table_as_orm(table, where_clause=where_clause)
-
     existing = [getattr(obj, column.key) for obj in orms]
-
     return [v for v in values if v not in existing]
 
     # this is running into issues with unnest. doing in python here, slight optimization to do it in sql
-    # returns[ a for a in values if a not in (table[column] given where_clause)]
+
     # with Session.begin() as session:
     #     col = column.property.columns[0]
     #     base_type = str(col.type).split("(")[0]

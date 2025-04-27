@@ -205,6 +205,7 @@ def fetch_active_destinations_by_autopool_by_block(chain: ChainData, blocks: lis
     return pools_and_destinations_df
 
 
+# maybe not the best spot for this, else where?
 def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
     chain: ChainData, missing_blocks: list[int]
 ) -> dict[str, list[Destinations]]:
