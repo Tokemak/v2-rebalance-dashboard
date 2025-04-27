@@ -86,7 +86,7 @@ class Tokens(Base):
 # done
 class Autopools(Base):
     __tablename__ = "autopools"
-    vault_address: Mapped[str] = mapped_column(primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     block_deployed: Mapped[int] = mapped_column(nullable=False)  # not certain I care about this
@@ -156,6 +156,7 @@ class AutopoolStates(Base):
 
     block: Mapped[int] = mapped_column(primary_key=True)
 
+    # primary
     total_shares: Mapped[float] = mapped_column(nullable=False)
     total_nav: Mapped[float] = mapped_column(nullable=False)
     nav_per_share: Mapped[float] = mapped_column(nullable=False)
@@ -169,7 +170,9 @@ class AutopoolStates(Base):
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
     )
 
 
@@ -182,9 +185,14 @@ class AutopoolTokenStates(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
 
+    # depends on autopool Destination states
+    # is technically a view only table
+    # expect for the quotes
     amount: Mapped[float] = mapped_column(
         nullable=False
     )  # amount of the base asset token (eg WETH, pxETH, not LP tokens)
+
+    # depends on tokenValues and
     total_safe_value: Mapped[float] = mapped_column(nullable=False)
     total_spot_value: Mapped[float] = mapped_column(nullable=False)
     total_backing_value: Mapped[float] = mapped_column(nullable=False)
@@ -206,7 +214,9 @@ class AutopoolTokenStates(Base):
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
         ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
-        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
     )
 
 
@@ -227,7 +237,9 @@ class AutopoolDeposit(Base):
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
     )
 
 
@@ -253,7 +265,9 @@ class AutopoolWithdrawal(Base):
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
     )
 
 
@@ -273,7 +287,9 @@ class AutopoolFees(Base):
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
     )
 
 
@@ -288,19 +304,37 @@ class DestinationStates(Base):
     # information about the destination itself at this moment in time
 
     incentive_apr: Mapped[float] = mapped_column(nullable=False)
-    fee_and_base_apr: Mapped[float] = mapped_column(nullable=False)
+    fee_apr: Mapped[float] = mapped_column(nullable=False)
+    base_apr: Mapped[float] = mapped_column(nullable=False)
+
     points_apr: Mapped[float] = mapped_column(nullable=True)
+
+    # only for post autoUSD destinations
+    fee_plus_base_apr: Mapped[float] = mapped_column(nullable=True)
 
     total_apr_in: Mapped[float] = mapped_column(
         nullable=True
     )  # get destination summaryStats (in, and out) are seperate calls
     total_apr_out: Mapped[float] = mapped_column(nullable=True)
 
-    # underlying_token_total_staked: Mapped[float] = mapped_column(nullable=True) # pretty sure I don't need this
     underlying_token_total_supply: Mapped[float] = mapped_column(nullable=False)
-    safe_total_supply: Mapped[float] = mapped_column(nullable=True)  # only for pre autoUSD destinations
+    safe_total_supply: Mapped[float] = mapped_column(nullable=True)  # in getDestinationSummaryStats
 
-    # this is as lp tokens # via
+    price_per_share: Mapped[float] = mapped_column(nullable=True)  # in getDestinationSummaryStats
+    # prob remove price return here
+    price_return: Mapped[float] = mapped_column(nullable=True)  # in getDestinationSummaryStats
+
+    # we could add this, don't have a firm opinion here on it
+    # underlying_token_total_staked: Mapped[float] = mapped_column(nullable=True) # pretty sure I don't need this
+    #     "maxDiscount": summary_stats[6] / 1e18,
+    #   "maxPremium": summary_stats[7] / 1e18,
+
+    # this is as lp tokens
+
+    # defined as a view on
+
+    # DestinationTokenValues.spot_price, quantity and Tokens.safe_price (at block)
+
     underlying_safe_price: Mapped[float] = mapped_column(nullable=False)
     underlying_spot_price: Mapped[float] = mapped_column(nullable=False)
     underlying_backing: Mapped[float] = mapped_column(nullable=False)
@@ -349,7 +383,9 @@ class AutopoolDestinationStates(Base):
             ["destination_vault_address", "block", "chain_id"],
             ["destination_states.destination_vault_address", "destination_states.block", "destination_states.chain_id"],
         ),
-        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
     )
 
 
@@ -375,7 +411,9 @@ class DebtReporting(Base):
                 "destination_states.chain_id",
             ],
         ),
-        ForeignKeyConstraint(["autopool_vault_address", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
     )
 
 
@@ -395,7 +433,7 @@ class RebalancePlan(Base):
     file_name: Mapped[str] = mapped_column(nullable=False, primary_key=True)
 
     datetime_generated: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
-    autopool: Mapped[str] = mapped_column(nullable=False)
+    autopool_vault_address: Mapped[str] = mapped_column(nullable=False)
     chain_id: Mapped[int] = mapped_column(nullable=False)
 
     dex_aggregator: Mapped[str] = mapped_column(nullable=False)
@@ -446,7 +484,9 @@ class RebalancePlan(Base):
         ),
         ForeignKeyConstraint(["token_in", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
         ForeignKeyConstraint(["token_out", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
-        ForeignKeyConstraint(["autopool", "chain_id"], ["autopools.vault_address", "autopools.chain_id"]),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
     )
 
     # dex steps here?
@@ -476,6 +516,9 @@ class RebalanceEvents(Base):
 
     predicted_gain_during_swap_cost_off_set_period: Mapped[float] = mapped_column(nullable=False)
     predicted_increase_after_swap_cost: Mapped[float] = mapped_column(nullable=False)
+
+    # consider adding in safe and acutal total supply here?
+    # only if wanted.
 
 
 # extra
@@ -539,6 +582,7 @@ class DestinationTokenValues(Base):
 
 # extra
 class IncentiveTokenLiquidations(Base):
+    # not certain if this makes sense to belong to an autopool
     __tablename__ = "incentive_token_liquidations"
 
     block: Mapped[int] = mapped_column(primary_key=True)

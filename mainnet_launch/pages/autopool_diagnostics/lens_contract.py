@@ -224,11 +224,13 @@ def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
     autopool_to_all_ever_active_destinations: dict[str | list[Destinations]] = {}
     for autopool in all_autopools_orm:
         this_autopool_destinations = set()
-        all_ever_active_destinations = active_destinations_by_autopool_df[autopool.vault_address].dropna().values
+        all_ever_active_destinations = (
+            active_destinations_by_autopool_df[autopool.autopool_vault_address].dropna().values
+        )
         for active_destinations_at_this_block in all_ever_active_destinations:
             this_autopool_destinations.update(active_destinations_at_this_block)
 
-        autopool_to_all_ever_active_destinations[autopool.vault_address] = [
+        autopool_to_all_ever_active_destinations[autopool.autopool_vault_address] = [
             d for d in all_destinations_orm if d.destination_vault_address in this_autopool_destinations
         ]
     return autopool_to_all_ever_active_destinations

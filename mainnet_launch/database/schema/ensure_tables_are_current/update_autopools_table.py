@@ -73,7 +73,7 @@ def ensure_autopools_is_current() -> None:
         autopool_vault_addresses = [a.autopool_eth_addr for a in ALL_AUTOPOOLS if a.chain == chain]
         autopools_not_in_table = get_subset_not_already_in_column(
             Autopools,
-            Autopools.vault_address,
+            Autopools.autopool_vault_address,
             autopool_vault_addresses,
             where_clause=Autopools.chain_id == chain.chain_id,
         )
@@ -86,7 +86,7 @@ def ensure_autopools_is_current() -> None:
 
             autopools_rows = [
                 Autopools(
-                    vault_address=a.autopool_eth_addr,
+                    autopool_vault_address=a.autopool_eth_addr,
                     chain_id=a.chain.chain_id,
                     block_deployed=a.block_deployed,
                     name=name_dict[a.autopool_eth_addr],
@@ -99,7 +99,7 @@ def ensure_autopools_is_current() -> None:
             new_blocks = [a.block_deployed for a in autopools_rows]
             ensure_all_blocks_are_in_table(new_blocks, chain)
             insert_avoid_conflicts(
-                autopools_rows, Autopools, index_elements=[Autopools.vault_address, Autopools.chain_id]
+                autopools_rows, Autopools, index_elements=[Autopools.autopool_vault_address, Autopools.chain_id]
             )
 
 

@@ -30,6 +30,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False):
     if full_reset_and_refetch:
         drop_and_full_rebuild_db()
 
+    # these must be ran in order
     ensure_blocks_is_current()
     ensure_destinations_are_current()
     ensure_autopools_is_current()
@@ -43,5 +44,5 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False):
 
 
 if __name__ == "__main__":
-    ensure_database_is_current(True)
+    # ensure_database_is_current(True)
     ensure_database_is_current(False)
