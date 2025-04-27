@@ -19,7 +19,7 @@ tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
 ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
     f"@{tmpPostgres.hostname}{tmpPostgres.path}?sslmode=require",
-    echo=False,  # Enable SQL query logging for debugging.
+    echo=True,  # Enable SQL query logging for debugging.
 )
 
 
@@ -351,7 +351,6 @@ class AutopoolDestinationStates(Base):
     # maybe rename to "balance_of?" not certain
     amount: Mapped[float] = mapped_column(nullable=False)  # how many lp tokens this autopool has here, lens contract
 
-    # all
     total_safe_value: Mapped[float] = mapped_column(
         nullable=False
     )  # given the value of the lp tokens in the pool how much value does the atuopool have here

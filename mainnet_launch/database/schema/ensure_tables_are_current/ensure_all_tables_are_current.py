@@ -26,6 +26,10 @@ from mainnet_launch.database.schema.ensure_tables_are_current.update_destination
     ensure_destination_states_is_current,
 )
 
+from mainnet_launch.database.schema.ensure_tables_are_current.update_autopool_destination_states_table import (
+    ensure_autopool_destination_states_is_current,
+)
+
 
 @time_decorator
 def ensure_database_is_current(full_reset_and_refetch: bool = False):
@@ -39,11 +43,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False):
     ensure_token_values_are_current()
     ensure_destination_token_values_are_current()
     ensure_destination_states_is_current()
-
-    # AutopoolDestinationStates (depends on Destination)
-    # add destiantion states
-    # add autopool destiation states
-    # add autopool destiations tates
+    ensure_autopool_destination_states_is_current()
 
 
 if __name__ == "__main__":
