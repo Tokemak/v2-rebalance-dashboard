@@ -150,6 +150,22 @@ def make_dummy_1_call(name: str) -> Call:
     )
 
 
+# TODO, next step
+# make sure the backing values are right
+
+
+def _build_lst_backing_dummy_calls():
+    # hard coded, these are the LSTs that have a backing of 1 by defenition
+    dummy_weth_backing_call = make_dummy_1_call(WETH(chain) + "_backing")
+
+
+#     # the backin gis not correct
+# the backing is not correct here,
+#     select avg(backing), avg(safe_price),  token_address from token_values
+
+# GROUP by  token_address
+
+
 def _fetch_safe_and_backing_values(missing_blocks: list[int], tokens: list[Tokens], chain: ChainData) -> pd.DataFrame:
     calls = [*_build_safe_price_calls(tokens, chain), *_build_backing_calls(tokens, chain)]
     df = get_raw_state_by_blocks(calls, missing_blocks, chain, include_block_number=True)
