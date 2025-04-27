@@ -315,23 +315,18 @@ class DestinationStates(Base):
     total_apr_in: Mapped[float] = mapped_column(nullable=True)
     total_apr_out: Mapped[float] = mapped_column(nullable=True)
 
-    underlying_token_total_supply: Mapped[float] = mapped_column(
-        nullable=True
-    )  # not certain this can be nullable, might not matter
-    safe_total_supply: Mapped[float] = mapped_column(nullable=True)  # in getDestinationSummaryStats
+    underlying_token_total_supply: Mapped[float] = mapped_column(nullable=True)
+    safe_total_supply: Mapped[float] = mapped_column(nullable=True)
+    price_per_share: Mapped[float] = mapped_column(nullable=True)
+    price_return: Mapped[float] = mapped_column(nullable=True)
 
-    price_per_share: Mapped[float] = mapped_column(nullable=True)  # in getDestinationSummaryStats
-    # prob remove price return here
-    price_return: Mapped[float] = mapped_column(nullable=True)  # in getDestinationSummaryStats
+    underlying_safe_price: Mapped[float] = mapped_column(nullable=True)
+    underlying_spot_price: Mapped[float] = mapped_column(nullable=True)
+    underlying_backing: Mapped[float] = mapped_column(nullable=True)
 
-    # not certain here if they are nullable or not
-    underlying_safe_price: Mapped[float] = mapped_column(nullable=False)
-    underlying_spot_price: Mapped[float] = mapped_column(nullable=False)
-    underlying_backing: Mapped[float] = mapped_column(nullable=False)
-
-    safe_backing_discount: Mapped[float] = mapped_column(nullable=False)
-    spot_backing_discount: Mapped[float] = mapped_column(nullable=False)
-    safe_spot_spread: Mapped[float] = mapped_column(nullable=False)
+    safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
+    spot_backing_discount: Mapped[float] = mapped_column(nullable=True)
+    safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
