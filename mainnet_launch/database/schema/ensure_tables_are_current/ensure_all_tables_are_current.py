@@ -31,6 +31,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.update_autopool_de
 )
 
 
+# 270 seconds
 @time_decorator
 def ensure_database_is_current(full_reset_and_refetch: bool = False):
     if full_reset_and_refetch:
