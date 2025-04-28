@@ -98,7 +98,7 @@ class Autopools(Base):
     __table_args__ = (ForeignKeyConstraint(["block_deployed", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
-# current
+# done
 class Destinations(Base):
     __tablename__ = "destinations"
 
@@ -122,7 +122,7 @@ class Destinations(Base):
     __table_args__ = (ForeignKeyConstraint(["block_deployed", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
-# current
+# done
 class DestinationTokens(Base):
     # missing idle destination
     __tablename__ = "destination_tokens"
@@ -144,7 +144,7 @@ class DestinationTokens(Base):
     )
 
 
-# needed
+# done
 class AutopoolStates(Base):
     __tablename__ = "autopool_states"
 
