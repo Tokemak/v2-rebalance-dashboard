@@ -313,42 +313,47 @@ class AutopoolDestinationStates(Base):
     )
 
 
-# extra
-class DebtReporting(Base):
-    # double check what this is used for
-    __tablename__ = "debt_reporting"
+# done
+class TokenValues(Base):
+    __tablename__ = "token_values"
 
-    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
-    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False)
+    token_address: Mapped[str] = mapped_column(primary_key=True)
 
-    # denominated_in: Mapped[str] = mapped_column(nullable=False) # autopools.base_asset (can skip)
-    base_asset_value: Mapped[float] = mapped_column(nullable=False)
+    denomiated_in: Mapped[str] = mapped_column(nullable=False)
+    backing: Mapped[float] = mapped_column(nullable=True)
+    safe_price: Mapped[float] = mapped_column(nullable=True)
+    safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
 
     __table_args__ = (
-        ForeignKeyConstraint(
-            ["destination_vault_address", "block", "chain_id"],
-            [
-                "destination_states.destination_vault_address",
-                "destination_states.block",
-                "destination_states.chain_id",
-            ],
-        ),
-        ForeignKeyConstraint(
-            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
-        ),
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
     )
 
 
-# extra
-class ChainlinkGasCosts(Base):
-    __tablename__ = "chainlink_gas_costs"
+# done
+class DestinationTokenValues(Base):
+    __tablename__ = "destination_token_values"
 
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
-    chainlink_topic_id: Mapped[int] = mapped_column(nullable=False)
-    gas_cost_in_eth_with_chainlink_premium: Mapped[float] = mapped_column(nullable=False)
+    block: Mapped[int] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    token_address: Mapped[str] = mapped_column(primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
+
+    spot_price: Mapped[float] = mapped_column(nullable=True)
+    quantity: Mapped[float] = mapped_column(nullable=True)  # how many of this asset is in this pool.
+    safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
+    spot_backing_discount: Mapped[float] = mapped_column(nullable=True)
+
+    __table_args__ = (
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+        ForeignKeyConstraint(
+            ["destination_vault_address", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+    )
 
 
 # needed
@@ -464,49 +469,6 @@ class SolverProfit(Base):
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
-# done
-class TokenValues(Base):
-    __tablename__ = "token_values"
-
-    block: Mapped[int] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(primary_key=True)
-    token_address: Mapped[str] = mapped_column(primary_key=True)
-
-    denomiated_in: Mapped[str] = mapped_column(nullable=False)
-    backing: Mapped[float] = mapped_column(nullable=True)
-    safe_price: Mapped[float] = mapped_column(nullable=True)
-    safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
-
-    __table_args__ = (
-        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
-    )
-
-
-# done
-class DestinationTokenValues(Base):
-    __tablename__ = "destination_token_values"
-
-    block: Mapped[int] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(primary_key=True)
-    token_address: Mapped[str] = mapped_column(primary_key=True)
-    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
-
-    spot_price: Mapped[float] = mapped_column(nullable=True)
-    quantity: Mapped[float] = mapped_column(nullable=True)  # how many of this asset is in this pool.
-    safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
-    spot_backing_discount: Mapped[float] = mapped_column(nullable=True)
-
-    __table_args__ = (
-        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
-        ForeignKeyConstraint(
-            ["destination_vault_address", "chain_id"],
-            ["destinations.destination_vault_address", "destinations.chain_id"],
-        ),
-    )
-
-
 # extra
 class IncentiveTokenLiquidations(Base):
     # not certain if this makes sense to belong to an autopool
@@ -542,6 +504,44 @@ class IncentiveTokenLiquidations(Base):
     )
 
 
+# extra
+class DebtReporting(Base):
+    # double check what this is used for
+    __tablename__ = "debt_reporting"
+
+    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    block: Mapped[int] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False)
+
+    # denominated_in: Mapped[str] = mapped_column(nullable=False) # autopools.base_asset (can skip)
+    base_asset_value: Mapped[float] = mapped_column(nullable=False)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["destination_vault_address", "block", "chain_id"],
+            [
+                "destination_states.destination_vault_address",
+                "destination_states.block",
+                "destination_states.chain_id",
+            ],
+        ),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
+    )
+
+
+# extra
+class ChainlinkGasCosts(Base):
+    __tablename__ = "chainlink_gas_costs"
+
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    chainlink_topic_id: Mapped[int] = mapped_column(nullable=False)
+    gas_cost_in_eth_with_chainlink_premium: Mapped[float] = mapped_column(nullable=False)
+
+
 def drop_and_full_rebuild_db():
     meta = MetaData()
     meta.reflect(bind=ENGINE)
@@ -551,7 +551,35 @@ def drop_and_full_rebuild_db():
     print("Recreated all tables from ORM definitions.")
 
 
+def make_schema_image():
+    from sqlalchemy_schemadisplay import create_schema_graph
+
+    # 1) Build the base ERD graph
+    graph = create_schema_graph(
+        engine=ENGINE,
+        metadata=Base.metadata,
+        show_datatypes=False,  # hide column types
+        show_indexes=False,  # hide index definitions
+        rankdir="LR",  # left-to-right layout
+    )
+
+    # 2) Apply styling via pydot setters
+    graph.set_graph_defaults(
+        splines="ortho",  # orthogonal (right-angle) edges
+        nodesep="0.6",  # horizontal spacing between nodes
+        ranksep="0.75",  # vertical spacing between ranks
+        fontsize="12",  # global font size
+        dpi="300",
+    )
+    graph.set_node_defaults(shape="rectangle", style="filled", fillcolor="#f9f9f9", fontname="Helvetica")
+    graph.set_edge_defaults(color="#555555", arrowsize="0.7")
+
+    # 3) Render to PNG
+    graph.write("mainnet_launch/database/schema/schema.png", format="png")
+    print("→ Wrote schema.png")
+
+
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    drop_and_full_rebuild_db()
+    make_schema_image()

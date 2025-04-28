@@ -383,10 +383,6 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
         )
 
 
-if __name__ == "__main__":
-    ensure_destinations__tokens__and__destination_tokens_are_current()
-
-
 # def fetch_all_destinations_for_autopool(autopool: AutopoolConstants) -> list[Destinations]:
 #     """
 #     Retrieves all destination rows associated with a specific autopool.
