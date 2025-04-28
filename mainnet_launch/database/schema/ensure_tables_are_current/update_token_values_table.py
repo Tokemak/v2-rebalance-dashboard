@@ -25,6 +25,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     build_blocks_to_use,
     identity_with_bool_success,
     get_state_by_one_block,
+    make_dummy_1_call,
 )
 from mainnet_launch.constants import ALL_CHAINS, ROOT_PRICE_ORACLE, ChainData, STATS_CALCULATOR_REGISTRY, WETH
 
@@ -96,7 +97,7 @@ def _build_safe_price_calls(tokens: list[Tokens], chain: ChainData) -> list[Call
 
 def _build_backing_calls(tokens: list[Tokens], chain: ChainData) -> list[Call]:
     # this is a self contained problem to make this more readable,
-    # my inclination is to hard code it there are < 10 LSTs and stablecoins
+    # consider hardcoding it
 
     stats_calculator_registry_contract = chain.client.eth.contract(
         STATS_CALCULATOR_REGISTRY(chain), abi=STATS_CALCULATOR_REGISTRY_ABI
@@ -132,35 +133,6 @@ def _build_backing_calls(tokens: list[Tokens], chain: ChainData) -> list[Call]:
     # TODO add ETH her something like: eeeeeeeeeeeeeeeEEEEEEEeeee version (approx)
     backing_calls.append(dummy_weth_backing_call)
     return backing_calls
-
-
-# move to get raw state by block
-def _constant_1(success, value) -> float:
-    return 1.0
-
-
-def make_dummy_1_call(name: str) -> Call:
-    return Call(
-        "0x000000000000000000000000000000000000dEaD",
-        ["dummy()(uint256)"],
-        [(name, _constant_1)],
-    )
-
-
-# TODO, next step
-# make sure the backing values are right
-
-
-def _build_lst_backing_dummy_calls(chain: ChainData):
-    # hard coded, these are the LSTs that have a backing of 1 by defenition
-    dummy_weth_backing_call = make_dummy_1_call((WETH(chain), "backing"))
-
-
-#     # the backin gis not correct
-# the backing is not correct here,
-#     select avg(backing), avg(safe_price),  token_address from token_values
-
-# GROUP by  token_address
 
 
 def _fetch_safe_and_backing_values(missing_blocks: list[int], tokens: list[Tokens], chain: ChainData) -> pd.DataFrame:

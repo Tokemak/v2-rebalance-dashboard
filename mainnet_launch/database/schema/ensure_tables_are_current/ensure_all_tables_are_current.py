@@ -12,7 +12,7 @@ from mainnet_launch.database.schema.full import drop_and_full_rebuild_db
 from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
 
 from mainnet_launch.database.schema.ensure_tables_are_current.update_destinations_table import (
-    ensure_destinations_are_current,
+    ensure__destinations__tokens__and__destination_tokens_are_current,
 )
 from mainnet_launch.database.schema.ensure_tables_are_current.update_autopools_table import ensure_autopools_are_current
 
@@ -41,7 +41,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False):
 
     # primary tables
     ensure_blocks_is_current()
-    ensure_destinations_are_current()
+    ensure__destinations__tokens__and__destination_tokens_are_current()  # don't like this name
     ensure_autopools_are_current()
     ensure_token_values_are_current()
     ensure_destination_token_values_are_current()

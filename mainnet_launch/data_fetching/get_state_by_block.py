@@ -183,6 +183,19 @@ def identity_function(value):
     return value
 
 
+# move to get raw state by block
+def _constant_1(success, value) -> float:
+    return 1.0
+
+
+def make_dummy_1_call(name: str) -> Call:
+    return Call(
+        "0x000000000000000000000000000000000000dEaD",
+        ["dummy()(uint256)"],
+        [(name, _constant_1)],
+    )
+
+
 BLOCKS_TO_USE_TABLE = "BLOCKS_TO_USE_TABLE"
 
 

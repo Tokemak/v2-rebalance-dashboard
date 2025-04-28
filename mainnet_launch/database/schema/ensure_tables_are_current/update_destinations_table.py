@@ -284,7 +284,7 @@ def _make_idle_destination_tokens(chain: ChainData) -> list[DestinationTokens]:
     return idle_details
 
 
-def ensure_destinations_are_current() -> None:
+def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
     """
     Make sure that the Destinations, DestinationTokens and Tokens tables are current for all the underlying tokens in each of the destinations
     """
@@ -382,7 +382,7 @@ def ensure_destinations_are_current() -> None:
 
 
 if __name__ == "__main__":
-    ensure_destinations_are_current()
+    ensure_destinations__tokens__and__destination_tokens_are_current()
 
 
 # def fetch_all_destinations_for_autopool(autopool: AutopoolConstants) -> list[Destinations]:
