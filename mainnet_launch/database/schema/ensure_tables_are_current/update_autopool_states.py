@@ -1,87 +1,159 @@
-# import pandas as pd
-# from multicall import Call
-# import numpy as np
-# from web3 import Web3
+import pandas as pd
+from multicall import Call
+
+from mainnet_launch.database.schema.full import Autopools, AutopoolStates, AutopoolDestinationStates, DestinationStates
+
+from mainnet_launch.database.schema.postgres_operations import (
+    get_full_table_as_orm,
+    get_subset_not_already_in_column,
+    natural_left_right_using_where,
+    insert_avoid_conflicts,
+)
+
+from mainnet_launch.data_fetching.get_state_by_block import (
+    get_raw_state_by_blocks,
+    safe_normalize_with_bool_success,
+    build_blocks_to_use,
+)
+
+from mainnet_launch.constants import (
+    ALL_CHAINS,
+    ChainData,
+)
 
 
-# from mainnet_launch.database.schema.full import (
-#     DestinationTokenValues,
-#     TokenValues,
-#     Autopools,
-#     DestinationStates,
-#     DestinationTokens,
-#     Destinations,
-#     AutopoolDestinationStates,
-#     Tokens,
-#     AutopoolStates
-# )
-# import plotly.express as px
+def _fetch_autopool_state_df(autopools: list[Autopools], missing_blocks: list[int], chain: ChainData) -> pd.DataFrame:
+
+    def _extract_debt_plus_idle(success, AssetBreakdown):
+        if success:
+            totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
+            return int(totalIdle + totalDebt) / 1e18
+        return None
+
+    calls = []
+    for autopool in autopools:
+        calls.extend(
+            [
+                Call(
+                    autopool.autopool_vault_address,
+                    ["totalSupply()(uint256)"],
+                    [((autopool.autopool_vault_address, "total_shares"), safe_normalize_with_bool_success)],
+                ),
+                Call(
+                    autopool.autopool_vault_address,
+                    ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
+                    [((autopool.autopool_vault_address, "total_nav"), _extract_debt_plus_idle)],
+                ),
+                Call(
+                    autopool.autopool_vault_address,
+                    ["convertToAssets(uint256)(uint256)", int(1e18)],
+                    [((autopool.autopool_vault_address, "nav_per_share"), safe_normalize_with_bool_success)],
+                ),
+            ]
+        )
+
+    autopool_state_df = get_raw_state_by_blocks(calls, missing_blocks, chain, include_block_number=True)
+    return autopool_state_df
 
 
-# from mainnet_launch.abis import STATS_CALCULATOR_REGISTRY_ABI
-# from mainnet_launch.data_fetching.get_events import fetch_events
+def ensure_autopool_states_is_current():
+    # not correct
+    for chain in ALL_CHAINS:
+        possible_blocks = build_blocks_to_use(chain)
+
+        missing_blocks = get_subset_not_already_in_column(
+            AutopoolStates,
+            AutopoolStates.block,
+            possible_blocks,
+            where_clause=AutopoolStates.chain_id == chain.chain_id,
+        )
+
+        if len(missing_blocks) == 0:
+            continue
+
+        new_autopool_states_rows = _fetch_new_autopool_state_rows(chain, missing_blocks)
+
+        insert_avoid_conflicts(
+            new_autopool_states_rows,
+            AutopoolStates,
+            index_elements=[AutopoolStates.autopool_vault_address, AutopoolStates.chain_id, AutopoolStates.block],
+        )
 
 
-# from mainnet_launch.database.schema.postgres_operations import (
-#     get_full_table_as_orm,
-#     get_full_table_as_df,
-#     insert_avoid_conflicts,
-#     get_subset_not_already_in_column,
-#     natural_left_right_using_where,
-# )
-# from mainnet_launch.data_fetching.get_state_by_block import (
-#     get_raw_state_by_blocks,
-#     safe_normalize_with_bool_success,
-#     build_blocks_to_use,
-#     identity_with_bool_success,
-#     get_state_by_one_block,
-# )
-# from mainnet_launch.constants import (
-#     ALL_CHAINS,
-#     ROOT_PRICE_ORACLE,
-#     ChainData,
-# )
+def _fetch_new_autopool_state_rows(chain: ChainData, missing_blocks: list[int]):
 
-# from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
-#     fetch_pools_and_destinations_df,
-# )
+    autopools = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
+
+    autopool_state_df = _fetch_autopool_state_df(autopools, missing_blocks, chain)
+    wide_autopool_destination_df = natural_left_right_using_where(
+        AutopoolDestinationStates,
+        DestinationStates,
+        using=[
+            AutopoolDestinationStates.chain_id,
+            AutopoolDestinationStates.block,
+            AutopoolDestinationStates.destination_vault_address,
+        ],
+    )
+
+    wide_autopool_destination_df = pd.merge(wide_autopool_destination_df, autopool_state_df, on="block")
+
+    down_weighted_apr_values = []
+
+    # this so that we can sum up the values simple way to do a wegihted average, there are simpler,
+    # see the other version
+    def _extract_down_weighted_apr_values(row: dict) -> None:
+        autopool_total_nav = row[(row["autopool_vault_address"], "total_nav")]
+        this_destination_safe_value = row["total_safe_value"]
+        portion_of_value_in_destination = this_destination_safe_value / autopool_total_nav
+
+        downscaled_total_apr_out = row.get("total_apr_out", 0) * portion_of_value_in_destination
+        downscaled_total_apr_in = row.get("total_apr_in", 0) * portion_of_value_in_destination
+        downscaled_safe_backing_discount = row.get("total_apr_in", 0) * portion_of_value_in_destination
+
+        down_weighted_apr_values.append(
+            {
+                "downscaled_total_apr_out": downscaled_total_apr_out,
+                "downscaled_total_apr_in": downscaled_total_apr_in,
+                "downscaled_safe_backing_discount": downscaled_safe_backing_discount,
+                "autopool_vault_address": row["autopool_vault_address"],
+                "block": row["block"],
+            }
+        )
+
+    wide_autopool_destination_df.apply(_extract_down_weighted_apr_values, axis=1)
+
+    down_weighted_apr_df = pd.DataFrame.from_records(down_weighted_apr_values)
+    weighted_average_df = down_weighted_apr_df.groupby(["autopool_vault_address", "block"]).sum()
+    weighted_average_df.columns = [
+        "weighted_average_total_apr_out",
+        "weighted_average_total_apr_in",
+        "weighted_average_safe_backing_discount",
+    ]
+    weighted_average_df = weighted_average_df.reset_index()
+
+    autopool_weighted_avgs_with_state_df = pd.merge(weighted_average_df, autopool_state_df, on="block")
+
+    new_autopool_state_rows = []
+
+    def _extract_autopool_state(row: dict):
+        new_autopool_state_rows.append(
+            AutopoolStates(
+                autopool_vault_address=row["autopool_vault_address"],
+                block=int(row["block"]),
+                chain_id=chain.chain_id,
+                total_shares=float(row[(row["autopool_vault_address"], "total_shares")]),
+                total_nav=float(row[(row["autopool_vault_address"], "total_nav")]),
+                nav_per_share=float(row[(row["autopool_vault_address"], "nav_per_share")]),
+                weighted_average_total_apr_out=float(row["weighted_average_total_apr_out"]),
+                weighted_average_total_apr_in=float(row["weighted_average_total_apr_in"]),
+                weighted_average_safe_backing_discount=float(row["weighted_average_safe_backing_discount"]),
+            )
+        )
+
+    autopool_weighted_avgs_with_state_df.apply(_extract_autopool_state, axis=1)
+
+    return new_autopool_state_rows
 
 
-# def build_autopool_state_calls(autopools:list[Autopools]) -> list[Call]:
-
-#     # autopool total Shaes
-#     # total_shares: Mapped[float] = mapped_column(nullable=False)  # vault.totalSupply
-#     # total_nav: Mapped[float] = m_column(nullable=False)  # nav
-#     # nav_per_share: Mapped[float] = mappedapped_column(nullable=False)  # nav per share
-#     symbol_calls = [
-#         Call(
-#             t,
-#             "symbol()(string)",
-#             [(t + "_symbol", identity_with_bool_success)],
-#         )
-#         for t in autopools
-#     ]
-
-#     name_calls = [
-#         Call(
-#             t,
-#             "name()(string)",
-#             [(t + "_name", identity_with_bool_success)],
-#         )
-#         for t in token_addresses
-#     ]
-
-
-# def ensure_autopool_states_is_current():
-#     for chain in ALL_CHAINS:
-#         possible_blocks = build_blocks_to_use(chain)
-
-#         missing_blocks = get_subset_not_already_in_column(
-#             AutopoolDestinationStates,
-#             AutopoolDestinationStates.block,
-#             possible_blocks,
-#             where_clause=AutopoolDestinationStates.chain_id == chain.chain_id,
-#         )
-
-#         if len(missing_blocks) == 0:
-#             continue
+if __name__ == "__main__":
+    ensure_autopool_states_is_current()

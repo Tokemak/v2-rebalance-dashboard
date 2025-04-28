@@ -157,15 +157,16 @@ class AutopoolStates(Base):
 
     # these are view on the autopool_vault_address
     # primary lens contract
-    total_shares: Mapped[float] = mapped_column(nullable=False)  # vault.totalSupply
-    total_nav: Mapped[float] = mapped_column(nullable=False)  # nav
-    nav_per_share: Mapped[float] = mapped_column(nullable=False)  # nav per share
+    total_shares: Mapped[float] = mapped_column(nullable=True)
+    total_nav: Mapped[float] = mapped_column(nullable=True)
+    nav_per_share: Mapped[float] = mapped_column(nullable=True)
 
-    # despends on autopool destination states # go by safe value
-    weighted_average_total_apr_out: Mapped[float] = mapped_column(nullable=False)
-    weighted_average_total_apr_in: Mapped[float] = mapped_column(nullable=False)
-    weighted_average_safe_backing_discount: Mapped[float] = mapped_column(nullable=False)  # price return
+    # weights * portion of safe value in this destination
+    weighted_average_total_apr_out: Mapped[float] = mapped_column(nullable=True)
+    weighted_average_total_apr_in: Mapped[float] = mapped_column(nullable=True)
+    weighted_average_safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
 
+    # consider adding more later
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
         ForeignKeyConstraint(
@@ -176,6 +177,7 @@ class AutopoolStates(Base):
 
 # needed
 class AutopoolTokenStates(Base):
+    # this way might be too complicated, idk
     __tablename__ = "autopool_token_states"
 
     autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
