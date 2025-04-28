@@ -383,22 +383,13 @@ def ensure_destination_states_are_current():
         if len(missing_blocks) == 0:
             continue
 
-        # autopool_df = get_full_table_as_df(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
-
-        # full_destination_df = natural_left_right_using_where(
-        #     DestinationTokens,
-        #     Destinations,
-        #     using=[DestinationTokens.destination_vault_address, DestinationTokens.chain_id],
-        #     where_clause=DestinationTokens.chain_id == chain.chain_id,
-        # )
-
         token_value_df = natural_left_right_using_where(
             DestinationTokenValues,
             TokenValues,
             using=[DestinationTokenValues.block, DestinationTokens.chain_id, DestinationTokens.token_address],
             where_clause=DestinationTokenValues.chain_id == chain.chain_id,
         )
-        # not sure here on the way to specify only a subset of oclumsn? maybe with type hints? add later, eg columsn = none and
+        # not sure here on the way to specify only a subset of columns? maybe add a a paramter to this
         token_df = get_full_table_as_df(Tokens, where_clause=Tokens.chain_id == chain.chain_id)[
             ["symbol", "decimals", "token_address"]
         ]
@@ -411,10 +402,6 @@ def ensure_destination_states_are_current():
         destination_underlying_total_supply_df = _fetch_destination_total_supply_df(
             autopool_to_all_ever_active_destinations, missing_blocks, chain
         )
-
-        # autopool_destination_balance_of_df = fetch_autopool_balance_of_by_destination(
-        #     autopool_to_all_ever_active_destinations, missing_blocks, chain
-        # )  # only needed for autopool destination state, the rest can be extracted from the other tables
 
         autopool_points_df = _fetch_autopool_points_apr(autopool_to_all_ever_active_destinations, missing_blocks, chain)
 
@@ -439,6 +426,17 @@ def ensure_destination_states_are_current():
                 DestinationStates.destination_vault_address,
             ],
         )
+
+        # add idle destination states here too
+
+
+def _fetch_idle_destination_states():
+
+    # look at destinations, DestinationTokenValues where pool_type == 'idle'
+    # apr is 0, price per share = 1,
+    # underlying_safe_price are 1 the rest are None spot and backing
+
+    pass
 
 
 if __name__ == "__main__":

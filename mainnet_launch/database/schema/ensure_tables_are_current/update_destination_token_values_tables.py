@@ -185,6 +185,7 @@ def ensure_destination_token_values_are_current():
 
         # primary source of idle
         idle_destination_token_values = _fetch_idle_destination_token_values(chain, missing_blocks)
+
         insert_avoid_conflicts(
             idle_destination_token_values,
             DestinationTokenValues,
@@ -201,7 +202,7 @@ def _fetch_idle_destination_token_values(chain: ChainData, missing_blocks: list[
 
     autopools: list[Autopools] = get_full_table_as_orm(
         Autopools,
-        where_clause=TokenValues.chain_id == chain.chain_id,
+        where_clause=Autopools.chain_id == chain.chain_id,
     )
 
     def _asset_breakdown_to_idle(success, args):
@@ -213,7 +214,7 @@ def _fetch_idle_destination_token_values(chain: ChainData, missing_blocks: list[
         Call(
             autopool.autopool_vault_address,
             ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
-            [((autopool.autopool_vault_address), _asset_breakdown_to_idle)],
+            [(autopool.autopool_vault_address, _asset_breakdown_to_idle)],
         )
         for autopool in autopools
     ]
@@ -228,7 +229,7 @@ def _fetch_idle_destination_token_values(chain: ChainData, missing_blocks: list[
                 this_autopool = [a for a in autopools if a.autopool_vault_address == autopool_vault_address][0]
                 idle_destination_token_values.append(
                     DestinationTokenValues(
-                        block=row["block"],
+                        block=int(row["block"]),
                         chain_id=chain.chain_id,
                         destination_vault_address=autopool_vault_address,
                         token_address=this_autopool.base_asset,

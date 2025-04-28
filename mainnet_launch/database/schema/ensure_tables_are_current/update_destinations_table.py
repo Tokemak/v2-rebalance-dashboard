@@ -351,6 +351,8 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
         )
 
         idle_destinations = _make_idle_destinations(chain)
+        idle_blocks_to_add = [d.block_deployed for d in idle_destinations]
+        ensure_all_blocks_are_in_table(idle_blocks_to_add, chain)
 
         insert_avoid_conflicts(
             idle_destinations,
