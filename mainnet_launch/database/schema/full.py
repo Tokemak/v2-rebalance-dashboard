@@ -160,13 +160,6 @@ class AutopoolStates(Base):
     total_nav: Mapped[float] = mapped_column(nullable=True)
     nav_per_share: Mapped[float] = mapped_column(nullable=True)
 
-    # it is simple and fast to do this in pandas
-    # skip for now, maybe add later
-    # # weights * portion of safe value in this destination
-    # weighted_average_total_apr_out: Mapped[float] = mapped_column(nullable=True)
-    # weighted_average_total_apr_in: Mapped[float] = mapped_column(nullable=True)
-    # weighted_average_safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
-
     # consider adding more later
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
@@ -174,51 +167,6 @@ class AutopoolStates(Base):
             ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
         ),
     )
-
-
-# we can infer this from AutopoolDestinationStates and DestinationStates
-
-# for percent ownership and the reserves of each token
-
-# class AutopoolTokenStates(Base):
-#     # this way might be too complicated, idk
-#     __tablename__ = "autopool_token_states"
-
-#     autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
-#     token_address: Mapped[str] = mapped_column(primary_key=True)
-#     chain_id: Mapped[int] = mapped_column(primary_key=True)
-#     block: Mapped[int] = mapped_column(primary_key=True)
-
-#     # need to know % ownership of each destiation
-#     # and quantity, safe, spot and backing value of each token by destiatnion
-#     amount: Mapped[float] = mapped_column(nullable=True)
-
-#     # depends on tokenValues and
-#     total_safe_value: Mapped[float] = mapped_column(nullable=True)
-#     total_spot_value: Mapped[float] = mapped_column(nullable=True)
-#     total_backing_value: Mapped[float] = mapped_column(nullable=True)
-
-#     # feature does not exist
-#     # some way of measuing how much of total liquidity is owned by this autopool
-#     # how much do we get out if we try and sell everything here
-
-#     # how good this quote is for
-#     # dex_aggregator_init_datetime: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
-#     # dex_aggregator_cutoff_datetime: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
-
-#     # dex_aggregator_quote_to_base_asset_1_percent: Mapped[float] = mapped_column(nullable=False)
-#     # dex_aggregator_quote_to_base_asset_10_percent: Mapped[float] = mapped_column(nullable=False)
-#     # dex_aggregator_quote_to_base_asset_33_percent: Mapped[float] = mapped_column(nullable=False)
-#     # dex_aggregator_quote_to_base_asset_50_percent: Mapped[float] = mapped_column(nullable=False)
-#     # dex_aggregator_quote_to_base_asset_100_percent: Mapped[float] = mapped_column(nullable=False)
-
-#     __table_args__ = (
-#         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-#         ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
-#         ForeignKeyConstraint(
-#             ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
-#         ),
-#     )
 
 
 # extra

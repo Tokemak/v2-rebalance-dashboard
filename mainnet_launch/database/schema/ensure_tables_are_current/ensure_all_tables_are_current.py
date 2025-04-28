@@ -33,7 +33,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.update_autopool_de
 )
 
 from mainnet_launch.database.schema.ensure_tables_are_current.update_autopool_states import (
-    ensure_autopool_states_is_current,
+    ensure_autopool_states_are_current,
 )
 
 
@@ -51,24 +51,23 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False):
     ensure_destination_token_values_are_current()
     ensure_destination_states_are_current()
     ensure_autopool_destination_states_are_current()
-    ensure_autopool_states_is_current()
+    ensure_autopool_states_are_current()
 
     # self contained mostly
     # rebalance plans
     # rebalance events
 
-    # self contained must have
+    # self contained parts add later
 
+    # add after autoUSD
     # IncentiveTokenLiquidations
     # AutopoolWithdrawal
     # AutopoolDeposit
-
-    # add after autoUSD
-
     # chainlink gas costs
-    # solver profit
+    # solver profit ( maybe exclude for complexity reasons, and solver profit is near 0)
     # debt reporting
 
-    # if __name__ == "__main__":
-    #     # ensure_database_is_current(True)
+
+if __name__ == "__main__":
+    ensure_database_is_current(True)
     ensure_database_is_current(False)

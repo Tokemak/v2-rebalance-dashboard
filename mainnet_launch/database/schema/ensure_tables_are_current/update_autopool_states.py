@@ -59,26 +59,24 @@ def _fetch_new_autopool_state_rows(
     new_autopool_state_rows = []
 
     def _extract_autopool_state(row: dict):
-        new_autopool_state_rows.append(
-            AutopoolStates(
-                autopool_vault_address=row["autopool_vault_address"],
-                block=int(row["block"]),
-                chain_id=chain.chain_id,
-                total_shares=float(row[(row["autopool_vault_address"], "total_shares")]),
-                total_nav=float(row[(row["autopool_vault_address"], "total_nav")]),
-                nav_per_share=float(row[(row["autopool_vault_address"], "nav_per_share")]),
-                # weighted_average_total_apr_out=float(row["weighted_average_total_apr_out"]),
-                # weighted_average_total_apr_in=float(row["weighted_average_total_apr_in"]),
-                # weighted_average_safe_backing_discount=float(row["weighted_average_safe_backing_discount"]),
+        for autopool in autopools:
+            new_autopool_state_rows.append(
+                AutopoolStates(
+                    autopool_vault_address=autopool.autopool_vault_address,
+                    block=int(row["block"]),
+                    chain_id=chain.chain_id,
+                    total_shares=float(row[(autopool.autopool_vault_address, "total_shares")]),
+                    total_nav=float(row[(autopool.autopool_vault_address, "total_nav")]),
+                    nav_per_share=float(row[(autopool.autopool_vault_address, "nav_per_share")]),
+                )
             )
-        )
 
     autopool_state_df.apply(_extract_autopool_state, axis=1)
 
     return new_autopool_state_rows
 
 
-def ensure_autopool_states_is_current():
+def ensure_autopool_states_are_current():
     # not correct
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)
@@ -93,7 +91,8 @@ def ensure_autopool_states_is_current():
         if len(missing_blocks) == 0:
             continue
 
-        new_autopool_states_rows = _fetch_new_autopool_state_rows(chain, missing_blocks)
+        autopools = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
+        new_autopool_states_rows = _fetch_new_autopool_state_rows(autopools, missing_blocks, chain)
 
         insert_avoid_conflicts(
             new_autopool_states_rows,
@@ -103,7 +102,7 @@ def ensure_autopool_states_is_current():
 
 
 if __name__ == "__main__":
-    ensure_autopool_states_is_current()
+    ensure_autopool_states_are_current()
 
 
 # complicated don't do it this way
