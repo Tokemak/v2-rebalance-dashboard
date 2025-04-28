@@ -50,7 +50,7 @@ def ensure_autopools_are_current() -> None:
                 autopool_vault_address=a.autopool_eth_addr,
                 chain_id=a.chain.chain_id,
                 block_deployed=a.block_deployed,
-                name=Web3.toChecksumAddress(autopool_state_dict[(a.autopool_eth_addr, "name")]),
+                name=autopool_state_dict[(a.autopool_eth_addr, "name")],
                 symbol=autopool_state_dict[(a.autopool_eth_addr, "symbol")],
                 strategy_address=Web3.toChecksumAddress(autopool_state_dict[(a.autopool_eth_addr, "strategy")]),
                 base_asset=Web3.toChecksumAddress(autopool_state_dict[(a.autopool_eth_addr, "asset")]),

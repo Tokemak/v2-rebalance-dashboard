@@ -229,6 +229,60 @@ def ensure_autopool_destination_states_are_current():
             ],
         )
 
+        idle_autopool_destination_states = _build_idle_autopool_destination_states(chain, missing_blocks)
+
+        insert_avoid_conflicts(
+            idle_autopool_destination_states,
+            AutopoolDestinationStates,
+            index_elements=[
+                AutopoolDestinationStates.destination_vault_address,
+                AutopoolDestinationStates.autopool_vault_address,
+                AutopoolDestinationStates.block,
+                AutopoolDestinationStates.chain_id,
+            ],
+        )
+
+
+def _build_idle_autopool_destination_states(
+    chain: ChainData, missing_blocks: list[int]
+) -> list[AutopoolDestinationStates]:
+    # pure function of destinations and destiantion states
+    # move here for clarity
+
+    idle_destination_token_values_df = natural_left_right_using_where(
+        Destinations,
+        DestinationTokenValues,
+        using=[Destinations.destination_vault_address, Destinations.chain_id],
+        where_clause=(
+            (DestinationTokenValues.chain_id == chain.chain_id)
+            & DestinationTokenValues.block.in_(missing_blocks)
+            & (Destinations.pool_type == "idle")
+        ),
+    )
+
+    idle_autopool_destination_states = []
+
+    def _extract_idle_autopool_destination_state(row: dict):
+        idle_autopool_destination_states.append(
+            AutopoolDestinationStates(
+                destination_vault_address=row["destination_vault_address"],
+                autopool_vault_address=row["destination_vault_address"],
+                block=int(row["block"]),
+                chain_id=chain.chain_id,
+                # values of base asset is always 1
+                amount=row["quantity"],
+                total_safe_value=row["quantity"],
+                total_spot_value=row["quantity"],
+                total_backing_value=row["quantity"],
+                percent_ownership=100.0,
+            )
+        )
+
+    idle_destination_token_values_df.apply(_extract_idle_autopool_destination_state, axis=1)
+
+    return idle_autopool_destination_states
+
 
 if __name__ == "__main__":
     ensure_autopool_destination_states_are_current()
+    # _build_idle_autopool_destination_states(ALL_CHAINS[0], [21_000_000])

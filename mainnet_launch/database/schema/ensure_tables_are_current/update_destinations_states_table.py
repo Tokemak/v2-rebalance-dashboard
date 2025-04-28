@@ -11,7 +11,6 @@ from mainnet_launch.database.schema.full import (
     DestinationStates,
     DestinationTokens,
     Destinations,
-    AutopoolDestinationStates,
     Tokens,
 )
 import plotly.express as px
@@ -429,14 +428,53 @@ def ensure_destination_states_are_current():
 
         # add idle destination states here too
 
+        idle_destination_states = _fetch_idle_destination_states(chain, missing_blocks)
 
-def _fetch_idle_destination_states():
+        insert_avoid_conflicts(
+            idle_destination_states,
+            DestinationStates,
+            index_elements=[
+                DestinationStates.block,
+                DestinationStates.chain_id,
+                DestinationStates.destination_vault_address,
+            ],
+        )
 
-    # look at destinations, DestinationTokenValues where pool_type == 'idle'
-    # apr is 0, price per share = 1,
-    # underlying_safe_price are 1 the rest are None spot and backing
 
-    pass
+def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]):
+
+    autopools_as_destinations = get_full_table_as_orm(
+        Destinations, where_clause=(Destinations.chain_id == chain.chain_id) & (Destinations.pool_type == "idle")
+    )
+
+    idle_destination_states = []
+    for dest in autopools_as_destinations:
+        for block in missing_blocks:
+            idle_destination_states.append(
+                DestinationStates(
+                    destination_vault_address=dest.destination_vault_address,
+                    block=block,
+                    chain_id=chain.chain_id,
+                    incentive_apr=None,
+                    fee_apr=0.0,
+                    base_apr=0.0,
+                    points_apr=0.0,
+                    fee_plus_base_apr=None,
+                    total_apr_in=None,
+                    total_apr_out=0.0,
+                    underlying_token_total_supply=None,
+                    safe_total_supply=None,
+                    price_per_share=1.0,
+                    price_return=0.0,
+                    underlying_safe_price=1.0,
+                    underlying_spot_price=1.0,
+                    underlying_backing=1.0,
+                    safe_backing_discount=0.0,
+                    spot_backing_discount=0.0,
+                    safe_spot_spread=0.0,
+                )
+            )
+    return idle_destination_states
 
 
 if __name__ == "__main__":
