@@ -53,7 +53,6 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False):
     ensure_autopool_destination_states_are_current()
     ensure_autopool_states_are_current()
 
-    # self contained mostly
     # rebalance plans
     # rebalance events
 
