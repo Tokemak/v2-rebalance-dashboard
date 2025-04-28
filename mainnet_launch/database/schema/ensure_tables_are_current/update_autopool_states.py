@@ -22,7 +22,9 @@ from mainnet_launch.constants import (
 )
 
 
-def _fetch_autopool_state_df(autopools: list[Autopools], missing_blocks: list[int], chain: ChainData) -> pd.DataFrame:
+def _fetch_new_autopool_state_rows(
+    autopools: list[Autopools], missing_blocks: list[int], chain: ChainData
+) -> pd.DataFrame:
 
     def _extract_debt_plus_idle(success, AssetBreakdown):
         if success:
@@ -53,7 +55,27 @@ def _fetch_autopool_state_df(autopools: list[Autopools], missing_blocks: list[in
         )
 
     autopool_state_df = get_raw_state_by_blocks(calls, missing_blocks, chain, include_block_number=True)
-    return autopool_state_df
+
+    new_autopool_state_rows = []
+
+    def _extract_autopool_state(row: dict):
+        new_autopool_state_rows.append(
+            AutopoolStates(
+                autopool_vault_address=row["autopool_vault_address"],
+                block=int(row["block"]),
+                chain_id=chain.chain_id,
+                total_shares=float(row[(row["autopool_vault_address"], "total_shares")]),
+                total_nav=float(row[(row["autopool_vault_address"], "total_nav")]),
+                nav_per_share=float(row[(row["autopool_vault_address"], "nav_per_share")]),
+                # weighted_average_total_apr_out=float(row["weighted_average_total_apr_out"]),
+                # weighted_average_total_apr_in=float(row["weighted_average_total_apr_in"]),
+                # weighted_average_safe_backing_discount=float(row["weighted_average_safe_backing_discount"]),
+            )
+        )
+
+    autopool_state_df.apply(_extract_autopool_state, axis=1)
+
+    return new_autopool_state_rows
 
 
 def ensure_autopool_states_is_current():
@@ -80,80 +102,81 @@ def ensure_autopool_states_is_current():
         )
 
 
-def _fetch_new_autopool_state_rows(chain: ChainData, missing_blocks: list[int]):
-
-    autopools = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
-
-    autopool_state_df = _fetch_autopool_state_df(autopools, missing_blocks, chain)
-    wide_autopool_destination_df = natural_left_right_using_where(
-        AutopoolDestinationStates,
-        DestinationStates,
-        using=[
-            AutopoolDestinationStates.chain_id,
-            AutopoolDestinationStates.block,
-            AutopoolDestinationStates.destination_vault_address,
-        ],
-    )
-
-    wide_autopool_destination_df = pd.merge(wide_autopool_destination_df, autopool_state_df, on="block")
-
-    down_weighted_apr_values = []
-
-    # this so that we can sum up the values simple way to do a wegihted average, there are simpler,
-    # see the other version
-    def _extract_down_weighted_apr_values(row: dict) -> None:
-        autopool_total_nav = row[(row["autopool_vault_address"], "total_nav")]
-        this_destination_safe_value = row["total_safe_value"]
-        portion_of_value_in_destination = this_destination_safe_value / autopool_total_nav
-
-        downscaled_total_apr_out = row.get("total_apr_out", 0) * portion_of_value_in_destination
-        downscaled_total_apr_in = row.get("total_apr_in", 0) * portion_of_value_in_destination
-        downscaled_safe_backing_discount = row.get("total_apr_in", 0) * portion_of_value_in_destination
-
-        down_weighted_apr_values.append(
-            {
-                "downscaled_total_apr_out": downscaled_total_apr_out,
-                "downscaled_total_apr_in": downscaled_total_apr_in,
-                "downscaled_safe_backing_discount": downscaled_safe_backing_discount,
-                "autopool_vault_address": row["autopool_vault_address"],
-                "block": row["block"],
-            }
-        )
-
-    wide_autopool_destination_df.apply(_extract_down_weighted_apr_values, axis=1)
-
-    down_weighted_apr_df = pd.DataFrame.from_records(down_weighted_apr_values)
-    weighted_average_df = down_weighted_apr_df.groupby(["autopool_vault_address", "block"]).sum()
-    weighted_average_df.columns = [
-        "weighted_average_total_apr_out",
-        "weighted_average_total_apr_in",
-        "weighted_average_safe_backing_discount",
-    ]
-    weighted_average_df = weighted_average_df.reset_index()
-
-    autopool_weighted_avgs_with_state_df = pd.merge(weighted_average_df, autopool_state_df, on="block")
-
-    new_autopool_state_rows = []
-
-    def _extract_autopool_state(row: dict):
-        new_autopool_state_rows.append(
-            AutopoolStates(
-                autopool_vault_address=row["autopool_vault_address"],
-                block=int(row["block"]),
-                chain_id=chain.chain_id,
-                total_shares=float(row[(row["autopool_vault_address"], "total_shares")]),
-                total_nav=float(row[(row["autopool_vault_address"], "total_nav")]),
-                nav_per_share=float(row[(row["autopool_vault_address"], "nav_per_share")]),
-                weighted_average_total_apr_out=float(row["weighted_average_total_apr_out"]),
-                weighted_average_total_apr_in=float(row["weighted_average_total_apr_in"]),
-                weighted_average_safe_backing_discount=float(row["weighted_average_safe_backing_discount"]),
-            )
-        )
-
-    autopool_weighted_avgs_with_state_df.apply(_extract_autopool_state, axis=1)
-
-    return new_autopool_state_rows
-
-
 if __name__ == "__main__":
     ensure_autopool_states_is_current()
+
+
+# complicated don't do it this way
+# def _fetch_new_autopool_state_rows(chain: ChainData, missing_blocks: list[int]):
+
+#     autopools = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
+
+#     autopool_state_df = _fetch_autopool_state_df(autopools, missing_blocks, chain)
+#     wide_autopool_destination_df = natural_left_right_using_where(
+#         AutopoolDestinationStates,
+#         DestinationStates,
+#         using=[
+#             AutopoolDestinationStates.chain_id,
+#             AutopoolDestinationStates.block,
+#             AutopoolDestinationStates.destination_vault_address,
+#         ],
+#     )
+
+#     wide_autopool_destination_df = pd.merge(wide_autopool_destination_df, autopool_state_df, on="block")
+
+#     down_weighted_apr_values = []
+
+#     # this so that we can sum up the values simple way to do a wegihted average, there are simpler,
+#     # see the other version
+#     def _extract_down_weighted_apr_values(row: dict) -> None:
+#         autopool_total_nav = row[(row["autopool_vault_address"], "total_nav")]
+#         this_destination_safe_value = row["total_safe_value"]
+#         portion_of_value_in_destination = this_destination_safe_value / autopool_total_nav
+
+#         downscaled_total_apr_out = row.get("total_apr_out", 0) * portion_of_value_in_destination
+#         downscaled_total_apr_in = row.get("total_apr_in", 0) * portion_of_value_in_destination
+#         downscaled_safe_backing_discount = row.get("total_apr_in", 0) * portion_of_value_in_destination
+
+#         down_weighted_apr_values.append(
+#             {
+#                 "downscaled_total_apr_out": downscaled_total_apr_out,
+#                 "downscaled_total_apr_in": downscaled_total_apr_in,
+#                 "downscaled_safe_backing_discount": downscaled_safe_backing_discount,
+#                 "autopool_vault_address": row["autopool_vault_address"],
+#                 "block": row["block"],
+#             }
+#         )
+
+#     wide_autopool_destination_df.apply(_extract_down_weighted_apr_values, axis=1)
+
+#     down_weighted_apr_df = pd.DataFrame.from_records(down_weighted_apr_values)
+#     weighted_average_df = down_weighted_apr_df.groupby(["autopool_vault_address", "block"]).sum()
+#     weighted_average_df.columns = [
+#         "weighted_average_total_apr_out",
+#         "weighted_average_total_apr_in",
+#         "weighted_average_safe_backing_discount",
+#     ]
+#     weighted_average_df = weighted_average_df.reset_index()
+
+#     autopool_weighted_avgs_with_state_df = pd.merge(weighted_average_df, autopool_state_df, on="block")
+
+#     new_autopool_state_rows = []
+
+#     def _extract_autopool_state(row: dict):
+#         new_autopool_state_rows.append(
+#             AutopoolStates(
+#                 autopool_vault_address=row["autopool_vault_address"],
+#                 block=int(row["block"]),
+#                 chain_id=chain.chain_id,
+#                 total_shares=float(row[(row["autopool_vault_address"], "total_shares")]),
+#                 total_nav=float(row[(row["autopool_vault_address"], "total_nav")]),
+#                 nav_per_share=float(row[(row["autopool_vault_address"], "nav_per_share")]),
+#                 # weighted_average_total_apr_out=float(row["weighted_average_total_apr_out"]),
+#                 # weighted_average_total_apr_in=float(row["weighted_average_total_apr_in"]),
+#                 # weighted_average_safe_backing_discount=float(row["weighted_average_safe_backing_discount"]),
+#             )
+#         )
+
+#     autopool_weighted_avgs_with_state_df.apply(_extract_autopool_state, axis=1)
+
+#     return new_autopool_state_rows

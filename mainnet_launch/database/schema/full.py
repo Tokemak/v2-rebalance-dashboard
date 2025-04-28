@@ -161,10 +161,11 @@ class AutopoolStates(Base):
     total_nav: Mapped[float] = mapped_column(nullable=True)
     nav_per_share: Mapped[float] = mapped_column(nullable=True)
 
-    # weights * portion of safe value in this destination
-    weighted_average_total_apr_out: Mapped[float] = mapped_column(nullable=True)
-    weighted_average_total_apr_in: Mapped[float] = mapped_column(nullable=True)
-    weighted_average_safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
+    # it is ismple and fast to do this in pandas
+    # # weights * portion of safe value in this destination
+    # weighted_average_total_apr_out: Mapped[float] = mapped_column(nullable=True)
+    # weighted_average_total_apr_in: Mapped[float] = mapped_column(nullable=True)
+    # weighted_average_safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
 
     # consider adding more later
     __table_args__ = (

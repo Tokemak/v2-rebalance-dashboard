@@ -32,6 +32,10 @@ from mainnet_launch.database.schema.ensure_tables_are_current.update_autopool_de
     ensure_autopool_destination_states_are_current,
 )
 
+from mainnet_launch.database.schema.ensure_tables_are_current.update_autopool_states import (
+    ensure_autopool_states_is_current,
+)
+
 
 # 270 seconds from 0 # 11 seconds from finished.
 @time_decorator
@@ -47,9 +51,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False):
     ensure_destination_token_values_are_current()
     ensure_destination_states_are_current()
     ensure_autopool_destination_states_are_current()
-
-    # AutopoolStates
-    # AutopoolTokenStates
+    ensure_autopool_states_is_current()
 
     # self contained mostly
     # rebalance plans
