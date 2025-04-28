@@ -260,7 +260,7 @@ def _make_idle_destinations(chain: ChainData) -> list[Destinations]:
                     underlying=autopool.autopool_eth_addr,
                     underlying_symbol=autopool.name,
                     underlying_name=autopool.name,
-                    denominated_in=autopool.base_asset,
+                    denominated_in=Web3.toChecksumAddress(autopool.base_asset),
                 )
             )
 
@@ -322,7 +322,7 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
                 underlying=Web3.toChecksumAddress(destination_vault_state[(v, "underlying")]),
                 underlying_symbol=destination_vault_state[(v, "underlying_symbol")],
                 underlying_name=destination_vault_state[(v, "underlying_name")],
-                denominated_in=destination_vault_state[(v, "base_asset")],
+                denominated_in=Web3.toChecksumAddress(destination_vault_state[(v, "base_asset")]),
             )
             for v in DestinationVaultRegistered["vaultAddress"]
         ]

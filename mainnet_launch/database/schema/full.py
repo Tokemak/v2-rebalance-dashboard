@@ -1,4 +1,3 @@
-# The primary objects
 from dataclasses import asdict
 from dotenv import load_dotenv
 from urllib.parse import urlparse
@@ -11,7 +10,6 @@ from sqlalchemy import DateTime, ForeignKey, ARRAY, String, ForeignKeyConstraint
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# check out a data access layer
 load_dotenv()
 
 tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
@@ -32,18 +30,17 @@ class Base(MappedAsDataclass, DeclarativeBase):
     def from_record(cls, record: dict):
         return cls(**record)
 
+    def to_tuple(self) -> tuple:
+        """
+        Returns a tuple of this instance's column values in the order defined by the table's columns.
+        """
+        return tuple(getattr(self, c.name) for c in self.__table__.columns)
+
     @classmethod
     def from_tuple(cls, tup: tuple):
         # returns an instance of this class from the ordered tuple
         col_names = [c.name for c in cls.__table__.columns]
         return cls(**dict(zip(col_names, tup)))
-
-    def to_tuple(self) -> tuple:
-        """
-        Returns a tuple of this instance's column values in the order defined by the table's columns.
-        """
-        # Use the table's column order to extract attribute values
-        return tuple(getattr(self, c.name) for c in self.__table__.columns)
 
 
 class Blocks(Base):
@@ -70,7 +67,7 @@ class Transactions(Base):
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
-# yes, holdable asests, no incentive tokens
+# done
 class Tokens(Base):
     __tablename__ = "tokens"
 
@@ -160,7 +157,6 @@ class AutopoolStates(Base):
     total_nav: Mapped[float] = mapped_column(nullable=True)
     nav_per_share: Mapped[float] = mapped_column(nullable=True)
 
-    # consider adding more later
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
         ForeignKeyConstraint(
@@ -295,12 +291,10 @@ class AutopoolDestinationStates(Base):
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
-    # maybe rename to "balance_of?" not certain
     amount: Mapped[float] = mapped_column(nullable=False)  # how many lp tokens this autopool has here, lens contract
 
-    total_safe_value: Mapped[float] = mapped_column(
-        nullable=False
-    )  # given the value of the lp tokens in the pool how much value does the atuopool have here
+    # given the value of the lp tokens in the pool how much value does the atuopool have here
+    total_safe_value: Mapped[float] = mapped_column(nullable=False)
     total_spot_value: Mapped[float] = mapped_column(nullable=False)
     total_backing_value: Mapped[float] = mapped_column(nullable=False)
 
@@ -367,12 +361,11 @@ class RebalancePlan(Base):
     autopool_vault_address: Mapped[str] = mapped_column(nullable=False)
     chain_id: Mapped[int] = mapped_column(nullable=False)
 
-    dex_aggregator: Mapped[str] = mapped_column(nullable=False)
+    dex_aggregator: Mapped[str] = mapped_column(nullable=False)  # not sure here, can this be multiple
 
     solver_address: Mapped[str] = mapped_column(nullable=False)
     rebalance_type: Mapped[str] = mapped_column(nullable=False)
 
-    # sometimes this has different destinations but the same underlying token. that means
     destination_out: Mapped[str] = mapped_column(nullable=False)
     token_out: Mapped[str] = mapped_column(nullable=False)
 
@@ -382,27 +375,32 @@ class RebalancePlan(Base):
     move_name: Mapped[str] = mapped_column(nullable=False)  # f"{data['destinationOut']} -> {data['destinationIn']}"
 
     amount_out: Mapped[float] = mapped_column(nullable=False)
-
-    # verify if this is safe or spot values
+    # amountOutETH
     amount_out_safe_value: Mapped[float] = mapped_column(nullable=False)
-    min_amount_in_safe_value: Mapped[float] = mapped_column(nullable=False)
-    min_amount_in: Mapped[float] = mapped_column(nullable=False)
 
-    out_spot_eth: Mapped[float] = mapped_column(nullable=False)
+    min_amount_in: Mapped[float] = mapped_column(nullable=False)
+    # minAmountInETH
+    min_amount_in_safe_value: Mapped[float] = mapped_column(nullable=False)
+
+    out_spot_eth: Mapped[float] = mapped_column(nullable=False)  # in 'rebalancetTest'
     out_dest_apr: Mapped[float] = mapped_column(nullable=False)
 
+    in_spot_eth: Mapped[float] = mapped_column(nullable=False)
     in_dest_apr: Mapped[float] = mapped_column(nullable=False)
-    int_spot_eth: Mapped[float] = mapped_column(nullable=False)
     in_dest_adj_apr: Mapped[float] = mapped_column(nullable=False)
 
     apr_delta: Mapped[float] = mapped_column(nullable=False)
     swap_offset_period: Mapped[int] = mapped_column(nullable=False)
 
-    candidate_destinations: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
+    # not certain on if this should be a list or a second table,
+    # maybe make an addrank table?
+    candidate_destinations: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=True)
     candidate_destinations_rank: Mapped[int] = mapped_column(nullable=False)
 
     projected_swap_cost: Mapped[float] = mapped_column(nullable=False)
     projected_slippage: Mapped[float] = mapped_column(nullable=False)
+
+    # dex steps here?
 
     __table_args__ = (
         ForeignKeyConstraint(
@@ -419,8 +417,6 @@ class RebalancePlan(Base):
             ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
         ),
     )
-
-    # dex steps here?
 
 
 # needed
@@ -544,23 +540,6 @@ class IncentiveTokenLiquidations(Base):
             ["destinations.destination_vault_address", "destinations.chain_id"],
         ),
     )
-
-
-# # I think this is an anti pattern, I don't want to keep it
-# class LastAutopoolUpdated(Base):
-#     __tablename__ = "last_autopool_updated"
-
-#     table_name: Mapped[str] = mapped_column(primary_key=True)
-#     block: Mapped[int] = mapped_column(nullable=False)
-#     autopool: Mapped[str] = mapped_column(nullable=False)
-
-
-# class LastChainUpdated(Base):
-#     __tablename__ = "last_chain_updated"
-
-#     table_name: Mapped[str] = mapped_column(primary_key=True)
-#     block: Mapped[int] = mapped_column(nullable=False)
-#     chain_id: Mapped[str] = mapped_column(nullable=False)
 
 
 def drop_and_full_rebuild_db():
