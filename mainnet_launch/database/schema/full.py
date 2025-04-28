@@ -127,6 +127,7 @@ class Destinations(Base):
 
 # current
 class DestinationTokens(Base):
+    # missing idle destination
     __tablename__ = "destination_tokens"
 
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
@@ -155,7 +156,7 @@ class AutopoolStates(Base):
     block: Mapped[int] = mapped_column(primary_key=True)
 
     # these are view on the autopool_vault_address
-    # primary
+    # primary lens contract
     total_shares: Mapped[float] = mapped_column(nullable=False)  # vault.totalSupply
     total_nav: Mapped[float] = mapped_column(nullable=False)  # nav
     nav_per_share: Mapped[float] = mapped_column(nullable=False)  # nav per share

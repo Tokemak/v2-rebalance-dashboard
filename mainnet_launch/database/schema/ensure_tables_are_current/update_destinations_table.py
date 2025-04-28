@@ -3,7 +3,7 @@ from multicall import Call
 from web3 import Web3
 
 
-from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, ChainData, ALL_CHAINS
+from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, ChainData, ALL_CHAINS, ALL_AUTOPOOLS
 from mainnet_launch.abis import DESTINATION_VAULT_REGISTRY_ABI
 
 from mainnet_launch.data_fetching.get_events import fetch_events
@@ -14,12 +14,12 @@ from mainnet_launch.database.schema.full import Destinations, DestinationTokens,
 from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_highest_value_in_field_where
 
 
-def _fetch_token_rows(token_addresses: list[str], chain: ChainData):
+def _fetch_token_rows(token_addresses: list[str], chain: ChainData) -> list[Tokens]:
     symbol_calls = [
         Call(
             t,
             "symbol()(string)",
-            [(t + "_symbol", identity_with_bool_success)],
+            [((t, "symbol"), identity_with_bool_success)],
         )
         for t in token_addresses
     ]
@@ -28,7 +28,7 @@ def _fetch_token_rows(token_addresses: list[str], chain: ChainData):
         Call(
             t,
             "name()(string)",
-            [(t + "_name", identity_with_bool_success)],
+            [((t, "name"), identity_with_bool_success)],
         )
         for t in token_addresses
     ]
@@ -36,8 +36,8 @@ def _fetch_token_rows(token_addresses: list[str], chain: ChainData):
     decimals_calls = [
         Call(
             t,
-            "decimals()(int)",
-            [(t + "_decimals", identity_with_bool_success)],
+            "decimals()(uint256)",
+            [((t, "decimals"), identity_with_bool_success)],
         )
         for t in token_addresses
     ]
@@ -46,25 +46,63 @@ def _fetch_token_rows(token_addresses: list[str], chain: ChainData):
         [*symbol_calls, *name_calls, *decimals_calls], block=chain.client.eth.block_number, chain=chain
     )
 
-    symbol_dict = {v: raw[f"{v}_symbol"] for v in token_addresses}
-    name_dict = {v: raw[f"{v}_name"] for v in token_addresses}
-    decimals_dict = {v: raw[f"{v}_decimals"] for v in token_addresses}
-
-    tokens = [
+    return [
         Tokens(
             token_address=Web3.toChecksumAddress(t),
             chain_id=chain.chain_id,
-            symbol=symbol_dict[t],
-            name=name_dict[t],
-            decimals=decimals_dict[t],
+            symbol=raw[(t, "symbol")],
+            name=raw[(t, "name")],
+            decimals=raw[(t, "decimals")],
         )
         for t in token_addresses
     ]
-    # todo add tokens ETH on mainnet as needed
-    return tokens
 
 
-def _make_destination_vault_dicts(DestinationVaultRegistered: pd.DataFrame, chain: ChainData):
+def _make_destination_vault_dicts(DestinationVaultRegistered: pd.DataFrame, chain: ChainData) -> list[dict]:
+    highest_block = int(DestinationVaultRegistered["block"].max())
+    vaults = list(DestinationVaultRegistered["vaultAddress"])
+    # 1) build all the on-chain calls with tuple keys
+    calls = []
+    for v in vaults:
+        calls.extend(
+            [
+                Call(v, "symbol()(string)", [((v, "symbol"), identity_with_bool_success)]),
+                Call(v, "name()(string)", [((v, "name"), identity_with_bool_success)]),
+                Call(v, "poolType()(string)", [((v, "pool_type"), identity_with_bool_success)]),
+                Call(v, "exchangeName()(string)", [((v, "exchange_name"), identity_with_bool_success)]),
+                Call(v, "underlying()(address)", [((v, "underlying"), identity_with_bool_success)]),
+                Call(v, "getPool()(address)", [((v, "pool"), identity_with_bool_success)]),
+                Call(v, "baseAsset()(address)", [((v, "base_asset"), identity_with_bool_success)]),
+                Call(v, "underlyingTokens()(address[])", [((v, "underlyingTokens"), identity_with_bool_success)]),
+            ]
+        )
+
+    destination_vault_state = get_state_by_one_block(calls, block=highest_block, chain=chain)
+
+    under_calls = []
+    for v in vaults:
+        underlying_addr = destination_vault_state[(v, "underlying")]
+        under_calls.extend(
+            [
+                Call(underlying_addr, "symbol()(string)", [((v, "underlying_symbol"), identity_with_bool_success)]),
+                Call(underlying_addr, "name()(string)", [((v, "underlying_name"), identity_with_bool_success)]),
+            ]
+        )
+
+    tokens_raw = get_state_by_one_block(under_calls, block=highest_block, chain=chain)
+
+    # 3) map vault → block for the return data
+    vault_to_block = {
+        (v, "block_deployed"): b
+        for v, b in zip(DestinationVaultRegistered["vaultAddress"], DestinationVaultRegistered["block"])
+    }
+
+    destination_vault_state.update(tokens_raw)
+    destination_vault_state.update(vault_to_block)
+    return destination_vault_state
+
+
+def _make_destination_vault_dicts2(DestinationVaultRegistered: pd.DataFrame, chain: ChainData):
     highest_block = int(DestinationVaultRegistered["block"].max())
     vaults = DestinationVaultRegistered["vaultAddress"]
 
@@ -204,6 +242,48 @@ def _make_destination_vault_dicts(DestinationVaultRegistered: pd.DataFrame, chai
     )
 
 
+def _make_idle_destinations(chain: ChainData) -> list[Destinations]:
+    idle_details = []
+
+    for autopool in ALL_AUTOPOOLS:
+        if autopool.chain == chain:
+            idle_details.append(
+                Destinations(
+                    destination_vault_address=Web3.toChecksumAddress(autopool.autopool_eth_addr),
+                    chain_id=chain.chain_id,
+                    exchange_name="tokemak",
+                    block_deployed=autopool.block_deployed,
+                    name=autopool.name,
+                    symbol=autopool.name,
+                    pool_type="idle",
+                    pool=autopool.autopool_eth_addr,
+                    underlying=autopool.autopool_eth_addr,
+                    underlying_symbol=autopool.name,
+                    underlying_name=autopool.name,
+                    denominated_in=autopool.base_asset,
+                )
+            )
+
+    return idle_details
+
+
+def _make_idle_destination_tokens(chain: ChainData) -> list[DestinationTokens]:
+    idle_details = []
+
+    for autopool in ALL_AUTOPOOLS:
+        if autopool.chain == chain:
+            idle_details.append(
+                DestinationTokens(
+                    destination_vault_address=autopool.autopool_eth_addr,
+                    chain_id=chain.chain_id,
+                    token_address=autopool.base_asset,
+                    index=0,
+                )
+            )
+
+    return idle_details
+
+
 def ensure_destinations_are_current() -> None:
     """
     Make sure that the Destinations, DestinationTokens and Tokens tables are current for all the underlying tokens in each of the destinations
@@ -227,41 +307,29 @@ def ensure_destinations_are_current() -> None:
             # early stop if no vaults
             continue
 
-        (
-            symbol_dict,
-            name_dict,
-            pool_type_dict,
-            exchange_name_dict,
-            underlying_dict,
-            pool_dict,
-            base_asset_dict,
-            underlying_tokens_dict,
-            underlying_symbol_dict,
-            underlying_name_dict,
-            vault_to_block,
-        ) = _make_destination_vault_dicts(DestinationVaultRegistered, chain)
+        destination_vault_state = _make_destination_vault_dicts(DestinationVaultRegistered, chain)
 
         destinations = [
             Destinations(
                 destination_vault_address=Web3.toChecksumAddress(v),
                 chain_id=chain.chain_id,
-                exchange_name=exchange_name_dict[v],
-                block_deployed=vault_to_block[v],
-                name=name_dict[v],
-                symbol=symbol_dict[v],
-                pool_type=pool_type_dict[v],
-                pool=Web3.toChecksumAddress(pool_dict[v]),
-                underlying=Web3.toChecksumAddress(underlying_dict[v]),
-                underlying_symbol=underlying_symbol_dict[v],
-                underlying_name=underlying_name_dict[v],
-                denominated_in=base_asset_dict[v],
+                exchange_name=destination_vault_state[(v, "exchange_name")],
+                block_deployed=destination_vault_state[(v, "block_deployed")],
+                name=destination_vault_state[(v, "name")],
+                symbol=destination_vault_state[(v, "symbol")],
+                pool_type=destination_vault_state[(v, "pool_type")],
+                pool=Web3.toChecksumAddress(destination_vault_state[(v, "pool")]),
+                underlying=Web3.toChecksumAddress(destination_vault_state[(v, "underlying")]),
+                underlying_symbol=destination_vault_state[(v, "underlying_symbol")],
+                underlying_name=destination_vault_state[(v, "underlying_name")],
+                denominated_in=destination_vault_state[(v, "base_asset")],
             )
             for v in DestinationVaultRegistered["vaultAddress"]
         ]
 
         destination_tokens = []
         for v in DestinationVaultRegistered["vaultAddress"]:
-            for index, token_address in enumerate(underlying_tokens_dict[v]):
+            for index, token_address in enumerate(destination_vault_state[(v, "underlyingTokens")]):
                 destination_tokens.append(
                     DestinationTokens(
                         destination_vault_address=Web3.toChecksumAddress(v),
@@ -281,8 +349,29 @@ def ensure_destinations_are_current() -> None:
         insert_avoid_conflicts(
             destinations, Destinations, index_elements=[Destinations.destination_vault_address, Destinations.chain_id]
         )
+
+        idle_destinations = _make_idle_destinations(chain)
+
+        insert_avoid_conflicts(
+            idle_destinations,
+            Destinations,
+            index_elements=[Destinations.destination_vault_address, Destinations.chain_id],
+        )
+
         insert_avoid_conflicts(
             destination_tokens,
+            DestinationTokens,
+            index_elements=[
+                DestinationTokens.destination_vault_address,
+                DestinationTokens.chain_id,
+                DestinationTokens.token_address,
+            ],
+        )
+
+        idle_destination_tokens = _make_idle_destination_tokens(chain)
+
+        insert_avoid_conflicts(
+            idle_destination_tokens,
             DestinationTokens,
             index_elements=[
                 DestinationTokens.destination_vault_address,
@@ -310,30 +399,6 @@ if __name__ == "__main__":
 #             .all()
 #         )
 #     return destinations
-
-
-# def make_idle_destination_details(chain: ChainData) -> list[Destinations]:
-#     idle_details = []
-
-#     for autopool in ALL_AUTOPOOLS:
-#         if autopool.chain == chain:
-#             idle_details.append(
-#                 Destinations(
-#                     destination_vault_address=autopool.autopool_eth_addr,
-#                     exchangeName="tokemak",
-#                     chain_id=autopool.chain.chain_id,
-#                     name=autopool.name,
-#                     symbol=autopool.name,
-#                     pool=autopool.autopool_eth_addr,
-#                     lpTokenAddress=autopool.autopool_eth_addr,
-#                     lpTokenSymbol=autopool.name,
-#                     lpTokenName=autopool.name,
-#                     name=autopool.name,
-#                     symbol=autopool.name,
-#                 )
-#             )
-
-#     return idle_details
 
 
 # # DestinationVaultFactory

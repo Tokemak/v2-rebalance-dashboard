@@ -190,9 +190,6 @@ def build_proxyGetDestinationSummaryStats_call(
     )
 
 
-# I am leaning towards not to saving this. It is saved where it is needed in other tables
-
-
 def fetch_pools_and_destinations_df(chain: ChainData, blocks: list[int]) -> pd.DataFrame:
     calls = [get_pools_and_destinations_call(chain)]
     pools_and_destinations_df = get_raw_state_by_blocks(calls, blocks, chain=chain, include_block_number=True)

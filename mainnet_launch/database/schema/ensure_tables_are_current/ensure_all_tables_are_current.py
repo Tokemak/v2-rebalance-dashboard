@@ -68,5 +68,5 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False):
 
 
 if __name__ == "__main__":
-    ensure_database_is_current(True)
+    # ensure_database_is_current(True)
     ensure_database_is_current(False)
