@@ -13,53 +13,18 @@ from mainnet_launch.database.schema.postgres_operations import (
 )
 
 
-def _fetch_autopool_state_dicts(autopool_vault_addresses: list[str], chain: ChainData) -> list[dict]:
-    symbol_calls = [
-        Call(
-            t,
-            "symbol()(string)",
-            [(t + "_symbol", identity_with_bool_success)],
+def _fetch_autopool_state_dicts(autopool_vault_addresses: list[str], chain: ChainData) -> dict[tuple[str, str], any]:
+    calls = []
+    for v in autopool_vault_addresses:
+        calls.extend(
+            [
+                Call(v, "symbol()(string)", [((v, "symbol"), identity_with_bool_success)]),
+                Call(v, "name()(string)", [((v, "name"), identity_with_bool_success)]),
+                Call(v, "autoPoolStrategy()(address)", [((v, "strategy"), identity_with_bool_success)]),
+                Call(v, "asset()(address)", [((v, "asset"), identity_with_bool_success)]),
+            ]
         )
-        for t in autopool_vault_addresses
-    ]
-
-    name_calls = [
-        Call(
-            t,
-            "name()(string)",
-            [(t + "_name", identity_with_bool_success)],
-        )
-        for t in autopool_vault_addresses
-    ]
-
-    autopool_strategy_calls = [
-        Call(
-            t,
-            "autoPoolStrategy()(address)",
-            [(t + "_strategy", identity_with_bool_success)],
-        )
-        for t in autopool_vault_addresses
-    ]
-
-    asset_calls = [
-        Call(
-            t,
-            "asset()(address)",
-            [(t + "_asset", identity_with_bool_success)],
-        )
-        for t in autopool_vault_addresses
-    ]
-
-    raw = get_state_by_one_block(
-        [*symbol_calls, *name_calls, *autopool_strategy_calls, *asset_calls], chain.client.eth.block_number, chain
-    )
-
-    symbol_dict = {v: raw[f"{v}_symbol"] for v in autopool_vault_addresses}
-    name_dict = {v: raw[f"{v}_name"] for v in autopool_vault_addresses}
-    strategy_dict = {v: raw[f"{v}_strategy"] for v in autopool_vault_addresses}
-    asset_dict = {v: raw[f"{v}_asset"] for v in autopool_vault_addresses}
-
-    return symbol_dict, name_dict, strategy_dict, asset_dict
+    return get_state_by_one_block(calls, block=chain.client.eth.block_number, chain=chain)  # just some current block
 
 
 def ensure_autopools_are_current() -> None:
@@ -77,7 +42,7 @@ def ensure_autopools_are_current() -> None:
         if len(autopools_not_in_table) == 0:
             continue
 
-        symbol_dict, name_dict, strategy_dict, asset_dict = _fetch_autopool_state_dicts(autopools_not_in_table, chain)
+        autopool_state_dict = _fetch_autopool_state_dicts(autopools_not_in_table, chain)
         autopools_to_add = [a for a in ALL_AUTOPOOLS if a.autopool_eth_addr in autopools_not_in_table]
 
         autopools_rows = [
@@ -85,10 +50,10 @@ def ensure_autopools_are_current() -> None:
                 autopool_vault_address=a.autopool_eth_addr,
                 chain_id=a.chain.chain_id,
                 block_deployed=a.block_deployed,
-                name=name_dict[a.autopool_eth_addr],
-                symbol=symbol_dict[a.autopool_eth_addr],
-                strategy_address=strategy_dict[a.autopool_eth_addr],
-                base_asset=asset_dict[a.autopool_eth_addr],
+                name=autopool_state_dict[(a.autopool_eth_addr, "name")],
+                symbol=autopool_state_dict[(a.autopool_eth_addr, "symbol")],
+                strategy_address=autopool_state_dict[(a.autopool_eth_addr, "strategy")],
+                base_asset=autopool_state_dict[(a.autopool_eth_addr, "asset")],
             )
             for a in autopools_to_add
         ]
