@@ -71,6 +71,32 @@ from mainnet_launch.constants import (
     ChainData,
 )
 
+# TODO add idle here
+# view from destination token values
+# def _fetch_actual_nav_per_share_by_day(autopool: AutopoolConstants, blocks: list[int]) -> pd.DataFrame:
+#     def handle_getAssetBreakdown(success, AssetBreakdown):
+#         if success:
+#             totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
+#             return int(totalIdle + totalDebt) / 1e18
+#         return None
+
+#     calls = [
+#         Call(
+#             autopool.autopool_eth_addr,
+#             ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
+#             [("actual_nav", handle_getAssetBreakdown)],
+#         ),
+#         Call(
+#             autopool.autopool_eth_addr,
+#             ["totalSupply()(uint256)"],
+#             [("actual_shares", safe_normalize_with_bool_success)],
+#         ),
+#     ]
+
+#     df = get_raw_state_by_blocks(calls, blocks, autopool.chain, include_block_number=True).reset_index()
+#     df["autopool"] = autopool.name
+#     return df
+
 
 def build_autopool_balance_of_calls_by_destination(
     autopool_vault_address: str, destination_vault_addresses: list[str]

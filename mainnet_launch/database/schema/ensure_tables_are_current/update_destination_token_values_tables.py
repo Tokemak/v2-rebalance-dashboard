@@ -8,6 +8,7 @@ from mainnet_launch.database.schema.full import (
     Destinations,
     Tokens,
     TokenValues,
+    Autopools,
 )
 
 
@@ -15,6 +16,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
     natural_left_right_using_where,
+    get_full_table_as_orm,
 )
 
 from mainnet_launch.data_fetching.get_state_by_block import (
@@ -30,6 +32,7 @@ from mainnet_launch.constants import ALL_CHAINS, ROOT_PRICE_ORACLE, ChainData
 def _fetch_destination_token_value_data_from_external_source(
     chain: ChainData, possible_blocks: list[int], full_destination_df: pd.DataFrame
 ) -> pd.DataFrame:
+
     def build_pool_token_spot_price_calls(
         chain: ChainData, pool_addresses: list[str], token_addresses: list[str]
     ) -> list[Call]:
@@ -37,7 +40,7 @@ def _fetch_destination_token_value_data_from_external_source(
             Call(
                 ROOT_PRICE_ORACLE(chain),
                 ["getSpotPriceInEth(address,address)(uint256)", token_address, pool_address],
-                [(f"{pool_address}_{token_address}", safe_normalize_with_bool_success)],
+                [((pool_address, token_address, "spot_price"), safe_normalize_with_bool_success)],
             )
             for (pool_address, token_address) in zip(pool_addresses, token_addresses)
         ]
@@ -48,8 +51,8 @@ def _fetch_destination_token_value_data_from_external_source(
                 dest,
                 "underlyingReserves()(address[],uint256[])",
                 [
-                    (f"{dest}_underlyingReserves_tokens", identity_with_bool_success),
-                    (f"{dest}_underlyingReserves_amounts", identity_with_bool_success),
+                    ((dest, "underlyingReserves_tokens"), identity_with_bool_success),
+                    ((dest, "underlyingReserves_amounts"), identity_with_bool_success),
                 ],
             )
             for dest in destinations
@@ -119,8 +122,8 @@ def _build_all_destination_token_values(
         full_destination_df["index"],
     ):
         cols = [
-            f"{pool_address}_{token_address}",
-            f"{destination_vault_address}_underlyingReserves_amounts",
+            (pool_address, token_address, "spot_price"),
+            (destination_vault_address, "underlyingReserves_amounts"),
             "block",
         ]
 
@@ -147,6 +150,7 @@ def ensure_destination_token_values_are_current():
             possible_blocks,
             where_clause=DestinationTokenValues.chain_id == chain.chain_id,
         )
+        # missing_blocks = possible_blocks[::21]
         if len(missing_blocks) == 0:
             continue
 
@@ -154,15 +158,15 @@ def ensure_destination_token_values_are_current():
             DestinationTokens,
             Destinations,
             using=[DestinationTokens.destination_vault_address, DestinationTokens.chain_id],
-            where_clause=DestinationTokens.chain_id == chain.chain_id,
+            where_clause=(DestinationTokens.chain_id == chain.chain_id) & (Destinations.pool_type != "idle"),
         )
-
         token_value_df = natural_left_right_using_where(
             TokenValues,
             Tokens,
             using=[TokenValues.token_address, TokenValues.chain_id],
             where_clause=TokenValues.chain_id == chain.chain_id,
         )
+
         wide_df = _fetch_destination_token_value_data_from_external_source(chain, missing_blocks, full_destination_df)
 
         all_destination_token_values = _build_all_destination_token_values(
@@ -178,6 +182,65 @@ def ensure_destination_token_values_are_current():
                 DestinationTokenValues.destination_vault_address,
             ],
         )
+
+        # primary source of idle
+        idle_destination_token_values = _fetch_idle_destination_token_values(chain, missing_blocks)
+        insert_avoid_conflicts(
+            idle_destination_token_values,
+            DestinationTokenValues,
+            index_elements=[
+                DestinationTokenValues.block,
+                DestinationTokenValues.chain_id,
+                DestinationTokenValues.token_address,
+                DestinationTokenValues.destination_vault_address,
+            ],
+        )
+
+
+def _fetch_idle_destination_token_values(chain: ChainData, missing_blocks: list[int]) -> list[DestinationTokenValues]:
+
+    autopools: list[Autopools] = get_full_table_as_orm(
+        Autopools,
+        where_clause=TokenValues.chain_id == chain.chain_id,
+    )
+
+    def _asset_breakdown_to_idle(success, args):
+        if success:
+            totalIdle, totalDebt, totalDebtMin, totalDebtMax = args
+            return int(totalIdle) / 1e18  # maybe 1e6 if autoUSD
+
+    idle_calls = [
+        Call(
+            autopool.autopool_vault_address,
+            ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
+            [((autopool.autopool_vault_address), _asset_breakdown_to_idle)],
+        )
+        for autopool in autopools
+    ]
+
+    idle_df = get_raw_state_by_blocks(idle_calls, missing_blocks, chain, include_block_number=True)
+
+    idle_destination_token_values = []
+
+    def _extract_idle_destination_token_values(row: dict):
+        for autopool_vault_address, total_idle in row.items():
+            if autopool_vault_address != "block":
+                this_autopool = [a for a in autopools if a.autopool_vault_address == autopool_vault_address][0]
+                idle_destination_token_values.append(
+                    DestinationTokenValues(
+                        block=row["block"],
+                        chain_id=chain.chain_id,
+                        destination_vault_address=autopool_vault_address,
+                        token_address=this_autopool.base_asset,
+                        spot_price=1.0,
+                        quantity=total_idle,
+                        safe_spot_spread=0.0,
+                        spot_backing_discount=0.0,
+                    )
+                )
+
+    idle_df.apply(_extract_idle_destination_token_values, axis=1)
+    return idle_destination_token_values
 
 
 if __name__ == "__main__":
