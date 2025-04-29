@@ -8,7 +8,7 @@ Run this, via a once a day lambada function (or as needed) to update the dashboa
 from mainnet_launch.constants import time_decorator
 
 
-from mainnet_launch.database.schema.full import drop_and_full_rebuild_db
+from mainnet_launch.database.schema.full import drop_and_full_rebuild_db, ENGINE
 from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
 
 from mainnet_launch.database.schema.ensure_tables_are_current.update_destinations_table import (
@@ -39,7 +39,9 @@ from mainnet_launch.database.schema.ensure_tables_are_current.update_autopool_st
 
 # 270 seconds from 0 # 11 seconds from finished.
 @time_decorator
-def ensure_database_is_current(full_reset_and_refetch: bool = False):
+def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
+    ENGINE.echo = echo_sql_to_console
+    # top level 6 hour check
     if full_reset_and_refetch:
         drop_and_full_rebuild_db()
 
@@ -65,6 +67,16 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False):
     # chainlink gas costs
     # solver profit ( maybe exclude for complexity reasons, and solver profit is near 0)
     # debt reporting
+
+    # last time database made to be current,
+
+    # add to schema (maybe there is a way to store as one row instead of many)
+    # tx_hash, asset, amount, to_user_address, from, (primary key serial (auto incrementing))
+    # some person takes assets out, ETH, 100, bob, autopool
+    # some person takes assets out, curve LP tokens, 20, bob
+    # tx_hash, aave aWETH, 20, bob
+
+    # has it at least an hour,
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ import pydot
 
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_column
-from sqlalchemy import DateTime, ForeignKey, ARRAY, String, ForeignKeyConstraint, BigInteger
+from sqlalchemy import DateTime, ForeignKey, ARRAY, String, ForeignKeyConstraint, BigInteger, Integer
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -43,6 +43,14 @@ class Base(MappedAsDataclass, DeclarativeBase):
         # returns an instance of this class from the ordered tuple
         col_names = [c.name for c in cls.__table__.columns]
         return cls(**dict(zip(col_names, tup)))
+
+
+# class DatabaseCurrentUpTo(Base):
+#     # stores the hightes
+
+#     chain_id: Mapped[int] = mapped_column(primary_key=True)
+#     highest_on_chain_call_block: Mapped[int] = mapped_column(nullable=False)
+#     # eg select max(block) from (token_values, destination_token_values, destination_states, autopool_destination_states, autopool_states)
 
 
 class Blocks(Base):
@@ -158,79 +166,6 @@ class AutopoolStates(Base):
     total_shares: Mapped[float] = mapped_column(nullable=True)
     total_nav: Mapped[float] = mapped_column(nullable=True)
     nav_per_share: Mapped[float] = mapped_column(nullable=True)
-
-    __table_args__ = (
-        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        ForeignKeyConstraint(
-            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
-        ),
-    )
-
-
-# extra
-class AutopoolDeposit(Base):
-    __tablename__ = "autopool_deposit"
-
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
-    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(primary_key=True)
-    block: Mapped[int] = mapped_column(primary_key=True)
-
-    shares: Mapped[float] = mapped_column(nullable=False)
-    base_asset_amount: Mapped[float] = mapped_column(nullable=False)  # quantity of (WETH) or USDC or pxETH
-
-    user: Mapped[str] = mapped_column(nullable=False)
-    nav_per_share: Mapped[str] = mapped_column(nullable=False)
-
-    __table_args__ = (
-        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        ForeignKeyConstraint(
-            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
-        ),
-    )
-
-
-# extra
-class AutopoolWithdrawal(Base):
-    __tablename__ = "autopool_withdrawal"
-
-    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
-    chain_id: Mapped[int] = mapped_column(primary_key=True)
-    block: Mapped[int] = mapped_column(primary_key=True)
-
-    shares: Mapped[float] = mapped_column(nullable=False)
-    base_asset_amount: Mapped[float] = mapped_column(nullable=False)  # quantity of (WETH) or USDC or pxETH
-
-    user: Mapped[str] = mapped_column(nullable=False)
-    nav_per_share: Mapped[float] = mapped_column(nullable=False)  # on deposit
-
-    actualized_nav_per_share: Mapped[float] = mapped_column(
-        nullable=False
-    )  # the actual ratio of base asset amount / shares they got out
-    slippage: Mapped[float] = mapped_column(nullable=False)
-
-    __table_args__ = (
-        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        ForeignKeyConstraint(
-            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
-        ),
-    )
-
-
-# extra
-class AutopoolFees(Base):
-    __tablename__ = "autopool_fees"
-    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
-    block: Mapped[int] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(primary_key=True)
-
-    event_name: Mapped[str] = mapped_column(primary_key=True)
-
-    denominated_in: Mapped[str] = mapped_column(nullable=False)
-    minted_shares: Mapped[float] = mapped_column(nullable=False)
-    minted_shares_value: Mapped[float] = mapped_column(nullable=False)
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
@@ -362,53 +297,51 @@ class DestinationTokenValues(Base):
 class RebalancePlan(Base):
     __tablename__ = "rebalance_plan"
 
-    file_name: Mapped[str] = mapped_column(nullable=False, primary_key=True)
+    file_name: Mapped[str] = mapped_column(primary_key=True)
 
     datetime_generated: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
     autopool_vault_address: Mapped[str] = mapped_column(nullable=False)
     chain_id: Mapped[int] = mapped_column(nullable=False)
 
-    dex_aggregator: Mapped[str] = mapped_column(nullable=False)  # not sure here, can this be multiple
+    solver_address: Mapped[str] = mapped_column(nullable=True)
+    rebalance_type: Mapped[str] = mapped_column(nullable=True)
 
-    solver_address: Mapped[str] = mapped_column(nullable=False)
-    rebalance_type: Mapped[str] = mapped_column(nullable=False)
+    destination_out: Mapped[str] = mapped_column(nullable=True)
+    token_out: Mapped[str] = mapped_column(nullable=True)
 
-    destination_out: Mapped[str] = mapped_column(nullable=False)
-    token_out: Mapped[str] = mapped_column(nullable=False)
+    destination_in: Mapped[str] = mapped_column(nullable=True)
+    token_in: Mapped[str] = mapped_column(nullable=True)
 
-    destination_in: Mapped[str] = mapped_column(nullable=False)
-    token_in: Mapped[str] = mapped_column(nullable=False)
+    move_name: Mapped[str] = mapped_column(nullable=True)  # f"{data['destinationOut']} -> {data['destinationIn']}"
 
-    move_name: Mapped[str] = mapped_column(nullable=False)  # f"{data['destinationOut']} -> {data['destinationIn']}"
-
-    amount_out: Mapped[float] = mapped_column(nullable=False)
+    amount_out: Mapped[float] = mapped_column(nullable=True)
     # amountOutETH
-    amount_out_safe_value: Mapped[float] = mapped_column(nullable=False)
+    amount_out_safe_value: Mapped[float] = mapped_column(nullable=True)
 
-    min_amount_in: Mapped[float] = mapped_column(nullable=False)
+    min_amount_in: Mapped[float] = mapped_column(nullable=True)
     # minAmountInETH
-    min_amount_in_safe_value: Mapped[float] = mapped_column(nullable=False)
+    min_amount_in_safe_value: Mapped[float] = mapped_column(nullable=True)
 
-    out_spot_eth: Mapped[float] = mapped_column(nullable=False)  # in 'rebalancetTest'
-    out_dest_apr: Mapped[float] = mapped_column(nullable=False)
+    out_spot_eth: Mapped[float] = mapped_column(nullable=True)
+    out_dest_apr: Mapped[float] = mapped_column(nullable=True)
 
-    in_spot_eth: Mapped[float] = mapped_column(nullable=False)
-    in_dest_apr: Mapped[float] = mapped_column(nullable=False)
-    in_dest_adj_apr: Mapped[float] = mapped_column(nullable=False)
+    in_spot_eth: Mapped[float] = mapped_column(nullable=True)
+    in_dest_apr: Mapped[float] = mapped_column(nullable=True)
+    in_dest_adj_apr: Mapped[float] = mapped_column(nullable=True)
 
-    apr_delta: Mapped[float] = mapped_column(nullable=False)
-    swap_offset_period: Mapped[int] = mapped_column(nullable=False)
+    apr_delta: Mapped[float] = mapped_column(nullable=True)
+    swap_offset_period: Mapped[int] = mapped_column(nullable=True)
 
     # not certain on if this should be a list or a second table,
-    # maybe make an addrank table?
-    candidate_destinations: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=True)
-    candidate_destinations_rank: Mapped[int] = mapped_column(nullable=False)
+    num_candidate_destinations: Mapped[int] = mapped_column(nullable=True)
+    candidate_destinations_rank: Mapped[int] = mapped_column(nullable=True)
 
-    projected_swap_cost: Mapped[float] = mapped_column(nullable=False)
-    projected_slippage: Mapped[float] = mapped_column(nullable=False)
+    projected_swap_cost: Mapped[float] = mapped_column(nullable=True)
+    projected_net_gain: Mapped[float] = mapped_column(nullable=True)
+    projected_gross_gain: Mapped[float] = mapped_column(nullable=True)
 
-    # dex steps here?
-
+    projected_slippage: Mapped[float] = mapped_column(nullable=True)  # 100 projected_swap_cost / out_spot_eth
+    # maybe add projected break even days?
     __table_args__ = (
         ForeignKeyConstraint(
             ["destination_in", "chain_id"],
@@ -418,8 +351,6 @@ class RebalancePlan(Base):
             ["destination_out", "chain_id"],
             ["destinations.destination_vault_address", "destinations.chain_id"],
         ),
-        ForeignKeyConstraint(["token_in", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
-        ForeignKeyConstraint(["token_out", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
         ForeignKeyConstraint(
             ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
         ),
@@ -427,9 +358,52 @@ class RebalancePlan(Base):
 
 
 # needed
+class DexSwapSteps(Base):
+
+    __tablename__ = "dex_swap_steps"
+
+    file_name: Mapped[str] = mapped_column(primary_key=True)
+    step_index: Mapped[int] = mapped_column(primary_key=True)
+
+    dex: Mapped[str] = mapped_column(nullable=False)
+
+    # maybe add how much value is moved in this step
+    # consider adding the other step data here as needed
+
+    # consider adding info about the route here too
+
+
+# extra
+class RebalanceCandidateDestinations(Base):
+    __tablename__ = "rebalance_candidate_destinations"
+
+    file_name: Mapped[str] = mapped_column(primary_key=True)
+    desination_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(nullable=False)
+
+    net_gain: Mapped[float] = mapped_column(nullable=False)
+    expected_swap_cost: Mapped[float] = mapped_column(nullable=False)
+
+    gross_gain_during_swap_cost_offset_period: Mapped[float] = mapped_column(nullable=False)
+
+    #     'Tokemak-Wrapped Ether-osETH/rETH', # destination name,
+    #    8.017298132176219e+17,  (net gain during swap cost offset period),
+    #    1.073271250808832e+17], expected swap cost
+    # gross_gain_during_swap_cost_offset_period = 8.017298132176219e+17 + 1.073271250808832e+17
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["desination_vault_address", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+        ForeignKeyConstraint(["file_name"], ["rebalance_plan.file_name"]),
+    )
+
+
+# needed
 class RebalanceEvents(Base):
     __tablename__ = "rebalance_events"
-
+    # autopool, solver, time + (expiration (10 minutes)), token out, amount out,
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
     rebalance_file_path: Mapped[str] = mapped_column(ForeignKey("rebalance_plan.file_name"))
 
@@ -444,7 +418,6 @@ class RebalanceEvents(Base):
     backing_value_in: Mapped[float] = mapped_column(nullable=False)  # not used but can be useful later
 
     actual_swap_cost: Mapped[float] = mapped_column(nullable=False)
-    predicted_gain: Mapped[float] = mapped_column(nullable=False)
     break_even_days: Mapped[float] = mapped_column(nullable=False)
     actual_slippage: Mapped[float] = mapped_column(nullable=False)
 
@@ -544,6 +517,90 @@ class ChainlinkGasCosts(Base):
     gas_cost_in_eth_with_chainlink_premium: Mapped[float] = mapped_column(nullable=False)
 
 
+# extra
+class AutopoolDeposit(Base):
+    __tablename__ = "autopool_deposit"
+
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    block: Mapped[int] = mapped_column(primary_key=True)
+
+    shares: Mapped[float] = mapped_column(nullable=False)
+    base_asset_amount: Mapped[float] = mapped_column(nullable=False)  # quantity of (WETH) or USDC or pxETH
+
+    user: Mapped[str] = mapped_column(nullable=False)
+    nav_per_share: Mapped[str] = mapped_column(nullable=False)
+
+    __table_args__ = (
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
+    )
+
+
+# extra
+class AutopoolWithdrawal(Base):
+    __tablename__ = "autopool_withdrawal"
+
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    block: Mapped[int] = mapped_column(primary_key=True)
+
+    shares: Mapped[float] = mapped_column(nullable=False)
+    base_asset_amount: Mapped[float] = mapped_column(nullable=False)  # quantity of (WETH) or USDC or pxETH
+
+    user: Mapped[str] = mapped_column(nullable=False)
+    nav_per_share: Mapped[float] = mapped_column(nullable=False)  # on deposit
+
+    actualized_nav_per_share: Mapped[float] = mapped_column(
+        nullable=False
+    )  # the actual ratio of base asset amount / shares they got out
+    slippage: Mapped[float] = mapped_column(nullable=False)
+
+    __table_args__ = (
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
+    )
+
+
+class AutopoolWithdrawalToken(Base):
+    __tablename__ = "autopool_withdrawal_token"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"))
+    # the toekn the user gets the token withdrawan in, eg WETH, LP tokens, etc
+    token_address: Mapped[str] = mapped_column(nullable=False)
+    # quantity of this token removed from the autopool
+    amount: Mapped[float] = mapped_column(nullable=False)
+
+
+# extra
+class AutopoolFees(Base):
+    __tablename__ = "autopool_fees"
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    block: Mapped[int] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+
+    event_name: Mapped[str] = mapped_column(primary_key=True)
+
+    denominated_in: Mapped[str] = mapped_column(nullable=False)
+    minted_shares: Mapped[float] = mapped_column(nullable=False)
+    minted_shares_value: Mapped[float] = mapped_column(nullable=False)
+
+    __table_args__ = (
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
+    )
+
+
 def drop_and_full_rebuild_db():
     meta = MetaData()
     meta.reflect(bind=ENGINE)
@@ -553,77 +610,7 @@ def drop_and_full_rebuild_db():
     print("Recreated all tables from ORM definitions.")
 
 
-import pydot
-from sqlalchemy_schemadisplay import create_schema_graph
-
-def make_schema_image():
-    # 1) Build the base ERD graph
-    graph = create_schema_graph(
-        engine=ENGINE,
-        metadata=Base.metadata,
-        show_datatypes=False,
-        show_indexes=False,
-        rankdir="LR",
-    )
-
-    # 2) Apply your global styling
-    graph.set_graph_defaults(
-        splines="ortho",
-        nodesep="0.6",
-        ranksep="0.75",
-        fontsize="12",
-        dpi="300",
-    )
-    graph.set_node_defaults(
-        shape="rectangle",
-        style="filled",
-        fillcolor="#f9f9f9",
-        fontname="Helvetica",
-    )
-    graph.set_edge_defaults(
-        color="#555555",
-        arrowsize="0.7",
-    )
-
-    # 3) Define clusters for logical groups of tables
-    #    Each cluster is a pydot.Subgraph whose name begins with "cluster_"
-    autopool_tables = [
-        "autopools", "autopool_states", "autopool_deposit",
-        "autopool_withdrawal", "autopool_fees", "autopool_destination_states",
-    ]
-    dest_tables = [
-        "destinations", "destination_states", "destination_tokens",
-        "destination_token_values",
-    ]
-    rebalance_tables = ["rebalance_plan", "rebalance_events", "solver_profit"]
-
-    def make_cluster(name, label, table_names):
-        # 1) Create a true Graphviz cluster subgraph
-        sub = pydot.Cluster(
-            graph_name=f"cluster_{name}",  # must start with "cluster_"
-            label=label,                   # cluster box title
-            bgcolor="lightgrey",           # cluster background color
-            style="dashed"                 # dashed border style
-        )
-
-        # 2) Add each table as a node (by name)
-        for tbl in table_names:
-            sub.add_node(pydot.Node(tbl))
-
-        return sub
-
-
-    graph.add_subgraph(make_cluster("autopool", "Autopools", autopool_tables))
-    graph.add_subgraph(make_cluster("dest", "Destinations", dest_tables))
-    graph.add_subgraph(make_cluster("rebalance", "Rebalance", rebalance_tables))
-
-    # 4) Render to a high-res PNG
-    graph.write("mainnet_launch/database/schema/schema.png", format="png")
-    print("Wrote schema_clustered.png")
-
-
-
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    make_schema_image()
+    drop_and_full_rebuild_db()
