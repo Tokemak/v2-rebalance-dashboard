@@ -36,6 +36,10 @@ from mainnet_launch.database.schema.ensure_tables_are_current.update_autopool_st
     ensure_autopool_states_are_current,
 )
 
+from mainnet_launch.database.schema.ensure_tables_are_current.update_rebalance_plans import (
+    ensure_rebalance_plans_table_are_current,
+)
+
 
 # 270 seconds from 0 # 11 seconds from finished.
 @time_decorator
@@ -54,8 +58,8 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure_destination_states_are_current()
     ensure_autopool_destination_states_are_current()
     ensure_autopool_states_are_current()
+    ensure_rebalance_plans_table_are_current()
 
-    # rebalance plans
     # rebalance events
 
     # self contained parts add later
@@ -80,5 +84,5 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
 
 if __name__ == "__main__":
-    ensure_database_is_current(True)
-    ensure_database_is_current(False)
+    ensure_database_is_current(True, echo_sql_to_console=False)
+    ensure_database_is_current(False, echo_sql_to_console=False)

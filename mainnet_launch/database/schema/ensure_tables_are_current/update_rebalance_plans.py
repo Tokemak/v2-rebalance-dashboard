@@ -145,7 +145,7 @@ def _extract_rebalance_plan_and_dex_steps(
     return new_rebalance_plan_row, new_dex_steps
 
 
-def ensure_rebalance_plan_table_is_current():
+def ensure_rebalance_plans_table_are_current():
     s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 
     for autopool in ALL_AUTOPOOLS:
@@ -186,4 +186,4 @@ def ensure_rebalance_plan_table_is_current():
 
 
 if __name__ == "__main__":
-    ensure_rebalance_plan_table_is_current()
+    ensure_rebalance_plans_table_are_current()

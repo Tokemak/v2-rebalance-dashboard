@@ -294,8 +294,8 @@ class DestinationTokenValues(Base):
 
 
 # needed
-class RebalancePlan(Base):
-    __tablename__ = "rebalance_plan"
+class RebalancePlans(Base):
+    __tablename__ = "rebalance_plans"
 
     file_name: Mapped[str] = mapped_column(primary_key=True)
 
