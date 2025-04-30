@@ -371,6 +371,7 @@ class DexSwapSteps(Base):
     # consider adding the other step data here as needed
 
     # consider adding info about the route here too
+    __table_args__ = (ForeignKeyConstraint(["file_name"], ["rebalance_plans.file_name"]),)
 
 
 # extra
@@ -396,7 +397,7 @@ class RebalanceCandidateDestinations(Base):
             ["desination_vault_address", "chain_id"],
             ["destinations.destination_vault_address", "destinations.chain_id"],
         ),
-        ForeignKeyConstraint(["file_name"], ["rebalance_plan.file_name"]),
+        ForeignKeyConstraint(["file_name"], ["rebalance_plans.file_name"]),
     )
 
 
@@ -405,7 +406,7 @@ class RebalanceEvents(Base):
     __tablename__ = "rebalance_events"
     # autopool, solver, time + (expiration (10 minutes)), token out, amount out,
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
-    rebalance_file_path: Mapped[str] = mapped_column(ForeignKey("rebalance_plan.file_name"))
+    rebalance_file_path: Mapped[str] = mapped_column(ForeignKey("rebalance_plans.file_name"))
 
     quanity_out: Mapped[float] = mapped_column(nullable=False)
     safe_value_out: Mapped[float] = mapped_column(nullable=False)

@@ -8,7 +8,7 @@ import pandas as pd
 from web3 import Web3
 
 from mainnet_launch.database.schema.full import (
-    RebalancePlan,
+    RebalancePlans,
     Destinations,
     DexSwapSteps,
 )
@@ -37,9 +37,9 @@ def convert_rebalance_plan_json_to_rebalance_plan_line(
     return plan
 
 
-def _handle_only_state_of_destinations_rebalance_plan(plan: dict) -> RebalancePlan:
+def _handle_only_state_of_destinations_rebalance_plan(plan: dict) -> RebalancePlans:
     # just to make sure the keys are on remote
-    return RebalancePlan(
+    return RebalancePlans(
         file_name=plan["rebalance_plan_json_key"],
         datetime_generated=pd.to_datetime(int(plan["timestamp"]), unit="s", utc=True),
         autopool_vault_address=plan["autopool_vault_address"],
@@ -73,7 +73,7 @@ def _handle_only_state_of_destinations_rebalance_plan(plan: dict) -> RebalancePl
 
 def _extract_rebalance_plan_and_dex_steps(
     plan: dict, autopool: AutopoolConstants, destinations: list[Destinations]
-) -> tuple[RebalancePlan, list[DexSwapSteps]]:
+) -> tuple[RebalancePlans, list[DexSwapSteps]]:
     if plan["sodOnly"] == True:
         new_sod_only_plan = _handle_only_state_of_destinations_rebalance_plan(plan)
         return new_sod_only_plan, []
@@ -101,7 +101,7 @@ def _extract_rebalance_plan_and_dex_steps(
                 projected_net_gain = d[1] / 1e18
                 projected_gross_gain = projected_net_gain + projected_swap_cost
 
-    new_rebalance_plan_row = RebalancePlan(
+    new_rebalance_plan_row = RebalancePlans(
         file_name=plan["rebalance_plan_json_key"],
         datetime_generated=pd.to_datetime(int(plan["timestamp"]), unit="s", utc=True),
         autopool_vault_address=plan["autopool_vault_address"],
@@ -154,10 +154,10 @@ def ensure_rebalance_plans_table_are_current():
             r["Key"] for r in s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket).get("Contents")
         ]
         plans_not_already_fetched = get_subset_not_already_in_column(
-            RebalancePlan,
-            RebalancePlan.file_name,
+            RebalancePlans,
+            RebalancePlans.file_name,
             solver_plan_paths_on_remote,
-            where_clause=RebalancePlan.autopool_vault_address == autopool.autopool_eth_addr,
+            where_clause=RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr,
         )
 
         destinations = get_full_table_as_orm(
@@ -179,7 +179,7 @@ def ensure_rebalance_plans_table_are_current():
                 all_rebalance_plan_rows.append(new_rebalance_plan_row)
                 all_dex_steps_rows.extend(new_dex_steps_rows)
 
-        insert_avoid_conflicts(all_rebalance_plan_rows, RebalancePlan, index_elements=[RebalancePlan.file_name])
+        insert_avoid_conflicts(all_rebalance_plan_rows, RebalancePlans, index_elements=[RebalancePlans.file_name])
         insert_avoid_conflicts(
             all_dex_steps_rows, DexSwapSteps, index_elements=[DexSwapSteps.file_name, DexSwapSteps.step_index]
         )
