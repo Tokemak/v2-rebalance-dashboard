@@ -211,6 +211,9 @@ if __name__ == "__main__":
     print(all_blocks[0])
 
 
+# consdier a helper method that adds in the datetime index to a block table
+
+
 # def insert_avoid_conflicts2(
 #     new_rows: list[Base], table: Base, index_elements: list[InstrumentedAttribute], expecting_rows: bool = False
 # ) -> None:

@@ -230,8 +230,12 @@ class AutopoolDestinationStates(Base):
 
     amount: Mapped[float] = mapped_column(nullable=False)  # how many lp tokens this autopool has here, lens contract
 
+    # this can be infered by the destinations states, drop it?
     # given the value of the lp tokens in the pool how much value does the atuopool have here
-    total_safe_value: Mapped[float] = mapped_column(nullable=False)
+    # 0x40219bBda953ca811d2D0168Dc806a96b84791d9 and 0x40219bBda953ca811d2D0168Dc806a96b84791d9
+    # and 0xc4Eb861e7b66f593482a3D7E8adc314f6eEDA30B
+    # are not properly normalized,
+    total_safe_value: Mapped[float] = mapped_column(nullable=False)  # not correct
     total_spot_value: Mapped[float] = mapped_column(nullable=False)
     total_backing_value: Mapped[float] = mapped_column(nullable=False)
 

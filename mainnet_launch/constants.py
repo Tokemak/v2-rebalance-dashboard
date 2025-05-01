@@ -62,6 +62,7 @@ class ChainData:
 @dataclass(frozen=True)
 class AutopoolConstants:
     name: str
+    symbol: str
     autopool_eth_addr: str
     autopool_eth_strategy_addr: str
     solver_rebalance_plans_bucket: str
@@ -172,7 +173,8 @@ STARTUP_LOG_FILE = ROOT_DIR / "startup.csv"
 
 
 AUTO_ETH: AutopoolConstants = AutopoolConstants(
-    name="autoETH",
+    "autoETH",
+    "autoETH",
     autopool_eth_addr="0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56",
     autopool_eth_strategy_addr="0xf5f6addB08c5e6091e5FdEc7326B21bEEd942235",
     solver_rebalance_plans_bucket=os.environ["AUTO_ETH_BUCKET"],
@@ -182,7 +184,8 @@ AUTO_ETH: AutopoolConstants = AutopoolConstants(
 )
 
 BAL_ETH: AutopoolConstants = AutopoolConstants(
-    name="balETH",
+    "balETH",
+    "balETH",
     autopool_eth_addr="0x6dC3ce9C57b20131347FDc9089D740DAf6eB34c5",
     autopool_eth_strategy_addr="0xabe104560D0B390309bcF20b73Dca335457AA32e",
     solver_rebalance_plans_bucket=os.environ["BAL_ETH_BUCKET"],
@@ -192,7 +195,8 @@ BAL_ETH: AutopoolConstants = AutopoolConstants(
 )
 
 AUTO_LRT: AutopoolConstants = AutopoolConstants(
-    name="autoLRT",
+    "autoLRT",
+    "autoLRT",
     autopool_eth_addr="0xE800e3760FC20aA98c5df6A9816147f190455AF3",
     autopool_eth_strategy_addr="0x72a726c10220280049687E58B7b05fb03d579109",
     solver_rebalance_plans_bucket=os.environ["AUTO_LRT_BUCKET"],
@@ -203,6 +207,7 @@ AUTO_LRT: AutopoolConstants = AutopoolConstants(
 
 BASE_ETH: AutopoolConstants = AutopoolConstants(
     "baseETH",
+    "baseETH",
     autopool_eth_addr="0xAADf01DD90aE0A6Bb9Eb908294658037096E0404",
     autopool_eth_strategy_addr="0xe72a466d426F735BfeE91Db19dc509735B65b8dc",
     solver_rebalance_plans_bucket=os.environ["BASE_ETH_BUCKET"],
@@ -212,6 +217,7 @@ BASE_ETH: AutopoolConstants = AutopoolConstants(
 )
 
 DINERO_ETH: AutopoolConstants = AutopoolConstants(
+    "dineroETH",
     "dineroETH",
     autopool_eth_addr="0x35911af1B570E26f668905595dEd133D01CD3E5a",
     autopool_eth_strategy_addr="0x2Ade538C621A117afc4D485C79b16DD5769bC921",
