@@ -1,13 +1,78 @@
-"""helper functions for postgres"""
+"""data access layer functions for postgres"""
+
+from dataclasses import dataclass
 
 from sqlalchemy.orm import InstrumentedAttribute
-from sqlalchemy.sql.elements import OperatorExpression
-from sqlalchemy import text, bindparam, ARRAY
+from sqlalchemy.sql.elements import OperatorExpression, BooleanClauseList
+from sqlalchemy import text
 from psycopg2.extras import execute_values
-
 import pandas as pd
 
 from mainnet_launch.database.schema.full import Session, Base
+
+
+@dataclass
+class TableSelector:
+    table: Base
+    select_fields: InstrumentedAttribute | list[InstrumentedAttribute] | None = None
+    join_on: BooleanClauseList | None = None
+    row_filter: BooleanClauseList = None
+
+
+def merge_tables_as_df(
+    selectors: list[TableSelector],
+    where_clause: BooleanClauseList | None = None,
+) -> pd.DataFrame:
+    """
+    Perform a multi-table JOIN based on the provided selectors.
+
+    :param selectors: List of TableSelector, where the first entry becomes the FROM table,
+                      and subsequent entries are JOINs.
+    :param global_filter: An optional SQLA boolean expression applied as a global WHERE.
+    :returns: A pandas DataFrame containing the joined result.
+    """
+    if not selectors:
+        raise ValueError("At least one TableSelector is required")
+
+    with Session.begin() as session:
+        dialect = session.get_bind().dialect
+
+        select_parts: list[str] = []
+        for spec in selectors:
+            tbl_name = spec.table.__tablename__
+            if spec.select_fields is None:
+                select_parts.append(f"{tbl_name}.*")
+            else:
+                cols = spec.select_fields if isinstance(spec.select_fields, (list, tuple)) else [spec.select_fields]
+                for col in cols:
+                    select_parts.append(f"{tbl_name}.{col.key}")
+
+        # Start SQL with FROM
+        first = selectors[0]
+        sql = f"SELECT {', '.join(select_parts)}\nFROM {first.table.__tablename__}"
+
+        # Add JOIN clauses
+        for spec in selectors[1:]:
+            on_sql = spec.join_on.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+            sql += f"\nJOIN {spec.table.__tablename__} ON {on_sql}"
+
+        # Collect WHERE filters
+        filters = []
+        if where_clause is not None:
+            filters.append(where_clause)
+        for spec in selectors:
+            if spec.row_filter is not None:
+                filters.append(spec.row_filter)
+
+        if filters:
+            # Combine filters with AND
+            where_sql = " AND ".join(
+                f"({flt.compile(dialect=dialect, compile_kwargs={'literal_binds': True})})" for flt in filters
+            )
+            sql += f"\nWHERE {where_sql}"
+
+        # Execute and return DataFrame
+        return pd.read_sql(text(sql), con=session.get_bind())
 
 
 CHUNK_SIZE = 1000
@@ -43,7 +108,6 @@ def insert_avoid_conflicts(
                 execute_values(cur, sql, batch)
 
 
-# maybe join these?
 def get_highest_value_in_field_where(table: Base, column: InstrumentedAttribute, where_clause: OperatorExpression):
     with Session.begin() as session:
         where_sql = _where_clause_to_string(where_clause, session)
@@ -84,18 +148,6 @@ def get_subset_not_already_in_column(
     #     return session.execute(sql, {"values": values}).scalars().all()
 
 
-def _where_clause_to_string(where_clause: OperatorExpression | None, session) -> str:
-    """
-    where_clause like `Blocks.chain_id == ETH_CHAIN.chain_id`
-    """
-    if where_clause is not None:
-        dialect = session.get_bind().dialect
-        compiled_where = where_clause.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
-        return f"WHERE {str(compiled_where)}"
-    else:
-        return ""
-
-
 def get_full_table_as_df(table: Base, where_clause: OperatorExpression | None = None) -> pd.DataFrame:
     with Session.begin() as session:
         where_sql = _where_clause_to_string(where_clause, session)
@@ -127,6 +179,7 @@ def get_full_table_as_orm(table: Base, where_clause: OperatorExpression | None =
         return [table.from_tuple(tup) for tup in session.execute(sql).all()]
 
 
+# TODO use the merge many tables instead (if needed)
 def natural_left_right_using_where(
     left: Base,
     right: Base,
@@ -151,6 +204,7 @@ def natural_left_right_using_where(
         return pd.read_sql(sql, con=session.get_bind())
 
 
+# not used, use the natural join when possible, it is clearer
 def generic_merge_tables_as_df(
     left: type[Base],
     right: type[Base],
@@ -204,65 +258,20 @@ def generic_merge_tables_as_df(
         return pd.read_sql(sql, con=session.get_bind())
 
 
+def _where_clause_to_string(where_clause: OperatorExpression | None, session) -> str:
+    """
+    where_clause like `Blocks.chain_id == ETH_CHAIN.chain_id`
+    """
+    if where_clause is not None:
+        dialect = session.get_bind().dialect
+        compiled_where = where_clause.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+        return f"WHERE {str(compiled_where)}"
+    else:
+        return ""
+
+
 if __name__ == "__main__":
     from mainnet_launch.database.schema.full import Blocks
 
     all_blocks = get_full_table_as_orm(Blocks, Blocks.chain_id == 1)
     print(all_blocks[0])
-
-
-# consdier a helper method that adds in the datetime index to a block table
-
-
-# def insert_avoid_conflicts2(
-#     new_rows: list[Base], table: Base, index_elements: list[InstrumentedAttribute], expecting_rows: bool = False
-# ) -> None:
-#     if not new_rows:
-#         if expecting_rows:
-#             raise ValueError("expecterd new rows here but found None")
-#         else:
-#             return
-
-# rows_as_records = [r.to_record() for r in new_rows]
-# stmt = pg_insert(table).on_conflict_do_nothing(index_elements=index_elements)
-# with Session.begin() as session:
-#     for i in range(0, len(rows_as_records), CHUNK_SIZE):
-#         batch = rows_as_records[i : i + CHUNK_SIZE]
-#         session.execute(stmt, batch)
-
-
-# def update_last_autopool_updated(table_name: str, block: int, autopool: str) -> None:
-#     """
-#     Inserts or updates a row in the 'last_autopool_updated' table for the given
-#     table_name, setting the latest processed block and autopool identifier.
-
-#     :param table_name: Name of the destination table being tracked.
-#     :param block: Latest block number processed.
-#     :param autopool: Name of the autopool associated with this update.
-#     """
-#     stmt = insert(LastAutopoolUpdated).values(table_name=table_name, block=block, autopool=autopool)
-#     stmt = stmt.on_conflict_do_update(
-#         index_elements=[LastAutopoolUpdated.table_name], set_={"block": block, "autopool": autopool}
-#     )
-
-#     with Session.begin() as session:
-#         session.execute(stmt)
-#         session.commit()
-
-
-# def update_last_chain_updated(table_name: str, block: int, chain_id: str) -> None:
-#     """
-#     Inserts or updates a row in the 'last_chain_updated' table for the given
-#     table_name, setting the latest processed block and chain identifier.
-
-#     :param table_name: Name of the destination table being tracked.
-#     :param block: Latest block number processed.
-#     :param chain_id: Name of the chain being tracked.
-#     """
-#     stmt = insert(LastChainUpdated).values(table_name=table_name, block=block, chain_id=chain_id)
-#     stmt = stmt.on_conflict_do_update(
-#         index_elements=[LastChainUpdated.table_name], set_={"block": block, "chain_id": chain_id}
-#     )
-#     with Session.begin() as session:
-#         session.execute(stmt)
-#         session.commit()
