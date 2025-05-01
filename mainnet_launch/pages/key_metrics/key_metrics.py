@@ -27,13 +27,22 @@ from mainnet_launch.database.schema.postgres_operations import (
 
 
 def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
-    nav_per_share_df = natural_left_right_using_where(
-        AutopoolStates,
-        Blocks,
-        using=[AutopoolStates.chain_id, AutopoolStates.block],
-        where_clause=AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr,
-    )[["nav_per_share", "datetime"]]
-
+    nav_per_share_df = merge_tables_as_df(
+        [
+            TableSelector(
+                table=AutopoolStates,
+                select_fields=AutopoolStates.nav_per_share,
+                join_on=None,
+                row_filter=(AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr),
+            ),
+            TableSelector(
+                table=Blocks,
+                select_fields=Blocks.datetime,
+                join_on=(AutopoolStates.chain_id == Blocks.chain_id) & (AutopoolStates.block == Blocks.block),
+            ),
+        ],
+        order_by=Blocks.datetime,
+    )
     nav_per_share_df = nav_per_share_df.set_index("datetime")
     nav_per_share_df.columns = [autopool.name]
 
@@ -78,7 +87,6 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
                 (DestinationStates.destination_vault_address == AutopoolDestinationStates.destination_vault_address)
                 & (DestinationStates.chain_id == AutopoolDestinationStates.chain_id)
                 & (DestinationStates.block == AutopoolDestinationStates.block),
-                AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr,
             ),
             TableSelector(
                 Destinations,
@@ -93,6 +101,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
             ),
         ],
         where_clause=AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr,
+        order_by=Blocks.datetime,
     )
 
     price_return_df = destination_state_df.pivot(
@@ -106,9 +115,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     allocation_df = (price_per_share_df * owned_shares_df).fillna(0)
     total_nav_series = allocation_df.sum(axis=1)
 
-    print(allocation_df.tail())
     portion_df = allocation_df.div(total_nav_series, axis=0)
-    print(portion_df.tail())
 
     destination_state_df["unweighted_apr"] = destination_state_df[["fee_apr", "base_apr", "incentive_apr"]].sum(axis=1)
 

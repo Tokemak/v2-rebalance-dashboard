@@ -22,6 +22,8 @@ class TableSelector:
 def merge_tables_as_df(
     selectors: list[TableSelector],
     where_clause: BooleanClauseList | None = None,
+    order_by: InstrumentedAttribute | None = None,
+    order: str = "asc",
 ) -> pd.DataFrame:
     """
     Perform a multi-table JOIN based on the provided selectors.
@@ -33,7 +35,7 @@ def merge_tables_as_df(
     """
     if not selectors:
         raise ValueError("At least one TableSelector is required")
-
+    #
     with Session.begin() as session:
         dialect = session.get_bind().dialect
 
@@ -71,7 +73,13 @@ def merge_tables_as_df(
             )
             sql += f"\nWHERE {where_sql}"
 
-        # Execute and return DataFrame
+        if order_by is not None:
+            compiled_order = order_by.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+            dir_upper = order.lower().upper()
+            if dir_upper not in ("ASC", "DESC"):
+                raise ValueError("order must be 'asc' or 'desc'")
+            sql += f"\nORDER BY {compiled_order} {dir_upper}"
+
         return pd.read_sql(text(sql), con=session.get_bind())
 
 
