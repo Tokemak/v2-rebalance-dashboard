@@ -364,7 +364,6 @@ class DexSwapSteps(Base):
 
     file_name: Mapped[str] = mapped_column(primary_key=True)
     step_index: Mapped[int] = mapped_column(primary_key=True)
-
     dex: Mapped[str] = mapped_column(nullable=False)
 
     # maybe add how much value is moved in this step
@@ -406,6 +405,8 @@ class RebalanceEvents(Base):
     __tablename__ = "rebalance_events"
     # autopool, solver, time + (expiration (10 minutes)), token out, amount out,
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    # this has a pointer to a block
+    autopool_vault_address: Mapped[str]
     rebalance_file_path: Mapped[str] = mapped_column(ForeignKey("rebalance_plans.file_name"))
 
     quanity_out: Mapped[float] = mapped_column(nullable=False)

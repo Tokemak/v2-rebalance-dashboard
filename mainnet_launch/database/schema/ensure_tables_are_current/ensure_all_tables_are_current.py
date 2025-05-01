@@ -42,6 +42,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.update_rebalance_p
 
 
 # 270 seconds from 0 # 11 seconds from finished.
+# 50 seconds to update after a day
 @time_decorator
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console

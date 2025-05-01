@@ -131,7 +131,10 @@ def _extract_rebalance_plan_and_dex_steps(
         projected_swap_cost=projected_swap_cost,
         projected_net_gain=projected_net_gain,
         projected_gross_gain=projected_gross_gain,
-        projected_slippage=100 * projected_swap_cost / int(plan["rebalanceTest"]["outSpotETH"]) / 1e18,  # out spot eth
+        projected_slippage=100
+        * projected_swap_cost
+        / int(plan["rebalanceTest"]["outSpotETH"])
+        / 1e18,  # out spot eth # might be incorrect
     )
 
     new_dex_steps = []
