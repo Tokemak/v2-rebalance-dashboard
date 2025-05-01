@@ -112,6 +112,11 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         index="datetime", values="price_per_share", columns="destination_vault_address"
     )
 
+    # TODO price return is broken
+
+    # autopool price return is broken
+    # and estimated retun needs to be scaled up
+
     allocation_df = (price_per_share_df * owned_shares_df).fillna(0)
     total_nav_series = allocation_df.sum(axis=1)
 
