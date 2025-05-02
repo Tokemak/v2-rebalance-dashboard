@@ -51,13 +51,13 @@ def merge_tables_as_df(
 
         # Start SQL with FROM
         first = selectors[0]
-        sql = f"SELECT {', '.join(select_parts)}\nFROM {first.table.__tablename__}"
+
+        sql = "SELECT\n" "    " + ",\n    ".join(select_parts) + "\n" f"FROM {selectors[0].table.__tablename__}\n"
 
         # Add JOIN clauses
         for spec in selectors[1:]:
             on_sql = spec.join_on.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
-            sql += f"\nJOIN {spec.table.__tablename__} ON {on_sql}"
-
+            sql += f"JOIN {spec.table.__tablename__}\n" f"  ON {on_sql}\n"
         # Collect WHERE filters
         filters = []
         if where_clause is not None:
@@ -68,17 +68,20 @@ def merge_tables_as_df(
 
         if filters:
             # Combine filters with AND
-            where_sql = " AND ".join(
+            where_sql = " AND\n     ".join(
                 f"({flt.compile(dialect=dialect, compile_kwargs={'literal_binds': True})})" for flt in filters
             )
-            sql += f"\nWHERE {where_sql}"
+            sql += "WHERE\n"
+            sql += "    " + where_sql + "\n"
 
         if order_by is not None:
             compiled_order = order_by.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
             dir_upper = order.lower().upper()
             if dir_upper not in ("ASC", "DESC"):
                 raise ValueError("order must be 'asc' or 'desc'")
-            sql += f"\nORDER BY {compiled_order} {dir_upper}"
+
+            sql += "ORDER BY\n"
+            sql += f"    {compiled_order} {dir_upper}\n"
 
         return pd.read_sql(text(sql), con=session.get_bind())
 

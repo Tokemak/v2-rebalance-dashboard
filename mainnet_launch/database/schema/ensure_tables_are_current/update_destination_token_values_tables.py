@@ -71,57 +71,6 @@ def _fetch_destination_token_value_data_from_external_source(
     )
 
 
-def _build_all_destination_token_values(
-    chain: ChainData, full_destination_df: pd.DataFrame, wide_df: pd.DataFrame
-) -> list[DestinationTokenValues]:
-    all_destination_token_values = []
-
-    def _build_destination_token_values(row: dict):
-        # I suspect this is causing an issue
-        amounts = row["underlyingReserves_amounts"]
-        index = row["index"]
-        decimals = row["decimals"]
-
-        if amounts is not None:
-            quantity = amounts[index] / (10**decimals)
-        else:
-            quantity = None
-            pass
-
-        all_destination_token_values.append(
-            DestinationTokenValues(
-                block=row["block"],
-                chain_id=chain.chain_id,
-                destination_vault_address=row["destination_vault_address"],
-                token_address=row["token_address"],
-                spot_price=row["spot_price"],
-                quantity=quantity,
-            )
-        )
-
-    for destination_vault_address, pool_address, token_address, index in zip(
-        full_destination_df["destination_vault_address"],
-        full_destination_df["pool"],
-        full_destination_df["token_address"],
-        full_destination_df["index"],
-    ):
-        cols = [
-            (pool_address, token_address, "spot_price"),
-            (destination_vault_address, "underlyingReserves_amounts"),
-            "block",
-        ]
-
-        this_destination_token_df = wide_df[cols].copy()
-        this_destination_token_df.columns = ["spot_price", "underlyingReserves_amounts", "block"]
-        this_destination_token_df["token_address"] = token_address
-        this_destination_token_df["index"] = index
-        this_destination_token_df["destination_vault_address"] = destination_vault_address
-
-        this_destination_token_df.apply(_build_destination_token_values, axis=1)
-
-    return all_destination_token_values
-
-
 def ensure_destination_token_values_are_current():
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)
@@ -132,7 +81,7 @@ def ensure_destination_token_values_are_current():
             possible_blocks,
             where_clause=DestinationTokenValues.chain_id == chain.chain_id,
         )
-        missing_blocks = possible_blocks[::30]
+
         if len(missing_blocks) == 0:
             continue
 
@@ -141,7 +90,7 @@ def ensure_destination_token_values_are_current():
                 TableSelector(DestinationTokens, [DestinationTokens.token_address, DestinationTokens.index]),
                 TableSelector(
                     Destinations,
-                    [DestinationTokens.destination_vault_address],
+                    [DestinationTokens.destination_vault_address, Destinations.pool],
                     join_on=(Destinations.chain_id == DestinationTokens.chain_id)
                     & (Destinations.destination_vault_address == DestinationTokens.destination_vault_address),
                 ),
