@@ -165,7 +165,7 @@ class AutopoolStates(Base):
     # these are view on the autopool_vault_address
     total_shares: Mapped[float] = mapped_column(nullable=True)
     total_nav: Mapped[float] = mapped_column(nullable=True)
-    nav_per_share: Mapped[float] = mapped_column(nullable=True)
+    nav_per_share: Mapped[float] = mapped_column(nullable=True)  # not 1:1, uses convert to assets(1e18)
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
@@ -196,7 +196,7 @@ class DestinationStates(Base):
     total_apr_in: Mapped[float] = mapped_column(nullable=True)
     total_apr_out: Mapped[float] = mapped_column(nullable=True)
 
-    underlying_token_total_supply: Mapped[float] = mapped_column(nullable=True)
+    underlying_token_total_supply: Mapped[float] = mapped_column(nullable=True) # not correct, and not sure why
     safe_total_supply: Mapped[float] = mapped_column(nullable=True)
     price_per_share: Mapped[float] = mapped_column(nullable=True)  #
     price_return: Mapped[float] = mapped_column(nullable=True)

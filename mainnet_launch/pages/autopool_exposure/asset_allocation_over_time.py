@@ -12,20 +12,27 @@ from mainnet_launch.constants import (
     WETH,
 )
 
-from mainnet_launch.database.schema.full import AutopoolDestinationStates, Destinations, Blocks
+from mainnet_launch.database.schema.full import (
+    AutopoolDestinationStates,
+    Destinations,
+    DestinationStates,
+    Blocks,
+    DestinationTokenValues,
+    Tokens,
+    TokenValues,
+)
 from mainnet_launch.database.schema.postgres_operations import (
     merge_tables_as_df,
     TableSelector,
 )
 
 
-# by destination
-def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
+def _fetch_tvl_by_destination(autopool: AutopoolConstants) -> pd.DataFrame:
     autopool_value_over_time_by_df = merge_tables_as_df(
         [
             TableSelector(
                 table=AutopoolDestinationStates,
-                select_fields=[AutopoolDestinationStates.total_safe_value],
+                select_fields=[AutopoolDestinationStates.owned_shares],
                 join_on=None,
                 row_filter=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
             ),
@@ -36,6 +43,12 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
                 & (AutopoolDestinationStates.destination_vault_address == Destinations.destination_vault_address),
             ),
             TableSelector(
+                table=DestinationStates,
+                select_fields=DestinationStates.price_per_share,
+                join_on=(DestinationStates.chain_id == Destinations.chain_id)
+                & (DestinationStates.destination_vault_address == Destinations.destination_vault_address),
+            ),
+            TableSelector(
                 table=Blocks,
                 select_fields=Blocks.datetime,
                 join_on=(AutopoolDestinationStates.chain_id == Blocks.chain_id)
@@ -44,6 +57,139 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
         ],
         order_by=Blocks.datetime,
     )
+
+    autopool_value_over_time_by_df["safe_tvl"] = (
+        autopool_value_over_time_by_df["owned_shares"] * autopool_value_over_time_by_df["price_per_share"]
+    )
+
+    # group together destinations by the underlying token symbols
+    # becuase more than one destiantion can be in the same vault
+    autopool_value_over_time_by_df = (
+        autopool_value_over_time_by_df.groupby(["datetime", "underlying_symbol"])["safe_tvl"].sum().reset_index()
+    )
+    return autopool_value_over_time_by_df.pivot(
+        index="datetime", values="safe_tvl", columns="underlying_symbol"
+    ).fillna(0)
+
+
+def _fetch_tvl_by_asset(autopool: AutopoolConstants) -> pd.DataFrame:
+
+    token_value_df = merge_tables_as_df(
+        [
+            TableSelector(
+                table=Tokens,
+                select_fields=[Tokens.symbol, Tokens.token_address],
+                join_on=None, 
+            ),
+            TableSelector(
+                table=TokenValues,
+                select_fields=[TokenValues.safe_price, TokenValues.block],
+                join_on=(TokenValues.chain_id == Tokens.chain_id) & (TokenValues.token_address == Tokens.token_address),
+            ),
+        ]
+    )
+
+    # this is too slow, it should be a view, add later, (prob a materialized view)
+    destinations_df = merge_tables_as_df(
+        [
+            TableSelector(
+                table=AutopoolDestinationStates,
+                select_fields=[AutopoolDestinationStates.owned_shares],
+                join_on=None,
+                row_filter=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
+            ),
+            TableSelector(
+                table=DestinationTokenValues,
+                select_fields=[DestinationTokenValues.token_address, DestinationTokenValues.quantity],
+                join_on=(DestinationTokenValues.chain_id == AutopoolDestinationStates.chain_id)
+                & (DestinationTokenValues.destination_vault_address == AutopoolDestinationStates.destination_vault_address)
+                & (DestinationTokenValues.block == AutopoolDestinationStates.block),
+            ),
+
+            TableSelector(
+                table=DestinationStates,
+                select_fields=[DestinationStates.underlying_token_total_supply],
+                join_on=(DestinationStates.chain_id == DestinationTokenValues.chain_id)
+                & (DestinationStates.destination_vault_address == DestinationTokenValues.destination_vault_address),
+            ),
+        ]
+    )
+
+    destinations_df = 
+
+    print(destinations_df.tail())
+    print(token_value_df.head())
+
+    pass
+
+    pass
+    return
+
+    autopool_value_over_time_by_df = merge_tables_as_df(
+        [
+            TableSelector(
+                table=AutopoolDestinationStates,
+                select_fields=[AutopoolDestinationStates.owned_shares],
+                join_on=None,
+                row_filter=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
+            ),
+            TableSelector(
+                table=Destinations,
+                select_fields=Destinations.underlying_symbol,
+                join_on=(AutopoolDestinationStates.chain_id == Destinations.chain_id)
+                & (AutopoolDestinationStates.destination_vault_address == Destinations.destination_vault_address),
+            ),
+            TableSelector(
+                table=DestinationTokenValues,
+                select_fields=[DestinationTokenValues.token_address],
+                join_on=(DestinationTokenValues.chain_id == Destinations.chain_id)
+                & (DestinationTokenValues.destination_vault_address == Destinations.destination_vault_address),
+            ),
+            TableSelector(
+                table=Tokens,
+                select_fields=[Tokens.symbol],
+                join_on=(DestinationTokenValues.chain_id == Destinations.chain_id)
+                & (Tokens.token_address == DestinationTokenValues.token_address),
+            ),
+            TableSelector(
+                table=TokenValues,
+                select_fields=TokenValues.safe_price,
+                join_on=(TokenValues.chain_id == Tokens.chain_id) & (TokenValues.token_address == Tokens.token_address),
+            ),
+            TableSelector(
+                table=Blocks,
+                select_fields=Blocks.datetime,
+                join_on=(AutopoolDestinationStates.chain_id == Blocks.chain_id)
+                & (AutopoolDestinationStates.block == Blocks.block),
+            ),
+        ],
+        order_by=Blocks.datetime,
+    )
+
+    pass
+
+
+_fetch_tvl_by_asset(ALL_AUTOPOOLS[0])
+
+
+# autopool_value_over_time_by_df["safe_tvl"] = (
+#     autopool_value_over_time_by_df["owned_shares"] * autopool_value_over_time_by_df["price_per_share"]
+# )
+
+# # group together destinations by the underlying token symbols
+# # becuase more than one destiantion can be in the same vault
+# autopool_value_over_time_by_df = (
+#     autopool_value_over_time_by_df.groupby(["datetime", "underlying_symbol"])["safe_tvl"].sum().reset_index()
+# )
+# return autopool_value_over_time_by_df.pivot(
+#     index="datetime", values="safe_tvl", columns="underlying_symbol"
+# ).fillna(0)
+
+
+# by destination
+def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
+
+    tvl_by_destination = _fetch_tvl_by_destination(autopool)
 
     #
     # weETH/rETH

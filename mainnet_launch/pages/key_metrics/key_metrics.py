@@ -3,14 +3,8 @@ import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st
 import psutil
-import os
-import datetime
 
-
-from mainnet_launch.constants import AutopoolConstants, PRODUCTION_LOG_FILE_NAME, STARTUP_LOG_FILE
-from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
-from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
-from mainnet_launch.destinations import get_destination_details
+from mainnet_launch.constants import AutopoolConstants
 
 from mainnet_launch.database.schema.full import (
     AutopoolStates,
@@ -131,6 +125,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     price_return_df = destination_state_df.pivot(
         index="datetime", values="price_return", columns="destination_vault_address"
     )
+    # price return is still not correct
     weighted_price_return_series = -100 * (portion_df.fillna(0) * price_return_df.fillna(0)).sum(axis=1)
     # autopool_wide_total_safe_value = destination_state_df.pivot(
     #     index="datetime", values="total_safe_value", columns="destination_vault_address"
