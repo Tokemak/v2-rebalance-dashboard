@@ -1,7 +1,5 @@
 import pandas as pd
 from multicall import Call
-import numpy as np
-from web3 import Web3
 
 
 from mainnet_launch.database.schema.full import (
@@ -13,12 +11,6 @@ from mainnet_launch.database.schema.full import (
     Destinations,
     Tokens,
 )
-import plotly.express as px
-
-
-from mainnet_launch.abis import STATS_CALCULATOR_REGISTRY_ABI
-from mainnet_launch.data_fetching.get_events import fetch_events
-
 
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_orm,
@@ -31,61 +23,11 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
     build_blocks_to_use,
-    identity_with_bool_success,
-    get_state_by_one_block,
 )
-from mainnet_launch.constants import (
-    ALL_CHAINS,
-    ROOT_PRICE_ORACLE,
-    ChainData,
-    STATS_CALCULATOR_REGISTRY,
-    WETH,
-    ETH_CHAIN,
-)
+from mainnet_launch.constants import ChainData, ALL_CHAINS, ALL_AUTOPOOLS, POINTS_HOOK
 
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
     fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks,
-)
-
-
-import pandas as pd
-from multicall import Call
-import numpy as np
-from web3 import Web3
-
-
-from mainnet_launch.database.schema.full import (
-    DestinationStates,
-    DestinationTokenValues,
-    AutopoolDestinationStates,
-    Autopools,
-    DestinationTokens,
-    Destinations,
-    Tokens,
-)
-from mainnet_launch.database.schema.postgres_operations import (
-    get_full_table_as_df,
-    get_full_table_as_orm,
-    insert_avoid_conflicts,
-    get_highest_value_in_field_where,
-    get_subset_not_already_in_column,
-)
-from mainnet_launch.data_fetching.get_state_by_block import (
-    get_raw_state_by_blocks,
-    safe_normalize_with_bool_success,
-    build_blocks_to_use,
-    get_state_by_one_block,
-)
-from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
-    fetch_active_destinations_by_autopool_by_block,
-    fetch_pools_and_destinations_df,
-)
-from mainnet_launch.constants import (
-    AutopoolConstants,
-    ALL_AUTOPOOLS,
-    AUTO_LRT,
-    POINTS_HOOK,
-    ChainData,
 )
 
 
@@ -255,6 +197,7 @@ def _fetch_destination_summary_stats_df(
                 full_autopool_summary_stats_df, autopool_summary_stats_df, on="block"
             )
 
+    # I think the issue here is that it it getting the None version when it should get the active version
     return full_autopool_summary_stats_df
 
 
@@ -299,6 +242,17 @@ def _extract_new_destination_states(
             local_df = pd.merge(this_destination_total_value, raw_destination_states_df, on=["block"])
 
             def _extract_destination_states(row: pd.DataFrame) -> None:
+                # price return is not correct, not sure why
+                possible_in_keys = [(a.autopool_eth_addr, dest.destination_vault_address, "in") for a in ALL_AUTOPOOLS]
+                # possible_in_summary_stats = [row.get(p) for p in possible_in_keys if row.get(p) is not None]
+
+                # if len(possible_in_summary_stats) > 1:
+                #     in_df = pd.DataFrame.from_records(possible_in_summary_stats)
+                #     all_identical = in_df.eq(in_df.iloc[0]).all(axis=1).all()
+                #     if not all_identical:
+                #         print(in_df)
+                #         pass
+
                 # try to pull the "in" and "out" stats, defaulting to an empty dict
                 in_summary_stats = row.get((autopool_vault_address, dest.destination_vault_address, "in"), {}) or {}
                 out_summary_stats = row.get((autopool_vault_address, dest.destination_vault_address, "out"), {}) or {}
@@ -378,6 +332,7 @@ def ensure_destination_states_are_current():
             possible_blocks,
             where_clause=DestinationStates.chain_id == chain.chain_id,
         )
+        missing_blocks = possible_blocks
 
         if len(missing_blocks) == 0:
             continue
@@ -416,6 +371,7 @@ def ensure_destination_states_are_current():
             autopool_to_all_ever_active_destinations,
             chain,
         )
+        return
         insert_avoid_conflicts(
             all_new_destination_states,
             DestinationStates,

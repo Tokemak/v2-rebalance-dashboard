@@ -83,6 +83,8 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
                 AutopoolDestinationStates,
                 [
                     AutopoolDestinationStates.amount,
+                    AutopoolDestinationStates.total_backing_value,
+                    AutopoolDestinationStates.total_safe_value,
                 ],
                 (DestinationStates.destination_vault_address == AutopoolDestinationStates.destination_vault_address)
                 & (DestinationStates.chain_id == AutopoolDestinationStates.chain_id)
@@ -104,18 +106,11 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         order_by=Blocks.datetime,
     )
 
-    price_return_df = destination_state_df.pivot(
-        index="datetime", values="price_return", columns="destination_vault_address"
-    )
     owned_shares_df = destination_state_df.pivot(index="datetime", values="amount", columns="destination_vault_address")
+
     price_per_share_df = destination_state_df.pivot(
         index="datetime", values="price_per_share", columns="destination_vault_address"
     )
-
-    # TODO price return is broken
-
-    # autopool price return is broken
-    # and estimated retun needs to be scaled up
 
     allocation_df = (price_per_share_df * owned_shares_df).fillna(0)
     total_nav_series = allocation_df.sum(axis=1)
@@ -125,8 +120,23 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     destination_state_df["unweighted_apr"] = destination_state_df[["fee_apr", "base_apr", "incentive_apr"]].sum(axis=1)
 
     uwcr_df = destination_state_df.pivot(index="datetime", values="unweighted_apr", columns="destination_vault_address")
-    expected_return_series = (portion_df.fillna(0) * uwcr_df.fillna(0)).sum(axis=1)
-    weighted_price_return_series = (portion_df.fillna(0) * price_return_df.fillna(0)).sum(axis=1)
+    expected_return_series = 100 * (portion_df.fillna(0) * uwcr_df.fillna(0)).sum(axis=1)
+
+    # not correct
+    # weighted_price_return_series = -100 * (portion_df.fillna(0) * price_return_df.fillna(0)).sum(axis=1)
+    autopool_wide_total_safe_value = destination_state_df.pivot(
+        index="datetime", values="total_safe_value", columns="destination_vault_address"
+    ).sum(axis=1)
+    autopool_wide_total_backing_value = destination_state_df.pivot(
+        index="datetime", values="total_backing_value", columns="destination_vault_address"
+    ).sum(axis=1)
+
+    weighted_price_return_series = 100 * (autopool_wide_total_backing_value - autopool_wide_total_safe_value).div(
+        autopool_wide_total_backing_value
+    )
+    # TODO weighted price return series is not correct and I'm not sure why not
+
+    # weighted_price_return_series = expected_return_series.copy()
 
     highest_block_and_datetime = destination_state_df[["block", "datetime"]].iloc[-1]
 
@@ -299,7 +309,6 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
         """
         )
 
-    highest_block_and_datetime
     st.markdown(
         f"""
         **Highest Block Used**: `{highest_block_and_datetime[0]}`  
