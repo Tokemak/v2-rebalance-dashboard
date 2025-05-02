@@ -198,17 +198,18 @@ class DestinationStates(Base):
 
     underlying_token_total_supply: Mapped[float] = mapped_column(nullable=True)
     safe_total_supply: Mapped[float] = mapped_column(nullable=True)
-    price_per_share: Mapped[float] = mapped_column(nullable=True)
+    price_per_share: Mapped[float] = mapped_column(nullable=True)  #
     price_return: Mapped[float] = mapped_column(nullable=True)
 
+    # this is inferable
     # in units of LP tokens
-    underlying_safe_price: Mapped[float] = mapped_column(nullable=True)
-    underlying_spot_price: Mapped[float] = mapped_column(nullable=True)
-    underlying_backing: Mapped[float] = mapped_column(nullable=True)
+    # underlying_safe_price: Mapped[float] = mapped_column(nullable=True)
+    # underlying_spot_price: Mapped[float] = mapped_column(nullable=True)
+    # underlying_backing: Mapped[float] = mapped_column(nullable=True)
 
-    safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
-    spot_backing_discount: Mapped[float] = mapped_column(nullable=True)
-    safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
+    # safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
+    # spot_backing_discount: Mapped[float] = mapped_column(nullable=True)
+    # safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
@@ -229,20 +230,22 @@ class AutopoolDestinationStates(Base):
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
-    amount: Mapped[float] = mapped_column(nullable=False)  # how many lp tokens this autopool has here, lens contract
+    owned_shares: Mapped[float] = mapped_column(
+        nullable=False
+    )  # how many lp tokens this autopool has here, lens contract
 
-    # this can be infered by the destinations states, drop it?
+    # this can be infered by the destinations states and token values
     # given the value of the lp tokens in the pool how much value does the atuopool have here
     # 0x40219bBda953ca811d2D0168Dc806a96b84791d9 and 0x40219bBda953ca811d2D0168Dc806a96b84791d9
     # and 0xc4Eb861e7b66f593482a3D7E8adc314f6eEDA30B
     # are not properly normalized,
-    total_safe_value: Mapped[float] = mapped_column(nullable=False)  # not correct
-    total_spot_value: Mapped[float] = mapped_column(nullable=False)
-    total_backing_value: Mapped[float] = mapped_column(nullable=False)
+    # total_safe_value: Mapped[float] = mapped_column(nullable=False)  # not correct
+    # total_spot_value: Mapped[float] = mapped_column(nullable=False)
+    # total_backing_value: Mapped[float] = mapped_column(nullable=False)
 
-    percent_ownership: Mapped[float] = mapped_column(
-        nullable=False
-    )  # 100  * amount / destination_states.underlying_token_total_supply
+    # percent_ownership: Mapped[float] = mapped_column(
+    #     nullable=False
+    # )  # 100  * amount / destination_states.underlying_token_total_supply
 
     __table_args__ = (
         ForeignKeyConstraint(

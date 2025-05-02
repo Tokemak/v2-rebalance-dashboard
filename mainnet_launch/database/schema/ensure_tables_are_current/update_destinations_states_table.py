@@ -18,6 +18,8 @@ from mainnet_launch.database.schema.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
     natural_left_right_using_where,
+    merge_tables_as_df,
+    TableSelector,
 )
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
@@ -244,7 +246,7 @@ def _extract_new_destination_states(
 
             def _extract_destination_states(row: pd.DataFrame) -> None:
                 # price return is not correct, not sure why
-                possible_in_keys = [(a.autopool_eth_addr, dest.destination_vault_address, "in") for a in ALL_AUTOPOOLS]
+                # possible_in_keys = [(a.autopool_eth_addr, dest.destination_vault_address, "in") for a in ALL_AUTOPOOLS]
                 # possible_in_summary_stats = [row.get(p) for p in possible_in_keys if row.get(p) is not None]
 
                 # if len(possible_in_summary_stats) > 1:
@@ -273,27 +275,6 @@ def _extract_new_destination_states(
                 points_apr = row[(dest.destination_vault_address, "points")]
                 underlying_total_supply = row[(dest.destination_vault_address, "underlyingTotalSupply")]
 
-                # the value of a lp token
-                underlying_safe_price = row["total_safe_value"] / underlying_total_supply
-                underlying_spot_price = row["total_spot_value"] / underlying_total_supply
-                underlying_backing = row["total_backing_value"] / underlying_total_supply
-
-                safe_backing_discount = (
-                    (underlying_safe_price - underlying_backing) / underlying_backing
-                    if underlying_backing > 0
-                    else None
-                )
-                spot_backing_discount = (
-                    (underlying_spot_price - underlying_backing) / underlying_backing
-                    if underlying_backing > 0
-                    else None
-                )
-                safe_spot_spread = (
-                    (underlying_safe_price - underlying_spot_price) / underlying_safe_price
-                    if underlying_safe_price > 0
-                    else None
-                )
-
                 new_destination_state = DestinationStates(
                     destination_vault_address=dest.destination_vault_address,
                     block=row["block"],
@@ -309,12 +290,6 @@ def _extract_new_destination_states(
                     safe_total_supply=safe_total_supply,
                     price_per_share=price_per_share,
                     price_return=price_return,
-                    underlying_safe_price=underlying_safe_price,
-                    underlying_spot_price=underlying_spot_price,
-                    underlying_backing=underlying_backing,
-                    safe_backing_discount=safe_backing_discount,
-                    spot_backing_discount=spot_backing_discount,
-                    safe_spot_spread=safe_spot_spread,
                 )
                 all_new_destination_states.append(new_destination_state)
 
@@ -333,27 +308,39 @@ def ensure_destination_states_are_current():
             possible_blocks,
             where_clause=DestinationStates.chain_id == chain.chain_id,
         )
-        missing_blocks = possible_blocks[::7]
 
         if len(missing_blocks) == 0:
             continue
 
-        token_value_df = natural_left_right_using_where(
-            DestinationTokenValues,
-            TokenValues,
-            using=[DestinationTokenValues.block, DestinationTokens.chain_id, DestinationTokens.token_address],
-            where_clause=DestinationTokenValues.chain_id == chain.chain_id,
+        token_value_df = merge_tables_as_df(
+            [
+                TableSelector(
+                    table=DestinationTokenValues,
+                ),
+                TableSelector(
+                    table=TokenValues,
+                    join_on=(
+                        (DestinationTokenValues.block == TokenValues.block)
+                        & (DestinationTokenValues.chain_id == TokenValues.chain_id)
+                        & (DestinationTokenValues.token_address == TokenValues.token_address)
+                    ),
+                ),
+                TableSelector(
+                    table=Tokens,
+                    select_fields=[Tokens.symbol, Tokens.decimals, Tokens.token_address],
+                    join_on=(
+                        (DestinationTokenValues.chain_id == Tokens.chain_id)
+                        & (DestinationTokenValues.token_address == Tokens.token_address)
+                    ),
+                ),
+            ],
+            where_clause=(DestinationTokenValues.chain_id == chain.chain_id),
         )
-        # not sure here on the way to specify only a subset of columns? maybe add a a paramter to this
-        token_df = get_full_table_as_df(Tokens, where_clause=Tokens.chain_id == chain.chain_id)[
-            ["symbol", "decimals", "token_address"]
-        ]
-        token_value_df = pd.merge(token_value_df, token_df, how="left", on="token_address")
-
         autopool_to_all_ever_active_destinations = (
             fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(chain, missing_blocks)
         )
 
+        # lp token total supply
         destination_underlying_total_supply_df = _fetch_destination_total_supply_df(
             autopool_to_all_ever_active_destinations, missing_blocks, chain
         )
@@ -373,11 +360,6 @@ def ensure_destination_states_are_current():
             chain,
         )
 
-        all_destination_summary_stats_df = pd.DataFrame.from_records(
-            [r.to_record() for r in all_new_destination_states]
-        )
-        all_destination_summary_stats_df.to_csv("./all_destination_summary_stats_df.csv")
-        return
         insert_avoid_conflicts(
             all_new_destination_states,
             DestinationStates,
@@ -387,8 +369,6 @@ def ensure_destination_states_are_current():
                 DestinationStates.destination_vault_address,
             ],
         )
-
-        # add idle destination states here too
 
         idle_destination_states = _fetch_idle_destination_states(chain, missing_blocks)
 
@@ -405,7 +385,7 @@ def ensure_destination_states_are_current():
 
 def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]):
 
-    autopools_as_destinations = get_full_table_as_orm(
+    autopools_as_destinations: list[Destinations] = get_full_table_as_orm(
         Destinations, where_clause=(Destinations.chain_id == chain.chain_id) & (Destinations.pool_type == "idle")
     )
 
@@ -428,12 +408,6 @@ def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]):
                     safe_total_supply=None,
                     price_per_share=1.0,
                     price_return=0.0,
-                    underlying_safe_price=1.0,
-                    underlying_spot_price=1.0,
-                    underlying_backing=1.0,
-                    safe_backing_discount=0.0,
-                    spot_backing_discount=0.0,
-                    safe_spot_spread=0.0,
                 )
             )
     return idle_destination_states

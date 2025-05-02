@@ -81,7 +81,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
             TableSelector(
                 AutopoolDestinationStates,
                 [
-                    AutopoolDestinationStates.amount,
+                    AutopoolDestinationStates.owned_shares,
                     AutopoolDestinationStates.total_backing_value,
                     AutopoolDestinationStates.total_safe_value,
                 ],
