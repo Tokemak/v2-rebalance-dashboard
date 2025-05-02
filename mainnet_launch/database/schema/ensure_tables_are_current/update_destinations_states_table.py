@@ -208,7 +208,6 @@ def _extract_new_destination_states(
     autopool_summary_stats_df: pd.DataFrame,
     destination_underlying_total_supply_df: pd.DataFrame,
     autopool_points_df: pd.DataFrame,
-    token_value_df: pd.DataFrame,
     autopool_to_all_ever_active_destinations: dict[str | list[Destinations]],
     chain: ChainData,
 ):
@@ -219,44 +218,8 @@ def _extract_new_destination_states(
 
     for autopool_vault_address in autopool_to_all_ever_active_destinations.keys():
         for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]:
-            just_this_destination_df = token_value_df[
-                token_value_df["destination_vault_address"] == dest.destination_vault_address
-            ].copy()
-
-            # total value in the destination,
-            just_this_destination_df["total_spot_value"] = (
-                just_this_destination_df["quantity"] * just_this_destination_df["spot_price"]
-            )
-            just_this_destination_df["total_safe_value"] = (
-                just_this_destination_df["quantity"] * just_this_destination_df["safe_price"]
-            )
-            just_this_destination_df["total_backing_value"] = (
-                just_this_destination_df["quantity"] * just_this_destination_df["backing"]
-            )
-
-            this_destination_total_value = (
-                just_this_destination_df.groupby("block")[
-                    ["total_spot_value", "total_safe_value", "total_backing_value"]
-                ]
-                .sum()
-                .reset_index()
-            )
-
-            local_df = pd.merge(this_destination_total_value, raw_destination_states_df, on=["block"])
 
             def _extract_destination_states(row: pd.DataFrame) -> None:
-                # price return is not correct, not sure why
-                # possible_in_keys = [(a.autopool_eth_addr, dest.destination_vault_address, "in") for a in ALL_AUTOPOOLS]
-                # possible_in_summary_stats = [row.get(p) for p in possible_in_keys if row.get(p) is not None]
-
-                # if len(possible_in_summary_stats) > 1:
-                #     in_df = pd.DataFrame.from_records(possible_in_summary_stats)
-                #     all_identical = in_df.eq(in_df.iloc[0]).all(axis=1).all()
-                #     if not all_identical:
-                #         print(in_df)
-                #         pass
-
-                # try to pull the "in" and "out" stats, defaulting to an empty dict
                 in_summary_stats = row.get((autopool_vault_address, dest.destination_vault_address, "in"), {}) or {}
                 out_summary_stats = row.get((autopool_vault_address, dest.destination_vault_address, "out"), {}) or {}
 
@@ -293,7 +256,7 @@ def _extract_new_destination_states(
                 )
                 all_new_destination_states.append(new_destination_state)
 
-            local_df.apply(_extract_destination_states, axis=1)
+            raw_destination_states_df.apply(_extract_destination_states, axis=1)
 
     return all_new_destination_states
 
@@ -308,39 +271,38 @@ def ensure_destination_states_are_current():
             possible_blocks,
             where_clause=DestinationStates.chain_id == chain.chain_id,
         )
-
+        print(len(missing_blocks))
         if len(missing_blocks) == 0:
             continue
 
-        token_value_df = merge_tables_as_df(
-            [
-                TableSelector(
-                    table=DestinationTokenValues,
-                ),
-                TableSelector(
-                    table=TokenValues,
-                    join_on=(
-                        (DestinationTokenValues.block == TokenValues.block)
-                        & (DestinationTokenValues.chain_id == TokenValues.chain_id)
-                        & (DestinationTokenValues.token_address == TokenValues.token_address)
-                    ),
-                ),
-                TableSelector(
-                    table=Tokens,
-                    select_fields=[Tokens.symbol, Tokens.decimals, Tokens.token_address],
-                    join_on=(
-                        (DestinationTokenValues.chain_id == Tokens.chain_id)
-                        & (DestinationTokenValues.token_address == Tokens.token_address)
-                    ),
-                ),
-            ],
-            where_clause=(DestinationTokenValues.chain_id == chain.chain_id),
-        )
+        # token_value_df = merge_tables_as_df(
+        #     [
+        #         TableSelector(
+        #             table=DestinationTokenValues,
+        #         ),
+        #         TableSelector(
+        #             table=TokenValues,
+        #             join_on=(
+        #                 (DestinationTokenValues.block == TokenValues.block)
+        #                 & (DestinationTokenValues.chain_id == TokenValues.chain_id)
+        #                 & (DestinationTokenValues.token_address == TokenValues.token_address)
+        #             ),
+        #         ),
+        #         TableSelector(
+        #             table=Tokens,
+        #             select_fields=[Tokens.symbol, Tokens.decimals, Tokens.token_address],
+        #             join_on=(
+        #                 (DestinationTokenValues.chain_id == Tokens.chain_id)
+        #                 & (DestinationTokenValues.token_address == Tokens.token_address)
+        #             ),
+        #         ),
+        #     ],
+        #     where_clause=(DestinationTokenValues.chain_id == chain.chain_id),
+        # )
         autopool_to_all_ever_active_destinations = (
             fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(chain, missing_blocks)
         )
 
-        # lp token total supply
         destination_underlying_total_supply_df = _fetch_destination_total_supply_df(
             autopool_to_all_ever_active_destinations, missing_blocks, chain
         )
@@ -355,25 +317,17 @@ def ensure_destination_states_are_current():
             autopool_summary_stats_df,
             destination_underlying_total_supply_df,
             autopool_points_df,
-            token_value_df,
             autopool_to_all_ever_active_destinations,
             chain,
-        )
-
-        insert_avoid_conflicts(
-            all_new_destination_states,
-            DestinationStates,
-            index_elements=[
-                DestinationStates.block,
-                DestinationStates.chain_id,
-                DestinationStates.destination_vault_address,
-            ],
         )
 
         idle_destination_states = _fetch_idle_destination_states(chain, missing_blocks)
 
         insert_avoid_conflicts(
-            idle_destination_states,
+            [
+                *all_new_destination_states,
+                *idle_destination_states,
+            ],
             DestinationStates,
             index_elements=[
                 DestinationStates.block,
@@ -383,7 +337,7 @@ def ensure_destination_states_are_current():
         )
 
 
-def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]):
+def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) -> list[DestinationStates]:
 
     autopools_as_destinations: list[Destinations] = get_full_table_as_orm(
         Destinations, where_clause=(Destinations.chain_id == chain.chain_id) & (Destinations.pool_type == "idle")

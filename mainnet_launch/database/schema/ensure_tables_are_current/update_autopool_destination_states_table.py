@@ -74,7 +74,7 @@ def fetch_autopool_balance_of_by_destination(
                         autopool_vault_address=autopool_vault_address,
                         block=int(row["block"]),
                         chain_id=chain.chain_id,
-                        owned_shares=quantity,
+                        owned_shares=float(),
                     )
                 )
 
@@ -137,7 +137,7 @@ def _build_idle_autopool_destination_states(
                 autopool_vault_address=row["destination_vault_address"],
                 block=int(row["block"]),
                 chain_id=chain.chain_id,
-                owned_shares=row["quantity"],
+                owned_shares=float(row["quantity"]),
             )
         )
 
