@@ -82,8 +82,6 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
                 AutopoolDestinationStates,
                 [
                     AutopoolDestinationStates.owned_shares,
-                    AutopoolDestinationStates.total_backing_value,
-                    AutopoolDestinationStates.total_safe_value,
                 ],
                 (DestinationStates.destination_vault_address == AutopoolDestinationStates.destination_vault_address)
                 & (DestinationStates.chain_id == AutopoolDestinationStates.chain_id)
@@ -96,6 +94,13 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
                 & (DestinationStates.chain_id == Destinations.chain_id),
             ),
             TableSelector(
+                AutopoolStates,
+                [AutopoolStates.total_nav],
+                (AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr)
+                & (AutopoolStates.chain_id == DestinationStates.chain_id)
+                & (AutopoolStates.block == DestinationStates.block),
+            ),
+            TableSelector(
                 Blocks,
                 Blocks.datetime,
                 (DestinationStates.block == Blocks.block) & (DestinationStates.chain_id == Blocks.chain_id),
@@ -105,7 +110,9 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         order_by=Blocks.datetime,
     )
 
-    owned_shares_df = destination_state_df.pivot(index="datetime", values="amount", columns="destination_vault_address")
+    owned_shares_df = destination_state_df.pivot(
+        index="datetime", values="owned_shares", columns="destination_vault_address"
+    )
 
     price_per_share_df = destination_state_df.pivot(
         index="datetime", values="price_per_share", columns="destination_vault_address"
@@ -121,18 +128,20 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     uwcr_df = destination_state_df.pivot(index="datetime", values="unweighted_apr", columns="destination_vault_address")
     expected_return_series = 100 * (portion_df.fillna(0) * uwcr_df.fillna(0)).sum(axis=1)
 
-    # not correct
-    # weighted_price_return_series = -100 * (portion_df.fillna(0) * price_return_df.fillna(0)).sum(axis=1)
-    autopool_wide_total_safe_value = destination_state_df.pivot(
-        index="datetime", values="total_safe_value", columns="destination_vault_address"
-    ).sum(axis=1)
-    autopool_wide_total_backing_value = destination_state_df.pivot(
-        index="datetime", values="total_backing_value", columns="destination_vault_address"
-    ).sum(axis=1)
-
-    weighted_price_return_series = 100 * (autopool_wide_total_backing_value - autopool_wide_total_safe_value).div(
-        autopool_wide_total_backing_value
+    price_return_df = destination_state_df.pivot(
+        index="datetime", values="price_return", columns="destination_vault_address"
     )
+    weighted_price_return_series = -100 * (portion_df.fillna(0) * price_return_df.fillna(0)).sum(axis=1)
+    # autopool_wide_total_safe_value = destination_state_df.pivot(
+    #     index="datetime", values="total_safe_value", columns="destination_vault_address"
+    # ).sum(axis=1)
+    # autopool_wide_total_backing_value = destination_state_df.pivot(
+    #     index="datetime", values="total_backing_value", columns="destination_vault_address"
+    # ).sum(axis=1)
+
+    # weighted_price_return_series = 100 * (autopool_wide_total_backing_value - autopool_wide_total_safe_value).div(
+    #     autopool_wide_total_backing_value
+    # )
     # TODO weighted price return series is not correct and I'm not sure why not
 
     # weighted_price_return_series = expected_return_series.copy()

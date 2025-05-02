@@ -74,7 +74,7 @@ def fetch_autopool_balance_of_by_destination(
                         autopool_vault_address=autopool_vault_address,
                         block=int(row["block"]),
                         chain_id=chain.chain_id,
-                        owned_shares=float(),
+                        owned_shares=float(quantity),
                     )
                 )
 
