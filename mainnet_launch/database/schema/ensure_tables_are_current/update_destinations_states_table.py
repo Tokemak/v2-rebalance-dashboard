@@ -68,6 +68,7 @@ def _fetch_destination_total_supply_df(
 
     calls = build_destinations_underlyingTotalSupply_calls(list(all_active_destinations))
     destination_total_supply_df = get_raw_state_by_blocks(calls, missing_blocks, chain, include_block_number=True)
+    # looks right
     return destination_total_supply_df
 
 
@@ -332,7 +333,7 @@ def ensure_destination_states_are_current():
             possible_blocks,
             where_clause=DestinationStates.chain_id == chain.chain_id,
         )
-        missing_blocks = possible_blocks
+        missing_blocks = possible_blocks[::7]
 
         if len(missing_blocks) == 0:
             continue
@@ -371,6 +372,11 @@ def ensure_destination_states_are_current():
             autopool_to_all_ever_active_destinations,
             chain,
         )
+
+        all_destination_summary_stats_df = pd.DataFrame.from_records(
+            [r.to_record() for r in all_new_destination_states]
+        )
+        all_destination_summary_stats_df.to_csv("./all_destination_summary_stats_df.csv")
         return
         insert_avoid_conflicts(
             all_new_destination_states,
@@ -411,12 +417,12 @@ def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]):
                     destination_vault_address=dest.destination_vault_address,
                     block=block,
                     chain_id=chain.chain_id,
-                    incentive_apr=None,
+                    incentive_apr=0.0,
                     fee_apr=0.0,
                     base_apr=0.0,
                     points_apr=0.0,
                     fee_plus_base_apr=None,
-                    total_apr_in=None,
+                    total_apr_in=0.0,
                     total_apr_out=0.0,
                     underlying_token_total_supply=None,
                     safe_total_supply=None,

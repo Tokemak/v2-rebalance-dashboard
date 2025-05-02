@@ -20,7 +20,6 @@ from mainnet_launch.database.schema.full import (
     AutopoolDestinationStates,
 )
 from mainnet_launch.database.schema.postgres_operations import (
-    natural_left_right_using_where,
     merge_tables_as_df,
     TableSelector,
 )

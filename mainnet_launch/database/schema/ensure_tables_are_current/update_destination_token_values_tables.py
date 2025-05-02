@@ -17,6 +17,8 @@ from mainnet_launch.database.schema.postgres_operations import (
     get_subset_not_already_in_column,
     natural_left_right_using_where,
     get_full_table_as_orm,
+    TableSelector,
+    merge_tables_as_df,
 )
 
 from mainnet_launch.data_fetching.get_state_by_block import (
@@ -61,27 +63,21 @@ def _fetch_destination_token_value_data_from_external_source(
     spot_price_calls = build_pool_token_spot_price_calls(
         chain, full_destination_df["pool"], full_destination_df["token_address"]
     )
-    destination_token_spot_price_df = get_raw_state_by_blocks(
-        spot_price_calls, possible_blocks, chain, include_block_number=True
-    )
 
     underlying_reserves_calls = build_underlying_reserves_calls(full_destination_df["destination_vault_address"])
 
-    underlying_reserves_df = get_raw_state_by_blocks(
-        underlying_reserves_calls, possible_blocks, chain, include_block_number=True
+    return get_raw_state_by_blocks(
+        [*spot_price_calls, *underlying_reserves_calls], possible_blocks, chain, include_block_number=True
     )
-    wide_df = pd.merge(destination_token_spot_price_df, underlying_reserves_df, on="block")
-    return wide_df
 
 
 def _build_all_destination_token_values(
-    chain: ChainData, full_destination_df: pd.DataFrame, wide_df: pd.DataFrame, token_value_df: pd.DataFrame
+    chain: ChainData, full_destination_df: pd.DataFrame, wide_df: pd.DataFrame
 ) -> list[DestinationTokenValues]:
     all_destination_token_values = []
 
     def _build_destination_token_values(row: dict):
-        if row["decimals"] == None:
-            pass
+        # I suspect this is causing an issue
         amounts = row["underlyingReserves_amounts"]
         index = row["index"]
         decimals = row["decimals"]
@@ -90,17 +86,7 @@ def _build_all_destination_token_values(
             quantity = amounts[index] / (10**decimals)
         else:
             quantity = None
-        spot_price = row["spot_price"]
-        safe_price = row["safe_price"]
-        if (spot_price is not None) and (safe_price is not None):
-            safe_spot_spread = (spot_price - safe_price) / safe_price
-        else:
-            safe_spot_spread = None
-
-        if (spot_price is not None) and (row["backing"] is not None):
-            spot_backing_discount = (spot_price - row["backing"]) / row["backing"]
-        else:
-            spot_backing_discount = None
+            pass
 
         all_destination_token_values.append(
             DestinationTokenValues(
@@ -108,10 +94,8 @@ def _build_all_destination_token_values(
                 chain_id=chain.chain_id,
                 destination_vault_address=row["destination_vault_address"],
                 token_address=row["token_address"],
-                spot_price=spot_price,
+                spot_price=row["spot_price"],
                 quantity=quantity,
-                safe_spot_spread=safe_spot_spread,
-                spot_backing_discount=spot_backing_discount,
             )
         )
 
@@ -132,9 +116,7 @@ def _build_all_destination_token_values(
         this_destination_token_df["token_address"] = token_address
         this_destination_token_df["index"] = index
         this_destination_token_df["destination_vault_address"] = destination_vault_address
-        this_destination_token_df = pd.merge(
-            this_destination_token_df, token_value_df, on=["block", "token_address"], how="left"
-        )
+
         this_destination_token_df.apply(_build_destination_token_values, axis=1)
 
     return all_destination_token_values
@@ -150,30 +132,56 @@ def ensure_destination_token_values_are_current():
             possible_blocks,
             where_clause=DestinationTokenValues.chain_id == chain.chain_id,
         )
-        # missing_blocks = possible_blocks[::21]
+        missing_blocks = possible_blocks[::30]
         if len(missing_blocks) == 0:
             continue
 
-        full_destination_df = natural_left_right_using_where(
-            DestinationTokens,
-            Destinations,
-            using=[DestinationTokens.destination_vault_address, DestinationTokens.chain_id],
+        destinations_df = merge_tables_as_df(
+            [
+                TableSelector(DestinationTokens, [DestinationTokens.token_address, DestinationTokens.index]),
+                TableSelector(
+                    Destinations,
+                    [DestinationTokens.destination_vault_address],
+                    join_on=(Destinations.chain_id == DestinationTokens.chain_id)
+                    & (Destinations.destination_vault_address == DestinationTokens.destination_vault_address),
+                ),
+                TableSelector(
+                    Tokens,
+                    [Tokens.decimals],
+                    join_on=(Tokens.chain_id == DestinationTokens.chain_id)
+                    & (Tokens.token_address == DestinationTokens.token_address),
+                ),
+            ],
             where_clause=(DestinationTokens.chain_id == chain.chain_id) & (Destinations.pool_type != "idle"),
         )
-        token_value_df = natural_left_right_using_where(
-            TokenValues,
-            Tokens,
-            using=[TokenValues.token_address, TokenValues.chain_id],
-            where_clause=TokenValues.chain_id == chain.chain_id,
+
+        token_spot_prices_and_reserves_df = _fetch_destination_token_value_data_from_external_source(
+            chain, missing_blocks, destinations_df
         )
 
-        wide_df = _fetch_destination_token_value_data_from_external_source(chain, missing_blocks, full_destination_df)
+        new_destination_token_values_rows = []
 
-        all_destination_token_values = _build_all_destination_token_values(
-            chain, full_destination_df, wide_df, token_value_df
-        )
+        def _extract_destination_token_values(row: dict) -> None:
+            token_spot_price_column = (row["pool"], row["token_address"], "spot_price")
+            quantity_column = (row["destination_vault_address"], "underlyingReserves_amounts")
+
+            sub_df = token_spot_prices_and_reserves_df[["block", quantity_column, token_spot_price_column]].copy()
+            sub_df.columns = ["block", "quantity", "spot_price"]
+            sub_df["quantity"] = sub_df["quantity"].apply(
+                lambda amounts: amounts[row["index"]] / (10 ** row["decimals"]) if amounts else None
+            )
+            sub_df["chain_id"] = chain.chain_id
+            sub_df["token_address"] = row["token_address"]
+            sub_df["destination_vault_address"] = row["destination_vault_address"]
+
+            new_destination_token_values_rows.extend(
+                [DestinationTokenValues.from_record(r) for r in sub_df.to_dict(orient="records")]
+            )
+
+        destinations_df.apply(lambda row: _extract_destination_token_values(row), axis=1)
+
         insert_avoid_conflicts(
-            all_destination_token_values,
+            new_destination_token_values_rows,
             DestinationTokenValues,
             index_elements=[
                 DestinationTokenValues.block,
@@ -235,8 +243,6 @@ def _fetch_idle_destination_token_values(chain: ChainData, missing_blocks: list[
                         token_address=this_autopool.base_asset,
                         spot_price=1.0,
                         quantity=total_idle,
-                        safe_spot_spread=0.0,
-                        spot_backing_discount=0.0,
                     )
                 )
 

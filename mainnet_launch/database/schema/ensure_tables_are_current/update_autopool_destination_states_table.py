@@ -286,3 +286,5 @@ def _build_idle_autopool_destination_states(
 if __name__ == "__main__":
     ensure_autopool_destination_states_are_current()
     # _build_idle_autopool_destination_states(ALL_CHAINS[0], [21_000_000])
+    # this part is not correct
+    # max_underlying_token_total_supply

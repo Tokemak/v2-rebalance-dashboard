@@ -201,6 +201,7 @@ class DestinationStates(Base):
     price_per_share: Mapped[float] = mapped_column(nullable=True)
     price_return: Mapped[float] = mapped_column(nullable=True)
 
+    # in units of LP tokens
     underlying_safe_price: Mapped[float] = mapped_column(nullable=True)
     underlying_spot_price: Mapped[float] = mapped_column(nullable=True)
     underlying_backing: Mapped[float] = mapped_column(nullable=True)
@@ -281,11 +282,14 @@ class DestinationTokenValues(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     token_address: Mapped[str] = mapped_column(primary_key=True)
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
-
+    # the spot price of this token in this destination
     spot_price: Mapped[float] = mapped_column(nullable=True)
+    # the quantity of this token in this address at this pont
     quantity: Mapped[float] = mapped_column(nullable=True)  # how many of this asset is in this pool.
-    safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
-    spot_backing_discount: Mapped[float] = mapped_column(nullable=True)
+
+    # # these can be infered can exclude them
+    # safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
+    # spot_backing_discount: Mapped[float] = mapped_column(nullable=True)
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
