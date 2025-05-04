@@ -81,7 +81,6 @@ def ensure_destination_token_values_are_current():
             possible_blocks,
             where_clause=DestinationTokenValues.chain_id == chain.chain_id,
         )
-
         if len(missing_blocks) == 0:
             continue
 
@@ -113,15 +112,38 @@ def ensure_destination_token_values_are_current():
         def _extract_destination_token_values(row: dict) -> None:
             token_spot_price_column = (row["pool"], row["token_address"], "spot_price")
             quantity_column = (row["destination_vault_address"], "underlyingReserves_amounts")
+            token_address_column = (row["destination_vault_address"], "underlyingReserves_tokens")
 
-            sub_df = token_spot_prices_and_reserves_df[["block", quantity_column, token_spot_price_column]].copy()
-            sub_df.columns = ["block", "quantity", "spot_price"]
+            amounts_excluding_pool_token = []  # for composable stable pools
+            for quantity_tuple, tokens_tuple in zip(
+                token_spot_prices_and_reserves_df[quantity_column],
+                token_spot_prices_and_reserves_df[token_address_column],
+            ):
+                if (quantity_tuple is None) and (tokens_tuple is None):
+                    this_block_amounts = None
+                else:
+                    this_block_amounts = []
+                    for q, t in zip(quantity_tuple, tokens_tuple):
+                        # skip the pool token
+                        if t.lower() != row["pool"].lower():
+                            this_block_amounts.append(q)
+
+                amounts_excluding_pool_token.append(this_block_amounts)
+
+            sub_df = token_spot_prices_and_reserves_df[["block", token_spot_price_column]].copy()
+            sub_df.columns = ["block", "spot_price"]
+
+            sub_df["quantity"] = amounts_excluding_pool_token
+
             sub_df["quantity"] = sub_df["quantity"].apply(
                 lambda amounts: amounts[row["index"]] / (10 ** row["decimals"]) if amounts else None
             )
             sub_df["chain_id"] = chain.chain_id
             sub_df["token_address"] = row["token_address"]
             sub_df["destination_vault_address"] = row["destination_vault_address"]
+
+            if (sub_df["quantity"] > 1_000_000).any():
+                pass
 
             new_destination_token_values_rows.extend(
                 [DestinationTokenValues.from_record(r) for r in sub_df.to_dict(orient="records")]

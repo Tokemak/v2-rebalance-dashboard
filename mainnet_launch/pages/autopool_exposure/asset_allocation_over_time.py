@@ -79,12 +79,18 @@ def _fetch_tvl_by_asset(autopool: AutopoolConstants) -> pd.DataFrame:
             TableSelector(
                 table=Tokens,
                 select_fields=[Tokens.symbol, Tokens.token_address],
-                join_on=None, 
+                join_on=None,
+                row_filter=(Tokens.chain_id == autopool.chain.chain_id),
             ),
             TableSelector(
                 table=TokenValues,
                 select_fields=[TokenValues.safe_price, TokenValues.block],
                 join_on=(TokenValues.chain_id == Tokens.chain_id) & (TokenValues.token_address == Tokens.token_address),
+            ),
+            TableSelector(
+                table=Blocks,
+                select_fields=[Blocks.datetime],
+                join_on=(Blocks.chain_id == TokenValues.chain_id) & (Blocks.block == TokenValues.block),
             ),
         ]
     )
@@ -94,28 +100,51 @@ def _fetch_tvl_by_asset(autopool: AutopoolConstants) -> pd.DataFrame:
         [
             TableSelector(
                 table=AutopoolDestinationStates,
-                select_fields=[AutopoolDestinationStates.owned_shares],
+                select_fields=[
+                    AutopoolDestinationStates.owned_shares,
+                    AutopoolDestinationStates.destination_vault_address,
+                    AutopoolDestinationStates.block,
+                ],
                 join_on=None,
-                row_filter=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
+                row_filter=(
+                    (AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
+                    & (AutopoolDestinationStates.owned_shares > 0)
+                ),
             ),
             TableSelector(
                 table=DestinationTokenValues,
-                select_fields=[DestinationTokenValues.token_address, DestinationTokenValues.quantity], # total amount of the token in the whole poool
+                select_fields=[
+                    DestinationTokenValues.token_address,
+                    DestinationTokenValues.quantity,
+                ],  # total amount of the token in the whole poool
                 join_on=(DestinationTokenValues.chain_id == AutopoolDestinationStates.chain_id)
-                & (DestinationTokenValues.destination_vault_address == AutopoolDestinationStates.destination_vault_address)
+                & (
+                    DestinationTokenValues.destination_vault_address
+                    == AutopoolDestinationStates.destination_vault_address
+                )
                 & (DestinationTokenValues.block == AutopoolDestinationStates.block),
             ),
-
             TableSelector(
                 table=DestinationStates,
-                select_fields=[DestinationStates.underlying_token_total_supply], # lp token total supply
+                select_fields=[
+                    DestinationStates.underlying_token_total_supply,
+                    DestinationStates.price_per_share,
+                ],  # lp token total supply
                 join_on=(DestinationStates.chain_id == DestinationTokenValues.chain_id)
-                & (DestinationStates.destination_vault_address == DestinationTokenValues.destination_vault_address),
+                & (DestinationStates.destination_vault_address == DestinationTokenValues.destination_vault_address)
+                & (DestinationStates.block == DestinationTokenValues.block),
+            ),
+            TableSelector(
+                table=Destinations,
+                select_fields=[Destinations.underlying_symbol],  # lp token total supply
+                join_on=(Destinations.chain_id == DestinationTokenValues.chain_id)
+                & (Destinations.destination_vault_address == DestinationTokenValues.destination_vault_address),
             ),
         ]
     )
 
-    # destinations_df = 
+    return destinations_df, token_value_df
+    # destinations_df =
 
     print(destinations_df.tail())
     print(token_value_df.head())
@@ -195,9 +224,7 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
     # weETH/rETH
     # safe value is not correct
     autopool_value_over_time_by_df = (
-        autopool_value_over_time_by_df.groupby(["datetime", "underlying_symbol"])["total_safe_value"]
-        .sum()
-        .reset_index()
+        tvl_by_destination.groupby(["datetime", "underlying_symbol"])["total_safe_value"].sum().reset_index()
     )
 
     safe_tvl_by_destination = autopool_value_over_time_by_df.pivot(

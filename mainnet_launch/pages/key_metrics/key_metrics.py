@@ -125,6 +125,8 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     price_return_df = destination_state_df.pivot(
         index="datetime", values="price_return", columns="destination_vault_address"
     )
+
+    # pretty sure the issue here is that it is not properly grouping values by price return
     # price return is still not correct
     weighted_price_return_series = -100 * (portion_df.fillna(0) * price_return_df.fillna(0)).sum(axis=1)
     # autopool_wide_total_safe_value = destination_state_df.pivot(
