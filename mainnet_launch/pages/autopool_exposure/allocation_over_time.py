@@ -27,52 +27,8 @@ from mainnet_launch.database.schema.postgres_operations import (
 )
 
 
-def _fetch_tvl_by_destination(autopool: AutopoolConstants) -> pd.DataFrame:
-    autopool_value_over_time_by_df = merge_tables_as_df(
-        [
-            TableSelector(
-                table=AutopoolDestinationStates,
-                select_fields=[AutopoolDestinationStates.owned_shares],
-                join_on=None,
-                row_filter=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
-            ),
-            TableSelector(
-                table=Destinations,
-                select_fields=Destinations.underlying_symbol,
-                join_on=(AutopoolDestinationStates.chain_id == Destinations.chain_id)
-                & (AutopoolDestinationStates.destination_vault_address == Destinations.destination_vault_address),
-            ),
-            TableSelector(
-                table=DestinationStates,
-                select_fields=DestinationStates.price_per_share,
-                join_on=(DestinationStates.chain_id == Destinations.chain_id)
-                & (DestinationStates.destination_vault_address == Destinations.destination_vault_address),
-            ),
-            TableSelector(
-                table=Blocks,
-                select_fields=Blocks.datetime,
-                join_on=(AutopoolDestinationStates.chain_id == Blocks.chain_id)
-                & (AutopoolDestinationStates.block == Blocks.block),
-            ),
-        ],
-        order_by=Blocks.datetime,
-    )
-
-    autopool_value_over_time_by_df["safe_tvl"] = (
-        autopool_value_over_time_by_df["owned_shares"] * autopool_value_over_time_by_df["price_per_share"]
-    )
-
-    # group together destinations by the underlying token symbols
-    # becuase more than one destiantion can be in the same vault
-    autopool_value_over_time_by_df = (
-        autopool_value_over_time_by_df.groupby(["datetime", "underlying_symbol"])["safe_tvl"].sum().reset_index()
-    )
-    return autopool_value_over_time_by_df.pivot(
-        index="datetime", values="safe_tvl", columns="underlying_symbol"
-    ).fillna(0)
-
-
-def _fetch_tvl_by_asset(autopool: AutopoolConstants) -> pd.DataFrame:
+# consider caching in memory with streamlit
+def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataFrame:
 
     token_value_df = merge_tables_as_df(
         [
@@ -116,7 +72,7 @@ def _fetch_tvl_by_asset(autopool: AutopoolConstants) -> pd.DataFrame:
                 select_fields=[
                     DestinationTokenValues.token_address,
                     DestinationTokenValues.quantity,
-                ],  # total amount of the token in the whole poool
+                ],
                 join_on=(DestinationTokenValues.chain_id == AutopoolDestinationStates.chain_id)
                 & (
                     DestinationTokenValues.destination_vault_address
@@ -136,113 +92,77 @@ def _fetch_tvl_by_asset(autopool: AutopoolConstants) -> pd.DataFrame:
             ),
             TableSelector(
                 table=Destinations,
-                select_fields=[Destinations.underlying_symbol],  # lp token total supply
+                select_fields=[Destinations.underlying_symbol, Destinations.exchange_name],  # lp token total supply
                 join_on=(Destinations.chain_id == DestinationTokenValues.chain_id)
                 & (Destinations.destination_vault_address == DestinationTokenValues.destination_vault_address),
             ),
         ]
     )
 
-    return destinations_df, token_value_df
-    # destinations_df =
+    df = pd.merge(destinations_df, token_value_df, on=["block", "token_address"])
 
-    print(destinations_df.tail())
-    print(token_value_df.head())
+    underlying_symbol_to_readable_name = {
+        underlying_symbol: f"{underlying_symbol} ({exchange_name})"
+        for underlying_symbol, exchange_name in zip(df["underlying_symbol"], df["exchange_name"])
+    }
 
-    pass
+    df["portion_owned"] = (df["owned_shares"] / df["underlying_token_total_supply"]).fillna(1.0)
+    df["autopool_implied_safe_value"] = df["portion_owned"] * df["quantity"] * df["safe_price"]
 
-    pass
-    return
-
-    autopool_value_over_time_by_df = merge_tables_as_df(
-        [
-            TableSelector(
-                table=AutopoolDestinationStates,
-                select_fields=[AutopoolDestinationStates.owned_shares],
-                join_on=None,
-                row_filter=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
-            ),
-            TableSelector(
-                table=Destinations,
-                select_fields=Destinations.underlying_symbol,
-                join_on=(AutopoolDestinationStates.chain_id == Destinations.chain_id)
-                & (AutopoolDestinationStates.destination_vault_address == Destinations.destination_vault_address),
-            ),
-            TableSelector(
-                table=DestinationTokenValues,
-                select_fields=[DestinationTokenValues.token_address],
-                join_on=(DestinationTokenValues.chain_id == Destinations.chain_id)
-                & (DestinationTokenValues.destination_vault_address == Destinations.destination_vault_address),
-            ),
-            TableSelector(
-                table=Tokens,
-                select_fields=[Tokens.symbol],
-                join_on=(DestinationTokenValues.chain_id == Destinations.chain_id)
-                & (Tokens.token_address == DestinationTokenValues.token_address),
-            ),
-            TableSelector(
-                table=TokenValues,
-                select_fields=TokenValues.safe_price,
-                join_on=(TokenValues.chain_id == Tokens.chain_id) & (TokenValues.token_address == Tokens.token_address),
-            ),
-            TableSelector(
-                table=Blocks,
-                select_fields=Blocks.datetime,
-                join_on=(AutopoolDestinationStates.chain_id == Blocks.chain_id)
-                & (AutopoolDestinationStates.block == Blocks.block),
-            ),
-        ],
-        order_by=Blocks.datetime,
+    safe_value_by_destination = (
+        df.groupby(["datetime", "underlying_symbol"])["autopool_implied_safe_value"]
+        .sum()
+        .reset_index()
+        .pivot(columns=["underlying_symbol"], index=["datetime"], values="autopool_implied_safe_value")
     )
+    safe_value_by_destination.columns = [
+        underlying_symbol_to_readable_name[undelrying_symbol] for undelrying_symbol in safe_value_by_destination.columns
+    ]
 
-    pass
+    safe_value_by_asset = (
+        df.groupby(["datetime", "symbol"])["autopool_implied_safe_value"]
+        .sum()
+        .reset_index()
+        .pivot(columns=["symbol"], index=["datetime"], values="autopool_implied_safe_value")
+    )
+    safe_value_by_asset = safe_value_by_asset.resample("1D").last()
 
-
-_fetch_tvl_by_asset(ALL_AUTOPOOLS[0])
-
-
-# autopool_value_over_time_by_df["safe_tvl"] = (
-#     autopool_value_over_time_by_df["owned_shares"] * autopool_value_over_time_by_df["price_per_share"]
-# )
-
-# # group together destinations by the underlying token symbols
-# # becuase more than one destiantion can be in the same vault
-# autopool_value_over_time_by_df = (
-#     autopool_value_over_time_by_df.groupby(["datetime", "underlying_symbol"])["safe_tvl"].sum().reset_index()
-# )
-# return autopool_value_over_time_by_df.pivot(
-#     index="datetime", values="safe_tvl", columns="underlying_symbol"
-# ).fillna(0)
+    return safe_value_by_destination, safe_value_by_asset
 
 
-# by destination
 def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
+    safe_value_by_destination, safe_value_by_asset = _fetch_tvl_by_asset_and_destination(autopool)
 
-    tvl_by_destination = _fetch_tvl_by_destination(autopool)
+    percent_tvl_by_destination = 100 * safe_value_by_destination.div(safe_value_by_destination.sum(axis=1), axis=0)
 
-    #
-    # weETH/rETH
-    # safe value is not correct
-    autopool_value_over_time_by_df = (
-        tvl_by_destination.groupby(["datetime", "underlying_symbol"])["total_safe_value"].sum().reset_index()
+    latest_percent_allocation = percent_tvl_by_destination.tail(1)
+
+    st.plotly_chart(
+        px.pie(
+            values=latest_percent_allocation.iloc[0],
+            names=latest_percent_allocation.columns,
+            title=f"Percent Allocation by Destination",
+        ),
+        use_container_width=True,
     )
 
-    safe_tvl_by_destination = autopool_value_over_time_by_df.pivot(
-        index="datetime", values="total_safe_value", columns="underlying_symbol"
-    ).fillna(0)
-
-    # different destination vaults the same destination
-
-    percent_tvl_by_destination = 100 * safe_tvl_by_destination.div(safe_tvl_by_destination.sum(axis=1), axis=0)
-    print(safe_tvl_by_destination.tail().round())
-    print(percent_tvl_by_destination.tail().round())
-    # TODO switch to read the base asset symbol
     st.plotly_chart(
-        px.bar(safe_tvl_by_destination, title="TVL ETH value by asset", labels={"value": "ETH"}),
+        px.bar(safe_value_by_destination, title="TVL by Destination", labels={"value": "ETH"}),
         use_container_width=True,
     )
     st.plotly_chart(
-        px.bar(percent_tvl_by_destination, title="TVL Percent by asset", labels={"value": "Percent"}),
+        px.bar(percent_tvl_by_destination, title="TVL Percent by Destination", labels={"value": "Percent"}),
+        use_container_width=True,
+    )
+
+    st.plotly_chart(
+        px.bar(safe_value_by_asset, title="TVL by Asset", labels={"value": "ETH"}),
+        use_container_width=True,
+    )
+    percent_tvl_by_asset = 100 * safe_value_by_asset.div(safe_value_by_asset.sum(axis=1), axis=0)
+
+    st.plotly_chart(
+        px.bar(percent_tvl_by_asset, title="TVL Percent by Asset", labels={"value": "Percent"}),
         use_container_width=True,
     )
 

@@ -87,5 +87,5 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
 
 if __name__ == "__main__":
-    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
+    ensure_database_is_current(full_reset_and_refetch=True, echo_sql_to_console=True)
     # ensure_database_is_current(False, echo_sql_to_console=True)
