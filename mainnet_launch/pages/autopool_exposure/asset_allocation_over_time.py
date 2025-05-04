@@ -100,7 +100,7 @@ def _fetch_tvl_by_asset(autopool: AutopoolConstants) -> pd.DataFrame:
             ),
             TableSelector(
                 table=DestinationTokenValues,
-                select_fields=[DestinationTokenValues.token_address, DestinationTokenValues.quantity],
+                select_fields=[DestinationTokenValues.token_address, DestinationTokenValues.quantity], # total amount of the token in the whole poool
                 join_on=(DestinationTokenValues.chain_id == AutopoolDestinationStates.chain_id)
                 & (DestinationTokenValues.destination_vault_address == AutopoolDestinationStates.destination_vault_address)
                 & (DestinationTokenValues.block == AutopoolDestinationStates.block),
@@ -108,14 +108,14 @@ def _fetch_tvl_by_asset(autopool: AutopoolConstants) -> pd.DataFrame:
 
             TableSelector(
                 table=DestinationStates,
-                select_fields=[DestinationStates.underlying_token_total_supply],
+                select_fields=[DestinationStates.underlying_token_total_supply], # lp token total supply
                 join_on=(DestinationStates.chain_id == DestinationTokenValues.chain_id)
                 & (DestinationStates.destination_vault_address == DestinationTokenValues.destination_vault_address),
             ),
         ]
     )
 
-    destinations_df = 
+    # destinations_df = 
 
     print(destinations_df.tail())
     print(token_value_df.head())

@@ -26,7 +26,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     build_blocks_to_use,
 )
-from mainnet_launch.constants import ChainData, ALL_CHAINS, ALL_AUTOPOOLS, POINTS_HOOK
+from mainnet_launch.constants import ChainData, ALL_CHAINS, POINTS_HOOK
 
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
     fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks,
@@ -275,30 +275,6 @@ def ensure_destination_states_are_current():
         if len(missing_blocks) == 0:
             continue
 
-        # token_value_df = merge_tables_as_df(
-        #     [
-        #         TableSelector(
-        #             table=DestinationTokenValues,
-        #         ),
-        #         TableSelector(
-        #             table=TokenValues,
-        #             join_on=(
-        #                 (DestinationTokenValues.block == TokenValues.block)
-        #                 & (DestinationTokenValues.chain_id == TokenValues.chain_id)
-        #                 & (DestinationTokenValues.token_address == TokenValues.token_address)
-        #             ),
-        #         ),
-        #         TableSelector(
-        #             table=Tokens,
-        #             select_fields=[Tokens.symbol, Tokens.decimals, Tokens.token_address],
-        #             join_on=(
-        #                 (DestinationTokenValues.chain_id == Tokens.chain_id)
-        #                 & (DestinationTokenValues.token_address == Tokens.token_address)
-        #             ),
-        #         ),
-        #     ],
-        #     where_clause=(DestinationTokenValues.chain_id == chain.chain_id),
-        # )
         autopool_to_all_ever_active_destinations = (
             fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(chain, missing_blocks)
         )

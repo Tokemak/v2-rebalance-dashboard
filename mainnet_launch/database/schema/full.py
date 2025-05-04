@@ -196,7 +196,8 @@ class DestinationStates(Base):
     total_apr_in: Mapped[float] = mapped_column(nullable=True)
     total_apr_out: Mapped[float] = mapped_column(nullable=True)
 
-    underlying_token_total_supply: Mapped[float] = mapped_column(nullable=True) # not correct, and not sure why
+    # I am pretty sure this is correct in the db
+    underlying_token_total_supply: Mapped[float] = mapped_column(nullable=True)
     safe_total_supply: Mapped[float] = mapped_column(nullable=True)
     price_per_share: Mapped[float] = mapped_column(nullable=True)  #
     price_return: Mapped[float] = mapped_column(nullable=True)
