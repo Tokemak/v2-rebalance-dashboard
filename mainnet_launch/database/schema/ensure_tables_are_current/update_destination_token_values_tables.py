@@ -28,6 +28,8 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
 )
 
+from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
+
 from mainnet_launch.constants import ALL_CHAINS, ROOT_PRICE_ORACLE, ChainData
 
 
@@ -71,110 +73,115 @@ def _fetch_destination_token_value_data_from_external_source(
     )
 
 
+def _fetch_and_insert_destination_token_values(chain: ChainData, possible_blocks: list[int]):
+    missing_blocks = get_subset_not_already_in_column(
+        DestinationTokenValues,
+        DestinationTokenValues.block,
+        possible_blocks,
+        where_clause=DestinationTokenValues.chain_id == chain.chain_id,
+    )
+    if len(missing_blocks) == 0:
+        return
+
+    ensure_all_blocks_are_in_table(missing_blocks, chain)
+
+    destinations_df = merge_tables_as_df(
+        [
+            TableSelector(DestinationTokens, [DestinationTokens.token_address, DestinationTokens.index]),
+            TableSelector(
+                Destinations,
+                [DestinationTokens.destination_vault_address, Destinations.pool],
+                join_on=(Destinations.chain_id == DestinationTokens.chain_id)
+                & (Destinations.destination_vault_address == DestinationTokens.destination_vault_address),
+            ),
+            TableSelector(
+                Tokens,
+                [Tokens.decimals],
+                join_on=(Tokens.chain_id == DestinationTokens.chain_id)
+                & (Tokens.token_address == DestinationTokens.token_address),
+            ),
+        ],
+        where_clause=(DestinationTokens.chain_id == chain.chain_id) & (Destinations.pool_type != "idle"),
+    )
+
+    token_spot_prices_and_reserves_df = _fetch_destination_token_value_data_from_external_source(
+        chain, missing_blocks, destinations_df
+    )
+
+    new_destination_token_values_rows = []
+
+    def _extract_destination_token_values(row: dict) -> None:
+        token_spot_price_column = (row["pool"], row["token_address"], "spot_price")
+        quantity_column = (row["destination_vault_address"], "underlyingReserves_amounts")
+        token_address_column = (row["destination_vault_address"], "underlyingReserves_tokens")
+
+        amounts_excluding_pool_token = []  # for composable stable pools
+        for quantity_tuple, tokens_tuple in zip(
+            token_spot_prices_and_reserves_df[quantity_column],
+            token_spot_prices_and_reserves_df[token_address_column],
+        ):
+            if (quantity_tuple is None) and (tokens_tuple is None):
+                this_block_amounts = None
+            else:
+                this_block_amounts = []
+                for q, t in zip(quantity_tuple, tokens_tuple):
+                    # skip the pool token
+                    if t.lower() != row["pool"].lower():
+                        this_block_amounts.append(q)
+
+            amounts_excluding_pool_token.append(this_block_amounts)
+
+        sub_df = token_spot_prices_and_reserves_df[["block", token_spot_price_column]].copy()
+        sub_df.columns = ["block", "spot_price"]
+
+        sub_df["quantity"] = amounts_excluding_pool_token
+
+        sub_df["quantity"] = sub_df["quantity"].apply(
+            lambda amounts: amounts[row["index"]] / (10 ** row["decimals"]) if amounts else None
+        )
+        sub_df["chain_id"] = chain.chain_id
+        sub_df["token_address"] = row["token_address"]
+        sub_df["destination_vault_address"] = row["destination_vault_address"]
+
+        if (sub_df["quantity"] > 1_000_000).any():
+            pass
+
+        new_destination_token_values_rows.extend(
+            [DestinationTokenValues.from_record(r) for r in sub_df.to_dict(orient="records")]
+        )
+
+    destinations_df.apply(lambda row: _extract_destination_token_values(row), axis=1)
+
+    insert_avoid_conflicts(
+        new_destination_token_values_rows,
+        DestinationTokenValues,
+        index_elements=[
+            DestinationTokenValues.block,
+            DestinationTokenValues.chain_id,
+            DestinationTokenValues.token_address,
+            DestinationTokenValues.destination_vault_address,
+        ],
+    )
+
+    # primary source of idle
+    idle_destination_token_values = _fetch_idle_destination_token_values(chain, missing_blocks)
+
+    insert_avoid_conflicts(
+        idle_destination_token_values,
+        DestinationTokenValues,
+        index_elements=[
+            DestinationTokenValues.block,
+            DestinationTokenValues.chain_id,
+            DestinationTokenValues.token_address,
+            DestinationTokenValues.destination_vault_address,
+        ],
+    )
+
+
 def ensure_destination_token_values_are_current():
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)
-
-        missing_blocks = get_subset_not_already_in_column(
-            DestinationTokenValues,
-            DestinationTokenValues.block,
-            possible_blocks,
-            where_clause=DestinationTokenValues.chain_id == chain.chain_id,
-        )
-        if len(missing_blocks) == 0:
-            continue
-
-        destinations_df = merge_tables_as_df(
-            [
-                TableSelector(DestinationTokens, [DestinationTokens.token_address, DestinationTokens.index]),
-                TableSelector(
-                    Destinations,
-                    [DestinationTokens.destination_vault_address, Destinations.pool],
-                    join_on=(Destinations.chain_id == DestinationTokens.chain_id)
-                    & (Destinations.destination_vault_address == DestinationTokens.destination_vault_address),
-                ),
-                TableSelector(
-                    Tokens,
-                    [Tokens.decimals],
-                    join_on=(Tokens.chain_id == DestinationTokens.chain_id)
-                    & (Tokens.token_address == DestinationTokens.token_address),
-                ),
-            ],
-            where_clause=(DestinationTokens.chain_id == chain.chain_id) & (Destinations.pool_type != "idle"),
-        )
-
-        token_spot_prices_and_reserves_df = _fetch_destination_token_value_data_from_external_source(
-            chain, missing_blocks, destinations_df
-        )
-
-        new_destination_token_values_rows = []
-
-        def _extract_destination_token_values(row: dict) -> None:
-            token_spot_price_column = (row["pool"], row["token_address"], "spot_price")
-            quantity_column = (row["destination_vault_address"], "underlyingReserves_amounts")
-            token_address_column = (row["destination_vault_address"], "underlyingReserves_tokens")
-
-            amounts_excluding_pool_token = []  # for composable stable pools
-            for quantity_tuple, tokens_tuple in zip(
-                token_spot_prices_and_reserves_df[quantity_column],
-                token_spot_prices_and_reserves_df[token_address_column],
-            ):
-                if (quantity_tuple is None) and (tokens_tuple is None):
-                    this_block_amounts = None
-                else:
-                    this_block_amounts = []
-                    for q, t in zip(quantity_tuple, tokens_tuple):
-                        # skip the pool token
-                        if t.lower() != row["pool"].lower():
-                            this_block_amounts.append(q)
-
-                amounts_excluding_pool_token.append(this_block_amounts)
-
-            sub_df = token_spot_prices_and_reserves_df[["block", token_spot_price_column]].copy()
-            sub_df.columns = ["block", "spot_price"]
-
-            sub_df["quantity"] = amounts_excluding_pool_token
-
-            sub_df["quantity"] = sub_df["quantity"].apply(
-                lambda amounts: amounts[row["index"]] / (10 ** row["decimals"]) if amounts else None
-            )
-            sub_df["chain_id"] = chain.chain_id
-            sub_df["token_address"] = row["token_address"]
-            sub_df["destination_vault_address"] = row["destination_vault_address"]
-
-            if (sub_df["quantity"] > 1_000_000).any():
-                pass
-
-            new_destination_token_values_rows.extend(
-                [DestinationTokenValues.from_record(r) for r in sub_df.to_dict(orient="records")]
-            )
-
-        destinations_df.apply(lambda row: _extract_destination_token_values(row), axis=1)
-
-        insert_avoid_conflicts(
-            new_destination_token_values_rows,
-            DestinationTokenValues,
-            index_elements=[
-                DestinationTokenValues.block,
-                DestinationTokenValues.chain_id,
-                DestinationTokenValues.token_address,
-                DestinationTokenValues.destination_vault_address,
-            ],
-        )
-
-        # primary source of idle
-        idle_destination_token_values = _fetch_idle_destination_token_values(chain, missing_blocks)
-
-        insert_avoid_conflicts(
-            idle_destination_token_values,
-            DestinationTokenValues,
-            index_elements=[
-                DestinationTokenValues.block,
-                DestinationTokenValues.chain_id,
-                DestinationTokenValues.token_address,
-                DestinationTokenValues.destination_vault_address,
-            ],
-        )
+        _fetch_and_insert_destination_token_values(chain, possible_blocks)
 
 
 def _fetch_idle_destination_token_values(chain: ChainData, missing_blocks: list[int]) -> list[DestinationTokenValues]:

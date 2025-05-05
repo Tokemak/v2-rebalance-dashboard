@@ -2,15 +2,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import plotly.express as px
-from mainnet_launch.constants import (
-    AutopoolConstants,
-    STATS_CALCULATOR_REGISTRY,
-    ALL_AUTOPOOLS,
-    ETH_CHAIN,
-    ROOT_PRICE_ORACLE,
-    ChainData,
-    WETH,
-)
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
 
 from mainnet_launch.database.schema.full import (
     AutopoolDestinationStates,

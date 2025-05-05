@@ -212,6 +212,8 @@ class DestinationStates(Base):
     # spot_backing_discount: Mapped[float] = mapped_column(nullable=True)
     # safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
 
+    lp_token_spot_price: Mapped[float] = mapped_column(nullable=True)
+
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
         ForeignKeyConstraint(
