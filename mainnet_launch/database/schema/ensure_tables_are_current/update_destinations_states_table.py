@@ -20,17 +20,20 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 
 from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
-from mainnet_launch.constants import ChainData, ALL_CHAINS, POINTS_HOOK, ROOT_PRICE_ORACLE
+from mainnet_launch.constants import (
+    ChainData,
+    ALL_CHAINS,
+    POINTS_HOOK,
+    ROOT_PRICE_ORACLE,
+    USDC,
+    WETH,
+    ETH_CHAIN,
+    BASE_CHAIN,
+)
 
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
     fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks,
 )
-
-
-def _handle_getRangePricesLP(success, args):
-    if success:
-        spotPriceInQuote, safePriceInQuote, isSpotSafe = args
-        return spotPriceInQuote / 1e18  # not certain here on deciamls
 
 
 def build_lp_token_spot_price_calls(
@@ -40,6 +43,18 @@ def build_lp_token_spot_price_calls(
     chain: ChainData,
     base_asset: str,
 ) -> list[Call]:
+
+    if base_asset in [USDC(ETH_CHAIN), USDC(BASE_CHAIN)]:
+        base_asset_decimals = 6
+    elif base_asset in [WETH(ETH_CHAIN), WETH(BASE_CHAIN)]:
+        base_asset_decimals = 18
+    else:
+        raise ValueError("Unexpected base_asset", base_asset)
+
+    def _handle_getRangePricesLP(success, args):
+        if success:
+            spotPriceInQuote, safePriceInQuote, isSpotSafe = args
+            return spotPriceInQuote / (10**base_asset_decimals)  # not certain here on deciamls
 
     return [
         Call(
