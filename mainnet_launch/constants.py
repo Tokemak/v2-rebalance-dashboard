@@ -151,6 +151,10 @@ WETH = TokemakAddress(
     eth="0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", base="0x4200000000000000000000000000000000000006"
 )
 
+USDC = TokemakAddress(
+    eth="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", base="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+)
+
 STATS_CALCULATOR_REGISTRY = TokemakAddress(
     eth="0xaE6b250841fA7520AF843c776aA58E23060E2124", base="0x22dd2189728B40409476F4F80CA8f2f6BdB217D2"
 )
@@ -227,5 +231,16 @@ DINERO_ETH: AutopoolConstants = AutopoolConstants(
     block_deployed=21718586,
 )
 
+AUTO_USD: AutopoolConstants = AutopoolConstants(
+    "autoUSD",
+    "autoUSD",
+    autopool_eth_addr="0xa7569A44f348d3D70d8ad5889e50F78E33d80D35",
+    autopool_eth_strategy_addr=None,
+    solver_rebalance_plans_bucket=os.environ["AUTO_USD_BUCKET"],
+    chain=ETH_CHAIN,
+    base_asset=USDC(ETH_CHAIN),
+    block_deployed=22032640,
+)
 
-ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
+
+ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH, AUTO_USD]

@@ -18,6 +18,8 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     build_blocks_to_use,
 )
+
+from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
 from mainnet_launch.constants import ChainData, ALL_CHAINS, POINTS_HOOK, ROOT_PRICE_ORACLE
 
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
@@ -42,7 +44,7 @@ def build_lp_token_spot_price_calls(
     return [
         Call(
             ROOT_PRICE_ORACLE(chain),
-            ["getRangePricesLP(address,address,address)(uint256,uint256,uint256)", lp_token, pool, base_asset],
+            ["getRangePricesLP(address,address,address)((uint256,uint256,uint256))", lp_token, pool, base_asset],
             [((destination, "lp_token_spot_price"), _handle_getRangePricesLP)],
         )
         for destination, lp_token, pool in zip(destination_addresses, lp_token_addresses, pool_addresses)
@@ -59,7 +61,7 @@ def _fetch_lp_token_spot_prices(
 
     for autopool_vault_address in autopool_to_all_ever_active_destinations.keys():
         this_autopool_active_destinations: list[Destinations] = [
-            dest.destination_vault_address for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]
+            dest for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]
         ]
 
         base_asset = [a.base_asset for a in autopool_orm if a.autopool_vault_address == autopool_vault_address][0]
@@ -312,61 +314,67 @@ def _extract_new_destination_states(
     return all_new_destination_states
 
 
+def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainData):
+
+    missing_blocks = get_subset_not_already_in_column(
+        DestinationStates,
+        DestinationStates.block,
+        possible_blocks,
+        where_clause=DestinationStates.chain_id == chain.chain_id,
+    )
+
+    if len(missing_blocks) == 0:
+        return
+
+    ensure_all_blocks_are_in_table(missing_blocks, chain)
+
+    autopool_to_all_ever_active_destinations = fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
+        chain, missing_blocks
+    )
+
+    destination_underlying_total_supply_df = _fetch_destination_total_supply_df(
+        autopool_to_all_ever_active_destinations, missing_blocks, chain
+    )
+
+    autopool_points_df = _fetch_autopool_points_apr(autopool_to_all_ever_active_destinations, missing_blocks, chain)
+
+    lp_token_spot_price_df = _fetch_lp_token_spot_prices(
+        autopool_to_all_ever_active_destinations, missing_blocks, chain
+    )
+
+    autopool_summary_stats_df = _fetch_destination_summary_stats_df(
+        autopool_to_all_ever_active_destinations, missing_blocks, chain
+    )
+
+    all_new_destination_states = _extract_new_destination_states(
+        autopool_summary_stats_df,
+        destination_underlying_total_supply_df,
+        autopool_points_df,
+        lp_token_spot_price_df,
+        autopool_to_all_ever_active_destinations,
+        chain,
+    )
+
+    idle_destination_states = _fetch_idle_destination_states(chain, missing_blocks)
+
+    insert_avoid_conflicts(
+        [
+            *all_new_destination_states,
+            *idle_destination_states,
+        ],
+        DestinationStates,
+        index_elements=[
+            DestinationStates.block,
+            DestinationStates.chain_id,
+            DestinationStates.destination_vault_address,
+        ],
+    )
+
+
 def ensure_destination_states_are_current():
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)
-
-        missing_blocks = get_subset_not_already_in_column(
-            DestinationStates,
-            DestinationStates.block,
-            possible_blocks,
-            where_clause=DestinationStates.chain_id == chain.chain_id,
-        )
-
-        if len(missing_blocks) == 0:
-            continue
-
-        autopool_to_all_ever_active_destinations = (
-            fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(chain, missing_blocks)
-        )
-
-        destination_underlying_total_supply_df = _fetch_destination_total_supply_df(
-            autopool_to_all_ever_active_destinations, missing_blocks, chain
-        )
-
-        autopool_points_df = _fetch_autopool_points_apr(autopool_to_all_ever_active_destinations, missing_blocks, chain)
-
-        lp_token_spot_price_df = _fetch_lp_token_spot_prices(
-            autopool_to_all_ever_active_destinations, missing_blocks, chain
-        )
-
-        autopool_summary_stats_df = _fetch_destination_summary_stats_df(
-            autopool_to_all_ever_active_destinations, missing_blocks, chain
-        )
-
-        all_new_destination_states = _extract_new_destination_states(
-            autopool_summary_stats_df,
-            destination_underlying_total_supply_df,
-            autopool_points_df,
-            lp_token_spot_price_df,
-            autopool_to_all_ever_active_destinations,
-            chain,
-        )
-
-        idle_destination_states = _fetch_idle_destination_states(chain, missing_blocks)
-
-        insert_avoid_conflicts(
-            [
-                *all_new_destination_states,
-                *idle_destination_states,
-            ],
-            DestinationStates,
-            index_elements=[
-                DestinationStates.block,
-                DestinationStates.chain_id,
-                DestinationStates.destination_vault_address,
-            ],
-        )
+        _add_new_destination_states_to_db(possible_blocks, chain)
 
 
 def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) -> list[DestinationStates]:
