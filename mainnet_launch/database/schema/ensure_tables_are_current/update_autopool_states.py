@@ -76,8 +76,7 @@ def _fetch_new_autopool_state_rows(
     return new_autopool_state_rows
 
 
-
-def _add_new_autopool_states_to_db(possible_blocks:list[int], chain: ChainData) -> None:
+def _add_new_autopool_states_to_db(possible_blocks: list[int], chain: ChainData) -> None:
     missing_blocks = get_subset_not_already_in_column(
         AutopoolStates,
         AutopoolStates.block,
@@ -102,7 +101,6 @@ def ensure_autopool_states_are_current():
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)
         _add_new_autopool_states_to_db(possible_blocks, chain)
-
 
 
 if __name__ == "__main__":
