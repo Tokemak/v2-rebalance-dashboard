@@ -19,7 +19,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     get_subset_not_already_in_column,
 )
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants
+from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH
 
 
 def convert_rebalance_plan_json_to_rebalance_plan_line(
@@ -72,11 +72,25 @@ def _handle_only_state_of_destinations_rebalance_plan(plan: dict) -> RebalancePl
 
 
 def _extract_rebalance_plan_and_dex_steps(
-    plan: dict, autopool: AutopoolConstants, destinations: list[Destinations]
+    plan: dict, autopool: AutopoolConstants, destinations: list[Destinations], token_address_to_decimals: dict[str, int] = None
 ) -> tuple[RebalancePlans, list[DexSwapSteps]]:
     if plan["sodOnly"] == True:
         new_sod_only_plan = _handle_only_state_of_destinations_rebalance_plan(plan)
         return new_sod_only_plan, []
+    print(plan.keys())
+    pass
+    
+    out_decimals = token_address_to_decimals[plan['tokenOut']]
+    in_decimaals = token_address_to_decimals[plan['tokenIn']]
+
+    if autopool.base_asset == USDC(autopool.chain):
+        amount_out_key = 'amountOutUSD'
+        min_amount_in_key = 'minAmountInUSD'
+        
+
+    elif autopool.base_asset == WETH(autopool.chain):
+        amount_out_key = 'amountOutETH'
+        min_amount_in_key = 'minAmountInETH'
 
     dest_map = {Web3.toChecksumAddress(d.destination_vault_address): d.underlying_symbol for d in destinations}
 
@@ -88,7 +102,12 @@ def _extract_rebalance_plan_and_dex_steps(
 
     in_destination_name = plan["rebalanceTest"]["inDest"]
 
-    projected_swap_cost = (int(plan["amountOutETH"]) / 1e18) - (int(plan["minAmountInETH"]) / 1e18)
+
+    def _extract_normalized_amounts_and_usd_value(plan:dict):
+        pass
+
+
+    projected_swap_cost = (int(plan[amount_out_key]) / (10 ** out_decimals)) - (int(plan[min_amount_in_key]) / (10 ** in_decimaals))
 
     if plan["destinationIn"] == autopool.autopool_eth_addr:
         projected_gross_gain = 0
@@ -99,6 +118,7 @@ def _extract_rebalance_plan_and_dex_steps(
             if d[0] == in_destination_name:
                 candidate_destinations_rank = i
                 projected_net_gain = d[1] / 1e18
+                pass # not sure on decimals here
                 projected_gross_gain = projected_net_gain + projected_swap_cost
 
     new_rebalance_plan_row = RebalancePlans(
@@ -116,8 +136,8 @@ def _extract_rebalance_plan_and_dex_steps(
         # NOTE: this might amountOutETH might be different for autoUSD, not certain what decimals it is
         amount_out=int(plan["amountOut"]) / 1e18,
         amount_out_safe_value=int(plan["amountOutETH"]) / 1e18,
-        min_amount_in=int(plan["minAmountIn"]) / 1e18,
-        min_amount_in_safe_value=int(plan["minAmountInETH"]) / 1e18,
+        min_amount_in=int(plan["minAmountIn"]) /  (10 ** in_decimaals),
+        min_amount_in_safe_value=int(plan["minAmountInETH"]) /  (10 ** in_decimaals),
         # rebalanceTest values
         out_spot_eth=int(plan["rebalanceTest"]["outSpotETH"]) / 1e18,
         out_dest_apr=float(plan["rebalanceTest"]["outDestApr"]),
@@ -171,6 +191,7 @@ def ensure_rebalance_plans_table_are_current():
         all_dex_steps_rows = []
 
         def _process_plan(plan_on_remote):
+            # fully local
             plan = convert_rebalance_plan_json_to_rebalance_plan_line(plan_on_remote, s3_client, autopool)
             return _extract_rebalance_plan_and_dex_steps(plan, autopool, destinations)
 
