@@ -57,11 +57,11 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure_token_values_are_current()
     ensure_destination_token_values_are_current()
 
-    ensure_destination_states_are_current()
+    ensure_destination_states_are_current()  # note autoUSD, here has to get the data from the rebalance events (sod) instead, currently None
 
     # not certain if autoUSD breaks this
-    # ensure_autopool_destination_states_are_current()  # depends on destination states
-    # ensure_autopool_states_are_current()
+    ensure_autopool_destination_states_are_current()  # depends on destination states
+    ensure_autopool_states_are_current()
 
     # ensure_rebalance_plans_table_are_current()
 
@@ -89,5 +89,5 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
 
 if __name__ == "__main__":
-    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
+    ensure_database_is_current(full_reset_and_refetch=True, echo_sql_to_console=True)
     # ensure_database_is_current(False, echo_sql_to_console=True)

@@ -1,4 +1,5 @@
 from multicall import Call
+
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
     fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks,
 )

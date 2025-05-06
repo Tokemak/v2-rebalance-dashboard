@@ -1,6 +1,7 @@
 import pandas as pd
+import streamlit as st
+
 from multicall import Multicall, Call
-import datetime
 from sqlalchemy import select, func
 
 import nest_asyncio
@@ -9,8 +10,6 @@ from mainnet_launch.app.app_config import STREAMLIT_IN_MEMORY_CACHE_TIME, SEMAPH
 from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     get_earliest_block_from_table_with_chain,
-    get_all_rows_in_table_by_chain,
-    drop_table,
 )
 from mainnet_launch.database.should_update_database import should_update_table
 
@@ -239,7 +238,9 @@ def postgres_build_blocks_to_use(
         return highest_block_in_each_day
 
 
+@st.cache_data(ttl=60 * 60)  # 1 hour
 def build_blocks_to_use(chain: ChainData, start_block: int | None = None, end_block: int | None = None) -> list[int]:
+    """Returns the highest block for day on chain stored in the postgres db"""
 
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
     end_block = 100_000_000 if end_block is None else end_block

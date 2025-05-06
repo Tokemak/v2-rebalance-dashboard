@@ -12,7 +12,8 @@ from mainnet_launch.pages.autopool_diagnostics.returns_before_expenses import (
     _compute_adjusted_nav_per_share_n_days,
 )
 from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
-from mainnet_launch.pages.key_metrics.fetch_nav_per_share import fetch_nav_per_share
+
+# from mainnet_launch.pages.key_metrics.fetch_nav_per_share import fetch_nav_per_share
 
 
 def _build_expected_return_df(autopool: AutopoolConstants, n_days: int) -> pd.DataFrame:

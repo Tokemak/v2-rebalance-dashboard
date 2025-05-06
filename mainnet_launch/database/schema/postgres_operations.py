@@ -137,7 +137,9 @@ def get_subset_not_already_in_column(
     table: Base, column: InstrumentedAttribute, values: list[any], where_clause: OperatorExpression | None
 ):
     orms = get_full_table_as_orm(table, where_clause=where_clause)
-    existing = [getattr(obj, column.key) for obj in orms]
+    existing = [
+        getattr(obj, column.key) for obj in orms
+    ]  # getattr does the same as `obj.column.key` but we can't hard code it
     return [v for v in values if v not in existing]
 
     # this is running into issues with unnest. doing in python here, slight optimization to do it in sql

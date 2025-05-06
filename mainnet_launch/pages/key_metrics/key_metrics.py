@@ -17,6 +17,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     merge_tables_as_df,
     TableSelector,
 )
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 
 def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
@@ -34,6 +35,7 @@ def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
                 join_on=(AutopoolStates.chain_id == Blocks.chain_id) & (AutopoolStates.block == Blocks.block),
             ),
         ],
+        where_clause=Blocks.block.in_(build_blocks_to_use(autopool.chain)),
         order_by=Blocks.datetime,
     )
     nav_per_share_df = nav_per_share_df.set_index("datetime")
@@ -57,7 +59,7 @@ def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
 
 def fetch_key_metrics_data(autopool: AutopoolConstants):
     nav_per_share_df = fetch_nav_per_share(autopool)
-    # one sql query, only get the data needed
+
     destination_state_df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -100,7 +102,8 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
                 (DestinationStates.block == Blocks.block) & (DestinationStates.chain_id == Blocks.chain_id),
             ),
         ],
-        where_clause=AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr,
+        where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
+        & (Blocks.block.in_(build_blocks_to_use(autopool.chain))),
         order_by=Blocks.datetime,
     )
 
