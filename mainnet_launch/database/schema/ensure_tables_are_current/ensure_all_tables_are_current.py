@@ -63,15 +63,14 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure_autopool_destination_states_are_current()  # depends on destination states
     ensure_autopool_states_are_current()
 
-    # ensure_rebalance_plans_table_are_current()
+    ensure_rebalance_plans_table_are_current()
 
     # rebalance events
 
     # self contained parts add later
 
     # add after autoUSD
-    # IncentiveTokenLiquidations
-    # AutopoolWithdrawal
+    # IncentiveTokenLiquidations   # AutopoolWithdrawal
     # AutopoolDeposit
     # chainlink gas costs
     # solver profit ( maybe exclude for complexity reasons, and solver profit is near 0)
@@ -89,5 +88,5 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
 
 if __name__ == "__main__":
-    ensure_database_is_current(full_reset_and_refetch=True, echo_sql_to_console=True)
+    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
     # ensure_database_is_current(False, echo_sql_to_console=True)
