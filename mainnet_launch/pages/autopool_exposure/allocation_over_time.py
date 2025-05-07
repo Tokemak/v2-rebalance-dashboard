@@ -21,7 +21,9 @@ from mainnet_launch.database.schema.postgres_operations import (
 
 # consider caching in memory with streamlit
 def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataFrame:
+    from mainnet_launch.constants import AUTO_USD
 
+    autopool = AUTO_USD
     token_value_df = merge_tables_as_df(
         [
             TableSelector(
@@ -32,8 +34,9 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
             ),
             TableSelector(
                 table=TokenValues,
-                select_fields=[TokenValues.safe_price, TokenValues.block],
+                select_fields=[TokenValues.safe_price, TokenValues.block, TokenValues.denominated_in],
                 join_on=(TokenValues.chain_id == Tokens.chain_id) & (TokenValues.token_address == Tokens.token_address),
+                row_filter=(TokenValues.denominated_in == autopool.base_asset),
             ),
             TableSelector(
                 table=Blocks,

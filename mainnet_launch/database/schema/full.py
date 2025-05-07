@@ -269,7 +269,7 @@ class TokenValues(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     token_address: Mapped[str] = mapped_column(primary_key=True)
 
-    denomiated_in: Mapped[str] = mapped_column(nullable=False)
+    denominated_in: Mapped[str] = mapped_column(primary_key=True)
     backing: Mapped[float] = mapped_column(nullable=True)
     safe_price: Mapped[float] = mapped_column(nullable=True)
     # safe_backing_discount: Mapped[float] = mapped_column(nullable=True) # inferable from  (safe_price - backing) / backing

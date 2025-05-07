@@ -49,11 +49,9 @@ def ensure_token_values_are_current():
         )
         if len(missing_blocks) == 0:
             continue
-        missing_blocks = missing_blocks[-5:]
         all_tokens_orm: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
 
         df = _fetch_safe_and_backing_values(missing_blocks, all_tokens_orm, chain)
-   
 
         new_token_values_rows = []
 
@@ -71,10 +69,11 @@ def ensure_token_values_are_current():
                         block=int(row["block"]),
                         chain_id=chain.chain_id,
                         token_address=token.token_address,
-                        denomiated_in=denominated_in,
+                        denominated_in=denominated_in,
                         backing=backing,
                         safe_price=safe_price,
                     )
+
                     new_token_values_rows.append(new_token_values_row)
 
         df.apply(_extract_token_values_by_row, axis=1)
@@ -82,7 +81,12 @@ def ensure_token_values_are_current():
         insert_avoid_conflicts(
             new_token_values_rows,
             TokenValues,
-            index_elements=[TokenValues.block, TokenValues.chain_id, TokenValues.token_address],
+            index_elements=[
+                TokenValues.block,
+                TokenValues.chain_id,
+                TokenValues.token_address,
+                TokenValues.denominated_in,
+            ],
         )
 
 
