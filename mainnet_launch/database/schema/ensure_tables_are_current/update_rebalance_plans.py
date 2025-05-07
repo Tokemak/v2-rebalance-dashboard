@@ -7,11 +7,7 @@ from botocore.config import Config
 import pandas as pd
 from web3 import Web3
 
-from mainnet_launch.database.schema.full import (
-    RebalancePlans,
-    Destinations,
-    DexSwapSteps,
-)
+from mainnet_launch.database.schema.full import RebalancePlans, Destinations, DexSwapSteps, Tokens
 
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_orm,
@@ -55,9 +51,9 @@ def _handle_only_state_of_destinations_rebalance_plan(plan: dict) -> RebalancePl
         amount_out_safe_value=None,
         min_amount_in=None,
         min_amount_in_safe_value=None,
-        out_spot_eth=None,
+        amount_out_spot_value=None,
         out_dest_apr=None,
-        in_spot_eth=None,
+        min_amount_in_spot_value=None,
         in_dest_apr=None,
         in_dest_adj_apr=None,
         apr_delta=None,
@@ -71,56 +67,91 @@ def _handle_only_state_of_destinations_rebalance_plan(plan: dict) -> RebalancePl
     )
 
 
+def _extract_normalized_amounts(plan: dict, token_address_to_decimals: dict):
+
+    out_decimals = token_address_to_decimals[plan["tokenOut"]]
+    in_decimals = token_address_to_decimals[plan["tokenIn"]]
+
+    amount_out = int(plan["amountOut"]) / 10**out_decimals
+    min_amount_in = int(plan["minAmountIn"]) / 10**in_decimals
+
+    return amount_out, min_amount_in
+
+
+def _extract_safe_values(plan: dict, autopool: AutopoolConstants):
+
+    if autopool.base_asset == USDC(autopool.chain):
+        amount_out_key = "amountOutUSD"
+        min_amount_in_key = "minAmountInUSD"
+
+    elif autopool.base_asset == WETH(autopool.chain):
+        amount_out_key = "amountOutETH"
+        min_amount_in_key = "minAmountInETH"
+    else:
+        raise ValueError(f"Unexpected {autopool.base_asset=}")
+
+    amount_out_safe_value = int(plan[amount_out_key]) / 1e18
+    min_amount_in_safe_value = int(plan[min_amount_in_key]) / 1e18
+
+    return amount_out_safe_value, min_amount_in_safe_value
+
+
+def _extract_spot_values(plan: dict, autopool: AutopoolConstants):
+
+    if autopool.base_asset == USDC(autopool.chain):
+        spot_value_out_key = "outSpotUSD"
+        min_amount_in_spot_value_key = "inSpotUSD"
+
+    elif autopool.base_asset == WETH(autopool.chain):
+        spot_value_out_key = "outSpotETH"
+        min_amount_in_spot_value_key = "inSpotETH"
+    else:
+        raise ValueError(f"Unexpected {autopool.base_asset=}")
+
+    amount_out_spot_value = int(plan["rebalanceTest"][spot_value_out_key]) / 1e18
+    min_amount_in_spot_value = (
+        int(plan["rebalanceTest"][min_amount_in_spot_value_key]) / 1e18
+    )  # not ceratin here about size
+
+    return amount_out_spot_value, min_amount_in_spot_value
+
+
 def _extract_rebalance_plan_and_dex_steps(
-    plan: dict, autopool: AutopoolConstants, destinations: list[Destinations], token_address_to_decimals: dict[str, int] = None
+    plan: dict,
+    autopool: AutopoolConstants,
+    destination_address_to_symbol: dict[str, str],
+    token_address_to_decimals: dict[str, int],
 ) -> tuple[RebalancePlans, list[DexSwapSteps]]:
     if plan["sodOnly"] == True:
         new_sod_only_plan = _handle_only_state_of_destinations_rebalance_plan(plan)
         return new_sod_only_plan, []
-    print(plan.keys())
-    pass
-    
-    out_decimals = token_address_to_decimals[plan['tokenOut']]
-    in_decimaals = token_address_to_decimals[plan['tokenIn']]
 
-    if autopool.base_asset == USDC(autopool.chain):
-        amount_out_key = 'amountOutUSD'
-        min_amount_in_key = 'minAmountInUSD'
-        
+    underlying_out_symbol = destination_address_to_symbol[Web3.toChecksumAddress(plan["destinationOut"])]
+    underlying_in_symbol = destination_address_to_symbol[Web3.toChecksumAddress(plan["destinationIn"])]
 
-    elif autopool.base_asset == WETH(autopool.chain):
-        amount_out_key = 'amountOutETH'
-        min_amount_in_key = 'minAmountInETH'
+    amount_out, min_amount_in = _extract_normalized_amounts(plan, token_address_to_decimals)
+    amount_out_safe_value, min_amount_in_safe_value = _extract_safe_values(plan, autopool)
 
-    dest_map = {Web3.toChecksumAddress(d.destination_vault_address): d.underlying_symbol for d in destinations}
+    projected_swap_cost = amount_out_safe_value - min_amount_in_safe_value
 
-    # then pull out your four values in two lines
-    out_addr = Web3.toChecksumAddress(plan["destinationOut"])
-    in_addr = Web3.toChecksumAddress(plan["destinationIn"])
-    underlying_out_symbol = dest_map[out_addr]
-    underlying_in_symbol = dest_map[in_addr]
+    amount_out_spot_value, min_amount_in_spot_value = _extract_spot_values(plan, autopool)
 
     in_destination_name = plan["rebalanceTest"]["inDest"]
-
-
-    def _extract_normalized_amounts_and_usd_value(plan:dict):
-        pass
-
-
-    projected_swap_cost = (int(plan[amount_out_key]) / (10 ** out_decimals)) - (int(plan[min_amount_in_key]) / (10 ** in_decimaals))
-
-    if plan["destinationIn"] == autopool.autopool_eth_addr:
-        projected_gross_gain = 0
-        candidate_destinations_rank = None
-        projected_net_gain = projected_swap_cost
-    else:
+    projected_gross_gain = 0
+    candidate_destinations_rank = None
+    projected_net_gain = projected_swap_cost
+    if plan["destinationIn"] != autopool.autopool_eth_addr:
         for i, d in enumerate(plan["addRank"]):
             if d[0] == in_destination_name:
                 candidate_destinations_rank = i
                 projected_net_gain = d[1] / 1e18
-                pass # not sure on decimals here
                 projected_gross_gain = projected_net_gain + projected_swap_cost
-
+    # idle -> crvUSD/USDC
+    # but not in the add rank
+    # if plan['rebalance_plan_json_key'] == 'rebalance_plan_1745520200_0xa7569A44f348d3D70d8ad5889e50F78E33d80D35.json':
+    #     with open(plan['rebalance_plan_json_key'], 'x') as fout:
+    #         json.dump(plan, fout,  indent=4)
+    #     pass
     new_rebalance_plan_row = RebalancePlans(
         file_name=plan["rebalance_plan_json_key"],
         datetime_generated=pd.to_datetime(int(plan["timestamp"]), unit="s", utc=True),
@@ -134,14 +165,14 @@ def _extract_rebalance_plan_and_dex_steps(
         token_out=Web3.toChecksumAddress(plan["tokenIn"]),
         move_name=f"{underlying_out_symbol} -> {underlying_in_symbol}",
         # NOTE: this might amountOutETH might be different for autoUSD, not certain what decimals it is
-        amount_out=int(plan["amountOut"]) / 1e18,
-        amount_out_safe_value=int(plan["amountOutETH"]) / 1e18,
-        min_amount_in=int(plan["minAmountIn"]) /  (10 ** in_decimaals),
-        min_amount_in_safe_value=int(plan["minAmountInETH"]) /  (10 ** in_decimaals),
+        amount_out=amount_out,
+        amount_out_safe_value=amount_out_safe_value,
+        min_amount_in=min_amount_in,
+        min_amount_in_safe_value=min_amount_in_safe_value,
         # rebalanceTest values
-        out_spot_eth=int(plan["rebalanceTest"]["outSpotETH"]) / 1e18,
+        amount_out_spot_value=amount_out_spot_value,
         out_dest_apr=float(plan["rebalanceTest"]["outDestApr"]),
-        in_spot_eth=int(plan["rebalanceTest"]["inSpotETH"]) / 1e18,
+        min_amount_in_spot_value=min_amount_in_spot_value,
         in_dest_apr=float(plan["rebalanceTest"]["outDestApr"]),
         in_dest_adj_apr=float(plan["rebalanceTest"]["inDestAdjApr"]),
         apr_delta=float(plan["rebalanceTest"]["inDestAdjApr"]) - float(plan["rebalanceTest"]["outDestApr"]),
@@ -151,10 +182,7 @@ def _extract_rebalance_plan_and_dex_steps(
         projected_swap_cost=projected_swap_cost,
         projected_net_gain=projected_net_gain,
         projected_gross_gain=projected_gross_gain,
-        projected_slippage=100
-        * projected_swap_cost
-        / int(plan["rebalanceTest"]["outSpotETH"])
-        / 1e18,  # out spot eth # might be incorrect
+        projected_slippage=100 * projected_swap_cost / amount_out_safe_value,  # todo add spot and safe slippage
     )
 
     new_dex_steps = []
@@ -187,18 +215,24 @@ def ensure_rebalance_plans_table_are_current():
             Destinations, where_clause=Destinations.chain_id == autopool.chain.chain_id
         )
 
+        destination_address_to_symbol = {d.destination_vault_address: d.underlying_symbol for d in destinations}
+
+        tokens = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == autopool.chain.chain_id)
+        token_address_to_decimals = {t.token_address: t.decimals for t in tokens}
+
         all_rebalance_plan_rows = []
         all_dex_steps_rows = []
 
         def _process_plan(plan_on_remote):
-            # fully local
             plan = convert_rebalance_plan_json_to_rebalance_plan_line(plan_on_remote, s3_client, autopool)
-            return _extract_rebalance_plan_and_dex_steps(plan, autopool, destinations)
+            return _extract_rebalance_plan_and_dex_steps(
+                plan, autopool, destination_address_to_symbol, token_address_to_decimals
+            )
 
         all_rebalance_plan_rows = []
         all_dex_steps_rows = []
 
-        with ThreadPoolExecutor(max_workers=32) as executor:
+        with ThreadPoolExecutor(max_workers=128) as executor:
             for new_rebalance_plan_row, new_dex_steps_rows in executor.map(_process_plan, plans_not_already_fetched):
                 all_rebalance_plan_rows.append(new_rebalance_plan_row)
                 all_dex_steps_rows.extend(new_dex_steps_rows)

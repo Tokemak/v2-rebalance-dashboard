@@ -336,10 +336,10 @@ class RebalancePlans(Base):
     # minAmountInETH
     min_amount_in_safe_value: Mapped[float] = mapped_column(nullable=True)
 
-    out_spot_eth: Mapped[float] = mapped_column(nullable=True)
+    amount_out_spot_value: Mapped[float] = mapped_column(nullable=True)
     out_dest_apr: Mapped[float] = mapped_column(nullable=True)
 
-    in_spot_eth: Mapped[float] = mapped_column(nullable=True)
+    min_amount_in_spot_value: Mapped[float] = mapped_column(nullable=True)
     in_dest_apr: Mapped[float] = mapped_column(nullable=True)
     in_dest_adj_apr: Mapped[float] = mapped_column(nullable=True)
 
