@@ -13,43 +13,56 @@ from mainnet_launch.database.schema.postgres_operations import (
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
+    safe_normalize_6_with_bool_success,
     build_blocks_to_use,
 )
 
-from mainnet_launch.constants import (
-    ALL_CHAINS,
-    ChainData,
-)
+from mainnet_launch.constants import ALL_CHAINS, ChainData, USDC, WETH
 
 
 def _fetch_new_autopool_state_rows(
     autopools: list[Autopools], missing_blocks: list[int], chain: ChainData
 ) -> pd.DataFrame:
 
-    def _extract_debt_plus_idle(success, AssetBreakdown):
+    def _extract_debt_plus_idle_18(success, AssetBreakdown):
         if success:
             totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
             return int(totalIdle + totalDebt) / 1e18
-        return None
+
+    def _extract_debt_plus_idle_6(success, AssetBreakdown):
+        if success:
+            totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
+            return int(totalIdle + totalDebt) / 1e6
 
     calls = []
     for autopool in autopools:
+        if autopool.base_asset in USDC:
+            total_nav_cleaning_function = _extract_debt_plus_idle_6
+            nav_per_share_cleaning_function = safe_normalize_6_with_bool_success
+        elif autopool.base_asset in WETH:
+            total_nav_cleaning_function = _extract_debt_plus_idle_18
+            nav_per_share_cleaning_function = safe_normalize_with_bool_success
+        else:
+            raise ValueError(f"Unknown base asset {autopool.base_asset} for autopool {autopool.autopool_vault_address}")
+
         calls.extend(
             [
                 Call(
                     autopool.autopool_vault_address,
                     ["totalSupply()(uint256)"],
-                    [((autopool.autopool_vault_address, "total_shares"), safe_normalize_with_bool_success)],
+                    [
+                        ((autopool.autopool_vault_address, "total_shares"), safe_normalize_with_bool_success)
+                    ],  # always 1e18
                 ),
                 Call(
                     autopool.autopool_vault_address,
                     ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
-                    [((autopool.autopool_vault_address, "total_nav"), _extract_debt_plus_idle)],
+                    [((autopool.autopool_vault_address, "total_nav"), total_nav_cleaning_function)],
                 ),
                 Call(
                     autopool.autopool_vault_address,
                     ["convertToAssets(uint256)(uint256)", int(1e18)],
-                    [((autopool.autopool_vault_address, "nav_per_share"), safe_normalize_with_bool_success)],
+                    [((autopool.autopool_vault_address, "nav_per_share"), nav_per_share_cleaning_function)],
                 ),
             ]
         )

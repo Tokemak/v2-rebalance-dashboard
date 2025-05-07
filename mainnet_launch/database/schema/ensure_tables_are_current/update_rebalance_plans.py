@@ -146,12 +146,8 @@ def _extract_rebalance_plan_and_dex_steps(
                 candidate_destinations_rank = i
                 projected_net_gain = d[1] / 1e18
                 projected_gross_gain = projected_net_gain + projected_swap_cost
-    # idle -> crvUSD/USDC
-    # but not in the add rank
-    # if plan['rebalance_plan_json_key'] == 'rebalance_plan_1745520200_0xa7569A44f348d3D70d8ad5889e50F78E33d80D35.json':
-    #     with open(plan['rebalance_plan_json_key'], 'x') as fout:
-    #         json.dump(plan, fout,  indent=4)
-    #     pass
+
+
     new_rebalance_plan_row = RebalancePlans(
         file_name=plan["rebalance_plan_json_key"],
         datetime_generated=pd.to_datetime(int(plan["timestamp"]), unit="s", utc=True),

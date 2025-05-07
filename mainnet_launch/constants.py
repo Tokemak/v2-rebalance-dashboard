@@ -113,6 +113,18 @@ class TokemakAddress:
         else:
             raise ValueError(f"No address defined for chain: {chain.name}")
 
+    def __contains__(self, addr: str) -> bool:
+        """
+        Allows membership testing:
+            addr in tokemak_address
+        will be True if addr matches either self.eth or self.base (after checksumming).
+        """
+        try:
+            csum = Web3.toChecksumAddress(addr)
+        except Exception:
+            return False
+        return csum == self.eth or csum == self.base
+
 
 SYSTEM_REGISTRY = TokemakAddress(
     eth="0x2218F90A98b0C070676f249EF44834686dAa4285", base="0x18Dc926095A7A007C01Ef836683Fdef4c4371b4e"
