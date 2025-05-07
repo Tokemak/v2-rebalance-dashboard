@@ -272,7 +272,7 @@ class TokenValues(Base):
     denomiated_in: Mapped[str] = mapped_column(nullable=False)
     backing: Mapped[float] = mapped_column(nullable=True)
     safe_price: Mapped[float] = mapped_column(nullable=True)
-    safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
+    # safe_backing_discount: Mapped[float] = mapped_column(nullable=True) # inferable from  (safe_price - backing) / backing
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),

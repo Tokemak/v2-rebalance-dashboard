@@ -147,7 +147,6 @@ def _extract_rebalance_plan_and_dex_steps(
                 projected_net_gain = d[1] / 1e18
                 projected_gross_gain = projected_net_gain + projected_swap_cost
 
-
     new_rebalance_plan_row = RebalancePlans(
         file_name=plan["rebalance_plan_json_key"],
         datetime_generated=pd.to_datetime(int(plan["timestamp"]), unit="s", utc=True),

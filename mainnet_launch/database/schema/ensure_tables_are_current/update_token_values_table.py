@@ -1,6 +1,5 @@
 import pandas as pd
 from multicall import Call
-import numpy as np
 from web3 import Web3
 
 
@@ -26,8 +25,17 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
     get_state_by_one_block,
     make_dummy_1_call,
+    safe_normalize_6_with_bool_success,
 )
-from mainnet_launch.constants import ALL_CHAINS, ROOT_PRICE_ORACLE, ChainData, STATS_CALCULATOR_REGISTRY, WETH
+from mainnet_launch.constants import (
+    ALL_CHAINS,
+    ROOT_PRICE_ORACLE,
+    ChainData,
+    STATS_CALCULATOR_REGISTRY,
+    WETH,
+    TokemakAddress,
+    USDC,
+)
 
 
 def ensure_token_values_are_current():
@@ -41,36 +49,33 @@ def ensure_token_values_are_current():
         )
         if len(missing_blocks) == 0:
             continue
-
+        missing_blocks = missing_blocks[-5:]
         all_tokens_orm: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
 
         df = _fetch_safe_and_backing_values(missing_blocks, all_tokens_orm, chain)
+   
 
         new_token_values_rows = []
 
         def _extract_token_values_by_row(row: dict):
             for token in all_tokens_orm:
-                backing = row.get((token.token_address, "backing"))
-                backing = None if pd.isna(backing) else float(backing)
+                for denominated_in in [WETH(chain), USDC(chain)]:
 
-                safe_price = row[(token.token_address, "safe_price")]
-                safe_price = None if pd.isna(safe_price) else float(safe_price)
+                    backing = row.get((token.token_address, "backing"))
+                    backing = None if pd.isna(backing) else float(backing)
 
-                if (safe_price is not None) and (backing is not None):
-                    safe_backing_spread = (safe_price - backing) / backing
-                else:
-                    safe_backing_spread = None
+                    safe_price = row[(token.token_address, denominated_in, "safe_price")]
+                    safe_price = None if pd.isna(safe_price) else float(safe_price)
 
-                new_token_values_row = TokenValues(
-                    block=int(row["block"]),
-                    chain_id=chain.chain_id,
-                    token_address=token.token_address,
-                    denomiated_in=WETH(chain),
-                    backing=backing,
-                    safe_price=safe_price,
-                    safe_backing_discount=safe_backing_spread,
-                )
-                new_token_values_rows.append(new_token_values_row)
+                    new_token_values_row = TokenValues(
+                        block=int(row["block"]),
+                        chain_id=chain.chain_id,
+                        token_address=token.token_address,
+                        denomiated_in=denominated_in,
+                        backing=backing,
+                        safe_price=safe_price,
+                    )
+                    new_token_values_rows.append(new_token_values_row)
 
         df.apply(_extract_token_values_by_row, axis=1)
 
@@ -82,17 +87,26 @@ def ensure_token_values_are_current():
 
 
 def _build_safe_price_calls(tokens: list[Tokens], chain: ChainData) -> list[Call]:
-    return [
+
+    eth_safe_price_calls = [
         Call(
             ROOT_PRICE_ORACLE(chain),
-            ["getPriceInEth(address)(uint256)", t.token_address],
-            [((t.token_address, "safe_price"), safe_normalize_with_bool_success)],
+            ["getPriceInQuote(address,address)(uint256)", t.token_address, WETH(chain)],
+            [((t.token_address, WETH(chain), "safe_price"), safe_normalize_with_bool_success)],
         )
         for t in tokens
     ]
 
-    # TODO add USDC safe prichere later
-    # get Price in quote, (USDC) see stable coin branch
+    usdc_safe_price_calls = [
+        Call(
+            ROOT_PRICE_ORACLE(chain),
+            ["getPriceInQuote(address,address)(uint256)", t.token_address, USDC(chain)],
+            [((t.token_address, USDC(chain), "safe_price"), safe_normalize_6_with_bool_success)],
+        )
+        for t in tokens
+    ]
+    # quote tokens for usdc on base might be 1e6
+    return [*eth_safe_price_calls, *usdc_safe_price_calls]
 
 
 def _build_backing_calls(tokens: list[Tokens], chain: ChainData) -> list[Call]:
