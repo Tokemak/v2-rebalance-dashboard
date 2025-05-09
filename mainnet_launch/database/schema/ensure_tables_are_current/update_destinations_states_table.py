@@ -337,9 +337,6 @@ def _extract_new_destination_states(
 
 
 def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainData):
-
-    update_destination_states_from_rebalance_plan()
-
     missing_blocks = get_subset_not_already_in_column(
         DestinationStates,
         DestinationStates.block,
@@ -395,12 +392,6 @@ def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainDa
     )
 
 
-def ensure_destination_states_are_current():
-    for chain in ALL_CHAINS:
-        possible_blocks = build_blocks_to_use(chain)
-        _add_new_destination_states_to_db(possible_blocks, chain)
-
-
 def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) -> list[DestinationStates]:
 
     autopools_as_destinations: list[Destinations] = get_full_table_as_orm(
@@ -429,6 +420,15 @@ def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) 
                 )
             )
     return idle_destination_states
+
+
+def ensure_destination_states_are_current():
+
+    update_destination_states_from_rebalance_plan()
+
+    for chain in ALL_CHAINS:
+        possible_blocks = build_blocks_to_use(chain)
+        _add_new_destination_states_to_db(possible_blocks, chain)
 
 
 if __name__ == "__main__":

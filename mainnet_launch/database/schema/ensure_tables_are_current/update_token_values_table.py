@@ -3,10 +3,7 @@ from multicall import Call
 from web3 import Web3
 
 
-from mainnet_launch.database.schema.full import (
-    Tokens,
-    TokenValues,
-)
+from mainnet_launch.database.schema.full import Tokens, TokenValues, AutopoolStates, DestinationStates
 
 
 from mainnet_launch.abis import STATS_CALCULATOR_REGISTRY_ABI
@@ -40,7 +37,21 @@ from mainnet_launch.constants import (
 
 def ensure_token_values_are_current():
     for chain in ALL_CHAINS:
-        possible_blocks = build_blocks_to_use(chain)
+        # inelegant but works
+        already_fetched_blocks = get_subset_not_already_in_column(
+            TokenValues,
+            TokenValues.block,
+            [],
+            where_clause=TokenValues.chain_id == chain.chain_id,
+        )
+
+        possible_blocks = get_subset_not_already_in_column(
+            DestinationStates,
+            DestinationStates.block,
+            already_fetched_blocks,
+            where_clause=DestinationStates.chain_id == chain.chain_id,
+        )
+
         missing_blocks = get_subset_not_already_in_column(
             TokenValues,
             TokenValues.block,

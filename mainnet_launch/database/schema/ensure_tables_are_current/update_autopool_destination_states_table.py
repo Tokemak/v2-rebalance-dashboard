@@ -8,6 +8,7 @@ from mainnet_launch.database.schema.full import (
     DestinationTokenValues,
     Destinations,
     AutopoolDestinationStates,
+    DestinationStates,
 )
 from mainnet_launch.database.schema.postgres_operations import (
     insert_avoid_conflicts,
@@ -86,12 +87,17 @@ def fetch_autopool_balance_of_by_destination(
 
 def ensure_autopool_destination_states_are_current():
     for chain in ALL_CHAINS:
-        possible_blocks = build_blocks_to_use(chain)
+        needed_blocks = get_subset_not_already_in_column(
+            DestinationStates,
+            DestinationStates.block,
+            [],
+            where_clause=DestinationStates.chain_id == chain.chain_id,
+        )
 
         missing_blocks = get_subset_not_already_in_column(
             AutopoolDestinationStates,
             AutopoolDestinationStates.block,
-            possible_blocks,
+            needed_blocks,
             where_clause=AutopoolDestinationStates.chain_id == chain.chain_id,
         )
 

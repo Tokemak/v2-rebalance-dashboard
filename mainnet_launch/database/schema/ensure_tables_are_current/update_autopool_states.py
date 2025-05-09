@@ -112,7 +112,19 @@ def _add_new_autopool_states_to_db(possible_blocks: list[int], chain: ChainData)
 
 def ensure_autopool_states_are_current():
     for chain in ALL_CHAINS:
-        possible_blocks = build_blocks_to_use(chain)
+        already_fetched_blocks = get_subset_not_already_in_column(
+            AutopoolStates,
+            AutopoolStates.block,
+            [],
+            where_clause=AutopoolStates.chain_id == chain.chain_id,
+        )
+
+        possible_blocks = get_subset_not_already_in_column(
+            DestinationStates,
+            DestinationStates.block,
+            already_fetched_blocks,
+            where_clause=DestinationStates.chain_id == chain.chain_id,
+        )
         _add_new_autopool_states_to_db(possible_blocks, chain)
 
 

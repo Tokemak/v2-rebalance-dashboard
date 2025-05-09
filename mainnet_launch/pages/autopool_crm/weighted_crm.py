@@ -68,7 +68,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
             ),
             TableSelector(
                 Blocks,
-                Blocks.datetime,
+                B[Blocks.datetime, Blocks.block],
                 (DestinationStates.block == Blocks.block) & (DestinationStates.chain_id == Blocks.chain_id),
             ),
         ],
@@ -80,14 +80,12 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
         lambda row: f"{row['underlying_symbol']} ({row['exchange_name']})", axis=1
     )
 
+    sum_df = (
+        destination_state_df.groupby(["readable_destination_name", "datetime"])[["owned_shares"]].sum().reset_index()
+    )
+
     owned_shares_df = (
-        (
-            destination_state_df.groupby(["readable_destination_name", "datetime"])["owned_shares"]
-            .sum()
-            .pivot(index="datetime", values="owned_shares", columns="readable_destination_name")
-        )
-        .resample("1D")
-        .last()
+        sum_df.pivot(index="datetime", values="owned_shares", columns="readable_destination_name").resample("1D").last()
     )
 
     max_df = (
@@ -95,29 +93,33 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
             ["lp_token_safe_price", "total_apr_out", "total_apr_in"]
         ]
         .max()
-        .resample("1D")
-        .last()
+        .reset_index()
     )
 
-    lp_token_safe_price_df = max_df.pivot(
-        index="datetime", values="lp_token_safe_price", columns="readable_destination_name"
+    lp_token_safe_price_df = (
+        max_df.pivot(index="datetime", values="lp_token_safe_price", columns="readable_destination_name")
+        .resample("1D")
+        .last()
     )
 
     allocation_df = (lp_token_safe_price_df * owned_shares_df).fillna(0)
 
     portion_allocation_df = allocation_df.div(allocation_df.sum(axis=1), axis=0)
 
-    total_apr_out_df = (
+    total_apr_out_df = 100 * (
         max_df.pivot(index="datetime", values="total_apr_out", columns="readable_destination_name")
         .resample("1D")
         .last()
     )
     total_apr_out_df[f"{autopool.name} CR"] = 100 * (total_apr_out_df * portion_allocation_df).sum(axis=1)
 
-    total_apr_in_df = max_df.pivot(index="datetime", values="total_apr_in", columns="readable_destination_name")
+    total_apr_in_df = (
+        100
+        * max_df.pivot(index="datetime", values="total_apr_in", columns="readable_destination_name")
+        .resample("1D")
+        .last()
+    )
     total_apr_in_df[f"{autopool.name} CR"] = 100 * (total_apr_out_df * portion_allocation_df).sum(axis=1)
-
-    total_apr_in_df = total_apr_in_df
 
     composite_return_out_fig = px.line(total_apr_out_df, title=f"{autopool.name} Composite Return Out")
 
@@ -156,3 +158,12 @@ def _apply_default_style(fig: go.Figure) -> None:
         yaxis=dict(showgrid=True, gridcolor="lightgray"),
         colorway=px.colors.qualitative.Set2,
     )
+
+
+if __name__ == "__main__":
+    from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
+    from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
+
+    fetch_and_render_weighted_crm_data(ALL_AUTOPOOLS[0])
+
+    fetch_and_render_weighted_crm_data(ALL_AUTOPOOLS[-1])

@@ -312,3 +312,12 @@ def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
     #     Autopool[] autoPools;
     #     DestinationVault[][] destinations;
     # }
+
+
+if __name__ == "__main__":
+
+    from mainnet_launch.constants import ETH_CHAIN
+
+    df = fetch_pools_and_destinations_df(ETH_CHAIN, [22448783])
+    a = df.values[0]
+    pass

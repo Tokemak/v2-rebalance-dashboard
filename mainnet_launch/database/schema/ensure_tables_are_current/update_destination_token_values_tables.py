@@ -7,7 +7,7 @@ from mainnet_launch.database.schema.full import (
     DestinationTokens,
     Destinations,
     Tokens,
-    TokenValues,
+    DestinationStates,
     Autopools,
 )
 
@@ -180,7 +180,22 @@ def _fetch_and_insert_destination_token_values(chain: ChainData, possible_blocks
 
 def ensure_destination_token_values_are_current():
     for chain in ALL_CHAINS:
-        possible_blocks = build_blocks_to_use(chain)
+        # get all all the blocks we've already fetched
+        # and then add any blocks htat are in destiantion states but not in destination token values
+        already_fetched_blocks = get_subset_not_already_in_column(
+            DestinationTokenValues,
+            DestinationTokenValues.block,
+            [],
+            where_clause=DestinationTokenValues.chain_id == chain.chain_id,
+        )
+
+        possible_blocks = get_subset_not_already_in_column(
+            DestinationStates,
+            DestinationStates.block,
+            already_fetched_blocks,
+            where_clause=DestinationStates.chain_id == chain.chain_id,
+        )
+
         _fetch_and_insert_destination_token_values(chain, possible_blocks)
 
 
