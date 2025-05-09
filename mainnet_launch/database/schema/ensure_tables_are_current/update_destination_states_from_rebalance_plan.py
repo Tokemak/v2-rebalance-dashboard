@@ -90,21 +90,7 @@ def dicts_to_destination_states(
         )
 
         state_of_destinations.append(state)
-
-        # for index in range(len(dest_state["underlyingTokens"])):
-        #     token_address = Web3.toChecksumAddress(dest_state["underlyingTokens"][index])
-        #     quantity = dest_state["underlyingTokenAmounts"][index] / (10 ** tokens_address_to_decimals[token_address])
-        #     destination_token_states.append(
-        #         DestinationTokenValues(
-        #             destination_vault_address=Web3.toChecksumAddress(dest_state["address"]),
-        #             block=block,
-        #             chain_id=autopool.chain.chain_id,
-        #             token_address=token_address,
-        #             spot_price=dest_state["tokenSpotPrice"][index],
-        #             quantity=quantity,
-        #         )
-        #     )
-
+    print(len(state_of_destinations), "length of state of destinations")
     return state_of_destinations
 
 
@@ -128,15 +114,16 @@ def update_destination_states_from_rebalance_plan():
             return dicts_to_destination_states(plan, autopool, timestamp_to_block, tokens_address_to_decimals)
 
         all_destination_states = []
-        with ThreadPoolExecutor(max_workers=128) as executor:
-            for p in solver_plan_paths_on_remote:
-                state_of_destinations = _process_plan(p)
-                futures = {executor.submit(_process_plan, path): path for path in solver_plan_paths_on_remote}
+        with ThreadPoolExecutor(max_workers=32) as executor:       # return
+        
 
-                for fut in as_completed(futures):
-                    state_of_destinations, destination_token_states = fut.result()
-                    all_destination_states.extend(state_of_destinations)
-                    # all_dest_token_states.extend(destination_token_states)
+            futures = {executor.submit(_process_plan, path): path for path in solver_plan_paths_on_remote}
+
+            for fut in as_completed(futures):
+                state_of_destinations = fut.result()
+                all_destination_states.extend(state_of_destinations)
+                print("length of all destination states", len(all_destination_states))
+                # all_dest_token_states.extend(destination_token_states)
 
         ensure_all_blocks_are_in_table([d.block for d in all_destination_states], autopool.chain)
         insert_avoid_conflicts(
@@ -148,3 +135,7 @@ def update_destination_states_from_rebalance_plan():
                 DestinationStates.destination_vault_address,
             ],
         )
+
+
+if __name__ == "__main__":
+    update_destination_states_from_rebalance_plan()

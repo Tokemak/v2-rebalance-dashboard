@@ -43,10 +43,19 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
                 DestinationStates,
                 select_fields=[
                     DestinationStates.destination_vault_address,
-                    DestinationStates.price_per_share,
+                    DestinationStates.lp_token_safe_price,
                     DestinationStates.total_apr_out,
                     DestinationStates.total_apr_in,
                 ],
+            ),
+            TableSelector(
+                Destinations,
+                select_fields=[
+                    Destinations.underlying_symbol,
+                    Destinations.exchange_name,
+                ],
+                join_on=(Destinations.destination_vault_address == DestinationStates.destination_vault_address)
+                & (Destinations.chain_id == DestinationStates.chain_id),
             ),
             TableSelector(
                 AutopoolDestinationStates,
@@ -63,32 +72,54 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
                 (DestinationStates.block == Blocks.block) & (DestinationStates.chain_id == Blocks.chain_id),
             ),
         ],
-        where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
-        & (Blocks.block.in_(build_blocks_to_use(autopool.chain))),
+        where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
         order_by=Blocks.datetime,
     )
 
-    owned_shares_df = destination_state_df.pivot(
-        index="datetime", values="owned_shares", columns="destination_vault_address"
+    destination_state_df["readable_destination_name"] = destination_state_df.apply(
+        lambda row: f"{row['underlying_symbol']} ({row['exchange_name']})", axis=1
     )
 
-    price_per_share_df = destination_state_df.pivot(
-        index="datetime", values="price_per_share", columns="destination_vault_address"
+    owned_shares_df = (
+        (
+            destination_state_df.groupby(["readable_destination_name", "datetime"])["owned_shares"]
+            .sum()
+            .pivot(index="datetime", values="owned_shares", columns="readable_destination_name")
+        )
+        .resample("1D")
+        .last()
     )
 
-    allocation_df = (price_per_share_df * owned_shares_df).fillna(0)
+    max_df = (
+        destination_state_df.groupby(["readable_destination_name", "datetime"])[
+            ["lp_token_safe_price", "total_apr_out", "total_apr_in"]
+        ]
+        .max()
+        .resample("1D")
+        .last()
+    )
+
+    lp_token_safe_price_df = max_df.pivot(
+        index="datetime", values="lp_token_safe_price", columns="readable_destination_name"
+    )
+
+    allocation_df = (lp_token_safe_price_df * owned_shares_df).fillna(0)
 
     portion_allocation_df = allocation_df.div(allocation_df.sum(axis=1), axis=0)
 
-    total_apr_out_df = destination_state_df.pivot(
-        index="datetime", values="total_apr_out", columns="destination_vault_address"
+    total_apr_out_df = (
+        max_df.pivot(index="datetime", values="total_apr_out", columns="readable_destination_name")
+        .resample("1D")
+        .last()
     )
     total_apr_out_df[f"{autopool.name} CR"] = 100 * (total_apr_out_df * portion_allocation_df).sum(axis=1)
 
-    total_apr_in_df = destination_state_df.pivot(
-        index="datetime", values="total_apr_in", columns="destination_vault_address"
+    total_apr_in_df = (
+        max_df.pivot(index="datetime", values="total_apr_in", columns="readable_destination_name")
     )
     total_apr_in_df[f"{autopool.name} CR"] = 100 * (total_apr_out_df * portion_allocation_df).sum(axis=1)
+
+    total_apr_in_df = total_apr_in_df
 
     composite_return_out_fig = px.line(total_apr_out_df, title=f"{autopool.name} Composite Return Out")
 

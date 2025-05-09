@@ -30,7 +30,9 @@ class Base(MappedAsDataclass, DeclarativeBase):
 
     @classmethod
     def from_record(cls, record: dict):
-        return cls(**record)
+        valid_cols = {c.name for c in cls.__table__.columns}
+        filtered = {k: v for k, v in record.items() if k in valid_cols}
+        return cls(**filtered)
 
     def to_tuple(self) -> tuple:
         """
