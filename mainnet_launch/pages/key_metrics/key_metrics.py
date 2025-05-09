@@ -118,7 +118,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     allocation_df = (price_per_share_df * owned_shares_df).fillna(0)
     total_nav_series = allocation_df.sum(axis=1)
 
-    portion_df = allocation_df.div(total_nav_series, axis=0)
+    portion_df = allocation_df.div(total_nav_series, axis=1)
 
     destination_state_df["unweighted_apr"] = destination_state_df[["fee_apr", "base_apr", "incentive_apr"]].sum(axis=1)
 
