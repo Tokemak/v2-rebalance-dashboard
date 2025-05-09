@@ -182,12 +182,10 @@ class DestinationStates(Base):
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    # information about the destination itself at this moment in time
 
     incentive_apr: Mapped[float] = mapped_column(nullable=True)
     fee_apr: Mapped[float] = mapped_column(nullable=True)
     base_apr: Mapped[float] = mapped_column(nullable=True)
-
     points_apr: Mapped[float] = mapped_column(nullable=True)
 
     # only for post autoUSD destinations
@@ -196,23 +194,11 @@ class DestinationStates(Base):
     total_apr_in: Mapped[float] = mapped_column(nullable=True)
     total_apr_out: Mapped[float] = mapped_column(nullable=True)
 
-    # I am pretty sure this is correct in the db
     underlying_token_total_supply: Mapped[float] = mapped_column(nullable=True)
     safe_total_supply: Mapped[float] = mapped_column(nullable=True)
-    price_per_share: Mapped[float] = mapped_column(nullable=True)  #
-    price_return: Mapped[float] = mapped_column(nullable=True)
-
-    # this is inferable
-    # in units of LP tokens
-    # underlying_safe_price: Mapped[float] = mapped_column(nullable=True)
-    # underlying_spot_price: Mapped[float] = mapped_column(nullable=True)
-    # underlying_backing: Mapped[float] = mapped_column(nullable=True)
-
-    # safe_backing_discount: Mapped[float] = mapped_column(nullable=True)
-    # spot_backing_discount: Mapped[float] = mapped_column(nullable=True)
-    # safe_spot_spread: Mapped[float] = mapped_column(nullable=True)
 
     lp_token_spot_price: Mapped[float] = mapped_column(nullable=True)
+    lp_token_safe_price: Mapped[float] = mapped_column(nullable=True)
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),

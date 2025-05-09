@@ -42,7 +42,7 @@ def _fetch_block_df_from_subgraph(
 ) -> pd.DataFrame:
     timestamps_less_15_seconds = []
     for t in timestamps:
-        for i in range(20):  # there should be a block at least in the 20 seconds prior to end of timestamp
+        for i in range(40):  # there should be a block at least in the 20 seconds prior to end of timestamp
             timestamps_less_15_seconds.append(t - i)
 
     match chain.name:
@@ -54,12 +54,11 @@ def _fetch_block_df_from_subgraph(
             raise ValueError(f"Unsupported chain: {chain.name}")
 
     records: list[dict] = []
-    skip = 0
 
-    groups = np.array_split(timestamps_less_15_seconds, 20)
-    for t in groups:
+    groups = np.array_split(timestamps_less_15_seconds,(len(timestamps_less_15_seconds) // min(len(timestamps_less_15_seconds   ), page_size)) + 1)
+    for timestamps in groups:
 
-        ts_filter = f"timestamp_in: [{','.join(map(str, t))}]"
+        ts_filter = f"timestamp_in: [{','.join(map(str, timestamps))}]"
         where_clause = f"where: {{{ts_filter}}}"
 
         query = f"""
@@ -74,19 +73,15 @@ def _fetch_block_df_from_subgraph(
         r.raise_for_status()
         page = r.json()["data"]["blocks"]
         records.extend(page)
-        skip += page_size
         time.sleep(0.2)  # don't overwhelm API.  Not certain if needed
         # print(len(records))
 
     df = pd.DataFrame.from_records(records)
-    df["datetime"] = pd.to_datetime(df["timestamp"].astype(int), unit="s", utc=True)
+    df['timestamp'] = df['timestamp'].astype(int)
+    df["datetime"] = pd.to_datetime(df["timestamp"], unit="s", utc=True)
     df["block"] = df["number"].astype(int)
     df["chain_id"] = chain.chain_id
-    df["date"] = df["datetime"].dt.date
-    valid_blocks = df.groupby("date")["block"].max()
-    block_df = df[df["block"].isin(valid_blocks)].reset_index(drop=True)
-    block_df = block_df.sort_values("datetime")
-    return df[["block", "datetime", "chain_id"]]
+    return df[["block", "datetime", "timestamp", "chain_id"]]
 
 
 def ensure_blocks_is_current():

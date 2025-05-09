@@ -54,13 +54,15 @@ def build_lp_token_spot_price_calls(
     def _handle_getRangePricesLP(success, args):
         if success:
             spotPriceInQuote, safePriceInQuote, isSpotSafe = args
-            return spotPriceInQuote / (10**base_asset_decimals)  # not certain here on deciamls
+            lp_token_spot_price = spotPriceInQuote / (10**base_asset_decimals)
+            lp_token_safe_price = safePriceInQuote / (10**base_asset_decimals)
+            return (lp_token_spot_price, lp_token_safe_price)
 
     return [
         Call(
             ROOT_PRICE_ORACLE(chain),
             ["getRangePricesLP(address,address,address)((uint256,uint256,uint256))", lp_token, pool, base_asset],
-            [((destination, "lp_token_spot_price"), _handle_getRangePricesLP)],
+            [((destination, "lp_token_spot_and_safe"), _handle_getRangePricesLP)],
         )
         for destination, lp_token, pool in zip(destination_addresses, lp_token_addresses, pool_addresses)
     ]
@@ -296,31 +298,32 @@ def _extract_new_destination_states(
                 fee_apr = in_summary_stats.get("feeApr")
                 base_apr = in_summary_stats.get("baseApr")
 
-                price_per_share = in_summary_stats.get("pricePerShare")
-                price_return = in_summary_stats.get("priceReturn")
-                fee_plus_base_apr = None  # only for post autoUSD destinations
                 safe_total_supply = in_summary_stats.get("safeTotalSupply")
 
                 points_apr = row[(dest.destination_vault_address, "points")]
                 underlying_total_supply = row[(dest.destination_vault_address, "underlyingTotalSupply")]
-                lp_token_spot_price = row[(dest.destination_vault_address, "lp_token_spot_price")]
+                possible_safe_and_spot_price = row[(dest.destination_vault_address, "lp_token_spot_and_safe")]
+                if possible_safe_and_spot_price is None:
+                    lp_token_spot_price = None
+                    lp_token_safe_price = None
+                else:
+                    lp_token_spot_price, lp_token_safe_price = possible_safe_and_spot_price
 
                 new_destination_state = DestinationStates(
                     destination_vault_address=dest.destination_vault_address,
-                    block=row["block"],
+                    block=int(row["block"]),
                     chain_id=chain.chain_id,
                     incentive_apr=incentive_apr,
                     fee_apr=fee_apr,
                     base_apr=base_apr,
                     points_apr=points_apr,
-                    fee_plus_base_apr=fee_plus_base_apr,
+                    fee_plus_base_apr=None,  # only for post autoUSD destinations
                     total_apr_in=total_apr_in,
                     total_apr_out=total_apr_out,
                     underlying_token_total_supply=underlying_total_supply,
                     safe_total_supply=safe_total_supply,
-                    price_per_share=price_per_share,
-                    price_return=price_return,
                     lp_token_spot_price=lp_token_spot_price,
+                    lp_token_safe_price=lp_token_safe_price,
                 )
                 all_new_destination_states.append(new_destination_state)
 
@@ -415,9 +418,8 @@ def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) 
                     total_apr_out=0.0,
                     underlying_token_total_supply=None,
                     safe_total_supply=None,
-                    price_per_share=1.0,
-                    price_return=0.0,
                     lp_token_spot_price=1.0,
+                    lp_token_safe_price=1.0,
                 )
             )
     return idle_destination_states
