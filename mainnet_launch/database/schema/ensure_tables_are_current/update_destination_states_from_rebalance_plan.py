@@ -1,11 +1,21 @@
-import pandas as pd
-from multicall import Call
+import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import boto3
+from botocore import UNSIGNED
+from botocore.config import Config
+import pandas as pd
+from web3 import Web3
+
+import plotly.express as px
 
 from mainnet_launch.database.schema.full import (
-    Autopools,
-    DestinationStates,
+    RebalancePlans,
     Destinations,
+    DexSwapSteps,
+    Tokens,
+    DestinationStates,
+    DestinationTokenValues,
 )
 
 from mainnet_launch.database.schema.postgres_operations import (
@@ -13,351 +23,128 @@ from mainnet_launch.database.schema.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
 )
-from mainnet_launch.data_fetching.get_state_by_block import (
-    get_raw_state_by_blocks,
-    safe_normalize_with_bool_success,
-    build_blocks_to_use,
-)
 
-from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
-from mainnet_launch.constants import (
-    ChainData,
-    ALL_CHAINS,
-    POINTS_HOOK,
-    ROOT_PRICE_ORACLE,
-    USDC,
-    WETH,
-    ETH_CHAIN,
-    BASE_CHAIN,
-)
-
-from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
-    fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks,
-)
+from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_USD
+from mainnet_launch.data_fetching.block_timestamp import _fetch_block_df_from_subgraph, ensure_all_blocks_are_in_table
 
 
-def build_lp_token_spot_price_calls(
-    destination_addresses: list[str],
-    lp_token_addresses: list[str],
-    pool_addresses: list[str],
-    chain: ChainData,
-    base_asset: str,
-) -> list[Call]:
-
-    if base_asset in [USDC(ETH_CHAIN), USDC(BASE_CHAIN)]:
-        base_asset_decimals = 6
-    elif base_asset in [WETH(ETH_CHAIN), WETH(BASE_CHAIN)]:
-        base_asset_decimals = 18
-    else:
-        raise ValueError("Unexpected base_asset", base_asset)
-
-    def _handle_getRangePricesLP(success, args):
-        if success:
-            spotPriceInQuote, safePriceInQuote, isSpotSafe = args
-            return spotPriceInQuote / (10**base_asset_decimals)  # not certain here on deciamls
-
-    return [
-        Call(
-            ROOT_PRICE_ORACLE(chain),
-            ["getRangePricesLP(address,address,address)((uint256,uint256,uint256))", lp_token, pool, base_asset],
-            [((destination, "lp_token_spot_price"), _handle_getRangePricesLP)],
-        )
-        for destination, lp_token, pool in zip(destination_addresses, lp_token_addresses, pool_addresses)
-    ]
-
-
-def _fetch_lp_token_spot_prices(
-    autopool_to_all_ever_active_destinations: dict[str, list[Destinations]],
-    missing_blocks: list[int],
-    chain: ChainData,
-) -> pd.DataFrame:
-    autopool_orm: list[Autopools] = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
-    lp_token_spot_prices_calls = []
-
-    for autopool_vault_address in autopool_to_all_ever_active_destinations.keys():
-        this_autopool_active_destinations: list[Destinations] = [
-            dest for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]
-        ]
-
-        base_asset = [a.base_asset for a in autopool_orm if a.autopool_vault_address == autopool_vault_address][0]
-
-        destination_vault_addresses = [dest.destination_vault_address for dest in this_autopool_active_destinations]
-        lp_token_addresses = [dest.underlying for dest in this_autopool_active_destinations]
-        pool_addresses = [dest.pool for dest in this_autopool_active_destinations]
-
-        calls = build_lp_token_spot_price_calls(
-            destination_vault_addresses, lp_token_addresses, pool_addresses, chain, base_asset
-        )
-        lp_token_spot_prices_calls.extend(calls)
-
-    lp_token_spot_price_df = get_raw_state_by_blocks(
-        lp_token_spot_prices_calls, missing_blocks, chain, include_block_number=True
-    )
-    return lp_token_spot_price_df
-
-
-def build_destinations_underlyingTotalSupply_calls(destination_vault_addresses: list[str]) -> list[Call]:
-    return [
-        Call(
-            destination_vault_address,
-            ["underlyingTotalSupply()(uint256)"],
-            [((destination_vault_address, "underlyingTotalSupply"), safe_normalize_with_bool_success)],
-        )
-        for destination_vault_address in destination_vault_addresses
-    ]
-
-
-def _fetch_destination_total_supply_df(
-    autopool_to_all_ever_active_destinations: dict, missing_blocks: list[int], chain: ChainData
-) -> pd.DataFrame:
-    all_active_destinations = set()
-
-    for autopool_vault_address in autopool_to_all_ever_active_destinations.keys():
-        this_autopool_active_destinations = [
-            dest.destination_vault_address for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]
-        ]
-        all_active_destinations.update(this_autopool_active_destinations)
-
-    calls = build_destinations_underlyingTotalSupply_calls(list(all_active_destinations))
-    destination_total_supply_df = get_raw_state_by_blocks(calls, missing_blocks, chain, include_block_number=True)
-    # looks right
-    return destination_total_supply_df
-
-
-def _build_destination_points_calls(this_autopool_active_destinations: list[str], chain: ChainData) -> list[Call]:
-    return [
-        Call(
-            POINTS_HOOK(chain),
-            ["destinationBoosts(address)(uint256)", destination_vault_address],
-            [((destination_vault_address, "points"), safe_normalize_with_bool_success)],
-        )
-        for destination_vault_address in this_autopool_active_destinations
-    ]
-
-
-def _fetch_autopool_points_apr(
-    autopool_to_all_ever_active_destinations: dict[str, list[Destinations]], missing_blocks: list[int], chain: ChainData
-) -> pd.DataFrame:
-    autopool_points_calls = []
-
-    for autopool_vault_address in autopool_to_all_ever_active_destinations.keys():
-        this_autopool_active_destinations = [
-            dest.destination_vault_address for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]
-        ]
-
-        autopool_points_calls.extend(_build_destination_points_calls(this_autopool_active_destinations, chain))
-
-    autopool_points_df = get_raw_state_by_blocks(
-        autopool_points_calls, missing_blocks, chain, include_block_number=True
-    )
-    return autopool_points_df
-
-
-def _clean_summary_stats_info(success, summary_stats):
-    if success is True:
-        summary = {
-            "destination": summary_stats[0],  # address
-            "baseApr": summary_stats[1] / 1e18,
-            "feeApr": summary_stats[2] / 1e18,
-            "incentiveApr": summary_stats[3] / 1e18,
-            "safeTotalSupply": summary_stats[4] / 1e18,
-            "priceReturn": summary_stats[5] / 1e18,
-            "maxDiscount": summary_stats[6] / 1e18,
-            "maxPremium": summary_stats[7] / 1e18,
-            "ownedShares": summary_stats[8] / 1e18,
-            "compositeReturn": summary_stats[9] / 1e18,
-            "pricePerShare": summary_stats[10] / 1e18,
-            "pointsApr": None,  # set later
-        }
-        return summary
-    else:
-        return None
-
-
-def _build_summary_stats_call(
-    autopool: Autopools,
-    dest: Destinations,
-    direction: str = "out",
-    amount: int = 0,
-) -> Call:
-    # /// @notice Gets the safe price of the underlying LP token
-    # /// @dev Price validated to be inside our tolerance against spot price. Will revert if outside.
-    # /// @return price Value of 1 unit of the underlying LP token in terms of the base asset
-    # function getValidatedSafePrice() external returns (uint256 price);
-    # getDestinationSummaryStats uses getValidatedSafePrice. So when prices are outside tolerance this function reverts
-
-    # consider finding a version of this function that won't revert, (follow up, I am pretty sure that does not exist)
-    if direction == "in":
-        direction_enum = 0
-    elif direction == "out":
-        direction_enum = 1
-    return_types = "(address,uint256,uint256,uint256,uint256,int256,int256,int256,uint256,int256,uint256)"
-
-    # cleaning_function = build_summary_stats_cleaning_function(autopool)
-    return Call(
-        autopool.strategy_address,
-        [
-            f"getDestinationSummaryStats(address,uint8,uint256)({return_types})",
-            dest.destination_vault_address,
-            direction_enum,
-            amount,
-        ],
-        [((autopool.autopool_vault_address, dest.destination_vault_address, direction), _clean_summary_stats_info)],
-    )
-
-
-def _fetch_destination_summary_stats_df(
-    autopool_to_all_ever_active_destinations: dict, missing_blocks: list[int], chain: ChainData
-) -> pd.DataFrame:
-    autopools_orm: list[Autopools] = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
-    full_autopool_summary_stats_df = None
-
-    for autopool in autopools_orm:
-        all_summary_stats_calls = []
-        this_autopool_destinations = autopool_to_all_ever_active_destinations[autopool.autopool_vault_address]
-        for dest in this_autopool_destinations:
-            all_summary_stats_calls.append(_build_summary_stats_call(autopool, dest, "out"))
-            all_summary_stats_calls.append(_build_summary_stats_call(autopool, dest, "in"))
-
-        autopool_summary_stats_df = get_raw_state_by_blocks(
-            all_summary_stats_calls, missing_blocks, chain, include_block_number=True
-        )
-
-        if full_autopool_summary_stats_df is None:
-            full_autopool_summary_stats_df = autopool_summary_stats_df.copy()
-        else:
-            full_autopool_summary_stats_df = pd.merge(
-                full_autopool_summary_stats_df, autopool_summary_stats_df, on="block"
-            )
-
-    # I think the issue here is that it it getting the None version when it should get the active version
-    return full_autopool_summary_stats_df
-
-
-def _extract_new_destination_states(
-    autopool_summary_stats_df: pd.DataFrame,
-    destination_underlying_total_supply_df: pd.DataFrame,
-    autopool_points_df: pd.DataFrame,
-    lp_token_spot_price_df: pd.DataFrame,
-    autopool_to_all_ever_active_destinations: dict[str | list[Destinations]],
-    chain: ChainData,
+def convert_rebalance_plan_json_to_rebalance_plan_line(
+    rebalance_plan_json_key: str, s3_client, autopool: AutopoolConstants
 ):
-    all_new_destination_states = []
-    # autopool_summary_stats_df, destination_underlying_total_supply_df, token_value_df, autopool_to_all_ever_active_destinations
-    raw_destination_states_df = pd.merge(autopool_summary_stats_df, destination_underlying_total_supply_df, on="block")
-    raw_destination_states_df = pd.merge(raw_destination_states_df, autopool_points_df, on="block")
-    raw_destination_states_df = pd.merge(raw_destination_states_df, lp_token_spot_price_df, on="block")
-
-    for autopool_vault_address in autopool_to_all_ever_active_destinations.keys():
-        for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]:
-            dest: Destinations
-
-            def _extract_destination_states(row: pd.DataFrame) -> None:
-                in_summary_stats = row.get((autopool_vault_address, dest.destination_vault_address, "in"), {}) or {}
-                out_summary_stats = row.get((autopool_vault_address, dest.destination_vault_address, "out"), {}) or {}
-
-                total_apr_in = in_summary_stats.get("compositeReturn")
-                total_apr_out = out_summary_stats.get("compositeReturn")
-
-                incentive_apr = in_summary_stats.get("incentiveApr")
-                fee_apr = in_summary_stats.get("feeApr")
-                base_apr = in_summary_stats.get("baseApr")
-
-                price_per_share = in_summary_stats.get("pricePerShare")
-                price_return = in_summary_stats.get("priceReturn")
-                fee_plus_base_apr = None  # only for post autoUSD destinations
-                safe_total_supply = in_summary_stats.get("safeTotalSupply")
-
-                points_apr = row[(dest.destination_vault_address, "points")]
-                underlying_total_supply = row[(dest.destination_vault_address, "underlyingTotalSupply")]
-                lp_token_spot_price = row[(dest.destination_vault_address, "lp_token_spot_price")]
-
-                new_destination_state = DestinationStates(
-                    destination_vault_address=dest.destination_vault_address,
-                    block=row["block"],
-                    chain_id=chain.chain_id,
-                    incentive_apr=incentive_apr,
-                    fee_apr=fee_apr,
-                    base_apr=base_apr,
-                    points_apr=points_apr,
-                    fee_plus_base_apr=fee_plus_base_apr,
-                    total_apr_in=total_apr_in,
-                    total_apr_out=total_apr_out,
-                    underlying_token_total_supply=underlying_total_supply,
-                    safe_total_supply=safe_total_supply,
-                    price_per_share=price_per_share,
-                    price_return=price_return,
-                    lp_token_spot_price=lp_token_spot_price,
-                )
-                all_new_destination_states.append(new_destination_state)
-
-            raw_destination_states_df.apply(_extract_destination_states, axis=1)
-
-    return all_new_destination_states
-
-
-def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainData):
-
-    missing_blocks = get_subset_not_already_in_column(
-        DestinationStates,
-        DestinationStates.block,
-        possible_blocks,
-        where_clause=DestinationStates.chain_id == chain.chain_id,
+    plan = json.loads(
+        s3_client.get_object(
+            Bucket=autopool.solver_rebalance_plans_bucket,
+            Key=rebalance_plan_json_key,
+        )["Body"].read()
     )
 
-    if len(missing_blocks) == 0:
-        return
-
-    ensure_all_blocks_are_in_table(missing_blocks, chain)
-
-    autopool_to_all_ever_active_destinations = fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
-        chain, missing_blocks
-    )
-
-    destination_underlying_total_supply_df = _fetch_destination_total_supply_df(
-        autopool_to_all_ever_active_destinations, missing_blocks, chain
-    )
-
-    autopool_points_df = _fetch_autopool_points_apr(autopool_to_all_ever_active_destinations, missing_blocks, chain)
-
-    lp_token_spot_price_df = _fetch_lp_token_spot_prices(
-        autopool_to_all_ever_active_destinations, missing_blocks, chain
-    )
-
-    autopool_summary_stats_df = _fetch_destination_summary_stats_df(
-        autopool_to_all_ever_active_destinations, missing_blocks, chain
-    )
-
-    all_new_destination_states = _extract_new_destination_states(
-        autopool_summary_stats_df,
-        destination_underlying_total_supply_df,
-        autopool_points_df,
-        lp_token_spot_price_df,
-        autopool_to_all_ever_active_destinations,
-        chain,
-    )
-
-    idle_destination_states = _fetch_idle_destination_states(chain, missing_blocks)
-
-    insert_avoid_conflicts(
-        [
-            *all_new_destination_states,
-            *idle_destination_states,
-        ],
-        DestinationStates,
-        index_elements=[
-            DestinationStates.block,
-            DestinationStates.chain_id,
-            DestinationStates.destination_vault_address,
-        ],
-    )
+    plan["rebalance_plan_json_key"] = rebalance_plan_json_key
+    plan["autopool_vault_address"] = autopool.autopool_eth_addr
+    return plan
 
 
-def ensure_destination_states_are_current():
-    for chain in ALL_CHAINS:
-        possible_blocks = build_blocks_to_use(chain)
-        _add_new_destination_states_to_db(possible_blocks, chain)
+def dicts_to_destination_states(
+    plan: dict,
+    autopool: AutopoolConstants,
+    timestamp_to_block: dict[int, int],
+    tokens_address_to_decimals: dict[str, int],
+) -> list[DestinationStates]:
+    """
+    Convert each dict in `items` into a DestinationStates ORM object,
+    using direct lookups and computing fee_plus_base_apr as
+    total_apr_out - incentive_apr. All numeric fields are cast to float.
+    """
+    destination_token_states = []
+    state_of_destinations: list[DestinationStates] = []
+    for dest_state in plan["sod"]["destStates"]:
+        # direct lookups and float conversion
+        incentive = float(dest_state["incentiveAPR"])
+        total_in = float(dest_state["totalAprIn"])
+        total_out = float(dest_state["totalAprOut"])
+
+        raw_total_supply = float(dest_state["totSupply"])
+        normalized_total_supply = raw_total_supply / (10 ** tokens_address_to_decimals[dest_state["underlying"]])
+
+        current_timestamps = [plan["sod"]["currentTimestamp"] + i for i in range(-30, 30)]
+        # the first block that is +- 1 minute from this timestamp, (not is approx)
+        for t in current_timestamps:
+            block = timestamp_to_block.get(t, None)
+            if block is not None:
+                break
+
+        state = DestinationStates(
+            destination_vault_address=Web3.toChecksumAddress(dest_state["address"]),
+            block=block,
+            chain_id=autopool.chain.chain_id,
+            incentive_apr=incentive,
+            fee_apr=None,
+            base_apr=None,
+            points_apr=None,
+            fee_plus_base_apr=total_out - (incentive / 0.9),  # remove downscaling
+            total_apr_in=total_in,
+            total_apr_out=total_out,
+            underlying_token_total_supply=normalized_total_supply,
+            safe_total_supply=None,
+            lp_token_spot_price=float(dest_state["spotPrice"]),
+            lp_token_safe_price=float(dest_state["safePrice"]),
+        )
+
+        state_of_destinations.append(state)
+
+        # for index in range(len(dest_state["underlyingTokens"])):
+        #     token_address = Web3.toChecksumAddress(dest_state["underlyingTokens"][index])
+        #     quantity = dest_state["underlyingTokenAmounts"][index] / (10 ** tokens_address_to_decimals[token_address])
+        #     destination_token_states.append(
+        #         DestinationTokenValues(
+        #             destination_vault_address=Web3.toChecksumAddress(dest_state["address"]),
+        #             block=block,
+        #             chain_id=autopool.chain.chain_id,
+        #             token_address=token_address,
+        #             spot_price=dest_state["tokenSpotPrice"][index],
+        #             quantity=quantity,
+        #         )
+        #     )
+
+    return state_of_destinations
 
 
-if __name__ == "__main__":
-    ensure_destination_states_are_current()
+def update_destination_states_from_rebalance_plan():
+    s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+
+    for autopool in [AUTO_USD]:
+
+        solver_plan_paths_on_remote = [
+            r["Key"] for r in s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket).get("Contents")
+        ]
+        plan_timestamps = [int(p.split(("_"))[2]) for p in solver_plan_paths_on_remote]
+
+        block_df = _fetch_block_df_from_subgraph(autopool.chain, plan_timestamps)
+        timestamp_to_block = {int(t): b for t, b in zip(block_df["timestamp"], block_df["block"])}
+        tokens_orm = get_full_table_as_orm(Tokens, where_clause=(Tokens.chain_id == autopool.chain.chain_id))
+        tokens_address_to_decimals = {t.token_address: t.decimals for t in tokens_orm}
+
+        def _process_plan(plan_path):
+            plan = convert_rebalance_plan_json_to_rebalance_plan_line(plan_path, s3_client, autopool)
+            return dicts_to_destination_states(plan, autopool, timestamp_to_block, tokens_address_to_decimals)
+
+        all_destination_states = []
+        with ThreadPoolExecutor(max_workers=128) as executor:
+            for p in solver_plan_paths_on_remote:
+                state_of_destinations = _process_plan(p)
+                futures = {executor.submit(_process_plan, path): path for path in solver_plan_paths_on_remote}
+
+                for fut in as_completed(futures):
+                    state_of_destinations, destination_token_states = fut.result()
+                    all_destination_states.extend(state_of_destinations)
+                    # all_dest_token_states.extend(destination_token_states)
+
+        ensure_all_blocks_are_in_table([d.block for d in all_destination_states], autopool.chain)
+        insert_avoid_conflicts(
+            all_destination_states,
+            DestinationStates,
+            index_elements=[
+                DestinationStates.block,
+                DestinationStates.chain_id,
+                DestinationStates.destination_vault_address,
+            ],
+        )

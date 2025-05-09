@@ -35,6 +35,10 @@ from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
     fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks,
 )
 
+from mainnet_launch.database.schema.ensure_tables_are_current.update_destination_states_from_rebalance_plan import (
+    update_destination_states_from_rebalance_plan,
+)
+
 
 def build_lp_token_spot_price_calls(
     destination_addresses: list[str],
@@ -333,6 +337,8 @@ def _extract_new_destination_states(
 
 
 def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainData):
+
+    update_destination_states_from_rebalance_plan()
 
     missing_blocks = get_subset_not_already_in_column(
         DestinationStates,

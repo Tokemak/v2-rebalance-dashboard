@@ -55,7 +55,10 @@ def _fetch_block_df_from_subgraph(
 
     records: list[dict] = []
 
-    groups = np.array_split(timestamps_less_15_seconds,(len(timestamps_less_15_seconds) // min(len(timestamps_less_15_seconds   ), page_size)) + 1)
+    groups = np.array_split(
+        timestamps_less_15_seconds,
+        (len(timestamps_less_15_seconds) // min(len(timestamps_less_15_seconds), page_size)) + 1,
+    )
     for timestamps in groups:
 
         ts_filter = f"timestamp_in: [{','.join(map(str, timestamps))}]"
@@ -77,7 +80,7 @@ def _fetch_block_df_from_subgraph(
         # print(len(records))
 
     df = pd.DataFrame.from_records(records)
-    df['timestamp'] = df['timestamp'].astype(int)
+    df["timestamp"] = df["timestamp"].astype(int)
     df["datetime"] = pd.to_datetime(df["timestamp"], unit="s", utc=True)
     df["block"] = df["number"].astype(int)
     df["chain_id"] = chain.chain_id
