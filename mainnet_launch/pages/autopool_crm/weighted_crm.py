@@ -114,9 +114,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
     )
     total_apr_out_df[f"{autopool.name} CR"] = 100 * (total_apr_out_df * portion_allocation_df).sum(axis=1)
 
-    total_apr_in_df = (
-        max_df.pivot(index="datetime", values="total_apr_in", columns="readable_destination_name")
-    )
+    total_apr_in_df = max_df.pivot(index="datetime", values="total_apr_in", columns="readable_destination_name")
     total_apr_in_df[f"{autopool.name} CR"] = 100 * (total_apr_out_df * portion_allocation_df).sum(axis=1)
 
     total_apr_in_df = total_apr_in_df

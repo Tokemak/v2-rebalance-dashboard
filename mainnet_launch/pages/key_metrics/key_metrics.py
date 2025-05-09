@@ -70,8 +70,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
                     DestinationStates.incentive_apr,
                     DestinationStates.fee_apr,
                     DestinationStates.base_apr,
-                    DestinationStates.price_per_share,
-                    DestinationStates.price_return,
+                    DestinationStates.lp_token_safe_price,
                 ],
             ),
             TableSelector(
@@ -102,8 +101,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
                 (DestinationStates.block == Blocks.block) & (DestinationStates.chain_id == Blocks.chain_id),
             ),
         ],
-        where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
-        & (Blocks.block.in_(build_blocks_to_use(autopool.chain))),
+        where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
         order_by=Blocks.datetime,
     )
 
@@ -112,7 +110,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     )
 
     price_per_share_df = destination_state_df.pivot(
-        index="datetime", values="price_per_share", columns="destination_vault_address"
+        index="datetime", values="lp_token_safe_price", columns="destination_vault_address"
     )
 
     allocation_df = (price_per_share_df * owned_shares_df).fillna(0)
@@ -125,8 +123,9 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     uwcr_df = destination_state_df.pivot(index="datetime", values="unweighted_apr", columns="destination_vault_address")
     expected_return_series = 100 * (portion_df.fillna(0) * uwcr_df.fillna(0)).sum(axis=1)
 
+    # NOTE not correct
     price_return_df = destination_state_df.pivot(
-        index="datetime", values="price_return", columns="destination_vault_address"
+        index="datetime", values="fee_apr", columns="destination_vault_address"
     )
 
     # pretty sure the issue here is that it is not properly grouping values by price return

@@ -76,7 +76,7 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
                 table=DestinationStates,
                 select_fields=[
                     DestinationStates.underlying_token_total_supply,
-                    DestinationStates.price_per_share,
+                    DestinationStates.lp_token_safe_price,
                 ],  # lp token total supply
                 join_on=(DestinationStates.chain_id == DestinationTokenValues.chain_id)
                 & (DestinationStates.destination_vault_address == DestinationTokenValues.destination_vault_address)
@@ -161,4 +161,5 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
 
 if __name__ == "__main__":
     fetch_and_render_asset_allocation_over_time(ALL_AUTOPOOLS[0])
+    fetch_and_render_asset_allocation_over_time(ALL_AUTOPOOLS[-1])
     pass

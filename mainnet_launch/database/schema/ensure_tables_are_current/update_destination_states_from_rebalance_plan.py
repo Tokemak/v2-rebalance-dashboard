@@ -114,8 +114,7 @@ def update_destination_states_from_rebalance_plan():
             return dicts_to_destination_states(plan, autopool, timestamp_to_block, tokens_address_to_decimals)
 
         all_destination_states = []
-        with ThreadPoolExecutor(max_workers=32) as executor:       # return
-        
+        with ThreadPoolExecutor(max_workers=32) as executor:  # return
 
             futures = {executor.submit(_process_plan, path): path for path in solver_plan_paths_on_remote}
 
