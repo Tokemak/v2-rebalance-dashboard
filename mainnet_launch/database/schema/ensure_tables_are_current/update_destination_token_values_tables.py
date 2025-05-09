@@ -182,18 +182,21 @@ def ensure_destination_token_values_are_current():
     for chain in ALL_CHAINS:
         # get all all the blocks we've already fetched
         # and then add any blocks htat are in destiantion states but not in destination token values
-        already_fetched_blocks = get_subset_not_already_in_column(
-            DestinationTokenValues,
-            DestinationTokenValues.block,
-            [],
-            where_clause=DestinationTokenValues.chain_id == chain.chain_id,
-        )
+        needed_blocks = merge_tables_as_df(
+            [
+                TableSelector(
+                    DestinationStates,
+                    DestinationStates.block,
+                )
+            ],
+            where_clause=DestinationStates.chain_id == chain.chain_id,
+        )["block"].tolist()
 
         possible_blocks = get_subset_not_already_in_column(
-            DestinationStates,
-            DestinationStates.block,
-            already_fetched_blocks,
-            where_clause=DestinationStates.chain_id == chain.chain_id,
+            DestinationTokenValues,
+            DestinationTokenValues.block,
+            needed_blocks,
+            where_clause=DestinationTokenValues.chain_id == chain.chain_id,
         )
 
         _fetch_and_insert_destination_token_values(chain, possible_blocks)

@@ -8,6 +8,8 @@ from mainnet_launch.database.schema.postgres_operations import (
     get_subset_not_already_in_column,
     natural_left_right_using_where,
     insert_avoid_conflicts,
+    merge_tables_as_df,
+    TableSelector,
 )
 
 from mainnet_launch.data_fetching.get_state_by_block import (
@@ -112,20 +114,16 @@ def _add_new_autopool_states_to_db(possible_blocks: list[int], chain: ChainData)
 
 def ensure_autopool_states_are_current():
     for chain in ALL_CHAINS:
-        already_fetched_blocks = get_subset_not_already_in_column(
-            AutopoolStates,
-            AutopoolStates.block,
-            [],
-            where_clause=AutopoolStates.chain_id == chain.chain_id,
-        )
-
-        possible_blocks = get_subset_not_already_in_column(
-            DestinationStates,
-            DestinationStates.block,
-            already_fetched_blocks,
+        needed_blocks = merge_tables_as_df(
+            [
+                TableSelector(
+                    DestinationStates,
+                    DestinationStates.block,
+                )
+            ],
             where_clause=DestinationStates.chain_id == chain.chain_id,
-        )
-        _add_new_autopool_states_to_db(possible_blocks, chain)
+        )["block"].tolist()
+        _add_new_autopool_states_to_db(needed_blocks, chain)
 
 
 if __name__ == "__main__":

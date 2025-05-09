@@ -14,6 +14,8 @@ from mainnet_launch.database.schema.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
     natural_left_right_using_where,
+    merge_tables_as_df,
+    TableSelector,
 )
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
@@ -87,12 +89,15 @@ def fetch_autopool_balance_of_by_destination(
 
 def ensure_autopool_destination_states_are_current():
     for chain in ALL_CHAINS:
-        needed_blocks = get_subset_not_already_in_column(
-            DestinationStates,
-            DestinationStates.block,
-            [],
+        needed_blocks = merge_tables_as_df(
+            [
+                TableSelector(
+                    DestinationStates,
+                    DestinationStates.block,
+                )
+            ],
             where_clause=DestinationStates.chain_id == chain.chain_id,
-        )
+        )["block"].tolist()
 
         missing_blocks = get_subset_not_already_in_column(
             AutopoolDestinationStates,

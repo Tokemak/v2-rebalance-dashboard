@@ -55,7 +55,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure__destinations__tokens__and__destination_tokens_are_current()  # I don't like this name
     ensure_autopools_are_current()
 
-    ensure_destination_states_are_current()
+    ensure_destination_states_are_current()  # primary entry point, the block to fetch depend on this one
 
     # note autoUSD, here has to get the data from the rebalance events (sod) instead, currently None
     ensure_destination_token_values_are_current()

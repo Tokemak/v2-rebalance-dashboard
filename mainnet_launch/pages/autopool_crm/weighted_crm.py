@@ -68,7 +68,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
             ),
             TableSelector(
                 Blocks,
-                B[Blocks.datetime, Blocks.block],
+                [Blocks.datetime, Blocks.block],
                 (DestinationStates.block == Blocks.block) & (DestinationStates.chain_id == Blocks.chain_id),
             ),
         ],
