@@ -29,6 +29,7 @@ from mainnet_launch.constants import (
     WETH,
     ETH_CHAIN,
     BASE_CHAIN,
+    AUTO_USD,
 )
 
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
@@ -353,6 +354,10 @@ def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainDa
         chain, missing_blocks
     )
 
+    autopool_to_all_ever_active_destinations = {
+        k: v for k, v in autopool_to_all_ever_active_destinations.items() if k != AUTO_USD.autopool_eth_addr
+    }
+
     destination_underlying_total_supply_df = _fetch_destination_total_supply_df(
         autopool_to_all_ever_active_destinations, missing_blocks, chain
     )
@@ -424,7 +429,7 @@ def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) 
 
 def ensure_destination_states_are_current():
 
-    update_destination_states_from_rebalance_plan()
+    update_destination_states_from_rebalance_plan() # auto USD not sure how to exclude this from duplicate work
 
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)

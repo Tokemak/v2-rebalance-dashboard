@@ -22,10 +22,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     build_blocks_to_use,
 )
-from mainnet_launch.constants import (
-    ALL_CHAINS,
-    ChainData,
-)
+from mainnet_launch.constants import ALL_CHAINS, ChainData, ALL_AUTOPOOLS
 
 
 def build_autopool_balance_of_calls_by_destination(
@@ -49,6 +46,7 @@ def fetch_autopool_balance_of_by_destination(
     autopool_to_all_ever_active_destinations = fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
         chain, missing_blocks
     )
+    # do this by autopool instead
 
     autopool_balance_of_calls = []
 
@@ -88,7 +86,8 @@ def fetch_autopool_balance_of_by_destination(
 
 
 def ensure_autopool_destination_states_are_current():
-    for chain in ALL_CHAINS:
+    for autopool in ALL_AUTOPOOLS:
+
         needed_blocks = merge_tables_as_df(
             [
                 TableSelector(
@@ -96,8 +95,12 @@ def ensure_autopool_destination_states_are_current():
                     DestinationStates.block,
                 )
             ],
-            where_clause=DestinationStates.chain_id == chain.chain_id,
+            where_clause=DestinationStates.chain_id == autopool.chain.autopool.chain_id,
         )["block"].tolist()
+
+        # somehow I just want to get the blocks that are for
+
+        needed_blocks = list(set(needed_blocks))
 
         missing_blocks = get_subset_not_already_in_column(
             AutopoolDestinationStates,

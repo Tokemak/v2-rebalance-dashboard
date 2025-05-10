@@ -572,6 +572,7 @@ class AutopoolWithdrawal(Base):
     )
 
 
+# extra
 class AutopoolWithdrawalToken(Base):
     __tablename__ = "autopool_withdrawal_token"
 

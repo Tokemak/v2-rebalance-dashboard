@@ -54,18 +54,18 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure_blocks_is_current()
     ensure__destinations__tokens__and__destination_tokens_are_current()  # I don't like this name
     ensure_autopools_are_current()
-
+    # these are constants
+    # return
     ensure_destination_states_are_current()  # primary entry point, the block to fetch depend on this one
 
-    # note autoUSD, here has to get the data from the rebalance events (sod) instead, currently None
     ensure_destination_token_values_are_current()
     # not certain if autoUSD breaks this
     ensure_autopool_destination_states_are_current()  # depends on destination states
-    ensure_autopool_states_are_current()
+    # ensure_autopool_states_are_current()
 
-    ensure_token_values_are_current()
+    # ensure_token_values_are_current()
 
-    ensure_rebalance_plans_table_are_current()
+    # ensure_rebalance_plans_table_are_current()
 
     # rebalance events
 
@@ -91,4 +91,6 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
 if __name__ == "__main__":
     ensure_database_is_current(full_reset_and_refetch=True, echo_sql_to_console=True)
-    # ensure_database_is_current(False, echo_sql_to_console=True)
+#     # ensure_database_is_current(False, echo_sql_to_console=True)
+# psycopg2.errors.ForeignKeyViolation: insert or update on table "autopool_destination_states" violates foreign key constraint "autopool_destination_states_destination_vault_address_bloc_fkey"
+# DETAIL:  Key (destination_vault_address, block, chain_id)=(0xf3ae3c74EaD129e770A864CeE291A805b170bBe0, 22163007, 1) is not present in table "destination_states".

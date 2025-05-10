@@ -66,11 +66,16 @@ def _fetch_destination_token_value_data_from_external_source(
         chain, full_destination_df["pool"], full_destination_df["token_address"]
     )
 
+    spot_price_df = get_raw_state_by_blocks(spot_price_calls, possible_blocks, chain, include_block_number=True)
+
     underlying_reserves_calls = build_underlying_reserves_calls(full_destination_df["destination_vault_address"])
 
-    return get_raw_state_by_blocks(
-        [*spot_price_calls, *underlying_reserves_calls], possible_blocks, chain, include_block_number=True
+    underlying_reserves_df = get_raw_state_by_blocks(
+        underlying_reserves_calls, possible_blocks, chain, include_block_number=True
     )
+
+    df = pd.merge(spot_price_df, underlying_reserves_df, on="block", how="left")
+    return df
 
 
 def _fetch_and_insert_destination_token_values(chain: ChainData, possible_blocks: list[int]):
@@ -191,6 +196,8 @@ def ensure_destination_token_values_are_current():
             ],
             where_clause=DestinationStates.chain_id == chain.chain_id,
         )["block"].tolist()
+
+        needed_blocks = list(set(needed_blocks))
 
         possible_blocks = get_subset_not_already_in_column(
             DestinationTokenValues,
