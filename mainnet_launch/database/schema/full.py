@@ -20,6 +20,8 @@ ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
     f"@{tmpPostgres.hostname}{tmpPostgres.path}?sslmode=require",
     echo=True,  # Enable SQL query logging for debugging.
+    pool_pre_ping=True,  # ← test connections before using them
+    pool_recycle=10 * 60,  # every 10 minutes
 )
 
 
@@ -241,10 +243,10 @@ class AutopoolDestinationStates(Base):
     # )  # 100  * amount / destination_states.underlying_token_total_supply
 
     __table_args__ = (
-        ForeignKeyConstraint(
-            ["destination_vault_address", "block", "chain_id"],
-            ["destination_states.destination_vault_address", "destination_states.block", "destination_states.chain_id"],
-        ),
+        # ForeignKeyConstraint(
+        #     ["destination_vault_address", "block", "chain_id"],
+        #     ["destination_states.destination_vault_address", "destination_states.block", "destination_states.chain_id"],
+        # ),
         ForeignKeyConstraint(
             ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
         ),

@@ -48,6 +48,7 @@ def fetch_autopool_balance_of_by_destination(
     this_autopool_active_destinations = fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
         autopool.chain, missing_blocks
     )[autopool.autopool_eth_addr]
+
     this_autopool_active_destinations = [d.destination_vault_address for d in this_autopool_active_destinations]
 
     autopool_balance_of_calls = []
@@ -84,7 +85,7 @@ def fetch_autopool_balance_of_by_destination(
 
 def ensure_autopool_destination_states_are_current():
     ENGINE.echo = False
-    for autopool in ALL_AUTOPOOLS:
+    for autopool in [AUTO_USD]:
         if autopool.autopool_eth_addr != AUTO_USD.autopool_eth_addr:
             needed_blocks = get_full_table_as_df(
                 DestinationStates,
@@ -102,14 +103,14 @@ def ensure_autopool_destination_states_are_current():
             AutopoolDestinationStates,
             AutopoolDestinationStates.block,
             needed_blocks,
-            where_clause=AutopoolDestinationStates.chain_id == autopool.chain.chain_id,
+            where_clause=(AutopoolDestinationStates.chain_id == autopool.chain.chain_id)
+            & (AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
         )
 
         if len(missing_blocks) == 0:
             continue
-        # pretty sure this does not work because of the from rebalance plans value
-        new_autopool_destination_state_rows = fetch_autopool_balance_of_by_destination(missing_blocks, autopool)
 
+        new_autopool_destination_state_rows = fetch_autopool_balance_of_by_destination(missing_blocks, autopool)
         idle_autopool_destination_states = _build_idle_autopool_destination_states(missing_blocks, autopool)
 
         insert_avoid_conflicts(
