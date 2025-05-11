@@ -60,11 +60,11 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
     ensure_destination_token_values_are_current()
     ensure_autopool_destination_states_are_current()  # depends on destination states
-    # ensure_autopool_states_are_current()
+    ensure_autopool_states_are_current()
 
-    # ensure_token_values_are_current()
+    ensure_token_values_are_current()
 
-    # ensure_rebalance_plans_table_are_current()
+    ensure_rebalance_plans_table_are_current()
 
     # rebalance events
 

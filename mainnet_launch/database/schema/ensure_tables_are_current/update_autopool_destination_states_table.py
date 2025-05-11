@@ -94,7 +94,7 @@ def ensure_autopool_destination_states_are_current():
                     DestinationStates.block,
                 )
             ],
-            where_clause=DestinationStates.chain_id == autopool.chain.autopool.chain_id,
+            where_clause=DestinationStates.chain_id == autopool.chain.chain_id,
         )["block"].tolist()
 
         # somehow I just want ot get
@@ -105,15 +105,15 @@ def ensure_autopool_destination_states_are_current():
             AutopoolDestinationStates,
             AutopoolDestinationStates.block,
             needed_blocks,
-            where_clause=AutopoolDestinationStates.chain_id == chain.chain_id,
+            where_clause=AutopoolDestinationStates.chain_id == autopool.chain.chain_id,
         )
 
         if len(missing_blocks) == 0:
             continue
 
-        new_autopool_destination_state_rows = fetch_autopool_balance_of_by_destination(missing_blocks, chain)
+        new_autopool_destination_state_rows = fetch_autopool_balance_of_by_destination(missing_blocks, autopool.chain)
 
-        idle_autopool_destination_states = _build_idle_autopool_destination_states(chain, missing_blocks)
+        idle_autopool_destination_states = _build_idle_autopool_destination_states(autopool.chain, missing_blocks)
 
         insert_avoid_conflicts(
             [*new_autopool_destination_state_rows, *idle_autopool_destination_states],
