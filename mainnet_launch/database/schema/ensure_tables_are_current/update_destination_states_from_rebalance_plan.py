@@ -90,7 +90,6 @@ def dicts_to_destination_states(
         )
 
         state_of_destinations.append(state)
-    print(len(state_of_destinations), "length of state of destinations")
     return state_of_destinations
 
 
@@ -121,8 +120,6 @@ def update_destination_states_from_rebalance_plan():
             for fut in as_completed(futures):
                 state_of_destinations = fut.result()
                 all_destination_states.extend(state_of_destinations)
-                print("length of all destination states", len(all_destination_states))
-                # all_dest_token_states.extend(destination_token_states)
 
         ensure_all_blocks_are_in_table([d.block for d in all_destination_states], autopool.chain)
         insert_avoid_conflicts(

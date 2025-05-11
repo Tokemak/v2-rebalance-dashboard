@@ -253,6 +253,8 @@ def _fetch_destination_summary_stats_df(
     full_autopool_summary_stats_df = None
 
     for autopool in autopools_orm:
+        if autopool.autopool_vault_address == AUTO_USD.autopool_eth_addr:
+            continue
         all_summary_stats_calls = []
         this_autopool_destinations = autopool_to_all_ever_active_destinations[autopool.autopool_vault_address]
         for dest in this_autopool_destinations:
@@ -429,7 +431,7 @@ def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) 
 
 def ensure_destination_states_are_current():
 
-    update_destination_states_from_rebalance_plan() # auto USD not sure how to exclude this from duplicate work
+    # update_destination_states_from_rebalance_plan() # auto USD not sure how to exclude this from duplicate work
 
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)

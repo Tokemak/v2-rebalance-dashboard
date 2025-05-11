@@ -46,7 +46,6 @@ def fetch_autopool_balance_of_by_destination(
     autopool_to_all_ever_active_destinations = fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
         chain, missing_blocks
     )
-    # do this by autopool instead
 
     autopool_balance_of_calls = []
 
@@ -98,7 +97,7 @@ def ensure_autopool_destination_states_are_current():
             where_clause=DestinationStates.chain_id == autopool.chain.autopool.chain_id,
         )["block"].tolist()
 
-        # somehow I just want to get the blocks that are for
+        # somehow I just want ot get
 
         needed_blocks = list(set(needed_blocks))
 
