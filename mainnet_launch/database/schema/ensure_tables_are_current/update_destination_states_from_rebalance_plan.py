@@ -54,7 +54,6 @@ def dicts_to_destination_states(
     using direct lookups and computing fee_plus_base_apr as
     total_apr_out - incentive_apr. All numeric fields are cast to float.
     """
-    destination_token_states = []
     state_of_destinations: list[DestinationStates] = []
     for dest_state in plan["sod"]["destStates"]:
         # direct lookups and float conversion
@@ -87,7 +86,9 @@ def dicts_to_destination_states(
             safe_total_supply=None,
             lp_token_spot_price=float(dest_state["spotPrice"]),
             lp_token_safe_price=float(dest_state["safePrice"]),
+            from_rebalance_plan=True,
         )
+        # not certain here if this has autoUSD idle destination
 
         state_of_destinations.append(state)
     return state_of_destinations

@@ -331,6 +331,7 @@ def _extract_new_destination_states(
                     safe_total_supply=safe_total_supply,
                     lp_token_spot_price=lp_token_spot_price,
                     lp_token_safe_price=lp_token_safe_price,
+                    from_rebalance_plan=False,
                 )
                 all_new_destination_states.append(new_destination_state)
 
@@ -424,6 +425,7 @@ def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) 
                     safe_total_supply=None,
                     lp_token_spot_price=1.0,
                     lp_token_safe_price=1.0,
+                    from_rebalance_plan=False,
                 )
             )
     return idle_destination_states
@@ -431,7 +433,7 @@ def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) 
 
 def ensure_destination_states_are_current():
 
-    # update_destination_states_from_rebalance_plan() # auto USD not sure how to exclude this from duplicate work
+    update_destination_states_from_rebalance_plan()  # auto USD not sure how to exclude this from duplicate work
 
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)

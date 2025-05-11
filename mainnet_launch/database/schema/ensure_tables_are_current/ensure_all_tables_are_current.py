@@ -58,7 +58,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     # return
     ensure_destination_states_are_current()
 
-    ensure_destination_token_values_are_current()
+    ensure_destination_token_values_are_current()  # works
     ensure_autopool_destination_states_are_current()  # depends on destination states
     ensure_autopool_states_are_current()
 
@@ -89,7 +89,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
 
 if __name__ == "__main__":
-    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
+    ensure_database_is_current(full_reset_and_refetch=True, echo_sql_to_console=True)
 #     # ensure_database_is_current(False, echo_sql_to_console=True)
 # psycopg2.errors.ForeignKeyViolation: insert or update on table "autopool_destination_states" violates foreign key constraint "autopool_destination_states_destination_vault_address_bloc_fkey"
 # DETAIL:  Key (destination_vault_address, block, chain_id)=(0xf3ae3c74EaD129e770A864CeE291A805b170bBe0, 22163007, 1) is not present in table "destination_states".
