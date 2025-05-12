@@ -4,14 +4,22 @@ from web3 import Web3
 
 
 from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, ChainData, ALL_CHAINS, ALL_AUTOPOOLS
-from mainnet_launch.abis import DESTINATION_VAULT_REGISTRY_ABI
+from mainnet_launch.abis import DESTINATION_VAULT_REGISTRY_ABI, AUTOPOOL_VAULT_ABI
 
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block, identity_with_bool_success
+from mainnet_launch.data_fetching.get_state_by_block import (
+    get_state_by_one_block,
+    identity_with_bool_success,
+    build_blocks_to_use,
+)
 from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
 
-from mainnet_launch.database.schema.full import Destinations, DestinationTokens, Tokens
+from mainnet_launch.database.schema.full import Destinations, DestinationTokens, Tokens, AutopoolDestinations
 from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_highest_value_in_field_where
+
+from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
+    fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks_address,
+)
 
 
 def _fetch_token_rows(token_addresses: list[str], chain: ChainData) -> list[Tokens]:
@@ -58,12 +66,12 @@ def _fetch_token_rows(token_addresses: list[str], chain: ChainData) -> list[Toke
     ]
 
 
-def _make_destination_vault_dicts(DestinationVaultRegistered: pd.DataFrame, chain: ChainData) -> list[dict]:
-    highest_block = int(DestinationVaultRegistered["block"].max())
-    vaults = list(DestinationVaultRegistered["vaultAddress"])
+def _make_destination_vault_dicts(
+    destination_vault_addreseses: list[str], highest_block: int, chain: ChainData
+) -> list[dict]:
     # 1) build all the on-chain calls with tuple keys
     calls = []
-    for v in vaults:
+    for v in destination_vault_addreseses:
         calls.extend(
             [
                 Call(v, "symbol()(string)", [((v, "symbol"), identity_with_bool_success)]),
@@ -80,7 +88,7 @@ def _make_destination_vault_dicts(DestinationVaultRegistered: pd.DataFrame, chai
     destination_vault_state = get_state_by_one_block(calls, block=highest_block, chain=chain)
 
     under_calls = []
-    for v in vaults:
+    for v in destination_vault_addreseses:
         underlying_addr = destination_vault_state[(v, "underlying")]
         under_calls.extend(
             [
@@ -92,13 +100,12 @@ def _make_destination_vault_dicts(DestinationVaultRegistered: pd.DataFrame, chai
     tokens_raw = get_state_by_one_block(under_calls, block=highest_block, chain=chain)
 
     # 3) map vault → block for the return data
-    vault_to_block = {
-        (v, "block_deployed"): b
-        for v, b in zip(DestinationVaultRegistered["vaultAddress"], DestinationVaultRegistered["block"])
-    }
+    # vault_to_block = {
+    #     (v, "block_deployed"): b
+    #     for v, b in zip(DestinationVaultRegistered["vaultAddress"], DestinationVaultRegistered["block"])
+    # }
 
     destination_vault_state.update(tokens_raw)
-    destination_vault_state.update(vault_to_block)
     return destination_vault_state
 
 
@@ -252,7 +259,6 @@ def _make_idle_destinations(chain: ChainData) -> list[Destinations]:
                     destination_vault_address=Web3.toChecksumAddress(autopool.autopool_eth_addr),
                     chain_id=chain.chain_id,
                     exchange_name="tokemak",
-                    block_deployed=autopool.block_deployed,
                     name=autopool.name,
                     symbol=autopool.name,
                     pool_type="idle",
@@ -289,32 +295,48 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
     Make sure that the Destinations, DestinationTokens and Tokens tables are current for all the underlying tokens in each of the destinations
     """
     for chain in ALL_CHAINS:
-        highest_block_already_found = get_highest_value_in_field_where(
-            Destinations, Destinations.block_deployed, where_clause=Destinations.chain_id == chain.chain_id
-        )
-        highest_block_already_found = (
-            chain.block_autopool_first_deployed if highest_block_already_found is None else highest_block_already_found
-        )
-        contract = chain.client.eth.contract(DESTINATION_VAULT_REGISTRY(chain), abi=DESTINATION_VAULT_REGISTRY_ABI)
+        # contract = chain.client.eth.contract(DESTINATION_VAULT_REGISTRY(chain), abi=DESTINATION_VAULT_REGISTRY_ABI)
+        # DestinationVaultRegistered = fetch_events(
+        #     contract.events.DestinationVaultRegistered,
+        #     start_block=chain.block_autopool_first_deployed,  # +1 avoids fetching the last event again
+        #     end_block=chain.client.eth.block_number,
+        #     chain=chain,
+        # )
 
-        DestinationVaultRegistered = fetch_events(
-            contract.events.DestinationVaultRegistered,
-            start_block=highest_block_already_found + 1,  # +1 avoids fetching the last event again
-            end_block=chain.client.eth.block_number,
-            chain=chain,
+        autopool_vault_added_dfs = []
+
+        for autopool in ALL_AUTOPOOLS:
+            if autopool.chain != chain:
+                continue
+            autopool_vault_contract = chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+
+            DestinationVaultAdded = fetch_events(
+                autopool_vault_contract.events.DestinationVaultAdded,
+                start_block=autopool.block_deployed,
+                end_block=chain.client.eth.block_number,
+                chain=chain,
+            )
+            DestinationVaultAdded["autopool"] = autopool.autopool_eth_addr
+            DestinationVaultAdded["destination"] = DestinationVaultAdded["destination"].apply(
+                lambda x: Web3.toChecksumAddress(x)
+            )
+
+            autopool_vault_added_dfs.append(DestinationVaultAdded)
+
+        DestinationVaultAdded = pd.concat(autopool_vault_added_dfs, axis=0)
+
+        destination_vault_state = _make_destination_vault_dicts(
+            [v for v in DestinationVaultAdded["destination"]], max(DestinationVaultAdded["block"].astype(int)), chain
         )
-        if len(DestinationVaultRegistered) == 0:
-            # early stop if no vaults
-            continue
 
-        destination_vault_state = _make_destination_vault_dicts(DestinationVaultRegistered, chain)
+        new_autopool_destinations = []
 
-        destinations = [
-            Destinations(
+        new_destination_rows = []
+        for v, autopool_vault_address in zip(DestinationVaultAdded["destination"], DestinationVaultAdded["autopool"]):
+            new_destination_row = Destinations(
                 destination_vault_address=Web3.toChecksumAddress(v),
                 chain_id=chain.chain_id,
                 exchange_name=destination_vault_state[(v, "exchange_name")],
-                block_deployed=destination_vault_state[(v, "block_deployed")],
                 name=destination_vault_state[(v, "name")],
                 symbol=destination_vault_state[(v, "symbol")],
                 pool_type=destination_vault_state[(v, "pool_type")],
@@ -324,11 +346,20 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
                 underlying_name=destination_vault_state[(v, "underlying_name")],
                 denominated_in=Web3.toChecksumAddress(destination_vault_state[(v, "base_asset")]),
             )
-            for v in DestinationVaultRegistered["vaultAddress"]
-        ]
+
+            new_destination_rows.append(new_destination_row)
+
+            new_autopool_destinations.append(
+                AutopoolDestinations(
+                    destination_vault_address=Web3.toChecksumAddress(v),
+                    chain_id=chain.chain_id,
+                    autopool_vault_address=autopool_vault_address,
+                )
+            )
 
         destination_tokens = []
-        for v in DestinationVaultRegistered["vaultAddress"]:
+        for dest in new_destination_rows:
+            v = dest.destination_vault_address
             for index, token_address in enumerate(destination_vault_state[(v, "underlyingTokens")]):
                 destination_tokens.append(
                     DestinationTokens(
@@ -339,23 +370,19 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
                     )
                 )
 
+        idle_destinations = _make_idle_destinations(chain)
+
+        insert_avoid_conflicts(
+            [*new_destination_rows, *idle_destinations],
+            Destinations,
+            index_elements=[Destinations.destination_vault_address, Destinations.chain_id],
+        )
+
         tokens = _fetch_token_rows(set([t.token_address for t in destination_tokens]), chain)
-        underlying_tokens = _fetch_token_rows(set([t.underlying for t in destinations]), chain)
+        underlying_tokens = _fetch_token_rows(set([t.underlying for t in new_destination_rows]), chain)
 
         insert_avoid_conflicts(
             [*tokens, *underlying_tokens], Tokens, index_elements=[Tokens.token_address, Tokens.chain_id]
-        )
-
-        idle_destinations = _make_idle_destinations(chain)
-
-        blocks_to_make_sure_exist = [d.block_deployed for d in [*destinations, *idle_destinations]]
-
-        ensure_all_blocks_are_in_table(blocks_to_make_sure_exist, chain)
-
-        insert_avoid_conflicts(
-            [*destinations, *idle_destinations],
-            Destinations,
-            index_elements=[Destinations.destination_vault_address, Destinations.chain_id],
         )
 
         idle_destination_tokens = _make_idle_destination_tokens(chain)
@@ -367,6 +394,16 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
                 DestinationTokens.destination_vault_address,
                 DestinationTokens.chain_id,
                 DestinationTokens.token_address,
+            ],
+        )
+
+        insert_avoid_conflicts(
+            new_autopool_destinations,
+            AutopoolDestinations,
+            index_elements=[
+                AutopoolDestinations.autopool_vault_address,
+                AutopoolDestinations.chain_id,
+                AutopoolDestinations.destination_vault_address,
             ],
         )
 

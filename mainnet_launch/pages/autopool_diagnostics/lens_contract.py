@@ -232,6 +232,44 @@ def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
         ]
     return autopool_to_all_ever_active_destinations
 
+
+def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks_address(
+    chain: ChainData, missing_blocks: list[int]
+) -> dict[str, list[str]]:
+    all_autopools_orm: list[Autopools] = get_full_table_as_orm(
+        Autopools, where_clause=Autopools.chain_id == chain.chain_id
+    )
+
+    raw_df = fetch_active_destinations_by_autopool_by_block(chain, missing_blocks)
+
+    active_destinations_by_autopool_df = pd.DataFrame.from_records(raw_df["getPoolsAndDestinations"].values)
+    # make a bunch of summary stats calls
+    # split up by autopools to avoid max gas costs
+    autopool_to_all_ever_active_destinations: dict[str | list[Destinations]] = {}
+    for autopool in all_autopools_orm:
+        this_autopool_destinations = set()
+        all_ever_active_destinations = (
+            active_destinations_by_autopool_df[autopool.autopool_vault_address].dropna().values
+        )
+        for active_destinations_at_this_block in all_ever_active_destinations:
+            this_autopool_destinations.update(active_destinations_at_this_block)
+
+        this_autopool_destinations = [
+            Web3.toChecksumAddress(destination_vault_address)
+            for destination_vault_address in this_autopool_destinations
+        ]
+        autopool_to_all_ever_active_destinations[autopool.autopool_vault_address] = this_autopool_destinations
+    return autopool_to_all_ever_active_destinations
+
+
+if __name__ == "__main__":
+
+    from mainnet_launch.constants import ETH_CHAIN
+
+    df = fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks_address(
+        ETH_CHAIN, [22448783, 22348783]
+    )
+
     # # Process and return results
 
     # struct Autopool {
@@ -314,10 +352,8 @@ def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
     # }
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    from mainnet_launch.constants import ETH_CHAIN
 
-    df = fetch_pools_and_destinations_df(ETH_CHAIN, [22448783])
-    a = df.values[0]
-    pass
+#     a = df.values[0]
+#     pass

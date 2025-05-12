@@ -2,16 +2,14 @@ import pandas as pd
 from multicall import Call
 
 
-from mainnet_launch.database.schema.full import (
-    Autopools,
-    DestinationStates,
-    Destinations,
-)
+from mainnet_launch.database.schema.full import Autopools, DestinationStates, Destinations, AutopoolDestinations
 
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_orm,
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
+    merge_tables_as_df,
+    TableSelector,
 )
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
@@ -76,11 +74,17 @@ def _fetch_lp_token_spot_prices(
     chain: ChainData,
 ) -> pd.DataFrame:
     autopool_orm: list[Autopools] = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
+    destination_orm: list[Destinations] = get_full_table_as_orm(
+        Destinations, where_clause=Destinations.chain_id == chain.chain_id
+    )
+
     lp_token_spot_prices_calls = []
 
     for autopool_vault_address in autopool_to_all_ever_active_destinations.keys():
         this_autopool_active_destinations: list[Destinations] = [
-            dest for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]
+            dest
+            for dest in destination_orm
+            if dest.destination_vault_address in autopool_to_all_ever_active_destinations[autopool_vault_address]
         ]
 
         base_asset = [a.base_asset for a in autopool_orm if a.autopool_vault_address == autopool_vault_address][0]
@@ -151,7 +155,7 @@ def _fetch_destination_total_supply_df(
 
     for autopool_vault_address in autopool_to_all_ever_active_destinations.keys():
         this_autopool_active_destinations = [
-            dest.destination_vault_address for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]
+            dest for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]
         ]
         all_active_destinations.update(this_autopool_active_destinations)
 
@@ -172,13 +176,13 @@ def _build_destination_points_calls(this_autopool_active_destinations: list[str]
 
 
 def _fetch_autopool_points_apr(
-    autopool_to_all_ever_active_destinations: dict[str, list[Destinations]], missing_blocks: list[int], chain: ChainData
+    autopool_to_all_ever_active_destinations: dict[str, list[str]], missing_blocks: list[int], chain: ChainData
 ) -> pd.DataFrame:
     autopool_points_calls = []
 
     for autopool_vault_address in autopool_to_all_ever_active_destinations.keys():
         this_autopool_active_destinations = [
-            dest.destination_vault_address for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]
+            dest for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]
         ]
 
         autopool_points_calls.extend(_build_destination_points_calls(this_autopool_active_destinations, chain))
@@ -212,7 +216,7 @@ def _clean_summary_stats_info(success, summary_stats):
 
 def _build_summary_stats_call(
     autopool: Autopools,
-    dest: Destinations,
+    destination_vault_address: str,
     direction: str = "out",
     amount: int = 0,
 ) -> Call:
@@ -234,11 +238,11 @@ def _build_summary_stats_call(
         autopool.strategy_address,
         [
             f"getDestinationSummaryStats(address,uint8,uint256)({return_types})",
-            dest.destination_vault_address,
+            destination_vault_address,
             direction_enum,
             amount,
         ],
-        [((autopool.autopool_vault_address, dest.destination_vault_address, direction), _clean_summary_stats_info)],
+        [((autopool.autopool_vault_address, destination_vault_address, direction), _clean_summary_stats_info)],
     )
 
 
@@ -246,6 +250,7 @@ def _fetch_destination_summary_stats_df(
     autopool_to_all_ever_active_destinations: dict, missing_blocks: list[int], chain: ChainData
 ) -> pd.DataFrame:
     full_autopool_summary_stats_df = None
+    # TODO switch to autopool Destinations
     autopools_orm: list[Autopools] = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
 
     for autopool_vault_address, this_autopool_active_destinations in autopool_to_all_ever_active_destinations.items():
@@ -285,12 +290,12 @@ def _extract_new_destination_states(
     raw_destination_states_df = pd.merge(raw_destination_states_df, lp_token_spot_price_df, on="block")
 
     for autopool_vault_address in autopool_to_all_ever_active_destinations.keys():
-        for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]:
-            dest: Destinations
+        for destination_vault_address in autopool_to_all_ever_active_destinations[autopool_vault_address]:
+            destination_vault_address: str
 
             def _extract_destination_states(row: pd.DataFrame) -> None:
-                in_summary_stats = row.get((autopool_vault_address, dest.destination_vault_address, "in"), {}) or {}
-                out_summary_stats = row.get((autopool_vault_address, dest.destination_vault_address, "out"), {}) or {}
+                in_summary_stats = row.get((autopool_vault_address, destination_vault_address, "in"), {}) or {}
+                out_summary_stats = row.get((autopool_vault_address, destination_vault_address, "out"), {}) or {}
 
                 total_apr_in = in_summary_stats.get("compositeReturn")
                 total_apr_out = out_summary_stats.get("compositeReturn")
@@ -301,9 +306,9 @@ def _extract_new_destination_states(
 
                 safe_total_supply = in_summary_stats.get("safeTotalSupply")
 
-                points_apr = row[(dest.destination_vault_address, "points")]
-                underlying_total_supply = row[(dest.destination_vault_address, "underlyingTotalSupply")]
-                possible_safe_and_spot_price = row[(dest.destination_vault_address, "lp_token_spot_and_safe")]
+                points_apr = row[(destination_vault_address, "points")]
+                underlying_total_supply = row[(destination_vault_address, "underlyingTotalSupply")]
+                possible_safe_and_spot_price = row[(destination_vault_address, "lp_token_spot_and_safe")]
                 if possible_safe_and_spot_price is None:
                     lp_token_spot_price = None
                     lp_token_safe_price = None
@@ -311,7 +316,7 @@ def _extract_new_destination_states(
                     lp_token_spot_price, lp_token_safe_price = possible_safe_and_spot_price
 
                 new_destination_state = DestinationStates(
-                    destination_vault_address=dest.destination_vault_address,
+                    destination_vault_address=destination_vault_address,
                     block=int(row["block"]),
                     chain_id=chain.chain_id,
                     incentive_apr=incentive_apr,
@@ -335,27 +340,47 @@ def _extract_new_destination_states(
 
 
 def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainData):
-    missing_blocks = get_subset_not_already_in_column(
-        DestinationStates,
-        DestinationStates.block,
-        possible_blocks,
-        where_clause=DestinationStates.chain_id == chain.chain_id,
-    )
+    # missing_blocks = get_subset_not_already_in_column(
+    #     DestinationStates,
+    #     DestinationStates.block,
+    #     possible_blocks,
+    #     where_clause=DestinationStates.chain_id == chain.chain_id,
+    # )
+    # I don't think this is right, need to merge
+
+    missing_blocks = possible_blocks
 
     if len(missing_blocks) == 0:
         return
 
     ensure_all_blocks_are_in_table(missing_blocks, chain)
 
-    autopool_to_all_ever_active_destinations = fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
-        chain, missing_blocks
+    autopool_and_destinations_df = merge_tables_as_df(
+        selectors=[
+            TableSelector(
+                AutopoolDestinations,
+                [
+                    AutopoolDestinations.destination_vault_address,
+                    AutopoolDestinations.autopool_vault_address,
+                ],
+            ),
+            TableSelector(
+                Destinations,
+                Destinations.underlying_name,
+                join_on=AutopoolDestinations.destination_vault_address == Destinations.destination_vault_address,
+            ),
+        ],
+        where_clause=(Destinations.chain_id == chain.chain_id)
+        & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in ALL_AUTOPOOLS_DATA_ON_CHAIN])),
     )
 
-    autopool_to_all_ever_active_destinations = {
-        k: v
-        for k, v in autopool_to_all_ever_active_destinations.items()
-        if k in [a.autopool_eth_addr for a in ALL_AUTOPOOLS_DATA_ON_CHAIN]
-    }
+    autopool_to_all_ever_active_destinations = (
+        autopool_and_destinations_df.groupby("autopool_vault_address")["destination_vault_address"]
+        .apply(tuple)
+        .to_dict()
+    )
+    # for k, v in autopool_to_all_ever_active_destinations.items():
+    #     print(k, len(v))
 
     destination_underlying_total_supply_df = _fetch_destination_total_supply_df(
         autopool_to_all_ever_active_destinations, missing_blocks, chain
@@ -427,8 +452,13 @@ def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) 
     return idle_destination_states
 
 
-def ensure_destination_states_are_current():
+# def ensure_destination_states_are_current():
+#     for chain in ALL_CHAINS:
+#         possible_blocks = build_blocks_to_use(chain)
+#         _add_new_destination_states_to_db(possible_blocks, chain)
 
+
+def ensure_destination_states_are_current():
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)
         _add_new_destination_states_to_db(possible_blocks, chain)

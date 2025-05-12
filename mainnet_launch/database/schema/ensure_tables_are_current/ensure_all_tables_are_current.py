@@ -11,33 +11,31 @@ from mainnet_launch.constants import time_decorator
 from mainnet_launch.database.schema.full import drop_and_full_rebuild_db, ENGINE
 from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
 
-from mainnet_launch.database.schema.ensure_tables_are_current.update_destinations_table import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_table import (
     ensure__destinations__tokens__and__destination_tokens_are_current,
 )
-from mainnet_launch.database.schema.ensure_tables_are_current.update_autopools_table import ensure_autopools_are_current
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopools_table import (
+    ensure_autopools_are_current,
+)
 
-from mainnet_launch.database.schema.ensure_tables_are_current.update_token_values_table import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_token_values_table import (
     ensure_token_values_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.update_destination_token_values_tables import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destination_token_values_tables import (
     ensure_destination_token_values_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.update_destinations_states_table import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_states_table import (
     ensure_destination_states_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.update_autopool_destination_states_table import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopool_destination_states_table import (
     ensure_autopool_destination_states_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.update_autopool_states import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopool_states import (
     ensure_autopool_states_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.update_rebalance_plans import (
-    ensure_rebalance_plans_table_are_current,
 )
 
 
@@ -49,16 +47,15 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     # top level 6 hour check
     if full_reset_and_refetch:
         drop_and_full_rebuild_db()
-
+    # return
     # primary tables
     ensure_blocks_is_current()
-    ensure__destinations__tokens__and__destination_tokens_are_current()  # I don't like this name
     ensure_autopools_are_current()
-    # these are constants
-    # return
+    ensure__destinations__tokens__and__destination_tokens_are_current()  # I don't like this name
+
     ensure_destination_states_are_current()
 
-    ensure_destination_token_values_are_current()  # works
+    ensure_destination_token_values_are_current()
     # ensure_autopool_destination_states_are_current()  # depends on destination states
     # ensure_autopool_states_are_current()
 
@@ -88,14 +85,20 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     # has it at least an hour,
 
 
-from mainnet_launch.database.schema.ensure_tables_are_current.update_destination_states_from_rebalance_plan import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_destination_states_from_rebalance_plan import (
     update_destination_states_from_rebalance_plan,
+)
+
+from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_rebalance_plans import (
+    ensure_rebalance_plans_table_are_current,
 )
 
 
 def ensure_database_is_current_from_rebalance_plan():
 
     update_destination_states_from_rebalance_plan()
+
+    ensure_rebalance_plans_table_are_current()
 
 
 if __name__ == "__main__":

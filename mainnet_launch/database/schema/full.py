@@ -21,7 +21,6 @@ ENGINE = create_engine(
     f"@{tmpPostgres.hostname}{tmpPostgres.path}?sslmode=require",
     echo=True,  # Enable SQL query logging for debugging.
     pool_pre_ping=True,  # ← test connections before using them
-    pool_recycle=10 * 60,  # every 10 minutes
 )
 
 
@@ -122,7 +121,7 @@ class Destinations(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     exchange_name: Mapped[str] = mapped_column(nullable=False)
-    block_deployed: Mapped[int] = mapped_column(nullable=False)
+    # block_deployed: Mapped[int] = mapped_column(nullable=False)
 
     name: Mapped[str] = mapped_column(nullable=False)
     symbol: Mapped[str] = mapped_column(nullable=False)  # not certain here on if we should have both names and symbols
@@ -135,7 +134,29 @@ class Destinations(Base):
 
     denominated_in: Mapped[str] = mapped_column(nullable=False)  # DestinationVaultAddress.baseAsset()
 
-    __table_args__ = (ForeignKeyConstraint(["block_deployed", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
+
+# maybe a autopool, destination table?
+
+
+class AutopoolDestinations(Base):
+
+    __tablename__ = "autopool_destinations"
+
+    # all ever autopool destinations from destinationVaultAdded events
+    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["destination_vault_address", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"],
+            ["autopools.autopool_vault_address", "autopools.chain_id"],
+        ),
+    )
 
 
 # done
