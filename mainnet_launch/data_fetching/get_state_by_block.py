@@ -1,5 +1,7 @@
 import pandas as pd
 import streamlit as st
+import numpy as np
+from functools import reduce
 
 from multicall import Multicall, Call
 from sqlalchemy import select, func
@@ -34,7 +36,7 @@ def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):
 
 
 async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData) -> dict:
-    multicall = Multicall(calls=calls, block_id=block, _w3=chain.client, require_success=False)
+    multicall = Multicall(calls=calls, block_id=block, _w3=chain.client, require_success=False, gas_limit=550_000_000)
     response = await multicall.coroutine()
     return response
 
@@ -76,6 +78,36 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
     return _fetch_data
 
 
+def dedupe_calls(calls: list[Call]) -> list[Call]:
+    """
+    Remove duplicate multicall.Call objects based on:
+      - target address
+      - function signature
+      - return keys
+    Keeps first occurrence of each unique combination.
+
+    :param calls: list of Call instances
+    :return: list of unique Call instances
+    """
+    seen: set[tuple[str, str, tuple[str, ...]]] = set()
+    unique_calls: list[Call] = []
+
+    for call in calls:
+        # Extract return parameter names (empty list if none)
+        if call.returns:
+            return_keys = tuple(name for name, _ in call.returns)
+        else:
+            return_keys = ()
+
+        # Key by (target address, function, return_keys)
+        key: tuple[str, str, tuple[str, ...]] = (call.target, call.function, return_keys)
+        if key not in seen:
+            seen.add(key)
+            unique_calls.append(call)
+
+    return unique_calls
+
+
 def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
@@ -86,7 +118,49 @@ def get_raw_state_by_blocks(
     if len(blocks) == 0:
         raise ValueError("Blocks cannot be empty")
 
-    return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, chain, semaphore_limits, include_block_number))
+    unique_calls = dedupe_calls(calls)
+    print(f"fetching {len(unique_calls)=} of {len(calls)=} at blocks {len(blocks)=}")
+    return asyncio.run(
+        async_safe_get_raw_state_by_block(
+            unique_calls,
+            blocks,
+            chain,
+            semaphore_limits,
+            include_block_number=include_block_number,
+        )
+    )
+    # call_groups = [calls[i : i + max_calls_per_mulitcall] for i in range(0, len(calls) // max_calls_per_mulitcall)]
+
+    # dfs: list[pd.DataFrame] = []
+    # for call_sub_group in call_groups:
+    #     # only add the block number for the first one
+    #     include_block_number_in_call_group = True if len(dfs) == 0 else False
+
+    #     df_chunk = asyncio.run(
+    #         async_safe_get_raw_state_by_block(
+    #             call_sub_group,
+    #             blocks,
+    #             chain,
+    #             semaphore_limits,
+    #             include_block_number=include_block_number_in_call_group,
+    #         )
+    #     )
+    #     dfs.append(df_chunk)
+
+    # full_df = reduce(
+    #     lambda left, right: left.merge(
+    #         right,
+    #         how="outer",
+    #         left_index=True,
+    #         right_index=True,
+    #         suffixes=(False, False),
+    #     ),
+    #     dfs,
+    # )
+    # if not include_block_number:
+    #     full_df.drop(columns="block", inplace=True)
+
+    # return full_df
 
 
 async def async_safe_get_raw_state_by_block(
@@ -111,6 +185,7 @@ async def async_safe_get_raw_state_by_block(
             block_id=int(block),
             _w3=chain.client,
             require_success=False,
+            gas_limit=550_000_000,
         )
         for block in blocks_as_ints
     ]
