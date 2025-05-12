@@ -1,8 +1,7 @@
 import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
 import plotly.express as px
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, WETH, USDC
 
 from mainnet_launch.database.schema.full import (
     AutopoolDestinationStates,
@@ -110,6 +109,7 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
     safe_value_by_destination.columns = [
         underlying_symbol_to_readable_name[undelrying_symbol] for undelrying_symbol in safe_value_by_destination.columns
     ]
+    safe_value_by_destination = safe_value_by_destination.resample("1D").last()
 
     safe_value_by_asset = (
         df.groupby(["datetime", "symbol"])["autopool_implied_safe_value"]
@@ -137,9 +137,15 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
         ),
         use_container_width=True,
     )
+    if autopool.base_asset in WETH:
+        base_asset_name = "ETH"
+    elif autopool.base_asset in USDC:
+        base_asset_name = "USDC"
+    else:
+        raise ValueError(f"Unexpected {autopool.base_asset=}")
 
     st.plotly_chart(
-        px.bar(safe_value_by_destination, title="TVL by Destination", labels={"value": "ETH"}),
+        px.bar(safe_value_by_destination, title="TVL by Destination", labels={"value": base_asset_name}),
         use_container_width=True,
     )
     st.plotly_chart(
@@ -148,7 +154,7 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
     )
 
     st.plotly_chart(
-        px.bar(safe_value_by_asset, title="TVL by Asset", labels={"value": "ETH"}),
+        px.bar(safe_value_by_asset, title="TVL by Asset", labels={"value": base_asset_name}),
         use_container_width=True,
     )
     percent_tvl_by_asset = 100 * safe_value_by_asset.div(safe_value_by_asset.sum(axis=1), axis=0)

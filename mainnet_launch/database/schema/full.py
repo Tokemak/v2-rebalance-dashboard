@@ -109,6 +109,8 @@ class Autopools(Base):
 
     base_asset: Mapped[str] = mapped_column(nullable=False)
 
+    data_from_rebalance_plan: Mapped[bool] = mapped_column(nullable=False)
+
     __table_args__ = (ForeignKeyConstraint(["block_deployed", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 

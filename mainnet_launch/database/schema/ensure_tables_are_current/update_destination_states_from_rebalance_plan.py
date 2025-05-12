@@ -24,7 +24,14 @@ from mainnet_launch.database.schema.postgres_operations import (
     get_subset_not_already_in_column,
 )
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_USD
+from mainnet_launch.constants import (
+    ALL_AUTOPOOLS,
+    AutopoolConstants,
+    USDC,
+    WETH,
+    AUTO_USD,
+    ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN,
+)
 from mainnet_launch.data_fetching.block_timestamp import _fetch_block_df_from_subgraph, ensure_all_blocks_are_in_table
 
 
@@ -97,7 +104,7 @@ def dicts_to_destination_states(
 def update_destination_states_from_rebalance_plan():
     s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 
-    for autopool in [AUTO_USD]:
+    for autopool in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN:
 
         solver_plan_paths_on_remote = [
             r["Key"] for r in s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket).get("Contents")
@@ -114,7 +121,7 @@ def update_destination_states_from_rebalance_plan():
             return dicts_to_destination_states(plan, autopool, timestamp_to_block, tokens_address_to_decimals)
 
         all_destination_states = []
-        with ThreadPoolExecutor(max_workers=32) as executor:  # return
+        with ThreadPoolExecutor(max_workers=32) as executor:
 
             futures = {executor.submit(_process_plan, path): path for path in solver_plan_paths_on_remote}
 
@@ -134,5 +141,17 @@ def update_destination_states_from_rebalance_plan():
         )
 
 
+import cProfile, pstats
+
 if __name__ == "__main__":
+    profiler = cProfile.Profile()
+    profiler.enable()
     update_destination_states_from_rebalance_plan()
+    profiler.disable()
+    profiler.dump_stats(
+        "mainnet_launch/database/schema/ensure_tables_are_current/update_destination_states_from_rebalance_plan.prof"
+    )
+    stats = pstats.Stats(
+        "mainnet_launch/database/schema/ensure_tables_are_current/update_destination_states_from_rebalance_plan.prof"
+    )
+    stats.strip_dirs().sort_stats("cumtime").print_stats(30)

@@ -59,12 +59,12 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure_destination_states_are_current()
 
     ensure_destination_token_values_are_current()  # works
-    ensure_autopool_destination_states_are_current()  # depends on destination states
-    ensure_autopool_states_are_current()
+    # ensure_autopool_destination_states_are_current()  # depends on destination states
+    # ensure_autopool_states_are_current()
 
-    ensure_token_values_are_current()
+    # ensure_token_values_are_current()
 
-    ensure_rebalance_plans_table_are_current()
+    # ensure_rebalance_plans_table_are_current()
 
     # rebalance events
 
@@ -86,6 +86,16 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     # tx_hash, aave aWETH, 20, bob
 
     # has it at least an hour,
+
+
+from mainnet_launch.database.schema.ensure_tables_are_current.update_destination_states_from_rebalance_plan import (
+    update_destination_states_from_rebalance_plan,
+)
+
+
+def ensure_database_is_current_from_rebalance_plan():
+
+    update_destination_states_from_rebalance_plan()
 
 
 if __name__ == "__main__":

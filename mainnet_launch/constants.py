@@ -69,6 +69,7 @@ class AutopoolConstants:
     chain: ChainData
     base_asset: str  # AutopoolETH.asset()
     block_deployed: int
+    data_from_rebalance_plan: bool
 
     def __hash__(self):
         return hash(self.chain)
@@ -197,6 +198,7 @@ AUTO_ETH: AutopoolConstants = AutopoolConstants(
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
     block_deployed=20722908,
+    data_from_rebalance_plan=False,
 )
 
 BAL_ETH: AutopoolConstants = AutopoolConstants(
@@ -208,6 +210,7 @@ BAL_ETH: AutopoolConstants = AutopoolConstants(
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
     block_deployed=20722909,
+    data_from_rebalance_plan=False,
 )
 
 AUTO_LRT: AutopoolConstants = AutopoolConstants(
@@ -219,6 +222,7 @@ AUTO_LRT: AutopoolConstants = AutopoolConstants(
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
     block_deployed=20722910,
+    data_from_rebalance_plan=False,
 )
 
 BASE_ETH: AutopoolConstants = AutopoolConstants(
@@ -230,6 +234,7 @@ BASE_ETH: AutopoolConstants = AutopoolConstants(
     chain=BASE_CHAIN,
     base_asset=WETH(BASE_CHAIN),
     block_deployed=21241103,
+    data_from_rebalance_plan=False,
 )
 
 DINERO_ETH: AutopoolConstants = AutopoolConstants(
@@ -241,6 +246,7 @@ DINERO_ETH: AutopoolConstants = AutopoolConstants(
     chain=ETH_CHAIN,
     base_asset=WETH(ETH_CHAIN),
     block_deployed=21718586,
+    data_from_rebalance_plan=False,
 )
 
 AUTO_USD: AutopoolConstants = AutopoolConstants(
@@ -252,7 +258,10 @@ AUTO_USD: AutopoolConstants = AutopoolConstants(
     chain=ETH_CHAIN,
     base_asset=USDC(ETH_CHAIN),
     block_deployed=22032640,
+    data_from_rebalance_plan=True,
 )
 
 
 ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH, AUTO_USD]
+ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
+ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [AUTO_USD]

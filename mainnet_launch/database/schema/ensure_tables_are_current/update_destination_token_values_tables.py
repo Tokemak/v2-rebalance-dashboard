@@ -36,8 +36,11 @@ from mainnet_launch.constants import (
     ROOT_PRICE_ORACLE,
     ChainData,
     AUTO_USD,
-    ALL_AUTOPOOLS,
+    ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN,
+    ALL_AUTOPOOLS_DATA_ON_CHAIN,
     AutopoolConstants,
+    WETH,
+    USDC,
 )
 
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
@@ -204,38 +207,47 @@ def _fetch_and_insert_destination_token_values(autopool: AutopoolConstants, miss
 
 
 def ensure_destination_token_values_are_current():
-    for autopool in ALL_AUTOPOOLS:
-        if autopool.autopool_eth_addr != AUTO_USD.autopool_eth_addr:
-            needed_blocks = get_full_table_as_df(
-                DestinationStates,
-                where_clause=(DestinationStates.chain_id == autopool.chain.chain_id)
-                & (DestinationStates.from_rebalance_plan == False),
-            )["block"].unique()
-        else:
-            needed_blocks = get_full_table_as_df(
-                DestinationStates,
-                where_clause=(DestinationStates.chain_id == autopool.chain.chain_id)
-                & (DestinationStates.from_rebalance_plan == True),
-            )["block"].unique()
+    for autopool in ALL_AUTOPOOLS_DATA_ON_CHAIN:
 
-        missing_blocks = get_subset_not_already_in_column(
-            DestinationTokenValues,
-            DestinationTokenValues.block,
-            needed_blocks,
-            where_clause=DestinationTokenValues.chain_id == autopool.chain.chain_id,
-        )  # this part might not be correct
+        needed_blocks = get_full_table_as_df(
+            DestinationStates,
+            where_clause=(DestinationStates.chain_id == autopool.chain.chain_id)
+            & (DestinationStates.from_rebalance_plan == False),
+        )["block"].unique()
+        # if autopool.autopool_eth_addr != AUTO_USD.autopool_eth_addr:
 
-        _fetch_and_insert_destination_token_values(autopool, missing_blocks)
+        # else:
+        #
+
+        # missing_blocks = get_subset_not_already_in_column(
+        #     DestinationTokenValues,
+        #     DestinationTokenValues.block,
+        #     needed_blocks,
+        #     where_clause=DestinationTokenValues.chain_id == autopool.chain.chain_id,
+        # )  # this part might not be correct
+
+        _fetch_and_insert_destination_token_values(autopool, needed_blocks)
+
+    # for the rebalance plan do this  needed_blocks = get_full_table_as_df(
+    #         DestinationStates,
+    #         where_clause=(DestinationStates.chain_id == autopool.chain.chain_id)
+    #         & (DestinationStates.from_rebalance_plan == True),
+    #     )["block"].unique()
 
 
 def _fetch_idle_destination_token_values(
     autopool: AutopoolConstants, missing_blocks: list[int]
 ) -> list[DestinationTokenValues]:
 
+    if autopool.base_asset in WETH:
+        decimals = 18
+    elif autopool.base_asset in USDC:
+        decimals = 6
+
     def _asset_breakdown_to_idle(success, args):
         if success:
             totalIdle, totalDebt, totalDebtMin, totalDebtMax = args
-            return int(totalIdle) / 1e18  # maybe 1e6 if autoUSD
+            return int(totalIdle) / (10**decimals)
 
     idle_calls = [
         Call(

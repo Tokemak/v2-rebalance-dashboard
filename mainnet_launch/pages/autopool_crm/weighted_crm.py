@@ -76,6 +76,8 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
         order_by=Blocks.datetime,
     )
 
+    # todo patch the values over a 100 to be np.nan
+
     destination_state_df["readable_destination_name"] = destination_state_df.apply(
         lambda row: f"{row['underlying_symbol']} ({row['exchange_name']})", axis=1
     )
@@ -111,7 +113,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
         .resample("1D")
         .last()
     )
-    total_apr_out_df[f"{autopool.name} CR"] = 100 * (total_apr_out_df * portion_allocation_df).sum(axis=1)
+    total_apr_out_df[f"{autopool.name} CR"] = (total_apr_out_df * portion_allocation_df).sum(axis=1)
 
     total_apr_in_df = (
         100
@@ -119,7 +121,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
         .resample("1D")
         .last()
     )
-    total_apr_in_df[f"{autopool.name} CR"] = 100 * (total_apr_out_df * portion_allocation_df).sum(axis=1)
+    total_apr_in_df[f"{autopool.name} CR"] = (total_apr_in_df * portion_allocation_df).sum(axis=1)
 
     composite_return_out_fig = px.line(total_apr_out_df, title=f"{autopool.name} Composite Return Out")
 

@@ -30,14 +30,11 @@ from mainnet_launch.constants import (
     ETH_CHAIN,
     BASE_CHAIN,
     AUTO_USD,
+    ALL_AUTOPOOLS_DATA_ON_CHAIN,
 )
 
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
     fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.update_destination_states_from_rebalance_plan import (
-    update_destination_states_from_rebalance_plan,
 )
 
 
@@ -160,7 +157,6 @@ def _fetch_destination_total_supply_df(
 
     calls = build_destinations_underlyingTotalSupply_calls(list(all_active_destinations))
     destination_total_supply_df = get_raw_state_by_blocks(calls, missing_blocks, chain, include_block_number=True)
-    # looks right
     return destination_total_supply_df
 
 
@@ -249,15 +245,14 @@ def _build_summary_stats_call(
 def _fetch_destination_summary_stats_df(
     autopool_to_all_ever_active_destinations: dict, missing_blocks: list[int], chain: ChainData
 ) -> pd.DataFrame:
-    autopools_orm: list[Autopools] = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
     full_autopool_summary_stats_df = None
+    autopools_orm: list[Autopools] = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
 
-    for autopool in autopools_orm:
-        if autopool.autopool_vault_address == AUTO_USD.autopool_eth_addr:
-            continue
+    for autopool_vault_address, this_autopool_active_destinations in autopool_to_all_ever_active_destinations.items():
+
+        autopool = [a for a in autopools_orm if a.autopool_vault_address == autopool_vault_address][0]
         all_summary_stats_calls = []
-        this_autopool_destinations = autopool_to_all_ever_active_destinations[autopool.autopool_vault_address]
-        for dest in this_autopool_destinations:
+        for dest in this_autopool_active_destinations:
             all_summary_stats_calls.append(_build_summary_stats_call(autopool, dest, "out"))
             all_summary_stats_calls.append(_build_summary_stats_call(autopool, dest, "in"))
 
@@ -272,7 +267,6 @@ def _fetch_destination_summary_stats_df(
                 full_autopool_summary_stats_df, autopool_summary_stats_df, on="block"
             )
 
-    # I think the issue here is that it it getting the None version when it should get the active version
     return full_autopool_summary_stats_df
 
 
@@ -324,7 +318,7 @@ def _extract_new_destination_states(
                     fee_apr=fee_apr,
                     base_apr=base_apr,
                     points_apr=points_apr,
-                    fee_plus_base_apr=None,  # only for post autoUSD destinations
+                    fee_plus_base_apr=None,
                     total_apr_in=total_apr_in,
                     total_apr_out=total_apr_out,
                     underlying_token_total_supply=underlying_total_supply,
@@ -358,7 +352,9 @@ def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainDa
     )
 
     autopool_to_all_ever_active_destinations = {
-        k: v for k, v in autopool_to_all_ever_active_destinations.items() if k != AUTO_USD.autopool_eth_addr
+        k: v
+        for k, v in autopool_to_all_ever_active_destinations.items()
+        if k in [a.autopool_eth_addr for a in ALL_AUTOPOOLS_DATA_ON_CHAIN]
     }
 
     destination_underlying_total_supply_df = _fetch_destination_total_supply_df(
@@ -433,12 +429,22 @@ def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) 
 
 def ensure_destination_states_are_current():
 
-    update_destination_states_from_rebalance_plan()  # auto USD not sure how to exclude this from duplicate work
-
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)
         _add_new_destination_states_to_db(possible_blocks, chain)
 
 
+import cProfile, pstats
+
 if __name__ == "__main__":
+    profiler = cProfile.Profile()
+    profiler.enable()
     ensure_destination_states_are_current()
+    profiler.disable()
+    profiler.dump_stats(
+        "mainnet_launch/database/schema/ensure_tables_are_current/ensure_destination_states_are_current.prof"
+    )
+    stats = pstats.Stats(
+        "mainnet_launch/database/schema/ensure_tables_are_current/ensure_destination_states_are_current.prof"
+    )
+    stats.strip_dirs().sort_stats("cumtime").print_stats(30)
