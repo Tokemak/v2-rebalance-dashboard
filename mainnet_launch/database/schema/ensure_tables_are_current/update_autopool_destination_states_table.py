@@ -85,7 +85,7 @@ def fetch_autopool_balance_of_by_destination(
 
 def ensure_autopool_destination_states_are_current():
     ENGINE.echo = False
-    for autopool in [AUTO_USD]:
+    for autopool in ALL_AUTOPOOLS:
         if autopool.autopool_eth_addr != AUTO_USD.autopool_eth_addr:
             needed_blocks = get_full_table_as_df(
                 DestinationStates,
