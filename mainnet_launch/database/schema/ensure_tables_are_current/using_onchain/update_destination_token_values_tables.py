@@ -88,24 +88,19 @@ def _fetch_destination_token_value_data_from_external_source(
         destination_info_df["destination_vault_address"].unique()
     )
 
-    spot_df = get_raw_state_by_blocks(
-        spot_price_calls,
-        needed_blocks,
-        chain,
-        include_block_number=True,
-        semaphore_limits=(5,5,5,5,5)
+    # spot_df = get_raw_state_by_blocks(
+    #     spot_price_calls, needed_blocks, chain, include_block_number=True, semaphore_limits=(5, 5, 5, 5, 5)
+    # )
+    # # this works,
+    # reserve_df = get_raw_state_by_blocks(
+    #     underlying_reserves_calls, needed_blocks, chain, include_block_number=False, semaphore_limits=(5, 5, 5, 5, 5)
+    # )
 
-    )
-    # this works, 
-    reserve_df = get_raw_state_by_blocks(
-        underlying_reserves_calls,
-        needed_blocks,
-        chain,
-        include_block_number=False,
-        semaphore_limits=(5,5,5,5,5)
-    )
+    # df = spot_df.merge(reserve_df, how="outer", left_index=True, right_index=True)
 
-    df = spot_df.merge(reserve_df, how="outer", left_index=True, right_index=True)
+    df = get_raw_state_by_blocks(
+        [*spot_price_calls, *underlying_reserves_calls], needed_blocks, chain, include_block_number=True, semaphore_limits=(5, 5, 5, 5, 5)
+    )
 
     return df
 
@@ -157,6 +152,14 @@ def _fetch_and_insert_destination_token_values(
 
     new_destination_token_values_rows = []
 
+    pass
+
+    print(token_spot_prices_and_reserves_df.shape)
+
+    print(destination_info_df.shape)
+
+    # this is insanely slow, 
+    pass
     def _extract_destination_token_values(row: dict) -> None:
         token_spot_price_column = (row["pool"], row["token_address"], "spot_price")
         quantity_column = (row["destination_vault_address"], "underlyingReserves_amounts")

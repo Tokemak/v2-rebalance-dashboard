@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 import numpy as np
 from functools import reduce
+from datetime import datetime
 
 from multicall import Multicall, Call
 from sqlalchemy import select, func
@@ -66,74 +67,13 @@ def _build_default_block_and_timestamp_calls(chain: ChainData):
     return get_block_call, get_timestamp_call
 
 
-def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_multicalls: list):
-    async def _fetch_data(multicall: Multicall):
-        max_attempts = 5
-        async with semaphore:
-            attempt = 0
-
-            while attempt < max_attempts:
-
-                try:
-                    response = await multicall.coroutine()
-                    responses.append(response)
-                    return
-                except Exception as e:
-                    print(type(e), e.args)
-                    pass
-                    attempt += 1
-                    print(f"{attempt=} now sleeping")
-                    await asyncio.sleep(attempt**2)
-
-                    # maybe the rate limiting on there end?
-                    # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
-            failed_multicalls.append(multicall)
-
-    return _fetch_data
-
-
-def dedupe_calls(calls: list[Call]) -> list[Call]:
-    """
-    Remove duplicate multicall.Call objects based on:
-      - target address
-      - function signature
-      - return keys
-    Keeps first occurrence of each unique combination.
-
-    :param calls: list of Call instances
-    :return: list of unique Call instances
-    """
-    seen: set[tuple[str, str, tuple[str, ...]]] = set()
-    unique_calls: list[Call] = []
-
-    for call in calls:
-        # Extract return parameter names (empty list if none)
-        if call.returns:
-            return_keys = tuple(name for name, _ in call.returns)
-        else:
-            return_keys = ()
-
-        # Key by (target address, function, return_keys)
-        key: tuple[str, str, tuple[str, ...]] = (call.target, call.function, return_keys)
-        if key not in seen:
-            seen.add(key)
-            unique_calls.append(call)
-
-    return unique_calls
-
-
 def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
     chain: ChainData,
-    semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTICALL,  # make this quite a bit slower
+    semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTICALL,
     include_block_number: bool = False,
 ) -> pd.DataFrame:
-    if len(blocks) == 0:
-        raise ValueError("Blocks cannot be empty")
-
-    # unique_calls = dedupe_calls(calls)
-    # print(f"fetching {len(unique_calls)=} of {len(calls)=} at blocks {len(blocks)=}")
     return asyncio.run(
         async_safe_get_raw_state_by_block(
             calls,
@@ -143,38 +83,6 @@ def get_raw_state_by_blocks(
             include_block_number=include_block_number,
         )
     )
-    # call_groups = [calls[i : i + max_calls_per_mulitcall] for i in range(0, len(calls) // max_calls_per_mulitcall)]
-
-    # dfs: list[pd.DataFrame] = []
-    # for call_sub_group in call_groups:
-    #     # only add the block number for the first one
-    #     include_block_number_in_call_group = True if len(dfs) == 0 else False
-
-    #     df_chunk = asyncio.run(
-    #         async_safe_get_raw_state_by_block(
-    #             call_sub_group,
-    #             blocks,
-    #             chain,
-    #             semaphore_limits,
-    #             include_block_number=include_block_number_in_call_group,
-    #         )
-    #     )
-    #     dfs.append(df_chunk)
-
-    # full_df = reduce(
-    #     lambda left, right: left.merge(
-    #         right,
-    #         how="outer",
-    #         left_index=True,
-    #         right_index=True,
-    #         suffixes=(False, False),
-    #     ),
-    #     dfs,
-    # )
-    # if not include_block_number:
-    #     full_df.drop(columns="block", inplace=True)
-
-    # return full_df
 
 
 async def async_safe_get_raw_state_by_block(
@@ -183,17 +91,23 @@ async def async_safe_get_raw_state_by_block(
     chain: ChainData,
     semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTICALL,
     include_block_number: bool = False,
+    print_latency:bool = False
 ) -> pd.DataFrame:
     """
-    Fetch a DataFame of each call in calls for each block in blocks fast
+    Fetch a DataFame of each call in calls for each block in blocks on chain
+
+
+    note only works after the multicall_v3 contract was deployed
+    block 12336033 (Apr-29-2021) on mainnet
+    block 5022 (Jun-15-2023) on Base
+    mostly a non issue but keep in mind that this only works on recent (within last 3 years) data
+
     """
-    blocks_as_ints = [int(b) for b in blocks]
-    # note only works after the multicall_v3 contract was deployed
-    # block 12336033 (Apr-29-2021) on mainnet
-    # block 5022 (Jun-15-2023) on Base
-    # mostly a non issue but keep in mind that this only works on recent (within last 3 years) data
+    if len(blocks) == 0:
+        raise ValueError("Blocks cannot be empty")
+
     get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls(chain)
-    pending_multicalls = [
+    all_multicalls = [
         Multicall(
             calls=[*calls, get_block_call, get_timestamp_call],
             block_id=int(block),
@@ -201,39 +115,61 @@ async def async_safe_get_raw_state_by_block(
             require_success=False,
             gas_limit=550_000_000,
         )
-        for block in blocks_as_ints
+        for block in blocks
     ]
 
-    responses = []
-    failed_multicalls = []
-    calls_remaining = [m for m in pending_multicalls]
-    for semaphore_limit in semaphore_limits:
-        # make a lot of calls very fast, then slowly back off and remake the calls that failed
-        semaphore = asyncio.Semaphore(semaphore_limit)
-        failed_multicalls = []
-        _ratelimited_async_data_fetcher = _data_fetch_builder(semaphore, responses, failed_multicalls)
-        await asyncio.gather(*[_ratelimited_async_data_fetcher(m) for m in calls_remaining])
-        pass
-        # there might be a return exceptions here as well
-        calls_remaining = [f for f in failed_multicalls]
-        if len(calls_remaining) == 0:
-            break
+    semaphore = asyncio.Semaphore(semaphore_limits[0])
+
+    latency_records = []
+
+    async def _fetch_data(multicall: Multicall):
+        async with semaphore:
+            for attempt in range(5):
+                start = datetime.now()
+                try:
+
+                    # response: dict = await multicall.coroutine()
+
+                    response = await multicall.fetch_outputs(multicall.calls)
+                    merged = {}
+                    for d in response:
+                        merged.update(d)
+                    seconds_latency = (datetime.now() - start).microseconds / 1e6
+                    latency_records.append(
+                        {"seconds_latency": seconds_latency, "block": multicall.block_id, "num_calls": len(multicall.calls), 'attempt': attempt}
+                    )
+
+                    return merged
+                except Exception as e:
+                    pass
+                    # sleeping
+                    await asyncio.sleep((attempt**2) * 0.1)
+
+            # maybe the rate limiting on there end?
+            # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
+
+    responses = await asyncio.gather(*[_fetch_data(m) for m in all_multicalls])
+
+    if print_latency:
+        print(pd.DataFrame(latency_records)["seconds_latency"].describe())
+        print(pd.DataFrame(latency_records)["attempt"].describe())
+
+    if len(responses) != len(blocks):
+        raise ValueError(f"Unexpected length difference between multicall responses and blocks")
+
+    df = _convert_multicall_responeses_to_df(responses, include_block_number)
+    return df
+
+
+def _convert_multicall_responeses_to_df(responses: list[dict], include_block_number: int):
 
     df = pd.DataFrame.from_records(responses)
-    if len(df) == 0:
-        print(
-            "failed to fetch any data. consider trying again if expected to get data, but with a smaller semaphore_limit"
-        )
-        print(f"{len(blocks_as_ints)=} {blocks_as_ints[0]=} {blocks_as_ints[-1]=}")
-        print(f"{calls=}")
-
     df.set_index("timestamp", inplace=True)
     df.index = pd.to_datetime(df.index, unit="s", utc=True)
     df.sort_index(inplace=True)
     df["block"] = df["block"].astype(int)
     if not include_block_number:
         df.drop(columns="block", inplace=True)
-    # get all blocks even those in the current day
 
     return df
 
