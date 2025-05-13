@@ -37,10 +37,18 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopool_states import (
     ensure_autopool_states_are_current,
 )
+from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_destination_states_from_rebalance_plan import (
+    update_destination_states_from_rebalance_plan,
+)
+
+from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_rebalance_plans import (
+    ensure_rebalance_plans_table_are_current,
+)
 
 
-# 270 seconds from 0 # 11 seconds from finished.
-# 50 seconds to update after a day
+
+# ensure_database_is_current took 562.3635 seconds.
+# swithcing all to 100 semaphore limit
 @time_decorator
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
@@ -55,9 +63,12 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
     ensure_destination_states_are_current()
     update_destination_states_from_rebalance_plan()
-    # ensure_destination_token_values_are_current()
+    ensure_destination_token_values_are_current()
+
+
+
     # ensure_rebalance_plans_table_are_current()
-    # # ensure_autopool_destination_states_are_current()  # depends on destination states
+    # ensure_autopool_destination_states_are_current()  # depends on destination states
     # ensure_autopool_states_are_current()
 
     # ensure_token_values_are_current()
@@ -85,14 +96,6 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
     # has it at least an hour,
 
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_destination_states_from_rebalance_plan import (
-    update_destination_states_from_rebalance_plan,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_rebalance_plans import (
-    ensure_rebalance_plans_table_are_current,
-)
 
 
 if __name__ == "__main__":

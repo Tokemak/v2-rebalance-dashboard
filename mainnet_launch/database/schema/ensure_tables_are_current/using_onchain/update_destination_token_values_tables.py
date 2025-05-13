@@ -99,7 +99,10 @@ def _fetch_destination_token_value_data_from_external_source(
     # df = spot_df.merge(reserve_df, how="outer", left_index=True, right_index=True)
 
     df = get_raw_state_by_blocks(
-        [*spot_price_calls, *underlying_reserves_calls], needed_blocks, chain, include_block_number=True, semaphore_limits=(5, 5, 5, 5, 5)
+        [*spot_price_calls, *underlying_reserves_calls],
+        needed_blocks,
+        chain,
+        include_block_number=True,
     )
 
     return df
@@ -150,16 +153,16 @@ def _fetch_and_insert_destination_token_values(
         chain, destination_info_df
     )
 
+    idle_destination_token_values = _fetch_idle_destination_token_values(
+        autopools, destination_info_df["block"].unique()
+    )
+
     new_destination_token_values_rows = []
 
-    pass
+    unique_destination_info_df = destination_info_df[
+        ["destination_vault_address", "token_address", "pool", "index", "decimals"]
+    ].drop_duplicates()
 
-    print(token_spot_prices_and_reserves_df.shape)
-
-    print(destination_info_df.shape)
-
-    # this is insanely slow, 
-    pass
     def _extract_destination_token_values(row: dict) -> None:
         token_spot_price_column = (row["pool"], row["token_address"], "spot_price")
         quantity_column = (row["destination_vault_address"], "underlyingReserves_amounts")
@@ -197,11 +200,7 @@ def _fetch_and_insert_destination_token_values(
             [DestinationTokenValues.from_record(r) for r in sub_df.to_dict(orient="records")]
         )
 
-    destination_info_df.apply(lambda row: _extract_destination_token_values(row), axis=1)
-
-    idle_destination_token_values = _fetch_idle_destination_token_values(
-        autopools, destination_info_df["block"].unique()
-    )
+    unique_destination_info_df.apply(lambda row: _extract_destination_token_values(row), axis=1)
 
     insert_avoid_conflicts(
         [*new_destination_token_values_rows, *idle_destination_token_values],
@@ -243,13 +242,11 @@ def _fetch_idle_destination_token_values(
                 return int(totalIdle) / (10**decimals)
 
         idle_calls.append(
-            [
-                Call(
-                    autopool.autopool_eth_addr,
-                    ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
-                    [(autopool.autopool_eth_addr, _asset_breakdown_to_idle)],
-                )
-            ]
+            Call(
+                autopool.autopool_eth_addr,
+                ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
+                [(autopool.autopool_eth_addr, _asset_breakdown_to_idle)],
+            )
         )
 
     idle_df = get_raw_state_by_blocks(idle_calls, missing_blocks, autopool.chain, include_block_number=True)

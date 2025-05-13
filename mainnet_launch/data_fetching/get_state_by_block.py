@@ -91,7 +91,7 @@ async def async_safe_get_raw_state_by_block(
     chain: ChainData,
     semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTICALL,
     include_block_number: bool = False,
-    print_latency:bool = False
+    print_latency: bool = False,
 ) -> pd.DataFrame:
     """
     Fetch a DataFame of each call in calls for each block in blocks on chain
@@ -103,6 +103,15 @@ async def async_safe_get_raw_state_by_block(
     mostly a non issue but keep in mind that this only works on recent (within last 3 years) data
 
     """
+
+    if not isinstance(calls, list):
+        raise TypeError(f"{type(calls)=} is the wrong type")
+
+    if len(calls) > 0:
+        if not isinstance(calls[0], Call):
+            raise TypeError(f"{type(calls[0])=} is the wrong type")
+
+
     if len(blocks) == 0:
         raise ValueError("Blocks cannot be empty")
 
@@ -136,7 +145,12 @@ async def async_safe_get_raw_state_by_block(
                         merged.update(d)
                     seconds_latency = (datetime.now() - start).microseconds / 1e6
                     latency_records.append(
-                        {"seconds_latency": seconds_latency, "block": multicall.block_id, "num_calls": len(multicall.calls), 'attempt': attempt}
+                        {
+                            "seconds_latency": seconds_latency,
+                            "block": multicall.block_id,
+                            "num_calls": len(multicall.calls),
+                            "attempt": attempt,
+                        }
                     )
 
                     return merged
@@ -144,6 +158,9 @@ async def async_safe_get_raw_state_by_block(
                     pass
                     # sleeping
                     await asyncio.sleep((attempt**2) * 0.1)
+
+            pass
+            raise ValueError("failed to fetch data")
 
             # maybe the rate limiting on there end?
             # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
