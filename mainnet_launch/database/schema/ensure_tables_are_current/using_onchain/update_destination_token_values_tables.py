@@ -28,6 +28,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     build_blocks_to_use,
     identity_with_bool_success,
+    get_state_by_one_block,
 )
 
 from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
@@ -86,33 +87,29 @@ def _fetch_destination_token_value_data_from_external_source(
     underlying_reserves_calls = build_underlying_reserves_calls(
         destination_info_df["destination_vault_address"].unique()
     )
-    needed_blocks = needed_blocks
 
     spot_df = get_raw_state_by_blocks(
         spot_price_calls,
         needed_blocks,
         chain,
         include_block_number=True,
-    )
+        semaphore_limits=(5,5,5,5,5)
 
-    # fetch reserves WITHOUT block numbers (so no extra 'block' column)
+    )
+    # this works, 
     reserve_df = get_raw_state_by_blocks(
         underlying_reserves_calls,
         needed_blocks,
         chain,
         include_block_number=False,
-        semaphore_limits=(10, 10, 10, 10, 10),
-    )  # try lower semaphore
-
-    # now merge on the timestamp index
-    df = spot_df.merge(
-        reserve_df, how="outer", left_index=True, right_index=True, semaphore_limits=(10, 10, 10, 10, 10)
+        semaphore_limits=(5,5,5,5,5)
     )
+
+    df = spot_df.merge(reserve_df, how="outer", left_index=True, right_index=True)
 
     return df
 
 
-@time_decorator
 def _fetch_and_insert_destination_token_values(
     autopools: list[AutopoolConstants],
     chain: ChainData,
@@ -226,7 +223,6 @@ def ensure_destination_token_values_are_current():
             _fetch_and_insert_destination_token_values(autopools, chain)
 
 
-
 def _fetch_idle_destination_token_values(
     autopools: list[AutopoolConstants], missing_blocks: list[int]
 ) -> list[DestinationTokenValues]:
@@ -275,5 +271,33 @@ def _fetch_idle_destination_token_values(
     return idle_destination_token_values
 
 
+import logging
+import time
+import cProfile
+import pstats
+
+
 if __name__ == "__main__":
+    # — configure logging format & level —
+    logging.basicConfig(
+        format="%(asctime)s %(levelname)s %(message)s",
+        level=logging.INFO,
+    )
+
+    # — simple wall‑clock timing —
+    logging.info("Starting destination token‑values update")
+    start = time.time()
     ensure_destination_token_values_are_current()
+    duration = time.time() - start
+    logging.info(f"Finished initial run in {duration:.2f}s")
+
+    # — profile second run and write to file —
+    pr = cProfile.Profile()
+    pr.enable()
+    ensure_destination_token_values_are_current()
+    pr.disable()
+
+    # dump cumulative times for top 20 functions into profile_report.txt
+    with open("profile_report.txt", "w") as f:
+        ps = pstats.Stats(pr, stream=f).sort_stats("cumtime")
+        ps.print_stats(20)

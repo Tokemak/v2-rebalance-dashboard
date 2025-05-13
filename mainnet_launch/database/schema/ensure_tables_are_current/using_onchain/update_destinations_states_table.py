@@ -452,13 +452,8 @@ def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) 
     return idle_destination_states
 
 
-# def ensure_destination_states_are_current():
-#     for chain in ALL_CHAINS:
-#         possible_blocks = build_blocks_to_use(chain)
-#         _add_new_destination_states_to_db(possible_blocks, chain)
-
-
 def ensure_destination_states_are_current():
+    # only from onchain
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)  # the highest block of each full day on this chain
         _add_new_destination_states_to_db(possible_blocks, chain)

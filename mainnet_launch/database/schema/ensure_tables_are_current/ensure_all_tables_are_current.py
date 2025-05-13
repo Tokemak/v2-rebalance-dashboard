@@ -54,9 +54,10 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure__destinations__tokens__and__destination_tokens_are_current()  # I don't like this name
 
     ensure_destination_states_are_current()
-
-    ensure_destination_token_values_are_current()
-    # ensure_autopool_destination_states_are_current()  # depends on destination states
+    update_destination_states_from_rebalance_plan()
+    # ensure_destination_token_values_are_current()
+    # ensure_rebalance_plans_table_are_current()
+    # # ensure_autopool_destination_states_are_current()  # depends on destination states
     # ensure_autopool_states_are_current()
 
     # ensure_token_values_are_current()
@@ -92,13 +93,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
 from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_rebalance_plans import (
     ensure_rebalance_plans_table_are_current,
 )
-
-
-def ensure_database_is_current_from_rebalance_plan():
-
-    update_destination_states_from_rebalance_plan()
-
-    ensure_rebalance_plans_table_are_current()
 
 
 if __name__ == "__main__":
