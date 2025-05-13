@@ -72,6 +72,8 @@ def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_mu
                 response = await multicall.coroutine()
                 responses.append(response)
             except Exception:
+                pass  # make sure that this is failing
+                # maybe the rate limiting on there end?
                 # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
                 failed_multicalls.append(multicall)
 
@@ -112,17 +114,17 @@ def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
     chain: ChainData,
-    semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTICALL,
+    semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTICALL,  # make this quite a bit slower
     include_block_number: bool = False,
 ) -> pd.DataFrame:
     if len(blocks) == 0:
         raise ValueError("Blocks cannot be empty")
 
-    unique_calls = dedupe_calls(calls)
-    print(f"fetching {len(unique_calls)=} of {len(calls)=} at blocks {len(blocks)=}")
+    # unique_calls = dedupe_calls(calls)
+    # print(f"fetching {len(unique_calls)=} of {len(calls)=} at blocks {len(blocks)=}")
     return asyncio.run(
         async_safe_get_raw_state_by_block(
-            unique_calls,
+            calls,
             blocks,
             chain,
             semaphore_limits,
@@ -199,7 +201,8 @@ async def async_safe_get_raw_state_by_block(
         failed_multicalls = []
         _ratelimited_async_data_fetcher = _data_fetch_builder(semaphore, responses, failed_multicalls)
         await asyncio.gather(*[_ratelimited_async_data_fetcher(m) for m in calls_remaining])
-
+        pass
+        # there might be a return exceptions here as well
         calls_remaining = [f for f in failed_multicalls]
         if len(calls_remaining) == 0:
             break
@@ -220,12 +223,6 @@ async def async_safe_get_raw_state_by_block(
         df.drop(columns="block", inplace=True)
     # get all blocks even those in the current day
 
-    # if len(df) > 0:
-    #     current_date = datetime.datetime.now(datetime.timezone.utc).date()
-    #     current_utc_datetime = datetime.datetime.combine(
-    #         current_date, datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
-    #     )
-    #     df = df[df.index < current_utc_datetime].copy()
     return df
 
 

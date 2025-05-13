@@ -42,6 +42,7 @@ from mainnet_launch.constants import (
     AutopoolConstants,
     WETH,
     USDC,
+    time_decorator,
 )
 
 
@@ -85,47 +86,37 @@ def _fetch_destination_token_value_data_from_external_source(
     underlying_reserves_calls = build_underlying_reserves_calls(
         destination_info_df["destination_vault_address"].unique()
     )
+    needed_blocks = needed_blocks
 
-    df = get_raw_state_by_blocks(
-        [*spot_price_calls, *underlying_reserves_calls],
+    spot_df = get_raw_state_by_blocks(
+        spot_price_calls,
         needed_blocks,
         chain,
         include_block_number=True,
     )
 
+    # fetch reserves WITHOUT block numbers (so no extra 'block' column)
+    reserve_df = get_raw_state_by_blocks(
+        underlying_reserves_calls,
+        needed_blocks,
+        chain,
+        include_block_number=False,
+        semaphore_limits=(10, 10, 10, 10, 10),
+    )  # try lower semaphore
+
+    # now merge on the timestamp index
+    df = spot_df.merge(
+        reserve_df, how="outer", left_index=True, right_index=True, semaphore_limits=(10, 10, 10, 10, 10)
+    )
+
     return df
 
 
+@time_decorator
 def _fetch_and_insert_destination_token_values(
     autopools: list[AutopoolConstants],
     chain: ChainData,
 ):
-    # # stateless
-    # destinations_df = merge_tables_as_df(
-    #     [
-    #         TableSelector(DestinationTokens, [DestinationTokens.token_address, DestinationTokens.index]),
-    #         TableSelector(
-    #             Destinations,
-    #             [Destinations.destination_vault_address, Destinations.pool],
-    #             join_on=(Destinations.chain_id == DestinationTokens.chain_id)
-    #             & (Destinations.destination_vault_address == DestinationTokens.destination_vault_address),
-    #         ),
-    #         TableSelector(
-    #             Tokens,
-    #             [Tokens.decimals],
-    #             join_on=(Tokens.chain_id == DestinationTokens.chain_id)
-    #             & (Tokens.token_address == DestinationTokens.token_address),
-    #         ),
-    #         TableSelector(
-    #             AutopoolDestinations,
-    #             AutopoolDestinations.autopool_vault_address,
-    #             join_on=(Destinations.destination_vault_address == AutopoolDestinations.destination_vault_address),
-    #         ),
-    #     ],
-    #     where_clause=(DestinationTokens.chain_id == chain.chain_id)
-    #     & (Destinations.pool_type != "idle")
-    #     & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools])),
-    # )
 
     destination_info_df = merge_tables_as_df(
         selectors=[
@@ -230,15 +221,10 @@ def ensure_destination_token_values_are_current():
         if autopools:
             _fetch_and_insert_destination_token_values(autopools, chain)
 
-        # autopools = [a for a in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN if a.chain == chain]
-        # if autopools:
-        #     _fetch_and_insert_destination_token_values(autopools, chain)
+        autopools = [a for a in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN if a.chain == chain]
+        if autopools:
+            _fetch_and_insert_destination_token_values(autopools, chain)
 
-    # for the rebalance plan do this  needed_blocks = get_full_table_as_df(
-    #         DestinationStates,
-    #         where_clause=(DestinationStates.chain_id == autopool.chain.chain_id)
-    #         & (DestinationStates.from_rebalance_plan == True),
-    #     )["block"].unique()
 
 
 def _fetch_idle_destination_token_values(

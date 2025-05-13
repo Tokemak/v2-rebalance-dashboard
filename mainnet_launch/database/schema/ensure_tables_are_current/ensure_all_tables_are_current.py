@@ -50,7 +50,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     # return
     # primary tables
     ensure_blocks_is_current()
-    ensure_autopools_are_current()
+    ensure_autopools_are_current()  #
     ensure__destinations__tokens__and__destination_tokens_are_current()  # I don't like this name
 
     ensure_destination_states_are_current()

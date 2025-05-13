@@ -340,12 +340,12 @@ def _extract_new_destination_states(
 
 
 def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainData):
-    # missing_blocks = get_subset_not_already_in_column(
-    #     DestinationStates,
-    #     DestinationStates.block,
-    #     possible_blocks,
-    #     where_clause=DestinationStates.chain_id == chain.chain_id,
-    # )
+    missing_blocks = get_subset_not_already_in_column(  # consider switching to looking at timestamps instead
+        DestinationStates,
+        DestinationStates.block,
+        possible_blocks,
+        where_clause=DestinationStates.chain_id == chain.chain_id,
+    )
     # I don't think this is right, need to merge
 
     missing_blocks = possible_blocks
@@ -460,7 +460,7 @@ def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) 
 
 def ensure_destination_states_are_current():
     for chain in ALL_CHAINS:
-        possible_blocks = build_blocks_to_use(chain)
+        possible_blocks = build_blocks_to_use(chain)  # the highest block of each full day on this chain
         _add_new_destination_states_to_db(possible_blocks, chain)
 
 
