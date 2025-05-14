@@ -111,7 +111,6 @@ async def async_safe_get_raw_state_by_block(
         if not isinstance(calls[0], Call):
             raise TypeError(f"{type(calls[0])=} is the wrong type")
 
-
     if len(blocks) == 0:
         raise ValueError("Blocks cannot be empty")
 

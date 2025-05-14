@@ -46,9 +46,14 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
 )
 
 
-
 # ensure_database_is_current took 562.3635 seconds.
 # swithcing all to 100 semaphore limit
+# ensure_database_is_current took 337.8729 seconds. at 100 limit
+
+
+# now checking 300 # ensure_database_is_current took 389.6745 seconds.
+# 100 is fast enough 
+
 @time_decorator
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
@@ -66,12 +71,12 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure_destination_token_values_are_current()
 
 
-
-    # ensure_rebalance_plans_table_are_current()
-    # ensure_autopool_destination_states_are_current()  # depends on destination states
+    ensure_autopool_destination_states_are_current()  # depends on destination states
     # ensure_autopool_states_are_current()
 
     # ensure_token_values_are_current()
+
+    # ensure_rebalance_plans_table_are_current()
 
     # ensure_rebalance_plans_table_are_current()
 
@@ -95,7 +100,6 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     # tx_hash, aave aWETH, 20, bob
 
     # has it at least an hour,
-
 
 
 if __name__ == "__main__":
