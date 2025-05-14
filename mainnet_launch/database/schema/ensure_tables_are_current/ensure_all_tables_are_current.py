@@ -70,7 +70,6 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure_destination_token_values_are_current()
     ensure_autopool_destination_states_are_current()
 
-    
     # ensure_autopool_states_are_current()
 
     # ensure_token_values_are_current()
@@ -101,8 +100,21 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     # has it at least an hour,
 
 
-if __name__ == "__main__":
+import cProfile
+import pstats
+
+
+def main():
     ensure_database_is_current(full_reset_and_refetch=True, echo_sql_to_console=True)
-#     # ensure_database_is_current(False, echo_sql_to_console=True)
-# psycopg2.errors.ForeignKeyViolation: insert or update on table "autopool_destination_states" violates foreign key constraint "autopool_destination_states_destination_vault_address_bloc_fkey"
-# DETAIL:  Key (destination_vault_address, block, chain_id)=(0xf3ae3c74EaD129e770A864CeE291A805b170bBe0, 22163007, 1) is not present in table "destination_states".
+
+
+if __name__ == "__main__":
+    profiler = cProfile.Profile()
+    profiler.enable()
+    main()
+    profiler.disable()
+
+    stats = pstats.Stats(profiler)
+    stats.strip_dirs()  # remove extraneous path info
+    stats.sort_stats("cumtime")  # sort by cumulative time
+    stats.print_stats(50)  # show top 50 lines

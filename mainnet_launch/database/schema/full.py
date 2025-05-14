@@ -247,10 +247,9 @@ class AutopoolDestinationStates(Base):
     autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
+    # how many lp tokens this autopool has here, lens contract
 
-    owned_shares: Mapped[float] = mapped_column(
-        nullable=False
-    )  # how many lp tokens this autopool has here, lens contract
+    owned_shares: Mapped[float] = mapped_column(nullable=False)
 
     # this can be infered by the destinations states and token values
     # given the value of the lp tokens in the pool how much value does the atuopool have here

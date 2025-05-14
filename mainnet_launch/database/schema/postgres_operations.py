@@ -1,6 +1,9 @@
 """data access layer functions for postgres"""
 
 from dataclasses import dataclass
+import io
+import csv
+from psycopg2 import sql
 
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import OperatorExpression, BooleanClauseList
@@ -8,7 +11,7 @@ from sqlalchemy import text
 from psycopg2.extras import execute_values
 import pandas as pd
 
-from mainnet_launch.database.schema.full import Session, Base
+from mainnet_launch.database.schema.full import Session, Base, ENGINE
 
 
 @dataclass
@@ -99,24 +102,59 @@ def insert_avoid_conflicts(
             return
 
     rows_as_tuples = [r.to_tuple() for r in new_rows]
+    bulk_copy(rows_as_tuples, table)
 
-    cols = list(new_rows[0].to_record().keys())
-    col_list = ", ".join(cols)
-    conflict_cols = ", ".join(col.key for col in index_elements)
+    # cols = list(new_rows[0].to_record().keys())
+    # col_list = ", ".join(cols)
+    # conflict_cols = ", ".join(col.key for col in index_elements)
 
-    sql = f"""
-        INSERT INTO {table.__tablename__} ({col_list})
-        VALUES %s
-        ON CONFLICT ({conflict_cols}) DO NOTHING
-        """
+    # sql = f"""
+    #     INSERT INTO {table.__tablename__} ({col_list})
+    #     VALUES %s
+    #     ON CONFLICT ({conflict_cols}) DO NOTHING
+    #     """
 
-    with Session.begin() as sess:
-        conn = sess.connection().connection
-        # bulk insert chunk size rows at a time
-        with conn.cursor() as cur:
-            for i in range(0, len(rows_as_tuples), CHUNK_SIZE):
-                batch = rows_as_tuples[i : i + CHUNK_SIZE]
-                execute_values(cur, sql, batch)
+    # with Session.begin() as sess:
+    #     conn = sess.connection().connection
+    #     # bulk insert chunk size rows at a time
+    #     with conn.cursor() as cur:
+    #         for i in range(0, len(rows_as_tuples), CHUNK_SIZE):
+    #             batch = rows_as_tuples[i : i + CHUNK_SIZE]
+    #             execute_values(cur, sql, batch)
+
+
+def bulk_copy(
+    rows: list[tuple],
+    table: type[Base],
+) -> None:
+    """
+    Bulk‐load `rows` into `table` using PostgreSQL COPY FROM STDIN CSV.
+
+    :param rows: list of tuples, in the exact same column order as table.__table__.columns
+    :param table: ORM class, e.g. MyModel (with __tablename__ and __table__)
+    :param engine: your SQLAlchemy Engine (e.g. ENGINE)
+    """
+    # 1) Serialize rows to an in‑memory CSV
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerows(rows)
+    buf.seek(0)
+
+    # 2) Build COPY statement with explicit column list
+    cols = [col.name for col in table.__table__.columns]
+    copy_stmt = sql.SQL("COPY {tbl} ({fields}) FROM STDIN WITH CSV").format(
+        tbl=sql.Identifier(table.__tablename__),
+        fields=sql.SQL(", ").join(map(sql.Identifier, cols)),
+    )
+
+    # 3) Get raw connection and execute COPY
+    raw_conn = ENGINE.raw_connection()
+    try:
+        with raw_conn.cursor() as cur:
+            cur.copy_expert(copy_stmt, buf)
+        raw_conn.commit()
+    finally:
+        raw_conn.close()
 
 
 def get_highest_value_in_field_where(table: Base, column: InstrumentedAttribute, where_clause: OperatorExpression):

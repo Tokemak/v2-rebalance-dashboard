@@ -205,9 +205,7 @@ def _fetch_and_insert_destination_token_values(
         chain, destination_info_df, missing_blocks
     )
 
-    idle_destination_token_values = _fetch_idle_destination_token_values(
-        autopools, destination_info_df["block"].unique()
-    )
+    idle_destination_token_values = _fetch_idle_destination_token_values(autopools, missing_blocks)
 
     new_destination_token_values_rows = []
 

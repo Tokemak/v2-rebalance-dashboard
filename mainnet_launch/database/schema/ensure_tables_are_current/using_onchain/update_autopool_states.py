@@ -1,7 +1,13 @@
 import pandas as pd
 from multicall import Call
 
-from mainnet_launch.database.schema.full import Autopools, AutopoolStates, AutopoolDestinationStates, DestinationStates
+from mainnet_launch.database.schema.full import (
+    Autopools,
+    AutopoolStates,
+    AutopoolDestinationStates,
+    DestinationStates,
+    AutopoolDestinations,
+)
 
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_orm,
@@ -19,7 +25,15 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     build_blocks_to_use,
 )
 
-from mainnet_launch.constants import ALL_CHAINS, ChainData, USDC, WETH
+from mainnet_launch.constants import (
+    ALL_CHAINS,
+    ChainData,
+    USDC,
+    WETH,
+    AutopoolConstants,
+    ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN,
+    ALL_AUTOPOOLS_DATA_ON_CHAIN,
+)
 
 
 def _fetch_new_autopool_state_rows(
@@ -78,11 +92,11 @@ def _fetch_new_autopool_state_rows(
             new_autopool_state_rows.append(
                 AutopoolStates(
                     autopool_vault_address=autopool.autopool_vault_address,
-                    block=int(row["block"]),
+                    block=row.get("block"),
                     chain_id=chain.chain_id,
-                    total_shares=float(row[(autopool.autopool_vault_address, "total_shares")]),
-                    total_nav=float(row[(autopool.autopool_vault_address, "total_nav")]),
-                    nav_per_share=float(row[(autopool.autopool_vault_address, "nav_per_share")]),
+                    total_shares=row.get((autopool.autopool_vault_address, "total_shares")),
+                    total_nav=row.get((autopool.autopool_vault_address, "total_nav")),
+                    nav_per_share=row.get((autopool.autopool_vault_address, "nav_per_share")),
                 )
             )
 
@@ -91,16 +105,8 @@ def _fetch_new_autopool_state_rows(
     return new_autopool_state_rows
 
 
-def _add_new_autopool_states_to_db(possible_blocks: list[int], chain: ChainData) -> None:
-    missing_blocks = get_subset_not_already_in_column(
-        AutopoolStates,
-        AutopoolStates.block,
-        possible_blocks,
-        where_clause=AutopoolStates.chain_id == chain.chain_id,
-    )
-
-    if len(missing_blocks) == 0:
-        return
+def _fetch_and_insert_new_autopool_states(autopools: list[AutopoolConstants], chain: ChainData) -> None:
+    missing_blocks = _determine_what_blocks_are_needed(autopools, chain)
 
     autopools = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
     new_autopool_states_rows = _fetch_new_autopool_state_rows(autopools, missing_blocks, chain)
@@ -112,18 +118,44 @@ def _add_new_autopool_states_to_db(possible_blocks: list[int], chain: ChainData)
     )
 
 
+def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain: ChainData) -> list[int]:
+    blocks_expected_to_have = merge_tables_as_df(
+        selectors=[
+            TableSelector(
+                AutopoolDestinations,
+                [
+                    AutopoolDestinations.destination_vault_address,
+                    AutopoolDestinations.autopool_vault_address,
+                ],
+            ),
+            TableSelector(
+                DestinationStates,
+                DestinationStates.block,
+                join_on=(DestinationStates.destination_vault_address == AutopoolDestinations.destination_vault_address),
+            ),
+        ],
+        where_clause=(DestinationStates.chain_id == chain.chain_id)
+        & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools])),
+    )["block"].unique()
+
+    blocks_to_fetch = get_subset_not_already_in_column(
+        AutopoolStates,
+        AutopoolStates.block,
+        blocks_expected_to_have,
+        where_clause=AutopoolStates.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools]),
+    )
+    return blocks_to_fetch
+
+
 def ensure_autopool_states_are_current():
     for chain in ALL_CHAINS:
-        needed_blocks = merge_tables_as_df(
-            [
-                TableSelector(
-                    DestinationStates,
-                    DestinationStates.block,
-                )
-            ],
-            where_clause=DestinationStates.chain_id == chain.chain_id,
-        )["block"].tolist()
-        _add_new_autopool_states_to_db(needed_blocks, chain)
+        autopools = [a for a in ALL_AUTOPOOLS_DATA_ON_CHAIN if a.chain == chain]
+        if autopools:
+            _fetch_and_insert_new_autopool_destination_states(autopools, chain)
+
+        autopools = [a for a in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN if a.chain == chain]
+        if autopools:
+            _fetch_and_insert_new_autopool_destination_states(autopools, chain)
 
 
 if __name__ == "__main__":

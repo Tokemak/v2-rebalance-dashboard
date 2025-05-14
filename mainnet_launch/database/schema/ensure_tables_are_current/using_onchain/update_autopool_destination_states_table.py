@@ -108,14 +108,15 @@ def _fetch_and_insert_new_autopool_destination_states(autopools: list[AutopoolCo
         for k in row.keys():
             if k != "block":
                 autopool_vault_address, destination_vault_address, _ = k
-                quantity = row[k]
+                owned_shares = float(row[k]) if row[k] is not None else 0.0
+
                 new_autopool_destination_states_rows.append(
                     AutopoolDestinationStates(
                         destination_vault_address=destination_vault_address,
                         autopool_vault_address=autopool_vault_address,
                         block=int(row["block"]),
                         chain_id=chain.chain_id,
-                        owned_shares=float(quantity),
+                        owned_shares=owned_shares,
                     )
                 )
 
