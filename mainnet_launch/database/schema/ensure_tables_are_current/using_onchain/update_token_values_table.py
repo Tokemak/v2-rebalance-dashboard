@@ -3,7 +3,13 @@ from multicall import Call
 from web3 import Web3
 
 
-from mainnet_launch.database.schema.full import Tokens, TokenValues, AutopoolStates, DestinationStates
+from mainnet_launch.database.schema.full import (
+    Tokens,
+    TokenValues,
+    AutopoolStates,
+    DestinationStates,
+    AutopoolDestinations,
+)
 
 
 from mainnet_launch.abis import STATS_CALCULATOR_REGISTRY_ABI
@@ -20,7 +26,6 @@ from mainnet_launch.database.schema.postgres_operations import (
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
-    build_blocks_to_use,
     identity_with_bool_success,
     get_state_by_one_block,
     make_dummy_1_call,
@@ -34,68 +39,96 @@ from mainnet_launch.constants import (
     WETH,
     TokemakAddress,
     USDC,
+    ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN,
+    ALL_AUTOPOOLS_DATA_ON_CHAIN,
+    AutopoolConstants,
 )
+
+
+def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain: ChainData) -> list[int]:
+    blocks_expected_to_have = merge_tables_as_df(
+        selectors=[
+            TableSelector(
+                AutopoolDestinations,
+                [
+                    AutopoolDestinations.destination_vault_address,
+                    AutopoolDestinations.autopool_vault_address,
+                ],
+            ),
+            TableSelector(
+                DestinationStates,
+                DestinationStates.block,
+                join_on=(DestinationStates.destination_vault_address == AutopoolDestinations.destination_vault_address),
+            ),
+        ],
+        where_clause=(DestinationStates.chain_id == chain.chain_id)
+        & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools])),
+    )["block"].unique()
+
+    blocks_to_fetch = get_subset_not_already_in_column(
+        TokenValues,
+        TokenValues.block,
+        blocks_expected_to_have,
+        where_clause=TokenValues.chain_id == chain.chain_id,
+    )
+    return blocks_to_fetch
+
+
+def _fetch_and_insert_new_token_values(autopools: list[AutopoolConstants], chain: ChainData):
+    needed_blocks = _determine_what_blocks_are_needed(autopools, chain)
+    if not needed_blocks:
+        return
+
+    all_tokens_orm: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
+
+    df = _fetch_safe_and_backing_values(needed_blocks, all_tokens_orm, chain)
+
+    new_token_values_rows = []
+
+    def _extract_token_values_by_row(row: dict):
+        for token in all_tokens_orm:
+            for denominated_in in [WETH(chain), USDC(chain)]:
+
+                backing = row.get((token.token_address, "backing"))
+                backing = None if pd.isna(backing) else float(backing)
+
+                safe_price = row[(token.token_address, denominated_in, "safe_price")]
+                safe_price = None if pd.isna(safe_price) else float(safe_price)
+
+                new_token_values_row = TokenValues(
+                    block=int(row["block"]),
+                    chain_id=chain.chain_id,
+                    token_address=token.token_address,
+                    denominated_in=denominated_in,
+                    backing=backing,
+                    safe_price=safe_price,
+                )
+
+                new_token_values_rows.append(new_token_values_row)
+
+    df.apply(_extract_token_values_by_row, axis=1)
+
+    insert_avoid_conflicts(
+        new_token_values_rows,
+        TokenValues,
+        index_elements=[
+            TokenValues.block,
+            TokenValues.chain_id,
+            TokenValues.token_address,
+            TokenValues.denominated_in,
+        ],
+    )
 
 
 def ensure_token_values_are_current():
     for chain in ALL_CHAINS:
-        needed_blocks = merge_tables_as_df(
-            [
-                TableSelector(
-                    DestinationStates,
-                    DestinationStates.block,
-                )
-            ],
-            where_clause=DestinationStates.chain_id == chain.chain_id,
-        )["block"].tolist()
+        autopools = [a for a in ALL_AUTOPOOLS_DATA_ON_CHAIN if a.chain == chain]
+        if autopools:
+            _fetch_and_insert_new_token_values(autopools, chain)
 
-        missing_blocks = get_subset_not_already_in_column(
-            TokenValues,
-            TokenValues.block,
-            needed_blocks,
-            where_clause=TokenValues.chain_id == chain.chain_id,
-        )
-        if len(missing_blocks) == 0:
-            continue
-        all_tokens_orm: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
-
-        df = _fetch_safe_and_backing_values(missing_blocks, all_tokens_orm, chain)
-
-        new_token_values_rows = []
-
-        def _extract_token_values_by_row(row: dict):
-            for token in all_tokens_orm:
-                for denominated_in in [WETH(chain), USDC(chain)]:
-
-                    backing = row.get((token.token_address, "backing"))
-                    backing = None if pd.isna(backing) else float(backing)
-
-                    safe_price = row[(token.token_address, denominated_in, "safe_price")]
-                    safe_price = None if pd.isna(safe_price) else float(safe_price)
-
-                    new_token_values_row = TokenValues(
-                        block=int(row["block"]),
-                        chain_id=chain.chain_id,
-                        token_address=token.token_address,
-                        denominated_in=denominated_in,
-                        backing=backing,
-                        safe_price=safe_price,
-                    )
-
-                    new_token_values_rows.append(new_token_values_row)
-
-        df.apply(_extract_token_values_by_row, axis=1)
-
-        insert_avoid_conflicts(
-            new_token_values_rows,
-            TokenValues,
-            index_elements=[
-                TokenValues.block,
-                TokenValues.chain_id,
-                TokenValues.token_address,
-                TokenValues.denominated_in,
-            ],
-        )
+        autopools = [a for a in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN if a.chain == chain]
+        if autopools:
+            _fetch_and_insert_new_token_values(autopools, chain)
 
 
 def _build_safe_price_calls(tokens: list[Tokens], chain: ChainData) -> list[Call]:

@@ -97,6 +97,8 @@ def _fetch_and_insert_new_autopool_destination_states(autopools: list[AutopoolCo
     ]
 
     missing_blocks = _determine_what_blocks_are_needed(autopools, chain)
+    if not missing_blocks:
+        return
 
     autopool_destination_balance_of_df = get_raw_state_by_blocks(
         balance_of_calls, missing_blocks, chain, include_block_number=True

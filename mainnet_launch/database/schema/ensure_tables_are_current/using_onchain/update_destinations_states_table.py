@@ -346,11 +346,7 @@ def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainDa
         possible_blocks,
         where_clause=DestinationStates.chain_id == chain.chain_id,
     )
-    # I don't think this is right, need to merge
-
-    missing_blocks = possible_blocks
-
-    if len(missing_blocks) == 0:
+    if not missing_blocks:
         return
 
     ensure_all_blocks_are_in_table(missing_blocks, chain)

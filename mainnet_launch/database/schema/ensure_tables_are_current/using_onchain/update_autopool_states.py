@@ -107,6 +107,8 @@ def _fetch_new_autopool_state_rows(
 
 def _fetch_and_insert_new_autopool_states(autopools: list[AutopoolConstants], chain: ChainData) -> None:
     missing_blocks = _determine_what_blocks_are_needed(autopools, chain)
+    if not missing_blocks:
+        return
 
     autopools = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
     new_autopool_states_rows = _fetch_new_autopool_state_rows(autopools, missing_blocks, chain)

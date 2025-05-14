@@ -199,6 +199,8 @@ def _fetch_and_insert_destination_token_values(
     ).drop_duplicates()
 
     missing_blocks = _determine_what_blocks_are_needed(autopools, chain)
+    if not missing_blocks:
+        return  # early stop
 
     # needs destination pool, destination lp otken address and destination_vault address
     token_spot_prices_and_reserves_df = _fetch_destination_token_value_data_from_external_source(
