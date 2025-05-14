@@ -101,8 +101,8 @@ def insert_avoid_conflicts(
         else:
             return
 
-    rows_as_tuples = [r.to_tuple() for r in new_rows]
-    bulk_copy(rows_as_tuples, table)
+    rows_as_tuples = list(set([r.to_tuple() for r in new_rows]))
+    bulk_copy_skip_duplicates(rows_as_tuples, table)
 
     # cols = list(new_rows[0].to_record().keys())
     # col_list = ", ".join(cols)
@@ -123,35 +123,60 @@ def insert_avoid_conflicts(
     #             execute_values(cur, sql, batch)
 
 
-def bulk_copy(
-    rows: list[tuple],
-    table: type[Base],
-) -> None:
+def bulk_copy_skip_duplicates(rows: list[tuple], table: type[Base]) -> None:
     """
-    Bulk‐load `rows` into `table` using PostgreSQL COPY FROM STDIN CSV.
+    Bulk‑load `rows` into `table`, skipping any duplicates
+    (based on the table's primary key or unique constraints).
+    """
+    tn = table.__tablename__
+    cols = [col.name for col in table.__table__.columns]
+    id_cols = [col.name for col in table.__table__.primary_key.columns]
 
-    :param rows: list of tuples, in the exact same column order as table.__table__.columns
-    :param table: ORM class, e.g. MyModel (with __tablename__ and __table__)
-    :param engine: your SQLAlchemy Engine (e.g. ENGINE)
-    """
-    # 1) Serialize rows to an in‑memory CSV
+    # 1) Serialize rows to in‑memory CSV
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerows(rows)
     buf.seek(0)
 
-    # 2) Build COPY statement with explicit column list
-    cols = [col.name for col in table.__table__.columns]
-    copy_stmt = sql.SQL("COPY {tbl} ({fields}) FROM STDIN WITH CSV").format(
-        tbl=sql.Identifier(table.__tablename__),
+    # 2) Prepare COPY & INSERT statements
+    copy_into_staging = sql.SQL("COPY {stg} ({fields}) FROM STDIN WITH CSV").format(
+        stg=sql.Identifier(f"{tn}_staging"),
         fields=sql.SQL(", ").join(map(sql.Identifier, cols)),
     )
+    insert_main = sql.SQL(
+        """
+        INSERT INTO {main} ({fields})
+        SELECT {fields} FROM {stg}
+        ON CONFLICT ({pkey}) DO NOTHING
+    """
+    ).format(
+        main=sql.Identifier(tn),
+        stg=sql.Identifier(f"{tn}_staging"),
+        fields=sql.SQL(", ").join(map(sql.Identifier, cols)),
+        pkey=sql.SQL(", ").join(map(sql.Identifier, id_cols)),
+    )
 
-    # 3) Get raw connection and execute COPY
     raw_conn = ENGINE.raw_connection()
     try:
         with raw_conn.cursor() as cur:
-            cur.copy_expert(copy_stmt, buf)
+            # a) Drop old staging, then create one WITHOUT constraints or indexes
+            cur.execute(sql.SQL("DROP TABLE IF EXISTS {stg}").format(stg=sql.Identifier(f"{tn}_staging")))
+            cur.execute(
+                sql.SQL(
+                    "CREATE TEMP TABLE {stg} (LIKE {main} "
+                    "INCLUDING ALL EXCLUDING CONSTRAINTS EXCLUDING INDEXES) ON COMMIT DROP"
+                ).format(
+                    stg=sql.Identifier(f"{tn}_staging"),
+                    main=sql.Identifier(tn),
+                )
+            )
+
+            # b) Bulk‐COPY into the unconstrained staging table
+            cur.copy_expert(copy_into_staging, buf)
+
+            # c) Move into the real table, skipping duplicates
+            cur.execute(insert_main)
+
         raw_conn.commit()
     finally:
         raw_conn.close()

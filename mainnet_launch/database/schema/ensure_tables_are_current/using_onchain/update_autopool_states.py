@@ -92,7 +92,7 @@ def _fetch_new_autopool_state_rows(
             new_autopool_state_rows.append(
                 AutopoolStates(
                     autopool_vault_address=autopool.autopool_vault_address,
-                    block=row.get("block"),
+                    block=int(row.get("block")),
                     chain_id=chain.chain_id,
                     total_shares=row.get((autopool.autopool_vault_address, "total_shares")),
                     total_nav=row.get((autopool.autopool_vault_address, "total_nav")),
@@ -151,11 +151,11 @@ def ensure_autopool_states_are_current():
     for chain in ALL_CHAINS:
         autopools = [a for a in ALL_AUTOPOOLS_DATA_ON_CHAIN if a.chain == chain]
         if autopools:
-            _fetch_and_insert_new_autopool_destination_states(autopools, chain)
+            _fetch_and_insert_new_autopool_states(autopools, chain)
 
         autopools = [a for a in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN if a.chain == chain]
         if autopools:
-            _fetch_and_insert_new_autopool_destination_states(autopools, chain)
+            _fetch_and_insert_new_autopool_states(autopools, chain)
 
 
 if __name__ == "__main__":

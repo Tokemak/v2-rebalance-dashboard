@@ -3,6 +3,7 @@ import streamlit as st
 import numpy as np
 from functools import reduce
 from datetime import datetime
+from copy import deepcopy
 
 from multicall import Multicall, Call
 from sqlalchemy import select, func
@@ -115,16 +116,32 @@ async def async_safe_get_raw_state_by_block(
         raise ValueError("Blocks cannot be empty")
 
     get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls(chain)
-    all_multicalls = [
-        Multicall(
-            calls=[*calls, get_block_call, get_timestamp_call],
-            block_id=int(block),
-            _w3=chain.client,
-            require_success=False,
-            gas_limit=550_000_000,
-        )
-        for block in blocks
-    ]
+
+    #  all_multicalls = [
+    #     Multicall(
+    #         calls=[*calls, get_block_call, get_timestamp_call],
+    #         block_id=int(block),
+    #         _w3=chain.client,
+    #         require_success=False,
+    #         gas_limit=550_000_000,
+    #     )
+    #     for block in blocks
+    # ]
+
+    a_multicall = Multicall(
+        calls=[*calls, get_block_call, get_timestamp_call],
+        block_id=int(blocks[0]),
+        _w3=chain.client,
+        require_success=False,
+        gas_limit=550_000_000,
+    )
+    # I suspect that this will make it so that the prep args is only done once, not certain though
+    response = await a_multicall.coroutine()
+
+    # the prep args is too slow, this ought to make it faster
+    all_multicalls = [deepcopy(a_multicall) for _ in blocks]
+    for m, b in zip(all_multicalls, blocks):
+        m.block_id = int(b)
 
     semaphore = asyncio.Semaphore(semaphore_limits[0])
 
