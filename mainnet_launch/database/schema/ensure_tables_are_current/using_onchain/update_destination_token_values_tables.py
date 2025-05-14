@@ -48,10 +48,9 @@ from mainnet_launch.constants import (
 
 
 def _fetch_destination_token_value_data_from_external_source(
-    chain: ChainData, destination_info_df: pd.DataFrame
+    chain: ChainData, destination_info_df: pd.DataFrame, missing_blocks: list[int]
 ) -> pd.DataFrame:
 
-    #
     def build_pool_token_spot_price_calls(
         chain: ChainData, pool_addresses: list[str], token_addresses: list[str]
     ) -> list[Call]:
@@ -78,7 +77,6 @@ def _fetch_destination_token_value_data_from_external_source(
         ]
 
     unique_destinations = destination_info_df[["pool", "token_address"]].drop_duplicates()
-    needed_blocks = [int(b) for b in destination_info_df["block"].unique()]
 
     spot_price_calls = build_pool_token_spot_price_calls(
         chain, unique_destinations["pool"], unique_destinations["token_address"]
@@ -90,7 +88,7 @@ def _fetch_destination_token_value_data_from_external_source(
 
     df = get_raw_state_by_blocks(
         [*spot_price_calls, *underlying_reserves_calls],
-        needed_blocks,
+        missing_blocks,
         chain,
         include_block_number=True,
     )
@@ -98,11 +96,78 @@ def _fetch_destination_token_value_data_from_external_source(
     return df
 
 
+def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain: ChainData) -> list[int]:
+    destination_state_df = merge_tables_as_df(
+        selectors=[
+            TableSelector(
+                AutopoolDestinations,
+                [
+                    AutopoolDestinations.destination_vault_address,
+                    AutopoolDestinations.autopool_vault_address,
+                ],
+            ),
+            TableSelector(
+                DestinationStates,
+                DestinationStates.block,
+                join_on=(DestinationStates.destination_vault_address == AutopoolDestinations.destination_vault_address),
+            ),
+        ],
+        where_clause=(DestinationStates.chain_id == chain.chain_id)
+        & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools])),
+    )
+
+    blocks_expected_to_have = destination_state_df["block"].unique()
+    expected_destinations = destination_state_df["destination_vault_address"].unique()
+
+    missing_blocks = get_subset_not_already_in_column(
+        DestinationTokenValues,
+        DestinationTokenValues.block,
+        blocks_expected_to_have,
+        where_clause=DestinationTokenValues.destination_vault_address.in_(expected_destinations),
+    )
+    return missing_blocks
+
+
 def _fetch_and_insert_destination_token_values(
     autopools: list[AutopoolConstants],
     chain: ChainData,
 ):
-    # TODO this is not smart, it refetches everyhting at the start
+    # # TODO this is not smart, it refetches everyhting at the start
+    # destination_info_df = merge_tables_as_df(
+    #     selectors=[
+    #         TableSelector(
+    #             AutopoolDestinations,
+    #             [
+    #                 AutopoolDestinations.destination_vault_address,
+    #                 AutopoolDestinations.autopool_vault_address,
+    #             ],
+    #         ),
+    #         TableSelector(
+    #             Destinations,
+    #             [Destinations.underlying, Destinations.pool],
+    #             join_on=AutopoolDestinations.destination_vault_address == Destinations.destination_vault_address,
+    #         ),
+    #         TableSelector(
+    #             DestinationTokens,
+    #             [DestinationTokens.token_address, DestinationTokens.index],
+    #             join_on=DestinationTokens.destination_vault_address == Destinations.destination_vault_address,
+    #         ),
+    #         TableSelector(
+    #             Tokens,
+    #             [Tokens.decimals],
+    #             join_on=DestinationTokens.token_address == Tokens.token_address,
+    #         ),
+    #         TableSelector(
+    #             DestinationStates,
+    #             DestinationStates.block,
+    #             join_on=(DestinationStates.destination_vault_address == AutopoolDestinations.destination_vault_address),
+    #         ),
+    #     ],
+    #     where_clause=(DestinationStates.chain_id == chain.chain_id)
+    #     & (Destinations.pool_type != "idle")
+    #     & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools])),
+    # )
+
     destination_info_df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -127,20 +192,17 @@ def _fetch_and_insert_destination_token_values(
                 [Tokens.decimals],
                 join_on=DestinationTokens.token_address == Tokens.token_address,
             ),
-            TableSelector(
-                DestinationStates,
-                DestinationStates.block,
-                join_on=(DestinationStates.destination_vault_address == AutopoolDestinations.destination_vault_address),
-            ),
         ],
-        where_clause=(DestinationStates.chain_id == chain.chain_id)
+        where_clause=(AutopoolDestinations.chain_id == chain.chain_id)
         & (Destinations.pool_type != "idle")
         & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools])),
-    )
+    ).drop_duplicates()
+
+    missing_blocks = _determine_what_blocks_are_needed(autopools, chain)
 
     # needs destination pool, destination lp otken address and destination_vault address
     token_spot_prices_and_reserves_df = _fetch_destination_token_value_data_from_external_source(
-        chain, destination_info_df
+        chain, destination_info_df, missing_blocks
     )
 
     idle_destination_token_values = _fetch_idle_destination_token_values(
