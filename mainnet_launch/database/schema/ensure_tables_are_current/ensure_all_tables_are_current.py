@@ -52,7 +52,8 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
 
 
 # now checking 300 # ensure_database_is_current took 389.6745 seconds.
-# 100 is fast enough 
+# 100 is fast enough
+
 
 @time_decorator
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
@@ -68,8 +69,8 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
     ensure_destination_states_are_current()
     update_destination_states_from_rebalance_plan()
+    # avove is correct
     ensure_destination_token_values_are_current()
-
 
     ensure_autopool_destination_states_are_current()  # depends on destination states
     # ensure_autopool_states_are_current()

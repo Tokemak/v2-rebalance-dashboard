@@ -88,16 +88,6 @@ def _fetch_destination_token_value_data_from_external_source(
         destination_info_df["destination_vault_address"].unique()
     )
 
-    # spot_df = get_raw_state_by_blocks(
-    #     spot_price_calls, needed_blocks, chain, include_block_number=True, semaphore_limits=(5, 5, 5, 5, 5)
-    # )
-    # # this works,
-    # reserve_df = get_raw_state_by_blocks(
-    #     underlying_reserves_calls, needed_blocks, chain, include_block_number=False, semaphore_limits=(5, 5, 5, 5, 5)
-    # )
-
-    # df = spot_df.merge(reserve_df, how="outer", left_index=True, right_index=True)
-
     df = get_raw_state_by_blocks(
         [*spot_price_calls, *underlying_reserves_calls],
         needed_blocks,
@@ -112,7 +102,7 @@ def _fetch_and_insert_destination_token_values(
     autopools: list[AutopoolConstants],
     chain: ChainData,
 ):
-
+    # TODO this is not smart, it refetches everyhting at the start
     destination_info_df = merge_tables_as_df(
         selectors=[
             TableSelector(
