@@ -16,22 +16,15 @@ from mainnet_launch.database.schema.full import (
 from mainnet_launch.database.schema.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
-    natural_left_right_using_where,
-    get_full_table_as_orm,
     TableSelector,
     merge_tables_as_df,
-    get_full_table_as_df,
 )
 
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
-    build_blocks_to_use,
     identity_with_bool_success,
-    get_state_by_one_block,
 )
-
-from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
 
 from mainnet_launch.constants import (
     ALL_CHAINS,
@@ -44,6 +37,7 @@ from mainnet_launch.constants import (
     USDC,
 )
 
+# pricer_contract.functions.getSpotPriceInQuote(underlyingTokens[i], pool, quote).call({}, blockNo)
 
 def _fetch_destination_token_value_data_from_external_source(
     chain: ChainData, destination_info_df: pd.DataFrame, missing_blocks: list[int]

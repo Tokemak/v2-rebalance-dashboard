@@ -26,6 +26,7 @@ from mainnet_launch.constants import (
 )
 
 
+
 def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain: ChainData) -> list[int]:
     blocks_expected_to_have = merge_tables_as_df(
         selectors=[
