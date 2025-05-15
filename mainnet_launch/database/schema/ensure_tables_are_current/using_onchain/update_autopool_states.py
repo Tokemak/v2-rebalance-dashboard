@@ -4,7 +4,6 @@ from multicall import Call
 from mainnet_launch.database.schema.full import (
     Autopools,
     AutopoolStates,
-    AutopoolDestinationStates,
     DestinationStates,
     AutopoolDestinations,
 )
@@ -12,7 +11,6 @@ from mainnet_launch.database.schema.full import (
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_orm,
     get_subset_not_already_in_column,
-    natural_left_right_using_where,
     insert_avoid_conflicts,
     merge_tables_as_df,
     TableSelector,
@@ -22,7 +20,6 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
     safe_normalize_6_with_bool_success,
-    build_blocks_to_use,
 )
 
 from mainnet_launch.constants import (

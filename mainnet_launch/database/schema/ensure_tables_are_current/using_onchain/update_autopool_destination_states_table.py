@@ -26,20 +26,6 @@ from mainnet_launch.constants import (
 )
 
 
-def build_autopool_balance_of_calls_by_destination(
-    autopool_vault_address: str, destination_vault_addresses: list[str]
-) -> list[Call]:
-    "How many lp tokens of the destination does the autopool own?"
-    return [
-        Call(
-            destination_vault_address,
-            ["balanceOf(address)(uint256)", autopool_vault_address],
-            [((autopool_vault_address, destination_vault_address, "balanceOf"), safe_normalize_with_bool_success)],
-        )
-        for destination_vault_address in destination_vault_addresses  # pretty sure these are all 1e18
-    ]
-
-
 def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain: ChainData) -> list[int]:
     blocks_expected_to_have = merge_tables_as_df(
         selectors=[
@@ -97,6 +83,7 @@ def _fetch_and_insert_new_autopool_destination_states(autopools: list[AutopoolCo
     ]
 
     missing_blocks = _determine_what_blocks_are_needed(autopools, chain)
+
     if len(missing_blocks) == 0:
         return
 
