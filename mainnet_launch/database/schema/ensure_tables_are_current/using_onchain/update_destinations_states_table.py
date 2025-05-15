@@ -398,7 +398,9 @@ def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainDa
         chain,
     )
 
-    idle_destination_states = _fetch_idle_destination_states(chain, missing_blocks)
+    autopool_vault_addresses = [k for k in autopool_to_all_ever_active_destinations.keys()]
+
+    idle_destination_states = _fetch_idle_destination_states(chain, autopool_vault_addresses, missing_blocks)
 
     insert_avoid_conflicts(
         [
@@ -415,14 +417,14 @@ def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainDa
 
 
 def _fetch_idle_destination_states(
-    chain: ChainData, autopools: list[AutopoolConstants], missing_blocks: list[int]
+    chain: ChainData, autopool_vault_addresses: list[str], missing_blocks: list[int]
 ) -> list[DestinationStates]:
     idle_destination_states = []
-    for autopool in autopools:
+    for autopool_vault_address in autopool_vault_addresses:
         for block in missing_blocks:
             idle_destination_states.append(
                 DestinationStates(
-                    destination_vault_address=autopool.autopool_eth_addr,
+                    destination_vault_address=autopool_vault_address,
                     block=block,
                     chain_id=chain.chain_id,
                     incentive_apr=0.0,

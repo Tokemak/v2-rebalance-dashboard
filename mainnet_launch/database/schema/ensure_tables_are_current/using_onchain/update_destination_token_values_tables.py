@@ -24,6 +24,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
     identity_with_bool_success,
+    safe_normalize_6_with_bool_success,
 )
 
 from mainnet_launch.constants import (
@@ -35,51 +36,68 @@ from mainnet_launch.constants import (
     AutopoolConstants,
     WETH,
     USDC,
+    AUTO_USD,
 )
 
-# pricer_contract.functions.getSpotPriceInQuote(underlyingTokens[i], pool, quote).call({}, blockNo)
+
+AUTO_USD_ROOT_PRICE_ORACLE = "0xdB8747a396D75D576Dc7a10bb6c8F02F4a3C20f1"
+
+
+def _build_USD_autopool_price_calls(chain: ChainData, destination_info_df: pd.DataFrame) -> list[Call]:
+    # pricer_contract.functions.getSpotPriceInQuote(underlyingTokens[i], pool, quote).call({}, blockNo)
+    pool_token_addresses = destination_info_df[
+        destination_info_df["autopool_vault_address"] == AUTO_USD.autopool_eth_addr
+    ][["pool", "token_address"]].drop_duplicates()
+    return [
+        Call(
+            AUTO_USD_ROOT_PRICE_ORACLE,
+            ["getSpotPriceInQuote(address,address,address)(uint256)", token_address, pool_address, USDC(chain)],
+            [((pool_address, token_address, "spot_price"), safe_normalize_6_with_bool_success)],
+        )
+        for (pool_address, token_address) in zip(pool_token_addresses["pool"], pool_token_addresses["token_address"])
+    ]
+
+
+def _build_ETH_autopool_price_calls(chain: ChainData, destination_info_df: pd.DataFrame) -> list[Call]:
+    pool_token_addresses = destination_info_df[
+        destination_info_df["autopool_vault_address"] != AUTO_USD.autopool_eth_addr
+    ][["pool", "token_address"]].drop_duplicates()
+
+    return [
+        Call(
+            ROOT_PRICE_ORACLE(chain),
+            ["getSpotPriceInEth(address,address)(uint256)", token_address, pool_address],
+            [((pool_address, token_address, "spot_price"), safe_normalize_with_bool_success)],
+        )
+        for (pool_address, token_address) in zip(pool_token_addresses["pool"], pool_token_addresses["token_address"])
+    ]
+
+
+def _build_underlying_reserves_calls(destination_info_df: list[str]) -> list[Call]:
+    unique_destinations = destination_info_df["destination_vault_address"].unique()
+    return [
+        Call(
+            destination_vault_address,
+            "underlyingReserves()(address[],uint256[])",
+            [
+                ((destination_vault_address, "underlyingReserves_tokens"), identity_with_bool_success),
+                ((destination_vault_address, "underlyingReserves_amounts"), identity_with_bool_success),
+            ],
+        )
+        for destination_vault_address in unique_destinations
+    ]
+
 
 def _fetch_destination_token_value_data_from_external_source(
     chain: ChainData, destination_info_df: pd.DataFrame, missing_blocks: list[int]
 ) -> pd.DataFrame:
 
-    def build_pool_token_spot_price_calls(
-        chain: ChainData, pool_addresses: list[str], token_addresses: list[str]
-    ) -> list[Call]:
-        return [
-            Call(
-                ROOT_PRICE_ORACLE(chain),
-                ["getSpotPriceInEth(address,address)(uint256)", token_address, pool_address],
-                [((pool_address, token_address, "spot_price"), safe_normalize_with_bool_success)],
-            )
-            for (pool_address, token_address) in zip(pool_addresses, token_addresses)
-        ]
-
-    def build_underlying_reserves_calls(destinations: list[str]) -> list[Call]:
-        return [
-            Call(
-                dest,
-                "underlyingReserves()(address[],uint256[])",
-                [
-                    ((dest, "underlyingReserves_tokens"), identity_with_bool_success),
-                    ((dest, "underlyingReserves_amounts"), identity_with_bool_success),
-                ],
-            )
-            for dest in destinations
-        ]
-
-    unique_destinations = destination_info_df[["pool", "token_address"]].drop_duplicates()
-
-    spot_price_calls = build_pool_token_spot_price_calls(
-        chain, unique_destinations["pool"], unique_destinations["token_address"]
-    )
-
-    underlying_reserves_calls = build_underlying_reserves_calls(
-        destination_info_df["destination_vault_address"].unique()
-    )
+    usdc_destinations_spot_price_calls = _build_USD_autopool_price_calls(chain, destination_info_df)
+    eth_destinations_spot_price_calls = _build_ETH_autopool_price_calls(chain, destination_info_df)
+    underlying_reserves_calls = _build_underlying_reserves_calls(destination_info_df)
 
     df = get_raw_state_by_blocks(
-        [*spot_price_calls, *underlying_reserves_calls],
+        [*usdc_destinations_spot_price_calls, *eth_destinations_spot_price_calls, *underlying_reserves_calls],
         missing_blocks,
         chain,
         include_block_number=True,
@@ -136,7 +154,7 @@ def _fetch_and_insert_destination_token_values(
             ),
             TableSelector(
                 Destinations,
-                [Destinations.underlying, Destinations.pool],
+                [Destinations.underlying, Destinations.pool, Destinations.denominated_in],
                 join_on=AutopoolDestinations.destination_vault_address == Destinations.destination_vault_address,
             ),
             TableSelector(
@@ -169,13 +187,14 @@ def _fetch_and_insert_destination_token_values(
     new_destination_token_values_rows = []
 
     unique_destination_info_df = destination_info_df[
-        ["destination_vault_address", "token_address", "pool", "index", "decimals"]
+        ["destination_vault_address", "token_address", "pool", "index", "decimals", 'denominated_in']
     ].drop_duplicates()
 
     def _extract_destination_token_values(row: dict) -> None:
         token_spot_price_column = (row["pool"], row["token_address"], "spot_price")
         quantity_column = (row["destination_vault_address"], "underlyingReserves_amounts")
         token_address_column = (row["destination_vault_address"], "underlyingReserves_tokens")
+
 
         amounts_excluding_pool_token = []  # for composable stable pools
         for quantity_tuple, tokens_tuple in zip(
@@ -196,14 +215,15 @@ def _fetch_and_insert_destination_token_values(
         sub_df = token_spot_prices_and_reserves_df[["block", token_spot_price_column]].copy()
         sub_df.columns = ["block", "spot_price"]
 
-        sub_df["quantity"] = amounts_excluding_pool_token
+        sub_df["raw_quantity"] = amounts_excluding_pool_token
 
-        sub_df["quantity"] = sub_df["quantity"].apply(
+        sub_df["quantity"] = sub_df["raw_quantity"].apply(
             lambda amounts: amounts[row["index"]] / (10 ** row["decimals"]) if amounts else None
         )
         sub_df["chain_id"] = chain.chain_id
         sub_df["token_address"] = row["token_address"]
         sub_df["destination_vault_address"] = row["destination_vault_address"]
+        sub_df["denominated_in"] = row["denominated_in"]
 
         new_destination_token_values_rows.extend(
             [DestinationTokenValues.from_record(r) for r in sub_df.to_dict(orient="records")]
@@ -273,6 +293,7 @@ def _fetch_idle_destination_token_values(
                         token_address=autopool.base_asset,
                         spot_price=1.0,
                         quantity=total_idle,
+                        denominated_in=autopool.base_asset,
                     )
                 )
 

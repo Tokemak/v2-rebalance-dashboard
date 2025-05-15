@@ -303,7 +303,7 @@ class DestinationTokenValues(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     token_address: Mapped[str] = mapped_column(primary_key=True)
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
-    # denominated_in: Mapped[str] = mapped_column(primary_key=True)
+    denominated_in: Mapped[str] = mapped_column(primary_key=True)
 
     # the spot price of this token in this destination
     spot_price: Mapped[float] = mapped_column(nullable=True)

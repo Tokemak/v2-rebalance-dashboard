@@ -26,7 +26,6 @@ from mainnet_launch.constants import (
 )
 
 
-
 def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain: ChainData) -> list[int]:
     blocks_expected_to_have = merge_tables_as_df(
         selectors=[
@@ -116,6 +115,29 @@ def _fetch_and_insert_new_autopool_destination_states(autopools: list[AutopoolCo
     idle_autopool_destination_states = _build_idle_autopool_destination_states(missing_blocks, autopools, chain)
 
     insert_avoid_conflicts(
+        [*idle_autopool_destination_states],
+        AutopoolDestinationStates,
+        index_elements=[
+            AutopoolDestinationStates.destination_vault_address,
+            AutopoolDestinationStates.autopool_vault_address,
+            AutopoolDestinationStates.block,
+            AutopoolDestinationStates.chain_id,
+        ],
+    )
+
+    insert_avoid_conflicts(
+        [*new_autopool_destination_states_rows],
+        AutopoolDestinationStates,
+        index_elements=[
+            AutopoolDestinationStates.destination_vault_address,
+            AutopoolDestinationStates.autopool_vault_address,
+            AutopoolDestinationStates.block,
+            AutopoolDestinationStates.chain_id,
+        ],
+    )
+
+    return
+    insert_avoid_conflicts(
         [*new_autopool_destination_states_rows, *idle_autopool_destination_states],
         AutopoolDestinationStates,
         index_elements=[
@@ -152,7 +174,7 @@ def _build_idle_autopool_destination_states(
             ),
         ],
         where_clause=(AutopoolDestinations.chain_id == chain.chain_id)
-        # & (AutopoolDestinations.destination_vault_address.in_([a.autopool_eth_addr for a in autopools]))
+        & (AutopoolDestinations.destination_vault_address.in_([a.autopool_eth_addr for a in autopools]))
         & (DestinationTokenValues.block.in_(missing_blocks)),
     )
 
