@@ -29,9 +29,8 @@ from mainnet_launch.constants import (
     BASE_CHAIN,
     AUTO_USD,
     ALL_AUTOPOOLS_DATA_ON_CHAIN,
-    AutopoolConstants
+    AutopoolConstants,
 )
-
 
 
 def build_lp_token_spot_price_calls(
@@ -415,7 +414,9 @@ def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainDa
     )
 
 
-def _fetch_idle_destination_states(chain: ChainData, autopools:list[AutopoolConstants], missing_blocks: list[int]) -> list[DestinationStates]:
+def _fetch_idle_destination_states(
+    chain: ChainData, autopools: list[AutopoolConstants], missing_blocks: list[int]
+) -> list[DestinationStates]:
     idle_destination_states = []
     for autopool in autopools:
         for block in missing_blocks:

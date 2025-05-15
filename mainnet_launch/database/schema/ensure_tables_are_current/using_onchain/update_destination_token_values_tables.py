@@ -215,7 +215,7 @@ def _fetch_and_insert_destination_token_values(
             [DestinationTokenValues.from_record(r) for r in sub_df.to_dict(orient="records")]
         )
 
-    unique_destination_info_df.apply(lambda row: _extract_destination_token_values(row), axis=1)  
+    unique_destination_info_df.apply(lambda row: _extract_destination_token_values(row), axis=1)
 
     insert_avoid_conflicts(
         [*new_destination_token_values_rows, *idle_destination_token_values],

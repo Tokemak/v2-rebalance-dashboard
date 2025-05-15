@@ -129,7 +129,7 @@ def _build_idle_autopool_destination_states(
     missing_blocks: list[int], autopools: list[AutopoolConstants], chain: ChainData
 ) -> list[AutopoolDestinationStates]:
     # this is not correct, some
-    # this is silently failng, 
+    # this is silently failng,
     idle_destination_token_value_df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -172,7 +172,7 @@ def _build_idle_autopool_destination_states(
     # expcted ;me
 
     if len(idle_autopool_destination_states) == 0:
-        raise ValueError('should not be 0, should have early stopped earlier')
+        raise ValueError("should not be 0, should have early stopped earlier")
     return idle_autopool_destination_states
 
 

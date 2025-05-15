@@ -96,7 +96,7 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
         underlying_symbol: f"{underlying_symbol} ({exchange_name})"
         for underlying_symbol, exchange_name in zip(df["underlying_symbol"], df["exchange_name"])
     }
-    # how much of the pool do we own, 
+    # how much of the pool do we own,
     # therefore how much of the undelrying tokens do we own
     df["portion_owned"] = (df["owned_shares"] / df["underlying_token_total_supply"]).fillna(1.0)
     df["autopool_implied_safe_value"] = df["portion_owned"] * df["quantity"] * df["safe_price"]
