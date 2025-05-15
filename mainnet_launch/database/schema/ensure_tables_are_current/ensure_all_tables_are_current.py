@@ -66,7 +66,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure__destinations__tokens__and__destination_tokens_are_current()  # I don't like this name
 
     ensure_destination_states_are_current()
-    update_destination_states_from_rebalance_plan() # duplicates work
+    update_destination_states_from_rebalance_plan()  # duplicates work
     ensure_destination_token_values_are_current()
     ensure_autopool_destination_states_are_current()
 

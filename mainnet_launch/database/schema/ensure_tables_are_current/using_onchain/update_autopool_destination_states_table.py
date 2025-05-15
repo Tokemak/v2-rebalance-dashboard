@@ -97,7 +97,7 @@ def _fetch_and_insert_new_autopool_destination_states(autopools: list[AutopoolCo
     ]
 
     missing_blocks = _determine_what_blocks_are_needed(autopools, chain)
-    if not missing_blocks:
+    if len(missing_blocks) == 0:
         return
 
     autopool_destination_balance_of_df = get_raw_state_by_blocks(
@@ -141,9 +141,8 @@ def _fetch_and_insert_new_autopool_destination_states(autopools: list[AutopoolCo
 def _build_idle_autopool_destination_states(
     missing_blocks: list[int], autopools: list[AutopoolConstants], chain: ChainData
 ) -> list[AutopoolDestinationStates]:
-    # already fetched
-
-    # get the block quantity and token address
+    # this is not correct, some
+    # this is silently failng, 
     idle_destination_token_value_df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -180,9 +179,13 @@ def _build_idle_autopool_destination_states(
                 owned_shares=float(row["quantity"]),
             )
         )
+        pass
 
     idle_destination_token_value_df.apply(_extract_idle_autopool_destination_state, axis=1)
+    # expcted ;me
 
+    if len(idle_autopool_destination_states) == 0:
+        raise ValueError('should not be 0, should have early stopped earlier')
     return idle_autopool_destination_states
 
 

@@ -29,11 +29,9 @@ from mainnet_launch.constants import (
     BASE_CHAIN,
     AUTO_USD,
     ALL_AUTOPOOLS_DATA_ON_CHAIN,
+    AutopoolConstants
 )
 
-from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
-    fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks,
-)
 
 
 def build_lp_token_spot_price_calls(
@@ -417,18 +415,13 @@ def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainDa
     )
 
 
-def _fetch_idle_destination_states(chain: ChainData, missing_blocks: list[int]) -> list[DestinationStates]:
-
-    autopools_as_destinations: list[Destinations] = get_full_table_as_orm(
-        Destinations, where_clause=(Destinations.chain_id == chain.chain_id) & (Destinations.pool_type == "idle")
-    )
-
+def _fetch_idle_destination_states(chain: ChainData, autopools:list[AutopoolConstants], missing_blocks: list[int]) -> list[DestinationStates]:
     idle_destination_states = []
-    for dest in autopools_as_destinations:
+    for autopool in autopools:
         for block in missing_blocks:
             idle_destination_states.append(
                 DestinationStates(
-                    destination_vault_address=dest.destination_vault_address,
+                    destination_vault_address=autopool.autopool_eth_addr,
                     block=block,
                     chain_id=chain.chain_id,
                     incentive_apr=0.0,

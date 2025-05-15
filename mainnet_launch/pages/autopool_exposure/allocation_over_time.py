@@ -76,14 +76,14 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
                 select_fields=[
                     DestinationStates.underlying_token_total_supply,
                     DestinationStates.lp_token_safe_price,
-                ],  # lp token total supply
+                ],
                 join_on=(DestinationStates.chain_id == DestinationTokenValues.chain_id)
                 & (DestinationStates.destination_vault_address == DestinationTokenValues.destination_vault_address)
                 & (DestinationStates.block == DestinationTokenValues.block),
             ),
             TableSelector(
                 table=Destinations,
-                select_fields=[Destinations.underlying_symbol, Destinations.exchange_name],  # lp token total supply
+                select_fields=[Destinations.underlying_symbol, Destinations.exchange_name],
                 join_on=(Destinations.chain_id == DestinationTokenValues.chain_id)
                 & (Destinations.destination_vault_address == DestinationTokenValues.destination_vault_address),
             ),
@@ -96,7 +96,8 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
         underlying_symbol: f"{underlying_symbol} ({exchange_name})"
         for underlying_symbol, exchange_name in zip(df["underlying_symbol"], df["exchange_name"])
     }
-
+    # how much of the pool do we own, 
+    # therefore how much of the undelrying tokens do we own
     df["portion_owned"] = (df["owned_shares"] / df["underlying_token_total_supply"]).fillna(1.0)
     df["autopool_implied_safe_value"] = df["portion_owned"] * df["quantity"] * df["safe_price"]
 
