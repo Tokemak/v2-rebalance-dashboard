@@ -187,14 +187,13 @@ def _fetch_and_insert_destination_token_values(
     new_destination_token_values_rows = []
 
     unique_destination_info_df = destination_info_df[
-        ["destination_vault_address", "token_address", "pool", "index", "decimals", 'denominated_in']
+        ["destination_vault_address", "token_address", "pool", "index", "decimals", "denominated_in"]
     ].drop_duplicates()
 
     def _extract_destination_token_values(row: dict) -> None:
         token_spot_price_column = (row["pool"], row["token_address"], "spot_price")
         quantity_column = (row["destination_vault_address"], "underlyingReserves_amounts")
         token_address_column = (row["destination_vault_address"], "underlyingReserves_tokens")
-
 
         amounts_excluding_pool_token = []  # for composable stable pools
         for quantity_tuple, tokens_tuple in zip(

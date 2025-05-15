@@ -114,29 +114,29 @@ def _fetch_and_insert_new_autopool_destination_states(autopools: list[AutopoolCo
 
     idle_autopool_destination_states = _build_idle_autopool_destination_states(missing_blocks, autopools, chain)
 
-    insert_avoid_conflicts(
-        [*idle_autopool_destination_states],
-        AutopoolDestinationStates,
-        index_elements=[
-            AutopoolDestinationStates.destination_vault_address,
-            AutopoolDestinationStates.autopool_vault_address,
-            AutopoolDestinationStates.block,
-            AutopoolDestinationStates.chain_id,
-        ],
-    )
+    # insert_avoid_conflicts(
+    #     [*idle_autopool_destination_states],
+    #     AutopoolDestinationStates,
+    #     index_elements=[
+    #         AutopoolDestinationStates.destination_vault_address,
+    #         AutopoolDestinationStates.autopool_vault_address,
+    #         AutopoolDestinationStates.block,
+    #         AutopoolDestinationStates.chain_id,
+    #     ],
+    # )
 
-    insert_avoid_conflicts(
-        [*new_autopool_destination_states_rows],
-        AutopoolDestinationStates,
-        index_elements=[
-            AutopoolDestinationStates.destination_vault_address,
-            AutopoolDestinationStates.autopool_vault_address,
-            AutopoolDestinationStates.block,
-            AutopoolDestinationStates.chain_id,
-        ],
-    )
+    # insert_avoid_conflicts(
+    #     [*new_autopool_destination_states_rows],
+    #     AutopoolDestinationStates,
+    #     index_elements=[
+    #         AutopoolDestinationStates.destination_vault_address,
+    #         AutopoolDestinationStates.autopool_vault_address,
+    #         AutopoolDestinationStates.block,
+    #         AutopoolDestinationStates.chain_id,
+    #     ],
+    # )
 
-    return
+    # return
     insert_avoid_conflicts(
         [*new_autopool_destination_states_rows, *idle_autopool_destination_states],
         AutopoolDestinationStates,
@@ -164,17 +164,9 @@ def _build_idle_autopool_destination_states(
                     DestinationTokenValues.quantity,
                 ],
             ),
-            TableSelector(
-                AutopoolDestinations,
-                [
-                    AutopoolDestinations.autopool_vault_address,
-                ],
-                join_on=DestinationTokenValues.destination_vault_address
-                == AutopoolDestinations.destination_vault_address,
-            ),
         ],
-        where_clause=(AutopoolDestinations.chain_id == chain.chain_id)
-        & (AutopoolDestinations.destination_vault_address.in_([a.autopool_eth_addr for a in autopools]))
+        where_clause=(DestinationTokenValues.chain_id == chain.chain_id)
+        & (DestinationTokenValues.destination_vault_address.in_([a.autopool_eth_addr for a in autopools]))
         & (DestinationTokenValues.block.in_(missing_blocks)),
     )
 
@@ -193,7 +185,6 @@ def _build_idle_autopool_destination_states(
         pass
 
     idle_destination_token_value_df.apply(_extract_idle_autopool_destination_state, axis=1)
-    # expcted ;me
 
     if len(idle_autopool_destination_states) == 0:
         raise ValueError("should not be 0, should have early stopped earlier")
