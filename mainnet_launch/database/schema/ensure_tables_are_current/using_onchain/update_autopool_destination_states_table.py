@@ -52,6 +52,7 @@ def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain:
         blocks_expected_to_have,
         where_clause=AutopoolDestinationStates.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools]),
     )
+    return [int(b) for b in blocks_expected_to_have[-2:]]
     return blocks_to_fetch
 
 
@@ -150,7 +151,7 @@ def _build_idle_autopool_destination_states(
             ),
         ],
         where_clause=(AutopoolDestinations.chain_id == chain.chain_id)
-        & (AutopoolDestinations.destination_vault_address.in_([a.autopool_eth_addr for a in autopools]))
+        # & (AutopoolDestinations.destination_vault_address.in_([a.autopool_eth_addr for a in autopools]))
         & (DestinationTokenValues.block.in_(missing_blocks)),
     )
 

@@ -167,6 +167,8 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
 
 
 if __name__ == "__main__":
-    fetch_and_render_asset_allocation_over_time(ALL_AUTOPOOLS[0])
-    fetch_and_render_asset_allocation_over_time(ALL_AUTOPOOLS[-1])
-    pass
+    from mainnet_launch.constants import AUTO_ETH, AUTO_USD
+
+    fetch_and_render_asset_allocation_over_time(AUTO_USD)
+    # fetch_and_render_asset_allocation_over_time(AUTO_ETH)
+    # pass
