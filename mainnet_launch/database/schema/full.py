@@ -13,8 +13,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
+# you need to use main instead of the dev_local_branch because of the limit of compute
+# only 5 compute hours / month on a branch vs 191 compute hours for free per month
 
-tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
+tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))  #  DEV_LOCAL_DATABASE_URL
 
 ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
