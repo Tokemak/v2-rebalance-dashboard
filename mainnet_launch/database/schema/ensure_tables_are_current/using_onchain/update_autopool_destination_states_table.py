@@ -52,7 +52,6 @@ def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain:
         blocks_expected_to_have,
         where_clause=AutopoolDestinationStates.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools]),
     )
-    return [int(b) for b in blocks_expected_to_have[-2:]]
     return blocks_to_fetch
 
 
@@ -114,29 +113,6 @@ def _fetch_and_insert_new_autopool_destination_states(autopools: list[AutopoolCo
 
     idle_autopool_destination_states = _build_idle_autopool_destination_states(missing_blocks, autopools, chain)
 
-    # insert_avoid_conflicts(
-    #     [*idle_autopool_destination_states],
-    #     AutopoolDestinationStates,
-    #     index_elements=[
-    #         AutopoolDestinationStates.destination_vault_address,
-    #         AutopoolDestinationStates.autopool_vault_address,
-    #         AutopoolDestinationStates.block,
-    #         AutopoolDestinationStates.chain_id,
-    #     ],
-    # )
-
-    # insert_avoid_conflicts(
-    #     [*new_autopool_destination_states_rows],
-    #     AutopoolDestinationStates,
-    #     index_elements=[
-    #         AutopoolDestinationStates.destination_vault_address,
-    #         AutopoolDestinationStates.autopool_vault_address,
-    #         AutopoolDestinationStates.block,
-    #         AutopoolDestinationStates.chain_id,
-    #     ],
-    # )
-
-    # return
     insert_avoid_conflicts(
         [*new_autopool_destination_states_rows, *idle_autopool_destination_states],
         AutopoolDestinationStates,

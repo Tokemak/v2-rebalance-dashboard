@@ -104,7 +104,7 @@ import pstats
 
 
 def main():
-    ensure_database_is_current(full_reset_and_refetch=True, echo_sql_to_console=True)
+    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
 
 
 if __name__ == "__main__":

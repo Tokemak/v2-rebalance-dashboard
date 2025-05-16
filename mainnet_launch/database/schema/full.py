@@ -219,6 +219,7 @@ class DestinationStates(Base):
     fee_apr: Mapped[float] = mapped_column(nullable=True)
     base_apr: Mapped[float] = mapped_column(nullable=True)
     points_apr: Mapped[float] = mapped_column(nullable=True)
+    # price_return: Mapped[float] = mapped_column(nullable=True)
 
     # only for post autoUSD destinations
     fee_plus_base_apr: Mapped[float] = mapped_column(nullable=True)

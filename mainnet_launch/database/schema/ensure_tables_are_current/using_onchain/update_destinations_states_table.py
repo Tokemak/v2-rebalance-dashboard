@@ -372,8 +372,6 @@ def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainDa
         .apply(tuple)
         .to_dict()
     )
-    # for k, v in autopool_to_all_ever_active_destinations.items():
-    #     print(k, len(v))
 
     destination_underlying_total_supply_df = _fetch_destination_total_supply_df(
         autopool_to_all_ever_active_destinations, missing_blocks, chain
