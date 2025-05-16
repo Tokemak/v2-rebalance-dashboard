@@ -21,6 +21,9 @@ ENGINE = create_engine(
     f"@{tmpPostgres.hostname}{tmpPostgres.path}?sslmode=require",
     echo=True,  # Enable SQL query logging for debugging.
     pool_pre_ping=True,  # ← test connections before using them
+    pool_timeout=30,  # wait for a free conn before error
+    pool_size=5,  # keep 5 open connections
+    max_overflow=0,  # don’t spin up “extra” ones
 )
 
 

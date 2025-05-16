@@ -39,30 +39,27 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
                 select_fields=[Blocks.datetime],
                 join_on=(Blocks.chain_id == TokenValues.chain_id) & (Blocks.block == TokenValues.block),
             ),
-        ]
-    )
+        ],
+        where_clause=(TokenValues.denominated_in == autopool.base_asset),
+    )  # get the whole token value over time
 
     # this is too slow, it should be a view, add later, (prob a materialized view)
     destinations_df = merge_tables_as_df(
         [
+            TableSelector(
+                table=DestinationTokenValues,
+                select_fields=[
+                    DestinationTokenValues.token_address,
+                    DestinationTokenValues.destination_vault_address,
+                    DestinationTokenValues.quantity,
+                ],
+            ),
             TableSelector(
                 table=AutopoolDestinationStates,
                 select_fields=[
                     AutopoolDestinationStates.owned_shares,
                     AutopoolDestinationStates.destination_vault_address,
                     AutopoolDestinationStates.block,
-                ],
-                join_on=None,
-                row_filter=(
-                    (AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
-                    & (AutopoolDestinationStates.owned_shares > 0)
-                ),
-            ),
-            TableSelector(
-                table=DestinationTokenValues,
-                select_fields=[
-                    DestinationTokenValues.token_address,
-                    DestinationTokenValues.quantity,
                 ],
                 join_on=(DestinationTokenValues.chain_id == AutopoolDestinationStates.chain_id)
                 & (
@@ -87,7 +84,8 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
                 join_on=(Destinations.chain_id == DestinationTokenValues.chain_id)
                 & (Destinations.destination_vault_address == DestinationTokenValues.destination_vault_address),
             ),
-        ]
+        ],
+        where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
     )
 
     df = pd.merge(destinations_df, token_value_df, on=["block", "token_address"])

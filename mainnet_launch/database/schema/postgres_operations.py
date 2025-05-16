@@ -156,30 +156,30 @@ def bulk_copy_skip_duplicates(rows: list[tuple], table: type[Base]) -> None:
         pkey=sql.SQL(", ").join(map(sql.Identifier, id_cols)),
     )
 
-    raw_conn = ENGINE.raw_connection()
-    try:
-        with raw_conn.cursor() as cur:
-            # a) Drop old staging, then create one WITHOUT constraints or indexes
-            cur.execute(sql.SQL("DROP TABLE IF EXISTS {stg}").format(stg=sql.Identifier(f"{tn}_staging")))
-            cur.execute(
-                sql.SQL(
-                    "CREATE TEMP TABLE {stg} (LIKE {main} "
-                    "INCLUDING ALL EXCLUDING CONSTRAINTS EXCLUDING INDEXES) ON COMMIT DROP"
-                ).format(
-                    stg=sql.Identifier(f"{tn}_staging"),
-                    main=sql.Identifier(tn),
+    with ENGINE.connect() as conn:
+        # this begin() opens a transaction and will commit on exit
+        with conn.begin():
+            # grab the raw psycopg2 connection
+            raw_conn = conn.connection
+            with raw_conn.cursor() as cur:
+                # a) Drop old staging
+                cur.execute(sql.SQL("DROP TABLE IF EXISTS {stg}").format(stg=sql.Identifier(f"{tn}_staging")))
+                # b) Create new temp staging
+                cur.execute(
+                    sql.SQL(
+                        "CREATE TEMP TABLE {stg} (LIKE {main} "
+                        "INCLUDING ALL EXCLUDING CONSTRAINTS EXCLUDING INDEXES) "
+                        "ON COMMIT DROP"
+                    ).format(
+                        stg=sql.Identifier(f"{tn}_staging"),
+                        main=sql.Identifier(tn),
+                    )
                 )
-            )
-
-            # b) Bulk‐COPY into the unconstrained staging table
-            cur.copy_expert(copy_into_staging, buf)
-
-            # c) Move into the real table, skipping duplicates
-            cur.execute(insert_main)
-
-        raw_conn.commit()
-    finally:
-        raw_conn.close()
+                # c) Bulk‐COPY into staging
+                cur.copy_expert(copy_into_staging, buf)
+                # d) Move into main table
+                cur.execute(insert_main)
+        # commit happens automatically here
 
 
 def get_highest_value_in_field_where(table: Base, column: InstrumentedAttribute, where_clause: OperatorExpression):
