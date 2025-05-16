@@ -389,10 +389,7 @@ def set_some_cells_to_null(
 
     # 1) extract PK column names and build tuple-of-tuples from rows
     pk_cols = [c.name for c in table.__table__.primary_key.columns]
-    pk_tuples = [
-        tuple(getattr(row, col) for col in pk_cols)
-        for row in rows
-    ]
+    pk_tuples = [tuple(getattr(row, col) for col in pk_cols) for row in rows]
 
     # 2) build "col1 = NULL, col2 = NULL, …"
     set_clause = ", ".join(f"{col.key} = NULL" for col in cols_to_null)
@@ -410,10 +407,7 @@ def set_some_cells_to_null(
     with ENGINE.connect() as conn:
         # this begin() opens a transaction and will commit on exit
         with conn.begin():
-            conn.exec_driver_sql(
-                sql_stmt,
-                (tuple(pk_tuples),)
-            )
+            conn.exec_driver_sql(sql_stmt, (tuple(pk_tuples),))
 
 
 if __name__ == "__main__":
