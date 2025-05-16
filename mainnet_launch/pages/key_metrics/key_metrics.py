@@ -18,14 +18,38 @@ from mainnet_launch.database.schema.postgres_operations import (
     TableSelector,
 )
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
+import plotly.express as px
+import plotly.graph_objects as go
+import pandas as pd
+import streamlit as st
+import numpy as np
+import psutil
+
+from mainnet_launch.constants import AutopoolConstants
+
+from mainnet_launch.database.schema.full import (
+    AutopoolStates,
+    Blocks,
+    DestinationStates,
+    Destinations,
+    AutopoolDestinationStates,
+    DestinationTokenValues,
+    TokenValues,
+    Tokens,
+)
+from mainnet_launch.database.schema.postgres_operations import (
+    merge_tables_as_df,
+    TableSelector,
+)
+from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 
-def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
+def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFrame:
     nav_per_share_df = merge_tables_as_df(
         [
             TableSelector(
                 table=AutopoolStates,
-                select_fields=AutopoolStates.nav_per_share,
+                select_fields=[AutopoolStates.nav_per_share, AutopoolStates.total_nav],
                 join_on=None,
                 row_filter=(AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr),
             ),
@@ -39,7 +63,7 @@ def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
         order_by=Blocks.datetime,
     )
     nav_per_share_df = nav_per_share_df.set_index("datetime")
-    nav_per_share_df.columns = [autopool.name]
+    nav_per_share_df.columns = [autopool.name, autopool.name + " total_nav"]
 
     nav_per_share_df["30_day_difference"] = nav_per_share_df[autopool.name].diff(periods=30)
     nav_per_share_df["30_day_annualized_return"] = (
@@ -58,92 +82,88 @@ def fetch_nav_per_share(autopool: AutopoolConstants) -> pd.DataFrame:
 
 
 def fetch_key_metrics_data(autopool: AutopoolConstants):
-    nav_per_share_df = fetch_nav_per_share(autopool)
+    nav_per_share_df = fetch_nav_per_share_and_total_nav(autopool)
 
     destination_state_df = merge_tables_as_df(
         selectors=[
             TableSelector(
-                DestinationStates,
+                table=AutopoolDestinationStates,
+            ),
+            TableSelector(
+                table=Destinations,
+                join_on=(
+                    (Destinations.destination_vault_address == AutopoolDestinationStates.destination_vault_address)
+                    & (Destinations.chain_id == AutopoolDestinationStates.chain_id)
+                ),
+                select_fields=[Destinations.pool_type, Destinations.underlying_symbol, Destinations.exchange_name],
+            ),
+            TableSelector(
+                table=DestinationStates,
                 select_fields=[
-                    DestinationStates.destination_vault_address,
-                    DestinationStates.block,
                     DestinationStates.incentive_apr,
                     DestinationStates.fee_apr,
                     DestinationStates.base_apr,
                     DestinationStates.lp_token_safe_price,
+                    DestinationStates.total_apr_out,
+                    DestinationStates.total_apr_in,
                 ],
+                join_on=(
+                    (AutopoolDestinationStates.destination_vault_address == DestinationStates.destination_vault_address)
+                    & (AutopoolDestinationStates.chain_id == DestinationStates.chain_id)
+                    & (AutopoolDestinationStates.block == DestinationStates.block)
+                ),
             ),
             TableSelector(
-                AutopoolDestinationStates,
-                [
-                    AutopoolDestinationStates.owned_shares,
-                ],
-                (DestinationStates.destination_vault_address == AutopoolDestinationStates.destination_vault_address)
-                & (DestinationStates.chain_id == AutopoolDestinationStates.chain_id)
-                & (DestinationStates.block == AutopoolDestinationStates.block),
-            ),
-            TableSelector(
-                Destinations,
-                [Destinations.pool_type],
-                (DestinationStates.destination_vault_address == Destinations.destination_vault_address)
-                & (DestinationStates.chain_id == Destinations.chain_id),
-            ),
-            TableSelector(
-                AutopoolStates,
-                [AutopoolStates.total_nav],
-                (AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr)
-                & (AutopoolStates.chain_id == DestinationStates.chain_id)
-                & (AutopoolStates.block == DestinationStates.block),
-            ),
-            TableSelector(
-                Blocks,
-                Blocks.datetime,
-                (DestinationStates.block == Blocks.block) & (DestinationStates.chain_id == Blocks.chain_id),
+                table=Blocks,
+                join_on=(
+                    (AutopoolDestinationStates.block == Blocks.block)
+                    & (AutopoolDestinationStates.chain_id == Blocks.chain_id)
+                ),
+                select_fields=[Blocks.datetime],
             ),
         ],
-        where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
+        # your global filter (you can also push this into a per‑selector row_filter if you prefer)
+        where_clause=(
+            (AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
+            & (DestinationStates.block.in_(build_blocks_to_use(autopool.chain)))
+        ),
         order_by=Blocks.datetime,
+        order="asc",
     )
-
-    owned_shares_df = destination_state_df.pivot(
-        index="datetime", values="owned_shares", columns="destination_vault_address"
-    )
-
-    price_per_share_df = destination_state_df.pivot(
-        index="datetime", values="lp_token_safe_price", columns="destination_vault_address"
-    )
-
-    allocation_df = (price_per_share_df * owned_shares_df).fillna(0)
-    total_nav_series = allocation_df.sum(axis=1)
-
-    portion_df = allocation_df.div(total_nav_series, axis=1)
 
     destination_state_df["unweighted_apr"] = destination_state_df[["fee_apr", "base_apr", "incentive_apr"]].sum(axis=1)
 
-    uwcr_df = destination_state_df.pivot(index="datetime", values="unweighted_apr", columns="destination_vault_address")
-    expected_return_series = 100 * (portion_df.fillna(0) * uwcr_df.fillna(0)).sum(axis=1)
-
-    # NOTE not correct
-    price_return_df = destination_state_df.pivot(
-        index="datetime", values="fee_apr", columns="destination_vault_address"
+    destination_state_df["safe_tvl_by_destination"] = (
+        destination_state_df["lp_token_safe_price"] * destination_state_df["owned_shares"]
+    )
+    destination_state_df["unweighted_expected_apr"] = 100 * (
+        destination_state_df["incentive_apr"] + destination_state_df["base_apr"] + destination_state_df["fee_apr"]
     )
 
-    # pretty sure the issue here is that it is not properly grouping values by price return
-    # price return is still not correct
-    weighted_price_return_series = -100 * (portion_df.fillna(0) * price_return_df.fillna(0)).sum(axis=1)
-    # autopool_wide_total_safe_value = destination_state_df.pivot(
-    #     index="datetime", values="total_safe_value", columns="destination_vault_address"
-    # ).sum(axis=1)
-    # autopool_wide_total_backing_value = destination_state_df.pivot(
-    #     index="datetime", values="total_backing_value", columns="destination_vault_address"
-    # ).sum(axis=1)
+    destination_state_df["readable_name"] = destination_state_df.apply(
+        lambda row: f"{row['underlying_symbol']} ({row['exchange_name']})", axis=1
+    )
 
-    # weighted_price_return_series = 100 * (autopool_wide_total_backing_value - autopool_wide_total_safe_value).div(
-    #     autopool_wide_total_backing_value
-    # )
-    # TODO weighted price return series is not correct and I'm not sure why not
+    # this is correct
+    safe_tvl_by_destination = (
+        destination_state_df.groupby(["datetime", "readable_name"])[["safe_tvl_by_destination"]]
+        .sum()
+        .reset_index()
+        .pivot(values="safe_tvl_by_destination", index="datetime", columns="readable_name")
+    )
 
-    # weighted_price_return_series = expected_return_series.copy()
+    total_safe_tvl_over_time = safe_tvl_by_destination.sum(axis=1)
+    portion_alloaction_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl_over_time, axis=0)
+
+    max_apr_by_destination = (
+        destination_state_df.groupby(["datetime", "readable_name"])[["unweighted_expected_apr"]]
+        .max()
+        .reset_index()
+        .pivot(values="unweighted_expected_apr", index="datetime", columns="readable_name")
+    )
+    expected_return_series = (max_apr_by_destination * portion_alloaction_by_destination_df).sum(axis=1)
+
+    total_nav_series = nav_per_share_df[autopool.name + " total_nav"]
 
     highest_block_and_datetime = destination_state_df[["block", "datetime"]].iloc[-1]
 
@@ -151,15 +171,9 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         nav_per_share_df,
         total_nav_series,
         expected_return_series,
-        allocation_df,
-        weighted_price_return_series,
+        portion_alloaction_by_destination_df,
         highest_block_and_datetime,
     )
-
-
-def get_memory_usage() -> float:
-    """Returns curernt application memory usages in mb"""
-    return psutil.Process().memory_info().rss / (1024**2)
 
 
 def _apply_default_style(fig: go.Figure) -> None:
@@ -185,21 +199,15 @@ def _diffReturn(x: list):
     return round(x.iloc[-1] - x.iloc[-2], 4)
 
 
-def _compute_percent_deployed(allocation_df: pd.DataFrame, autopool: AutopoolConstants) -> tuple[float, float]:
-    tvl_yesterday = allocation_df.iloc[-2].sum()
-    idle_yesterday = allocation_df[autopool.autopool_eth_addr].iloc[-2]
-
-    percent_deployed_yesterday = 100 - (100 * idle_yesterday / tvl_yesterday)
-
-    tvl_today = allocation_df.iloc[-1].sum()
-    idle_today = allocation_df[autopool.autopool_eth_addr].iloc[-1]
-
-    percent_deployed_today = 100 - (100 * idle_today / tvl_today)
-
-    return round(percent_deployed_today, 2), round(percent_deployed_yesterday, 2)
+def _compute_percent_deployed(
+    portion_alloaction_by_destination_df: pd.DataFrame, autopool: AutopoolConstants
+) -> tuple[float, float]:
+    idle_yesterday = portion_alloaction_by_destination_df[f"{autopool.name} (tokemak)"].iloc[-2]
+    idle_today = portion_alloaction_by_destination_df[f"{autopool.name} (tokemak)"].iloc[-1]
+    return round(100 * idle_today, 2), round(100 * idle_yesterday, 2)
 
 
-def _render_top_level_stats(nav_per_share_df, expected_return_series, allocation_df, autopool):
+def _render_top_level_stats(nav_per_share_df, expected_return_series, portion_alloaction_by_destination_df, autopool):
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     col1.metric(
         "30-day Rolling APY (%)",
@@ -227,7 +235,9 @@ def _render_top_level_stats(nav_per_share_df, expected_return_series, allocation
         _diffReturn(expected_return_series),
     )
 
-    percent_deployed_today, percent_deployed_yesterday = _compute_percent_deployed(allocation_df, autopool)
+    percent_deployed_today, percent_deployed_yesterday = _compute_percent_deployed(
+        portion_alloaction_by_destination_df, autopool
+    )
 
     col6.metric(
         "Percent Deployed",
@@ -289,18 +299,25 @@ def _render_top_level_charts(nav_per_share_df, autopool, total_nav_series, expec
         st.plotly_chart(price_return_fig, use_container_width=True)
 
 
+def _fetch_price_return(autopool: AutopoolConstants):
+    # total safe value (by safe token price
+    # / total backing value (toekns table)
+    return None
+
+
 def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
     (
         nav_per_share_df,
         total_nav_series,
         expected_return_series,
-        allocation_df,
-        weighted_price_return_series,
+        portion_alloaction_by_destination_df,
         highest_block_and_datetime,
     ) = fetch_key_metrics_data(autopool)
 
+    weighted_price_return_series = _fetch_price_return(autopool)
+
     st.header(f"{autopool.name} Key Metrics")
-    _render_top_level_stats(nav_per_share_df, expected_return_series, allocation_df, autopool)
+    _render_top_level_stats(nav_per_share_df, expected_return_series, portion_alloaction_by_destination_df, autopool)
     _render_top_level_charts(
         nav_per_share_df, autopool, total_nav_series, expected_return_series, weighted_price_return_series
     )
@@ -324,45 +341,9 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
         """
     )
 
-    st.write(f"Memory Usage: {get_memory_usage():.2f} MB")
+    memory_used = psutil.Process().memory_info().rss / (1024**2)
 
-
-# def render_download_production_button():
-#     if os.path.exists(PRODUCTION_LOG_FILE_NAME):
-#         try:
-#             with open(PRODUCTION_LOG_FILE_NAME, "r") as log_file:
-#                 log_content = log_file.read()
-
-#             st.download_button(
-#                 label="📥 Download Log File",
-#                 data=log_content,
-#                 file_name=PRODUCTION_LOG_FILE_NAME,
-#                 mime="text/plain",
-#                 key="download_production_log",
-#             )
-#         except Exception as e:
-#             st.error(f"An error occurred while reading the log file: {e}")
-#     else:
-#         st.warning("Log file not found. Please ensure that logging is properly configured.")
-
-
-# def render_download_startup_log_button():
-#     if os.path.exists(STARTUP_LOG_FILE):
-#         try:
-#             with open(STARTUP_LOG_FILE, "r") as log_file:
-#                 log_content = log_file.read()
-
-#             st.download_button(
-#                 label="📥 Download Startup File",
-#                 data=log_content,
-#                 file_name="startup.txt",
-#                 mime="text/plain",
-#                 key="download_startup_log",
-#             )
-#         except Exception as e:
-#             st.error(f"An error occurred while reading the log file: {e}")
-#     else:
-#         st.warning("Log file not found. Please ensure that logging is properly configured.")
+    st.write(f"Memory Usage: {memory_used:.2f} MB")
 
 
 if __name__ == "__main__":
