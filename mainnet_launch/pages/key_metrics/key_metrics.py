@@ -1,41 +1,17 @@
-import plotly.express as px
-import plotly.graph_objects as go
 import pandas as pd
-import streamlit as st
-import psutil
-
-from mainnet_launch.constants import AutopoolConstants
-
-from mainnet_launch.database.schema.full import (
-    AutopoolStates,
-    Blocks,
-    DestinationStates,
-    Destinations,
-    AutopoolDestinationStates,
-)
-from mainnet_launch.database.schema.postgres_operations import (
-    merge_tables_as_df,
-    TableSelector,
-)
-from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
-import plotly.express as px
-import plotly.graph_objects as go
-import pandas as pd
-import streamlit as st
 import numpy as np
+import streamlit as st
 import psutil
+import plotly.express as px
+import plotly.graph_objects as go
 
 from mainnet_launch.constants import AutopoolConstants
-
 from mainnet_launch.database.schema.full import (
     AutopoolStates,
     Blocks,
     DestinationStates,
     Destinations,
     AutopoolDestinationStates,
-    DestinationTokenValues,
-    TokenValues,
-    Tokens,
 )
 from mainnet_launch.database.schema.postgres_operations import (
     merge_tables_as_df,
@@ -63,7 +39,7 @@ def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFra
         order_by=Blocks.datetime,
     )
     nav_per_share_df = nav_per_share_df.set_index("datetime")
-    nav_per_share_df.columns = [autopool.name, autopool.name + " total_nav"]
+    nav_per_share_df.columns = [autopool.name, "NAV"]
 
     nav_per_share_df["30_day_difference"] = nav_per_share_df[autopool.name].diff(periods=30)
     nav_per_share_df["30_day_annualized_return"] = (
@@ -163,7 +139,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     )
     expected_return_series = (max_apr_by_destination * portion_alloaction_by_destination_df).sum(axis=1)
 
-    total_nav_series = nav_per_share_df[autopool.name + " total_nav"]
+    total_nav_series = nav_per_share_df["NAV"]
 
     highest_block_and_datetime = destination_state_df[["block", "datetime"]].iloc[-1]
 
@@ -204,7 +180,7 @@ def _compute_percent_deployed(
 ) -> tuple[float, float]:
     idle_yesterday = portion_alloaction_by_destination_df[f"{autopool.name} (tokemak)"].iloc[-2]
     idle_today = portion_alloaction_by_destination_df[f"{autopool.name} (tokemak)"].iloc[-1]
-    return round(100 * idle_today, 2), round(100 * idle_yesterday, 2)
+    return round(100 - (100 * idle_today), 2), round(100 - (100 * idle_yesterday), 2)
 
 
 def _render_top_level_stats(nav_per_share_df, expected_return_series, portion_alloaction_by_destination_df, autopool):
