@@ -179,7 +179,6 @@ def bulk_copy_skip_duplicates(rows: list[tuple], table: type[Base]) -> None:
                 cur.copy_expert(copy_into_staging, buf)
                 # d) Move into main table
                 cur.execute(insert_main)
-        # commit happens automatically here
 
 
 def get_highest_value_in_field_where(table: Base, column: InstrumentedAttribute, where_clause: OperatorExpression):
@@ -344,6 +343,77 @@ def _where_clause_to_string(where_clause: OperatorExpression | None, session) ->
         return f"WHERE {str(compiled_where)}"
     else:
         return ""
+
+
+def bulk_overwrite(rows: list[tuple], table: type[Base]) -> None:
+    """
+    Atomically delete any rows whose primary keys appear in `rows`,
+    then insert all of `rows` (i.e. “upsert by delete+insert”),
+    using context managers throughout.
+    """
+    tn = table.__tablename__
+    cols = [c.name for c in table.__table__.columns]
+    id_cols = [c.name for c in table.__table__.primary_key.columns]
+
+    # build list of just the PK‐tuples for deletion
+    pk_positions = [cols.index(pk) for pk in id_cols]
+    pk_tuples = [tuple(r[pos] for pos in pk_positions) for r in rows]
+
+    delete_sql = sql.SQL("DELETE FROM {table} WHERE ({pkey}) IN %s").format(
+        table=sql.Identifier(tn), pkey=sql.SQL(", ").join(map(sql.Identifier, id_cols))
+    )
+    insert_sql = sql.SQL("INSERT INTO {table} ({fields}) VALUES %s").format(
+        table=sql.Identifier(tn), fields=sql.SQL(", ").join(map(sql.Identifier, cols))
+    )
+
+    # Use `with` so conn.commit()/rollback() and close() are automatic
+    with ENGINE.raw_connection() as conn:
+        with conn.cursor() as cur:
+            # 1) delete any conflicting rows
+            cur.execute(delete_sql, (tuple(pk_tuples),))
+            # 2) bulk‐insert all new rows
+            execute_values(cur, insert_sql.as_string(cur), rows)
+
+
+def set_some_cells_to_null(
+    table: Base,
+    rows: list[Base],
+    cols_to_null: list[InstrumentedAttribute],
+) -> None:
+    """
+    UPDATE <table>
+       SET col1 = NULL, col2 = NULL, …
+     WHERE (pk1, pk2, …) IN ( (v11,v12,…), (v21,v22,…), … )
+    """
+    tn = table.__tablename__
+
+    # 1) extract PK column names and build tuple-of-tuples from rows
+    pk_cols = [c.name for c in table.__table__.primary_key.columns]
+    pk_tuples = [
+        tuple(getattr(row, col) for col in pk_cols)
+        for row in rows
+    ]
+
+    # 2) build "col1 = NULL, col2 = NULL, …"
+    set_clause = ", ".join(f"{col.key} = NULL" for col in cols_to_null)
+    #    and "(pk1, pk2, …)"
+    pkey_list = ", ".join(pk_cols)
+
+    # 3) parameterized SQL; SQLAlchemy will pass %s parameters through to psycopg2
+    sql_stmt = f"""
+        UPDATE {table.__tablename__}
+           SET {set_clause}
+         WHERE ({pkey_list}) IN %s
+    """
+
+    # use raw_connection so psycopg2 can handle the tuple‐of‐tuples param
+    with ENGINE.connect() as conn:
+        # this begin() opens a transaction and will commit on exit
+        with conn.begin():
+            conn.exec_driver_sql(
+                sql_stmt,
+                (tuple(pk_tuples),)
+            )
 
 
 if __name__ == "__main__":

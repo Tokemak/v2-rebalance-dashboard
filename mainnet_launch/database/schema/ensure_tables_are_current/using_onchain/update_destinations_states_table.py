@@ -9,6 +9,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
     merge_tables_as_df,
+    set_some_cells_to_null,
     TableSelector,
 )
 from mainnet_launch.data_fetching.get_state_by_block import (
@@ -27,9 +28,7 @@ from mainnet_launch.constants import (
     WETH,
     ETH_CHAIN,
     BASE_CHAIN,
-    AUTO_USD,
     ALL_AUTOPOOLS_DATA_ON_CHAIN,
-    AutopoolConstants,
 )
 
 
@@ -99,39 +98,6 @@ def _fetch_lp_token_spot_prices(
         lp_token_spot_prices_calls, missing_blocks, chain, include_block_number=True
     )
     return lp_token_spot_price_df
-
-
-# def build_autopool_balance_of_calls_by_destination(
-#     autopool_vault_address: str, destination_vault_addresses: list[str]
-# ) -> list[Call]:
-#     return [
-#         Call(
-#             destination_vault_address,
-#             ["balanceOf(address)(uint256)", autopool_vault_address],
-#             [((autopool_vault_address, destination_vault_address, "balanceOf"), safe_normalize_with_bool_success)],
-#         )
-#         for destination_vault_address in destination_vault_addresses
-#     ]
-
-
-# def fetch_autopool_balance_of_by_destination(
-#     autopool_to_all_ever_active_destinations: dict[str, list[Destinations]], missing_blocks: list[int], chain: ChainData
-# ) -> pd.DataFrame:
-#     autopool_balance_of_calls = []
-
-#     for autopool_vault_address in autopool_to_all_ever_active_destinations.keys():
-#         this_autopool_active_destinations = [
-#             dest.destination_vault_address for dest in autopool_to_all_ever_active_destinations[autopool_vault_address]
-#         ]
-
-#         autopool_balance_of_calls.extend(
-#             build_autopool_balance_of_calls_by_destination(autopool_vault_address, this_autopool_active_destinations)
-#         )
-
-#     autopool_destination_balance_of_df = get_raw_state_by_blocks(
-#         autopool_balance_of_calls, missing_blocks, chain, include_block_number=True
-#     )
-#     return autopool_destination_balance_of_df
 
 
 def build_destinations_underlyingTotalSupply_calls(destination_vault_addresses: list[str]) -> list[Call]:
@@ -442,11 +408,73 @@ def _fetch_idle_destination_states(
     return idle_destination_states
 
 
+def _overwrite_bad_summary_states_rows():
+    other_values_set_to_null = {
+        "incentive_apr": None,
+        "fee_apr": None,
+        "base_apr": None,
+        "points_apr": None,
+        "fee_plus_base_apr": None,
+        "total_apr_in": None,
+        "total_apr_out": None,
+        "underlying_token_total_supply": None,
+        "safe_total_supply": None,
+        "lp_token_spot_price": None,
+        "lp_token_safe_price": None,
+        "from_rebalance_plan": None,
+    }
+    bad_rows = [
+        DestinationStates(
+            destination_vault_address="0x49895f72fd9d0BF6BBb485C70CE38556de62b070",
+            block=22385293,
+            chain_id=1,
+            **other_values_set_to_null,
+        ),
+        DestinationStates(
+            destination_vault_address="0x3F55eedDe51504E6Ed0ec30E8289b4Da11EdB7F9",
+            block=22385293,
+            chain_id=1,
+            **other_values_set_to_null,
+        ),
+        DestinationStates(
+            destination_vault_address="0x3F55eedDe51504E6Ed0ec30E8289b4Da11EdB7F9",
+            block=22442219,
+            chain_id=1,
+            **other_values_set_to_null,
+        ),
+        DestinationStates(
+            destination_vault_address="0x49895f72fd9d0BF6BBb485C70CE38556de62b070",
+            block=22442219,
+            chain_id=1,
+            **other_values_set_to_null,
+        ),
+        DestinationStates(
+            destination_vault_address="0x5c6aeb9ef0d5BbA4E6691f381003503FD0D45126",
+            block=21339732,
+            chain_id=1,
+            **other_values_set_to_null,
+        ),
+    ]
+    # 3) null out the three APR columns on exactly those PKs
+    set_some_cells_to_null(
+        table=DestinationStates,
+        rows=bad_rows,
+        cols_to_null=[
+            DestinationStates.incentive_apr,
+            DestinationStates.total_apr_in,
+            DestinationStates.total_apr_out,
+        ],
+    )
+    pass
+
+
 def ensure_destination_states_are_current():
     # only from onchain
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)  # the highest block of each full day on this chain
         _add_new_destination_states_to_db(possible_blocks, chain)
+
+    _overwrite_bad_summary_states_rows()
 
 
 import cProfile, pstats

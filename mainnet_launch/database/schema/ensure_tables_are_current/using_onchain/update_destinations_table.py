@@ -295,14 +295,6 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
     Make sure that the Destinations, DestinationTokens and Tokens tables are current for all the underlying tokens in each of the destinations
     """
     for chain in ALL_CHAINS:
-        # contract = chain.client.eth.contract(DESTINATION_VAULT_REGISTRY(chain), abi=DESTINATION_VAULT_REGISTRY_ABI)
-        # DestinationVaultRegistered = fetch_events(
-        #     contract.events.DestinationVaultRegistered,
-        #     start_block=chain.block_autopool_first_deployed,  # +1 avoids fetching the last event again
-        #     end_block=chain.client.eth.block_number,
-        #     chain=chain,
-        # )
-
         autopool_vault_added_dfs = []
 
         for autopool in ALL_AUTOPOOLS:
