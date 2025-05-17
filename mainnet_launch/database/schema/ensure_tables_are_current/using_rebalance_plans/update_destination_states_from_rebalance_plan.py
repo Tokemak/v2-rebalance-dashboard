@@ -53,15 +53,15 @@ def dicts_to_destination_states(
     total_apr_out - incentive_apr. All numeric fields are cast to float.
     """
 
-    plan_timestamp = plan["sod"]["currentTimestamp"]
+    rebalance_plan_timestamp = plan["sod"]["currentTimestamp"]
     # the first block that is + 1 minute from this timestamp, (not is approx)
     # not totally certain on this logic
 
     timestamp_block_tuples = [(timestamp, block) for timestamp, block in timestamp_to_block.items()]
-    timestamp_block_tuples.sort(lambda x: x[0], reverse=True)
+    timestamp_block_tuples.sort(key=lambda x: x[0], reverse=True)
 
     for timestamp, some_block in timestamp_to_block.items():
-        if timestamp >= plan_timestamp:
+        if timestamp >= rebalance_plan_timestamp-60:
             block_after_plan_timestamp = some_block
 
     def _extract_idle_usdc(success, AssetBreakdown):
@@ -69,12 +69,10 @@ def dicts_to_destination_states(
             totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
             return int(totalIdle) / 1e6
 
-    amount_of_idle_usdc_call = (
-        Call(
-            autopool.autopool_eth_addr,
-            ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
-            [("idle", _extract_idle_usdc)],
-        ),
+    amount_of_idle_usdc_call = Call(
+        autopool.autopool_eth_addr,
+        ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
+        [("idle", _extract_idle_usdc)],
     )
 
     quantity_of_idle = get_state_by_one_block([amount_of_idle_usdc_call], block_after_plan_timestamp, autopool.chain)[
@@ -98,7 +96,7 @@ def dicts_to_destination_states(
             lp_token_spot_price=1.0,
             lp_token_safe_price=1.0,
             from_rebalance_plan=True,
-            rebalance_plan_timestamp=plan_timestamp,
+            rebalance_plan_timestamp=rebalance_plan_timestamp,
         )
     ]
 
@@ -129,6 +127,7 @@ def dicts_to_destination_states(
             lp_token_spot_price=float(dest_state["spotPrice"]),
             lp_token_safe_price=float(dest_state["safePrice"]),
             from_rebalance_plan=True,
+            rebalance_plan_timestamp=rebalance_plan_timestamp
         )
         state_of_destinations.append(state)
 

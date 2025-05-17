@@ -424,7 +424,7 @@ def _overwrite_bad_summary_states_rows():
         "lp_token_spot_price": None,
         "lp_token_safe_price": None,
         "from_rebalance_plan": None,
-        "rrebalance_plan_timestamp": None,
+        "rebalance_plan_timestamp": None,
     }
     bad_rows = [
         DestinationStates(
