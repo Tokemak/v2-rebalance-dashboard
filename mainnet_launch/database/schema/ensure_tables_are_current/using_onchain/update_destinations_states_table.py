@@ -454,7 +454,44 @@ def _overwrite_bad_summary_states_rows():
             chain_id=1,
             **other_values_set_to_null,
         ),
+        DestinationStates(
+            destination_vault_address="0x60339056EC88996e41757E05a798310E46972cca",
+            block=21311105,
+            chain_id=1,
+            **other_values_set_to_null,
+        ),
+        DestinationStates(
+            destination_vault_address="0xB6d68122428Dc1141467cB96791618615Ab9F746",
+            block=21311105,
+            chain_id=1,
+            **other_values_set_to_null,
+        ),
+        DestinationStates(
+            destination_vault_address="0xB6d68122428Dc1141467cB96791618615Ab9F746",
+            block=21296777,
+            chain_id=1,
+            **other_values_set_to_null,
+        ),
+        DestinationStates(
+            destination_vault_address="0x60339056EC88996e41757E05a798310E46972cca",
+            block=21296777,
+            chain_id=1,
+            **other_values_set_to_null,
+        ),
+        DestinationStates(
+            destination_vault_address="0x60339056EC88996e41757E05a798310E46972cca",
+            block=21303933,
+            chain_id=1,
+            **other_values_set_to_null,
+        ),
+        DestinationStates(
+            destination_vault_address="0xB6d68122428Dc1141467cB96791618615Ab9F746",
+            block=21303933,
+            chain_id=1,
+            **other_values_set_to_null,
+        ),
     ]
+
     # 3) null out the three APR columns on exactly those PKs
     set_some_cells_to_null(
         table=DestinationStates,

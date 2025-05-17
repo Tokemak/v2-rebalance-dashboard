@@ -101,7 +101,6 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         # your global filter (you can also push this into a per‑selector row_filter if you prefer)
         where_clause=(
             (AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
-            & (DestinationStates.block.in_(build_blocks_to_use(autopool.chain)))
         ),
         order_by=Blocks.datetime,
         order="asc",
@@ -323,7 +322,9 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, AUTO_ETH, BASE_ETH, DINERO_ETH
-
+    from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, AUTO_ETH, BASE_ETH, DINERO_ETH, AUTO_USD
+    
     fetch_and_render_key_metrics_data(AUTO_ETH)
+
+    fetch_and_render_key_metrics_data(AUTO_USD)
     pass

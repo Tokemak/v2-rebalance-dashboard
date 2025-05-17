@@ -61,7 +61,37 @@ def dicts_to_destination_states(
     using direct lookups and computing fee_plus_base_apr as
     total_apr_out - incentive_apr. All numeric fields are cast to float.
     """
-    state_of_destinations: list[DestinationStates] = []
+
+    current_timestamps = [plan["sod"]["currentTimestamp"] + i for i in range(60)]
+    # the first block that is + 1 minute from this timestamp, (not is approx)
+    for t in current_timestamps:
+        block = timestamp_to_block.get(t, None)
+        if block is not None:
+            break
+    
+    # 
+    quantity_of_idle = -1#
+    # start with idle
+    state_of_destinations: list[DestinationStates] = [
+        DestinationStates(
+            destination_vault_address=autopool.autopool_eth_addr,
+            block=block,
+            chain_id=autopool.chain.chain_id,
+            incentive_apr=None, # not sure if 0 or None makes more sense here
+            fee_apr=None,
+            base_apr=None,
+            points_apr=None,
+            fee_plus_base_apr=None, 
+            total_apr_in=None, 
+            total_apr_out=None,
+            underlying_token_total_supply=None, # not certain if None makes sense here, maybe this should read idle instead? not sure
+            safe_total_supply=None,
+            lp_token_spot_price=1.0,
+            lp_token_safe_price=1.0,
+            from_rebalance_plan=True,
+        )
+    ]
+
     for dest_state in plan["sod"]["destStates"]:
         # direct lookups and float conversion
         incentive = float(dest_state["incentiveAPR"])
@@ -71,12 +101,6 @@ def dicts_to_destination_states(
         raw_total_supply = float(dest_state["totSupply"])
         normalized_total_supply = raw_total_supply / (10 ** tokens_address_to_decimals[dest_state["underlying"]])
 
-        current_timestamps = [plan["sod"]["currentTimestamp"] + i for i in range(-30, 30)]
-        # the first block that is +- 1 minute from this timestamp, (not is approx)
-        for t in current_timestamps:
-            block = timestamp_to_block.get(t, None)
-            if block is not None:
-                break
 
         state = DestinationStates(
             destination_vault_address=Web3.toChecksumAddress(dest_state["address"]),
@@ -96,8 +120,13 @@ def dicts_to_destination_states(
             from_rebalance_plan=True,
         )
         # not certain here if this has autoUSD idle destination
+        # it does not have idle 
 
         state_of_destinations.append(state)
+
+
+
+
     return state_of_destinations
 
 
@@ -118,7 +147,8 @@ def update_destination_states_from_rebalance_plan():
 
         def _process_plan(plan_path):
             plan = convert_rebalance_plan_json_to_rebalance_plan_line(plan_path, s3_client, autopool)
-            return dicts_to_destination_states(plan, autopool, timestamp_to_block, tokens_address_to_decimals)
+            new_destination_states =  dicts_to_destination_states(plan, autopool, timestamp_to_block, tokens_address_to_decimals)
+            return new_destination_states
 
         all_destination_states = []
         with ThreadPoolExecutor(max_workers=32) as executor:
