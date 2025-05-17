@@ -294,6 +294,7 @@ def _extract_new_destination_states(
                     lp_token_spot_price=lp_token_spot_price,
                     lp_token_safe_price=lp_token_safe_price,
                     from_rebalance_plan=False,
+                    rebalance_plan_timestamp=None,
                 )
                 all_new_destination_states.append(new_destination_state)
 
@@ -403,6 +404,7 @@ def _fetch_idle_destination_states(
                     lp_token_spot_price=1.0,
                     lp_token_safe_price=1.0,
                     from_rebalance_plan=False,
+                    rebalance_plan_timestamp=None,
                 )
             )
     return idle_destination_states
@@ -422,6 +424,7 @@ def _overwrite_bad_summary_states_rows():
         "lp_token_spot_price": None,
         "lp_token_safe_price": None,
         "from_rebalance_plan": None,
+        "rrebalance_plan_timestamp": None,
     }
     bad_rows = [
         DestinationStates(

@@ -4,32 +4,23 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
-import pandas as pd
 from web3 import Web3
 
-import plotly.express as px
+from multicall.call import Call
 
 from mainnet_launch.database.schema.full import (
-    RebalancePlans,
-    Destinations,
-    DexSwapSteps,
     Tokens,
     DestinationStates,
-    DestinationTokenValues,
 )
 
+from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_orm,
     insert_avoid_conflicts,
-    get_subset_not_already_in_column,
 )
 
 from mainnet_launch.constants import (
-    ALL_AUTOPOOLS,
     AutopoolConstants,
-    USDC,
-    WETH,
-    AUTO_USD,
     ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN,
 )
 from mainnet_launch.data_fetching.block_timestamp import _fetch_block_df_from_subgraph, ensure_all_blocks_are_in_table
@@ -62,33 +53,52 @@ def dicts_to_destination_states(
     total_apr_out - incentive_apr. All numeric fields are cast to float.
     """
 
-    current_timestamps = [plan["sod"]["currentTimestamp"] + i for i in range(60)]
+    plan_timestamp = plan["sod"]["currentTimestamp"]
     # the first block that is + 1 minute from this timestamp, (not is approx)
-    for t in current_timestamps:
-        block = timestamp_to_block.get(t, None)
-        if block is not None:
-            break
-    
-    # 
-    quantity_of_idle = -1#
-    # start with idle
+    # not totally certain on this logic
+
+    timestamp_block_tuples = [(timestamp, block) for timestamp, block in timestamp_to_block.items()]
+    timestamp_block_tuples.sort(lambda x: x[0], reverse=True)
+
+    for timestamp, some_block in timestamp_to_block.items():
+        if timestamp >= plan_timestamp:
+            block_after_plan_timestamp = some_block
+
+    def _extract_idle_usdc(success, AssetBreakdown):
+        if success:
+            totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
+            return int(totalIdle) / 1e6
+
+    amount_of_idle_usdc_call = (
+        Call(
+            autopool.autopool_eth_addr,
+            ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
+            [("idle", _extract_idle_usdc)],
+        ),
+    )
+
+    quantity_of_idle = get_state_by_one_block([amount_of_idle_usdc_call], block_after_plan_timestamp, autopool.chain)[
+        "idle"
+    ]
+
     state_of_destinations: list[DestinationStates] = [
         DestinationStates(
             destination_vault_address=autopool.autopool_eth_addr,
-            block=block,
+            block=block_after_plan_timestamp,
             chain_id=autopool.chain.chain_id,
-            incentive_apr=None, # not sure if 0 or None makes more sense here
+            incentive_apr=None,  # not sure if 0 or None makes more sense here
             fee_apr=None,
             base_apr=None,
             points_apr=None,
-            fee_plus_base_apr=None, 
-            total_apr_in=None, 
+            fee_plus_base_apr=None,
+            total_apr_in=None,
             total_apr_out=None,
-            underlying_token_total_supply=None, # not certain if None makes sense here, maybe this should read idle instead? not sure
-            safe_total_supply=None,
+            underlying_token_total_supply=quantity_of_idle,
+            safe_total_supply=quantity_of_idle,
             lp_token_spot_price=1.0,
             lp_token_safe_price=1.0,
             from_rebalance_plan=True,
+            rebalance_plan_timestamp=plan_timestamp,
         )
     ]
 
@@ -98,13 +108,14 @@ def dicts_to_destination_states(
         total_in = float(dest_state["totalAprIn"])
         total_out = float(dest_state["totalAprOut"])
 
-        raw_total_supply = float(dest_state["totSupply"])
-        normalized_total_supply = raw_total_supply / (10 ** tokens_address_to_decimals[dest_state["underlying"]])
-
+        raw_underlying_token_total_supply = float(dest_state["totSupply"])
+        underlying_token_total_supply = raw_underlying_token_total_supply / (
+            10 ** tokens_address_to_decimals[dest_state["underlying"]]
+        )
 
         state = DestinationStates(
             destination_vault_address=Web3.toChecksumAddress(dest_state["address"]),
-            block=block,
+            block=block_after_plan_timestamp,
             chain_id=autopool.chain.chain_id,
             incentive_apr=incentive,
             fee_apr=None,
@@ -113,19 +124,13 @@ def dicts_to_destination_states(
             fee_plus_base_apr=total_out - (incentive / 0.9),  # remove downscaling
             total_apr_in=total_in,
             total_apr_out=total_out,
-            underlying_token_total_supply=normalized_total_supply,
+            underlying_token_total_supply=underlying_token_total_supply,
             safe_total_supply=None,
             lp_token_spot_price=float(dest_state["spotPrice"]),
             lp_token_safe_price=float(dest_state["safePrice"]),
             from_rebalance_plan=True,
         )
-        # not certain here if this has autoUSD idle destination
-        # it does not have idle 
-
         state_of_destinations.append(state)
-
-
-
 
     return state_of_destinations
 
@@ -147,7 +152,9 @@ def update_destination_states_from_rebalance_plan():
 
         def _process_plan(plan_path):
             plan = convert_rebalance_plan_json_to_rebalance_plan_line(plan_path, s3_client, autopool)
-            new_destination_states =  dicts_to_destination_states(plan, autopool, timestamp_to_block, tokens_address_to_decimals)
+            new_destination_states = dicts_to_destination_states(
+                plan, autopool, timestamp_to_block, tokens_address_to_decimals
+            )
             return new_destination_states
 
         all_destination_states = []

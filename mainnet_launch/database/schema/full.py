@@ -234,6 +234,7 @@ class DestinationStates(Base):
     lp_token_safe_price: Mapped[float] = mapped_column(nullable=True)
 
     from_rebalance_plan: Mapped[bool] = mapped_column(nullable=False)
+    rebalance_plan_timestamp: Mapped[int] = mapped_column(nullable=True)
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
