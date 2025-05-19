@@ -1,10 +1,15 @@
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
+import os
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
+import requests
 from web3 import Web3
+import time
+import random
+
+from urllib.parse import urlparse
 
 from multicall.call import Call
 
@@ -12,19 +17,15 @@ from mainnet_launch.database.schema.full import (
     Tokens,
     DestinationStates,
 )
-
 from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_orm,
     insert_avoid_conflicts,
-    get_subset_not_already_in_column
+    get_subset_not_already_in_column,
 )
 
-from mainnet_launch.constants import (
-    AutopoolConstants,
-    ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN,
-)
-from mainnet_launch.data_fetching.block_timestamp import _fetch_block_df_from_subgraph, ensure_all_blocks_are_in_table
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, ChainData
+from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
 
 
 def convert_rebalance_plan_json_to_rebalance_plan_line(
@@ -45,7 +46,6 @@ def convert_rebalance_plan_json_to_rebalance_plan_line(
 def dicts_to_destination_states(
     plan: dict,
     autopool: AutopoolConstants,
-    timestamp_to_block: dict[int, int],
     tokens_address_to_decimals: dict[str, int],
 ) -> list[DestinationStates]:
     """
@@ -55,15 +55,7 @@ def dicts_to_destination_states(
     """
 
     rebalance_plan_timestamp = plan["sod"]["currentTimestamp"]
-    # the first block that is + 1 minute from this timestamp, (not is approx)
-    # not totally certain on this logic
-
-    timestamp_block_tuples = [(timestamp, block) for timestamp, block in timestamp_to_block.items()]
-    timestamp_block_tuples.sort(key=lambda x: x[0], reverse=True)
-
-    for timestamp, some_block in timestamp_to_block.items():
-        if timestamp >= rebalance_plan_timestamp - 60:
-            block_after_plan_timestamp = some_block
+    block_after_plan_timestamp = get_block_after_timestamp_from_alchemy(rebalance_plan_timestamp, chain=autopool.chain)
 
     def _extract_idle_usdc(success, AssetBreakdown):
         if success:
@@ -98,7 +90,7 @@ def dicts_to_destination_states(
             lp_token_safe_price=1.0,
             from_rebalance_plan=True,
             rebalance_plan_timestamp=rebalance_plan_timestamp,
-            rebalance_plan_key=plan['rebalance_plan_json_key']
+            rebalance_plan_key=plan["rebalance_plan_json_key"],
         )
     ]
 
@@ -130,7 +122,7 @@ def dicts_to_destination_states(
             lp_token_safe_price=float(dest_state["safePrice"]),
             from_rebalance_plan=True,
             rebalance_plan_timestamp=rebalance_plan_timestamp,
-            rebalance_plan_key=plan['rebalance_plan_json_key']
+            rebalance_plan_key=plan["rebalance_plan_json_key"],
         )
         state_of_destinations.append(state)
 
@@ -145,27 +137,25 @@ def update_destination_states_from_rebalance_plan():
         solver_plan_paths_on_remote = [
             r["Key"] for r in s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket).get("Contents")
         ]
-        # plans_to
-        # plans_to_fetch = get_subset_not_already_in_column(DestinationStates, DestinationStates.rebalance_plan_key, solver_plan_paths_on_remote, where_clause=None)
-        # if not plans_to_fetch:
-        #     continue
-        plans_to_fetch = solver_plan_paths_on_remote
+        plans_to_fetch = get_subset_not_already_in_column(
+            DestinationStates, DestinationStates.rebalance_plan_key, solver_plan_paths_on_remote, where_clause=None
+        )
+        if not plans_to_fetch:
+            continue
         plan_timestamps = [int(p.split(("_"))[2]) for p in plans_to_fetch]
 
-        block_df = _fetch_block_df_from_subgraph(autopool.chain, plan_timestamps)
-        timestamp_to_block = {int(t): b for t, b in zip(block_df["timestamp"], block_df["block"])}
         tokens_orm = get_full_table_as_orm(Tokens, where_clause=(Tokens.chain_id == autopool.chain.chain_id))
         tokens_address_to_decimals = {t.token_address: t.decimals for t in tokens_orm}
 
         def _process_plan(plan_path):
             plan = convert_rebalance_plan_json_to_rebalance_plan_line(plan_path, s3_client, autopool)
-            new_destination_states = dicts_to_destination_states(
-                plan, autopool, timestamp_to_block, tokens_address_to_decimals
-            )
+            new_destination_states = dicts_to_destination_states(plan, autopool, tokens_address_to_decimals)
             return new_destination_states
 
         all_destination_states = []
-        with ThreadPoolExecutor(max_workers=32) as executor:
+        # have to use few workers because of the get_block_after_timestamp_from_alchemy
+        # throws a lot of 500 errors
+        with ThreadPoolExecutor(max_workers=4) as executor:
 
             futures = {executor.submit(_process_plan, path): path for path in solver_plan_paths_on_remote}
 
@@ -173,7 +163,8 @@ def update_destination_states_from_rebalance_plan():
                 state_of_destinations = fut.result()
                 all_destination_states.extend(state_of_destinations)
 
-        ensure_all_blocks_are_in_table([d.block for d in all_destination_states], autopool.chain)
+        all_blocks_to_add = list(set([d.block for d in all_destination_states]))
+        ensure_all_blocks_are_in_table(all_blocks_to_add, autopool.chain)
         insert_avoid_conflicts(
             all_destination_states,
             DestinationStates,
@@ -185,17 +176,57 @@ def update_destination_states_from_rebalance_plan():
         )
 
 
-import cProfile, pstats
+def get_block_after_timestamp_from_alchemy(
+    unix_timestamp: int,
+    chain: ChainData,
+    direction: str = "AFTER",
+) -> int:
+    """
+    Fetch the first block before or after the given UNIX timestamp
+    on the specified ChainData network.
+    """
+    rpc_url = os.environ["ALCHEMY_URL"]
+    parsed = urlparse(rpc_url)
+    api_key = parsed.path.rsplit("/", 1)[-1]
+
+    endpoint = f"https://api.g.alchemy.com/data/v1/{api_key}/utility/blocks/by-timestamp"
+
+    headers = {"Authorization": api_key}  #
+
+    params = {
+        "networks": [chain.name + "-mainnet"],
+        "timestamp": str(unix_timestamp),
+        "direction": direction.upper(),  # “BEFORE” or “AFTER”
+    }
+
+    headers = {"Authorization": "<Authorization>"}
+    max_retries = 3
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = requests.get(endpoint, headers=headers, params=params)
+            resp.raise_for_status()
+            return int(resp.json()["data"][0]["block"]["number"])
+        except Exception as e:
+            if attempt == max_retries:
+                raise e
+            delay = 2 ** (attempt - 1)
+            print(f"[Attempt {attempt}/{max_retries}] Error: {e!r}. Retrying in {delay:.1f}s…")
+            time.sleep(delay + random.uniform(0, 1))
+
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
-    profiler.enable()
+
     update_destination_states_from_rebalance_plan()
-    profiler.disable()
-    profiler.dump_stats(
-        "mainnet_launch/database/schema/ensure_tables_are_current/update_destination_states_from_rebalance_plan.prof"
-    )
-    stats = pstats.Stats(
-        "mainnet_launch/database/schema/ensure_tables_are_current/update_destination_states_from_rebalance_plan.prof"
-    )
-    stats.strip_dirs().sort_stats("cumtime").print_stats(30)
+
+    # import cProfile, pstats
+    # profiler = cProfile.Profile()
+    # profiler.enable()
+    # update_destination_states_from_rebalance_plan()
+    # profiler.disable()
+    # profiler.dump_stats(
+    #     "mainnet_launch/database/schema/ensure_tables_are_current/update_destination_states_from_rebalance_plan.prof"
+    # )
+    # stats = pstats.Stats(
+    #     "mainnet_launch/database/schema/ensure_tables_are_current/update_destination_states_from_rebalance_plan.prof"
+    # )
+    # stats.strip_dirs().sort_stats("cumtime").print_stats(30)
