@@ -37,6 +37,31 @@ def fetch_and_render_weighted_crm_data(autopool: AutopoolConstants):
 
 
 def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figure:
+    full_dest_def = merge_tables_as_df(
+        selectors=[
+            TableSelector(
+                DestinationStates,
+
+            ),
+
+            TableSelector(
+                Destinations,
+                select_fields=[
+                    Destinations.underlying_symbol,
+                    Destinations.exchange_name,
+                ],
+                join_on=(Destinations.destination_vault_address == DestinationStates.destination_vault_address)
+                & (Destinations.chain_id == DestinationStates.chain_id),
+            ),
+            TableSelector(
+                Blocks,
+                [Blocks.datetime, Blocks.block],
+                (DestinationStates.block == Blocks.block) & (DestinationStates.chain_id == Blocks.chain_id),
+            ),
+        ]
+    )
+    pass
+    
     destination_state_df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -166,6 +191,6 @@ if __name__ == "__main__":
     from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
     from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
-    fetch_and_render_weighted_crm_data(ALL_AUTOPOOLS[0])
+    # fetch_and_render_weighted_crm_data(ALL_AUTOPOOLS[0])
 
     fetch_and_render_weighted_crm_data(ALL_AUTOPOOLS[-1])

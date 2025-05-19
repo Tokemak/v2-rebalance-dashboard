@@ -52,6 +52,7 @@ def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain:
         blocks_expected_to_have,
         where_clause=AutopoolDestinationStates.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools]),
     )
+    blocks_to_fetch = [int(b) for b in blocks_to_fetch]
     return blocks_to_fetch
 
 
@@ -158,7 +159,6 @@ def _build_idle_autopool_destination_states(
                 owned_shares=float(row["quantity"]),
             )
         )
-        pass
 
     idle_destination_token_value_df.apply(_extract_idle_autopool_destination_state, axis=1)
 
@@ -179,4 +179,5 @@ def ensure_autopool_destination_states_are_current():
 
 
 if __name__ == "__main__":
-    _determine_what_blocks_are_needed(ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, ALL_CHAINS[0])
+    ensure_autopool_destination_states_are_current()
+    # _determine_what_blocks_are_needed(ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, ALL_CHAINS[0])
