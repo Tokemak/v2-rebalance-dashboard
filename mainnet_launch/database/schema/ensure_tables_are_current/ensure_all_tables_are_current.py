@@ -53,8 +53,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
 
 # now checking 300 # ensure_database_is_current took 389.6745 seconds.
 # 100 is fast enough
-
-
 # @time_decorator
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
@@ -104,7 +102,7 @@ import pstats
 
 
 def main():
-    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
+    ensure_database_is_current(full_reset_and_refetch=True, echo_sql_to_console=True)
 
 
 if __name__ == "__main__":

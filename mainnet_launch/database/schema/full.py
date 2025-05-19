@@ -235,6 +235,7 @@ class DestinationStates(Base):
 
     from_rebalance_plan: Mapped[bool] = mapped_column(nullable=False)
     rebalance_plan_timestamp: Mapped[int] = mapped_column(nullable=True)
+    rebalance_plan_key: Mapped[str] = mapped_column(nullable=True)
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),

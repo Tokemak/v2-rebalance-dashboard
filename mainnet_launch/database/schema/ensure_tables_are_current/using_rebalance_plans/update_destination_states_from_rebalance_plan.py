@@ -17,6 +17,7 @@ from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_blo
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_orm,
     insert_avoid_conflicts,
+    get_subset_not_already_in_column
 )
 
 from mainnet_launch.constants import (
@@ -61,7 +62,7 @@ def dicts_to_destination_states(
     timestamp_block_tuples.sort(key=lambda x: x[0], reverse=True)
 
     for timestamp, some_block in timestamp_to_block.items():
-        if timestamp >= rebalance_plan_timestamp-60:
+        if timestamp >= rebalance_plan_timestamp - 60:
             block_after_plan_timestamp = some_block
 
     def _extract_idle_usdc(success, AssetBreakdown):
@@ -97,6 +98,7 @@ def dicts_to_destination_states(
             lp_token_safe_price=1.0,
             from_rebalance_plan=True,
             rebalance_plan_timestamp=rebalance_plan_timestamp,
+            rebalance_plan_key=plan['rebalance_plan_json_key']
         )
     ]
 
@@ -127,7 +129,8 @@ def dicts_to_destination_states(
             lp_token_spot_price=float(dest_state["spotPrice"]),
             lp_token_safe_price=float(dest_state["safePrice"]),
             from_rebalance_plan=True,
-            rebalance_plan_timestamp=rebalance_plan_timestamp
+            rebalance_plan_timestamp=rebalance_plan_timestamp,
+            rebalance_plan_key=plan['rebalance_plan_json_key']
         )
         state_of_destinations.append(state)
 
@@ -142,7 +145,12 @@ def update_destination_states_from_rebalance_plan():
         solver_plan_paths_on_remote = [
             r["Key"] for r in s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket).get("Contents")
         ]
-        plan_timestamps = [int(p.split(("_"))[2]) for p in solver_plan_paths_on_remote]
+        # plans_to
+        # plans_to_fetch = get_subset_not_already_in_column(DestinationStates, DestinationStates.rebalance_plan_key, solver_plan_paths_on_remote, where_clause=None)
+        # if not plans_to_fetch:
+        #     continue
+        plans_to_fetch = solver_plan_paths_on_remote
+        plan_timestamps = [int(p.split(("_"))[2]) for p in plans_to_fetch]
 
         block_df = _fetch_block_df_from_subgraph(autopool.chain, plan_timestamps)
         timestamp_to_block = {int(t): b for t, b in zip(block_df["timestamp"], block_df["block"])}

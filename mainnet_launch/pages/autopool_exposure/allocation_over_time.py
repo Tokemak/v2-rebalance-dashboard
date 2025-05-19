@@ -88,7 +88,7 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
         where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
     )
 
-    df = pd.merge(destinations_df, token_value_df, on=["block", "token_address"])
+    df = pd.merge(destinations_df, token_value_df, on=["block", "token_address"], how='left')
 
     underlying_symbol_to_readable_name = {
         underlying_symbol: f"{underlying_symbol} ({exchange_name})"
