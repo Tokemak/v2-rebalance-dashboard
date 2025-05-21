@@ -1,0 +1,352 @@
+import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
+import boto3
+from botocore import UNSIGNED
+from botocore.config import Config
+import requests
+from web3 import Web3
+import time
+import random
+
+from urllib.parse import urlparse
+
+from multicall.call import Call
+
+from mainnet_launch.database.schema.full import Tokens, DestinationStates, TokenValues, DestinationTokenValues
+from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block
+from mainnet_launch.database.schema.postgres_operations import (
+    get_full_table_as_orm,
+    insert_avoid_conflicts,
+    get_subset_not_already_in_column,
+)
+
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, ChainData
+from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
+
+
+def convert_rebalance_plan_json_to_rebalance_plan_line(
+    rebalance_plan_json_key: str, s3_client, autopool: AutopoolConstants
+):
+    plan = json.loads(
+        s3_client.get_object(
+            Bucket=autopool.solver_rebalance_plans_bucket,
+            Key=rebalance_plan_json_key,
+        )["Body"].read()
+    )
+
+    plan["rebalance_plan_json_key"] = rebalance_plan_json_key
+    plan["autopool_vault_address"] = autopool.autopool_eth_addr
+    return plan
+
+
+def _get_quantity_of_base_asset_in_idle(
+    autopool: AutopoolConstants, tokens_address_to_decimals, block_after_plan_timestamp
+) -> float:
+    def _extract_idle_usdc(success, AssetBreakdown):
+        if success:
+            totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
+            return int(totalIdle) / 10 ** tokens_address_to_decimals[autopool.base_asset]
+
+    amount_of_idle_usdc_call = Call(
+        autopool.autopool_eth_addr,
+        ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
+        [("idle", _extract_idle_usdc)],
+    )
+
+    quantity_of_idle = get_state_by_one_block([amount_of_idle_usdc_call], block_after_plan_timestamp, autopool.chain)[
+        "idle"
+    ]
+    return quantity_of_idle
+
+
+def convert_rebalance_plan_to_rows(
+    plan: dict,
+    autopool: AutopoolConstants,
+    tokens_address_to_decimals: dict[str, int],
+) -> list[DestinationStates]:
+
+    block_after_plan_timestamp = get_block_after_timestamp_from_alchemy(
+        plan["sod"]["currentTimestamp"], chain=autopool.chain
+    )
+    quantity_of_idle = _get_quantity_of_base_asset_in_idle(
+        autopool, tokens_address_to_decimals, block_after_plan_timestamp
+    )
+
+    new_destination_states_rows = _extract_destination_states_rows(
+        autopool, tokens_address_to_decimals, plan, block_after_plan_timestamp, quantity_of_idle
+    )
+    new_token_values_rows = _extract_token_values_data(autopool, plan, block_after_plan_timestamp)
+    new_destination_token_values = _extract_destination_token_values(
+        autopool, plan, block_after_plan_timestamp, quantity_of_idle
+    )
+
+    return new_destination_states_rows, new_token_values_rows, new_destination_token_values
+
+
+def _extract_destination_token_values(
+    autopool: AutopoolConstants, plan: dict, block_after_plan_timestamp: int, quantity_of_idle: int
+) -> list[TokenValues]:
+
+    new_destination_token_values: list[DestinationTokenValues] = [
+        DestinationTokenValues(
+            block=block_after_plan_timestamp,
+            chain_id=autopool.chain.chain_id,
+            token_address=autopool.base_asset,
+            denominated_in=autopool.base_asset,
+            destination_vault_address=autopool.autopool_eth_addr,
+            spot_price=1.0,
+            quantity=quantity_of_idle,
+        )
+    ]
+
+    for dest_state in plan["sod"]["destStates"]:
+        for token_address, spot_price, raw_amount, decimals in zip(
+            dest_state["underlyingTokens"],
+            dest_state["tokenSpotPrice"],
+            dest_state["underlyingTokenAmounts"],
+            dest_state["decimals"],
+        ):
+            if dest_state["address"] == "0x7876F91BB22148345b3De16af9448081E9853830":
+                pass
+            new_destination_token_values.append(
+                DestinationTokenValues(
+                    block=block_after_plan_timestamp,
+                    chain_id=autopool.chain.chain_id,
+                    token_address=token_address,
+                    destination_vault_address=Web3.toChecksumAddress(dest_state["address"]),
+                    denominated_in=autopool.base_asset,
+                    spot_price=spot_price,
+                    quantity=int(raw_amount) / (10**18),
+                )
+            )
+            pass
+
+    return new_destination_token_values
+
+
+def _extract_token_values_data(
+    autopool: AutopoolConstants, plan: dict, block_after_plan_timestamp: int
+) -> list[TokenValues]:
+    new_token_values_rows: list[TokenValues] = [
+        TokenValues(
+            block=block_after_plan_timestamp,
+            chain_id=autopool.chain.chain_id,
+            token_address=autopool.base_asset,
+            denominated_in=autopool.base_asset,
+            backing=1.0,
+            safe_price=1.0,
+        )
+    ]
+
+    seen_tokens = set([autopool.base_asset])
+
+    for dest_state in plan["sod"]["destStates"]:
+        # for the first ~5 days of autoUSD
+        if "tokenBacking" not in dest_state:
+            dest_state["tokenBacking"] = [None for _ in range(len(dest_state["underlyingTokens"]))]
+
+        for token_address, backing, safe_price in zip(
+            dest_state["underlyingTokens"], dest_state["tokenBacking"], dest_state["tokenSafePrice"]
+        ):
+            if token_address not in seen_tokens:
+                new_token_values_rows.append(
+                    TokenValues(
+                        block=block_after_plan_timestamp,
+                        chain_id=autopool.chain.chain_id,
+                        token_address=token_address,
+                        denominated_in=autopool.base_asset,
+                        backing=backing,
+                        safe_price=safe_price,
+                    )
+                )
+                seen_tokens.add(token_address)
+
+    return new_token_values_rows
+
+
+def _extract_destination_states_rows(
+    autopool: AutopoolConstants,
+    tokens_address_to_decimals: dict[str, int],
+    plan: dict,
+    block_after_plan_timestamp: int,
+    quantity_of_idle: float,
+) -> list[DestinationStates]:
+
+    new_destination_states_rows: list[DestinationStates] = [
+        DestinationStates(
+            destination_vault_address=autopool.autopool_eth_addr,
+            block=block_after_plan_timestamp,
+            chain_id=autopool.chain.chain_id,
+            incentive_apr=None,
+            fee_apr=None,
+            base_apr=None,
+            points_apr=None,
+            fee_plus_base_apr=None,
+            total_apr_in=None,
+            total_apr_out=None,
+            underlying_token_total_supply=quantity_of_idle,
+            safe_total_supply=None,
+            lp_token_spot_price=1.0,
+            lp_token_safe_price=1.0,
+            from_rebalance_plan=True,
+            rebalance_plan_timestamp=int(plan["sod"]["currentTimestamp"]),
+            rebalance_plan_key=plan["rebalance_plan_json_key"],
+        )
+    ]
+
+    for dest_state in plan["sod"]["destStates"]:
+
+        incentive = dest_state["incentiveAPR"]
+        total_in = dest_state["totalAprIn"]
+        total_out = dest_state["totalAprOut"]
+
+        raw_underlying_token_total_supply = float(dest_state["totSupply"])
+        underlying_token_total_supply = raw_underlying_token_total_supply / (
+            10 ** tokens_address_to_decimals[dest_state["underlying"]]
+        )
+
+        state = DestinationStates(
+            destination_vault_address=Web3.toChecksumAddress(dest_state["address"]),
+            block=block_after_plan_timestamp,
+            chain_id=autopool.chain.chain_id,
+            incentive_apr=incentive,
+            fee_apr=None,
+            base_apr=None,
+            points_apr=None,
+            fee_plus_base_apr=total_out - (incentive / 0.9),  # remove downscaling
+            total_apr_in=total_in,
+            total_apr_out=total_out,
+            underlying_token_total_supply=underlying_token_total_supply,
+            safe_total_supply=None,
+            lp_token_spot_price=float(dest_state["spotPrice"]),
+            lp_token_safe_price=float(dest_state["safePrice"]),
+            from_rebalance_plan=True,
+            rebalance_plan_timestamp=int(plan["sod"]["currentTimestamp"]),
+            rebalance_plan_key=plan["rebalance_plan_json_key"],
+        )
+        new_destination_states_rows.append(state)
+
+    return new_destination_states_rows
+
+
+def update_destination_states_from_rebalance_plan():
+    s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+
+    for autopool in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN:
+
+        solver_plan_paths_on_remote = [
+            r["Key"] for r in s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket).get("Contents")
+        ]
+        plans_to_fetch = get_subset_not_already_in_column(  # much slower than it needs to be
+            DestinationStates, DestinationStates.rebalance_plan_key, solver_plan_paths_on_remote, where_clause=None
+        )
+        # plans_to_fetch = solver_plan_paths_on_remote[:2]
+        if not plans_to_fetch:
+            continue
+
+        tokens_orm: list[Tokens] = get_full_table_as_orm(
+            Tokens, where_clause=(Tokens.chain_id == autopool.chain.chain_id)
+        )
+        tokens_address_to_decimals = {t.token_address: t.decimals for t in tokens_orm}
+
+        def _process_plan(plan_path):
+            plan = convert_rebalance_plan_json_to_rebalance_plan_line(plan_path, s3_client, autopool)
+            new_destination_states_rows, new_token_values_rows, new_destination_token_values = (
+                convert_rebalance_plan_to_rows(plan, autopool, tokens_address_to_decimals)
+            )
+            return new_destination_states_rows, new_token_values_rows, new_destination_token_values
+
+        all_destination_states = []
+        all_new_token_values_rows = []
+        all_destination_token_rows = []
+
+        # have to use few workers (8) because of the get_block_after_timestamp_from_alchemy
+        # throws a lot of 500 errors
+        with ThreadPoolExecutor(max_workers=8) as executor:
+
+            futures = {executor.submit(_process_plan, path): path for path in solver_plan_paths_on_remote[::-1]}
+
+            for fut in as_completed(futures):
+                new_destination_states_rows, new_token_values_rows, new_destination_token_values = fut.result()
+                all_destination_states.extend(new_destination_states_rows)
+                all_new_token_values_rows.extend(new_token_values_rows)
+                all_destination_token_rows.extend(new_destination_token_values)
+
+        all_blocks_to_add = list(set([d.block for d in all_destination_states]))
+        ensure_all_blocks_are_in_table(all_blocks_to_add, autopool.chain)
+        insert_avoid_conflicts(
+            all_destination_states,
+            DestinationStates,
+            index_elements=[
+                DestinationStates.block,
+                DestinationStates.chain_id,
+                DestinationStates.destination_vault_address,
+            ],
+        )
+
+        insert_avoid_conflicts(
+            all_new_token_values_rows,
+            TokenValues,
+            index_elements=[
+                TokenValues.block,
+                TokenValues.chain_id,
+                TokenValues.token_address,
+            ],
+        )
+
+        insert_avoid_conflicts(
+            all_destination_token_rows,
+            DestinationTokenValues,
+            index_elements=[
+                DestinationTokenValues.block,
+                DestinationTokenValues.chain_id,
+                DestinationTokenValues.token_address,
+                DestinationTokenValues.destination_vault_address,
+            ],
+        )
+
+
+def get_block_after_timestamp_from_alchemy(
+    unix_timestamp: int,
+    chain: ChainData,
+    direction: str = "AFTER",
+) -> int:
+    """
+    Fetch the first block before or after the given UNIX timestamp
+    on the specified ChainData network.
+    """
+    rpc_url = os.environ["ALCHEMY_URL"]
+    parsed = urlparse(rpc_url)
+    api_key = parsed.path.rsplit("/", 1)[-1]
+
+    endpoint = f"https://api.g.alchemy.com/data/v1/{api_key}/utility/blocks/by-timestamp"
+
+    headers = {"Authorization": api_key}  #
+
+    params = {
+        "networks": [chain.name + "-mainnet"],
+        "timestamp": str(unix_timestamp),
+        "direction": direction.upper(),  # “BEFORE” or “AFTER”
+    }
+
+    headers = {"Authorization": "<Authorization>"}
+    max_retries = 3
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = requests.get(endpoint, headers=headers, params=params, timeout=(5, 15))
+            resp.raise_for_status()
+            return int(resp.json()["data"][0]["block"]["number"])
+        except Exception as e:
+            if attempt == max_retries:
+                raise e
+            delay = 2 ** (attempt)
+            print(f"[Attempt {attempt}/{max_retries}] Error: {e!r}. Retrying in {delay:.1f}s…")
+            time.sleep(delay + random.uniform(0, 1))
+
+
+if __name__ == "__main__":
+
+    from mainnet_launch.app.profiler import profile_function
+
+    profile_function(update_destination_states_from_rebalance_plan)

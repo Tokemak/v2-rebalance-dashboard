@@ -27,10 +27,7 @@ if not production_logger.hasHandlers():
     production_logger.propagate = False
 
 
-FINISHED_STARTUP_FILE = ROOT_DIR / "app/finished_startup.txt"
-
-
-def render_ui():
+def main():
     st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
     st.title("Autopool Diagnostics Dashboard")
     st.sidebar.title("Navigation")
@@ -52,30 +49,6 @@ def render_ui():
         CONTENT_FUNCTIONS[page](autopool)
         time_taken = format_timedelta(datetime.now() - start)
         production_logger.info(f"Success {page=} {autopool.name=} {time_taken=}")
-
-
-def main():
-    if not os.path.exists(FINISHED_STARTUP_FILE):
-        st.title("Startup Process")
-        st.warning(
-            "Keep this tab open and don't refresh or open new tabs to this page after clicking start. Takes ~15 minutes."
-        )
-
-        if st.button("Start Startup Process"):
-            first_run_of_db(production_logger)
-
-            with open(FINISHED_STARTUP_FILE, "x") as _:
-                pass
-            st.text("Finished startup, refresh to use app")
-
-        try:
-            with open(PRODUCTION_LOG_FILE_NAME, "r") as log_file:
-                log_contents = log_file.read()
-            st.text_area("Production Log", log_contents, height=300)
-        except FileNotFoundError:
-            st.text("Log file not found yet.")
-    else:
-        render_ui()
 
 
 if __name__ == "__main__":

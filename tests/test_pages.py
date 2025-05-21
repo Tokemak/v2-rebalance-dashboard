@@ -4,6 +4,7 @@ import os
 import subprocess
 import time
 import psutil
+import shutil
 import traceback
 
 from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit
@@ -40,16 +41,31 @@ def get_memory_usage():
     return mem_info.rss / (1024**2)
 
 
-def open_log_in_vscode(log_file):
-    if os.path.exists(log_file):
+def open_log_in_vscode(log_file: str):
+    """
+    Open (or create) the given log_file in Visual Studio Code on macOS.
+    Tries to use the 'code' CLI if available, otherwise falls back to:
+        open -a "Visual Studio Code" <file>
+    """
+    # 1) Ensure the file exists
+    if not os.path.exists(log_file):
         try:
-            subprocess.run(["code", log_file], check=True)
+            open(log_file, "w").close()
         except Exception as e:
-            testing_logger.error(f"Could not open log file in VS Code: {e}")
+            testing_logger.error(f"Failed to create log file '{log_file}': {e}")
+            return
+
+    # 2) Choose the right command
+    if shutil.which("code"):
+        cmd = ["code", log_file]
     else:
-        # Create the file if it doesn’t exist and then open it
-        open(log_file, "w").close()
-        subprocess.run(["code", log_file], check=True)
+        cmd = ["open", "-a", "Visual Studio Code", log_file]
+
+    # 3) Run the command
+    try:
+        subprocess.run(cmd, check=True)
+    except Exception as e:
+        testing_logger.error(f"Could not open log file in VS Code: {e}")
 
 
 def log_and_time_function(page_name, func, autopool: AutopoolConstants):

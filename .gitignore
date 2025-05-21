@@ -14,3 +14,4 @@ production_usage.log
 test_pages.log
 
 working_data/
+mainnet_launch/app/to_toml.py

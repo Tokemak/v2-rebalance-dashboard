@@ -10,7 +10,8 @@ import streamlit as st
 from mainnet_launch.data_fetching.add_info_to_dataframes import initialize_tx_hash_to_gas_info_db
 from mainnet_launch.data_fetching.get_state_by_block import _add_to_blocks_to_use_table
 from mainnet_launch.database.should_update_database import ensure_table_to_last_updated_exists
-from mainnet_launch.pages.key_metrics.fetch_nav_per_share import add_new_nav_per_share_to_table
+
+# from mainnet_launch.pages.key_metrics.fetch_nav_per_share import add_new_nav_per_share_to_table
 from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import (
     add_new_destination_summary_stats_to_table,
 )
@@ -114,7 +115,7 @@ functions_to_run = [
     _add_to_blocks_to_use_table,
     add_new_destination_summary_stats_to_table,
     add_new_destination_details_for_each_chain_to_table,
-    add_new_nav_per_share_to_table,
+    # add_new_nav_per_share_to_table,
     add_new_rebalance_events_for_each_autopool_to_table,
     add_new_fee_events_to_table,
     add_new_debt_reporting_events_to_table,

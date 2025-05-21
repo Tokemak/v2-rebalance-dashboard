@@ -19,6 +19,12 @@ python-dotenv = "^1.0.1"
 streamlit = "1.38.0"
 boto3 = "^1.35.29"
 psutil = "^6.0.0"
+sqlalchemy = "^2.0.40"
+asyncpg = "^0.30.0"
+greenlet = "^3.2.0"
+psycopg2-binary = "^2.9.10"
+sqlalchemy-schemadisplay = "^2.0"
+graphviz = "^0.20.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -32,3 +38,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 test-pages = "tests.test_pages:main"
+reset-dev-db = "mainnet_launch.database.database_branching_scripts:reset_dev_local_branch_to_match_production"

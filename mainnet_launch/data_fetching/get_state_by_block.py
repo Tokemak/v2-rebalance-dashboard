@@ -1,7 +1,12 @@
 import pandas as pd
-from multicall import Multicall, Call
-import datetime
 import streamlit as st
+import numpy as np
+from functools import reduce
+from datetime import datetime
+from copy import deepcopy
+
+from multicall import Multicall, Call
+from sqlalchemy import select, func
 
 import nest_asyncio
 import asyncio
@@ -9,13 +14,14 @@ from mainnet_launch.app.app_config import STREAMLIT_IN_MEMORY_CACHE_TIME, SEMAPH
 from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
     get_earliest_block_from_table_with_chain,
-    get_all_rows_in_table_by_chain,
-    drop_table,
 )
 from mainnet_launch.database.should_update_database import should_update_table
 
 
-from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS
+from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS, time_decorator
+
+from mainnet_launch.database.schema.full import Blocks, Session
+from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
 
 # needed to run these functions in a jupyter notebook
 nest_asyncio.apply()
@@ -32,7 +38,7 @@ def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):
 
 
 async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData) -> dict:
-    multicall = Multicall(calls=calls, block_id=block, _w3=chain.client, require_success=False)
+    multicall = Multicall(calls=calls, block_id=block, _w3=chain.client, require_success=False, gas_limit=550_000_000)
     response = await multicall.coroutine()
     return response
 
@@ -61,19 +67,6 @@ def _build_default_block_and_timestamp_calls(chain: ChainData):
     return get_block_call, get_timestamp_call
 
 
-def _data_fetch_builder(semaphore: asyncio.Semaphore, responses: list, failed_multicalls: list):
-    async def _fetch_data(multicall: Multicall):
-        async with semaphore:
-            try:
-                response = await multicall.coroutine()
-                responses.append(response)
-            except Exception:
-                # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
-                failed_multicalls.append(multicall)
-
-    return _fetch_data
-
-
 def get_raw_state_by_blocks(
     calls: list[Call],
     blocks: list[int],
@@ -81,10 +74,15 @@ def get_raw_state_by_blocks(
     semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTICALL,
     include_block_number: bool = False,
 ) -> pd.DataFrame:
-    if len(blocks) == 0:
-        raise ValueError("Blocks cannot be empty")
-
-    return asyncio.run(async_safe_get_raw_state_by_block(calls, blocks, chain, semaphore_limits, include_block_number))
+    return asyncio.run(
+        async_safe_get_raw_state_by_block(
+            calls,
+            blocks,
+            chain,
+            semaphore_limits,
+            include_block_number=include_block_number,
+        )
+    )
 
 
 async def async_safe_get_raw_state_by_block(
@@ -93,61 +91,103 @@ async def async_safe_get_raw_state_by_block(
     chain: ChainData,
     semaphore_limits: tuple[int] = SEMAPHORE_LIMITS_FOR_MULTICALL,
     include_block_number: bool = False,
+    print_latency: bool = False,
 ) -> pd.DataFrame:
     """
-    Fetch a DataFame of each call in calls for each block in blocks fast
+    Fetch a DataFame of each call in calls for each block in blocks on chain
+
+
+    note only works after the multicall_v3 contract was deployed
+    block 12336033 (Apr-29-2021) on mainnet
+    block 5022 (Jun-15-2023) on Base
+    mostly a non issue but keep in mind that this only works on recent (within last 3 years) data
+
     """
-    blocks_as_ints = [int(b) for b in blocks]
-    # note only works after the multicall_v3 contract was deployed
-    # block 12336033 (Apr-29-2021) on mainnet
-    # block 5022 (Jun-15-2023) on Base
-    # mostly a non issue but keep in mind that this only works on recent (within last 3 years) data
+
+    if not isinstance(calls, list):
+        raise TypeError(f"{type(calls)=} is the wrong type")
+
+    if len(calls) > 0:
+        if not isinstance(calls[0], Call):
+            raise TypeError(f"{type(calls[0])=} is the wrong type")
+
+    if len(blocks) == 0:
+        raise ValueError("Blocks cannot be empty")
 
     get_block_call, get_timestamp_call = _build_default_block_and_timestamp_calls(chain)
-    pending_multicalls = [
+
+    all_multicalls = [
         Multicall(
             calls=[*calls, get_block_call, get_timestamp_call],
             block_id=int(block),
             _w3=chain.client,
             require_success=False,
+            gas_limit=550_000_000,
         )
-        for block in blocks_as_ints
+        for block in blocks
     ]
 
-    responses = []
-    failed_multicalls = []
-    calls_remaining = [m for m in pending_multicalls]
-    for semaphore_limit in semaphore_limits:
-        # make a lot of calls very fast, then slowly back off and remake the calls that failed
-        semaphore = asyncio.Semaphore(semaphore_limit)
-        failed_multicalls = []
-        _ratelimited_async_data_fetcher = _data_fetch_builder(semaphore, responses, failed_multicalls)
-        await asyncio.gather(*[_ratelimited_async_data_fetcher(m) for m in calls_remaining])
+    semaphore = asyncio.Semaphore(semaphore_limits[0])
 
-        calls_remaining = [f for f in failed_multicalls]
-        if len(calls_remaining) == 0:
-            break
+    latency_records = []
+
+    async def _fetch_data(multicall: Multicall):
+        async with semaphore:
+            for attempt in range(5):
+                start = datetime.now()
+                try:
+
+                    # response: dict = await multicall.coroutine()
+
+                    response = await multicall.fetch_outputs(multicall.calls)
+                    merged = {}
+                    for d in response:
+                        merged.update(d)
+                    seconds_latency = (datetime.now() - start).microseconds / 1e6
+                    latency_records.append(
+                        {
+                            "seconds_latency": seconds_latency,
+                            "block": multicall.block_id,
+                            "num_calls": len(multicall.calls),
+                            "attempt": attempt,
+                        }
+                    )
+
+                    return merged
+                except Exception as e:
+                    pass
+                    # sleeping
+                    await asyncio.sleep((attempt**2) * 0.1)
+
+            pass
+            raise ValueError("failed to fetch data")
+
+            # maybe the rate limiting on there end?
+            # if (e.args[0]["code"] == -32000) | (e.args[0]["code"] == 502): bad historical call, rate limited
+
+    responses = await asyncio.gather(*[_fetch_data(m) for m in all_multicalls])
+
+    if print_latency:
+        print(pd.DataFrame(latency_records)["seconds_latency"].describe())
+        print(pd.DataFrame(latency_records)["attempt"].describe())
+
+    if len(responses) != len(blocks):
+        raise ValueError(f"Unexpected length difference between multicall responses and blocks")
+
+    df = _convert_multicall_responeses_to_df(responses, include_block_number)
+    return df
+
+
+def _convert_multicall_responeses_to_df(responses: list[dict], include_block_number: int):
 
     df = pd.DataFrame.from_records(responses)
-    if len(df) == 0:
-        print(
-            "failed to fetch any data. consider trying again if expected to get data, but with a smaller semaphore_limit"
-        )
-        print(f"{len(blocks_as_ints)=} {blocks_as_ints[0]=} {blocks_as_ints[-1]=}")
-        print(f"{calls=}")
-
     df.set_index("timestamp", inplace=True)
     df.index = pd.to_datetime(df.index, unit="s", utc=True)
     df.sort_index(inplace=True)
     df["block"] = df["block"].astype(int)
     if not include_block_number:
         df.drop(columns="block", inplace=True)
-    if len(df) > 0:
-        current_date = datetime.datetime.now(datetime.timezone.utc).date()
-        current_utc_datetime = datetime.datetime.combine(
-            current_date, datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
-        )
-        df = df[df.index < current_utc_datetime].copy()
+
     return df
 
 
@@ -179,6 +219,19 @@ def identity_function(value):
     return value
 
 
+# move to get raw state by block
+def _constant_1(success, value) -> float:
+    return 1.0
+
+
+def make_dummy_1_call(name: str) -> Call:
+    return Call(
+        "0x000000000000000000000000000000000000dEaD",
+        ["dummy()(uint256)"],
+        [(name, _constant_1)],
+    )
+
+
 BLOCKS_TO_USE_TABLE = "BLOCKS_TO_USE_TABLE"
 
 
@@ -199,37 +252,37 @@ def _add_to_blocks_to_use_table():
 # 180 seconds, too slow
 
 
-# get the highest block for each day
-def build_blocks_to_use(
-    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 4
+def postgres_build_blocks_to_use(
+    chain: ChainData, start_block: int | None = None, end_block: int | None = None
 ) -> list[int]:
 
-    _add_to_blocks_to_use_table()
+    # ensure_blocks_is_current()
 
-    df = get_all_rows_in_table_by_chain(BLOCKS_TO_USE_TABLE, chain)
-    if end_block is None:
-        end_block = df["block"].max()
-    daily_df = df.resample("1D").last()
-    blocks = daily_df["block"].to_list()
+    # TODO switch this to postgres version
+    with Session.begin() as session:
+        stmt = (
+            select(func.max(Blocks.block).label("block"))
+            .where(
+                Blocks.chain_id == chain.chain_id,
+                Blocks.block >= start_block,
+                Blocks.block <= end_block,
+            )
+            .group_by(func.date_trunc("day", Blocks.datetime))
+            .order_by(func.date_trunc("day", Blocks.datetime))
+        )
+        highest_block_in_each_day = session.scalars(stmt).all()
+
+        return highest_block_in_each_day
+
+
+@st.cache_data(ttl=60 * 60)  # 1 hour
+def build_blocks_to_use(chain: ChainData, start_block: int | None = None, end_block: int | None = None) -> list[int]:
+    """Returns the highest block for day on chain stored in the postgres db"""
+
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    return [int(b) for b in blocks if (b >= start_block) and (b <= end_block)]
+    end_block = 100_000_000 if end_block is None else end_block
 
-    # """Returns a block approx every 6 hours. by default between when autopool was first deployed to the current block"""
-    # # this is not the number of seconds between blocks is not constant
-    # start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    # first_minute_of_current_day = datetime.datetime.combine(
-    #     datetime.datetime.now(datetime.timezone.utc).date(), datetime.time(0, 0, 0, tzinfo=datetime.timezone.utc)
-    # )
-    # # this is not correct
-    # end_block = chain.client.eth.block_number if end_block is None else end_block
-    # end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
-    # blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
-
-    # while end_block_date_time > first_minute_of_current_day:
-    #     end_block = end_block - blocks_hop
-    #     end_block_date_time = pd.to_datetime(chain.client.eth.get_block(end_block).timestamp, unit="s", utc=True)
-    # blocks = [b for b in range(start_block, end_block, blocks_hop)]
-    # return blocks
+    return postgres_build_blocks_to_use(chain, start_block, end_block)
 
 
 def _build_blocks_to_use_dont_clip(
