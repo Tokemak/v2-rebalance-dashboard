@@ -139,7 +139,6 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     expected_return_series = (
         (max_apr_by_destination * portion_alloaction_by_destination_df).sum(axis=1).resample("1d").last()
     )
-    print(expected_return_series.tail())
     total_nav_series = nav_per_share_df["NAV"]
 
     highest_block_and_datetime = destination_state_df[["block", "datetime"]].iloc[-1]
@@ -224,10 +223,19 @@ def _render_top_level_stats(nav_per_share_df, expected_return_series, portion_al
     # might need to do this instead  # nav_per_share_fig.update_layout(yaxis_title="NAV Per Share")
 
 
-def _render_top_level_charts(nav_per_share_df, autopool, total_nav_series, expected_return_series, price_return_series):
+def _render_top_level_charts(
+    nav_per_share_df, autopool: AutopoolConstants, total_nav_series, expected_return_series, price_return_series
+):
     nav_per_share_fig = _apply_default_style(px.line(nav_per_share_df, y=autopool.name, title="NAV Per Share"))
-    price_return_fig = _apply_default_style(px.line(price_return_series, title="Autopool Estimated Price Return (%)"))
-    nav_fig = _apply_default_style(px.line(total_nav_series, title="Total NAV"))
+    price_return_fig = _apply_default_style(
+        px.line(price_return_series, title="Autopool Estimated Price Return (%)", labels={"value": "Price Return (%)"})
+    )
+    price_return_fig.update_traces(showlegend=False)
+
+    nav_fig = _apply_default_style(
+        px.line(total_nav_series, title="Total NAV", labels={"value": autopool.base_asset_symbol})
+    )
+    nav_fig.update_traces(showlegend=False)
 
     annualized_30d_return_fig = _apply_default_style(
         px.line(nav_per_share_df, y="30_day_annualized_return", title="30-day Annualized Return (%)")
@@ -242,8 +250,10 @@ def _render_top_level_charts(nav_per_share_df, autopool, total_nav_series, expec
     annualized_30d_ma_return_fig = _apply_default_style(
         px.line(nav_per_share_df, y="30_day_MA_annualized_return", title="30-day MA Annualized Return (%)")
     )
-
-    uwcr_return_fig = _apply_default_style(px.line(expected_return_series, title="Expected Annualized Return (%)"))
+    uwcr_return_fig = _apply_default_style(
+        px.line(expected_return_series, title="Expected Annualized Return (%)", labels={"value": "Expected Return (%)"})
+    )
+    uwcr_return_fig.update_traces(showlegend=False)
 
     st.markdown("<div style='margin: 7em 0;'></div>", unsafe_allow_html=True)
 
@@ -317,10 +327,9 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
     with st.expander("See explanation for Key Metrics"):
         st.write(
             """
-        This section displays the key performance indicators for the Autopool:
         - NAV per share: The Net Asset Value per share over time.
         - NAV: The total Net Asset Value of the Autopool.
-        - 30-day and 7-day Annualized Returns: Percent annual return derived from NAV per share changes. 
+        - 30-day and 7-day Annualized Returns: Percent annual return derived from NAV Per Share changes. 
         - Expected Annualized Return: Projected percent annual return based on current allocations of the Autopool.
         """
         )

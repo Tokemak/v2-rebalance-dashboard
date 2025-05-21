@@ -5,15 +5,13 @@ config_plotly_and_streamlit()
 from datetime import datetime
 import streamlit as st
 import logging
-import os
 
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, PRODUCTION_LOG_FILE_NAME, STARTUP_LOG_FILE, ROOT_DIR
+from mainnet_launch.constants import ALL_AUTOPOOLS, PRODUCTION_LOG_FILE_NAME
 from mainnet_launch.pages.page_functions import (
     CONTENT_FUNCTIONS,
-    PAGES_WITHOUT_AUTOPOOL,
+    PAGES_WITHOUT_AUTOPOOL
 )
-from mainnet_launch.app.run_on_startup import first_run_of_db
 
 
 production_logger = logging.getLogger("production_logger")

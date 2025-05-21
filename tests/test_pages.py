@@ -98,8 +98,6 @@ def log_and_time_function(page_name, func, autopool: AutopoolConstants):
 
 def main():
 
-    ensure_table_to_last_updated_exists()
-    initialize_tx_hash_to_gas_info_db()
     open_log_in_vscode(TEST_LOG_FILE_NAME)
 
     autopools_to_check = ALL_AUTOPOOLS  # [BASE_ETH, AUTO_LRT]
