@@ -8,10 +8,7 @@ import logging
 
 
 from mainnet_launch.constants import ALL_AUTOPOOLS, PRODUCTION_LOG_FILE_NAME
-from mainnet_launch.pages.page_functions import (
-    CONTENT_FUNCTIONS,
-    PAGES_WITHOUT_AUTOPOOL
-)
+from mainnet_launch.pages.page_functions import CONTENT_FUNCTIONS, PAGES_WITHOUT_AUTOPOOL
 
 
 production_logger = logging.getLogger("production_logger")

@@ -22,7 +22,10 @@ from mainnet_launch.database.schema.postgres_operations import (
 )
 
 from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, ChainData
-from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
+from mainnet_launch.data_fetching.block_timestamp import (
+    ensure_all_blocks_are_in_table,
+    get_block_after_timestamp_from_alchemy,
+)
 
 
 def convert_rebalance_plan_json_to_rebalance_plan_line(
@@ -305,44 +308,6 @@ def update_destination_states_from_rebalance_plan():
                 DestinationTokenValues.destination_vault_address,
             ],
         )
-
-
-def get_block_after_timestamp_from_alchemy(
-    unix_timestamp: int,
-    chain: ChainData,
-    direction: str = "AFTER",
-) -> int:
-    """
-    Fetch the first block before or after the given UNIX timestamp
-    on the specified ChainData network.
-    """
-    rpc_url = os.environ["ALCHEMY_URL"]
-    parsed = urlparse(rpc_url)
-    api_key = parsed.path.rsplit("/", 1)[-1]
-
-    endpoint = f"https://api.g.alchemy.com/data/v1/{api_key}/utility/blocks/by-timestamp"
-
-    headers = {"Authorization": api_key}  #
-
-    params = {
-        "networks": [chain.name + "-mainnet"],
-        "timestamp": str(unix_timestamp),
-        "direction": direction.upper(),  # “BEFORE” or “AFTER”
-    }
-
-    headers = {"Authorization": "<Authorization>"}
-    max_retries = 3
-    for attempt in range(1, max_retries + 1):
-        try:
-            resp = requests.get(endpoint, headers=headers, params=params, timeout=(5, 15))
-            resp.raise_for_status()
-            return int(resp.json()["data"][0]["block"]["number"])
-        except Exception as e:
-            if attempt == max_retries:
-                raise e
-            delay = 2 ** (attempt)
-            print(f"[Attempt {attempt}/{max_retries}] Error: {e!r}. Retrying in {delay:.1f}s…")
-            time.sleep(delay + random.uniform(0, 1))
 
 
 if __name__ == "__main__":

@@ -21,7 +21,6 @@ from mainnet_launch.database.should_update_database import should_update_table
 from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS, time_decorator
 
 from mainnet_launch.database.schema.full import Blocks, Session
-from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
 
 # needed to run these functions in a jupyter notebook
 nest_asyncio.apply()
@@ -255,9 +254,6 @@ def _add_to_blocks_to_use_table():
 def postgres_build_blocks_to_use(
     chain: ChainData, start_block: int | None = None, end_block: int | None = None
 ) -> list[int]:
-
-    # ensure_blocks_is_current()
-
     # TODO switch this to postgres version
     with Session.begin() as session:
         stmt = (
@@ -275,7 +271,7 @@ def postgres_build_blocks_to_use(
         return highest_block_in_each_day
 
 
-@st.cache_data(ttl=60 * 60)  # 1 hour
+# @st.cache_data(ttl=60 * 60)  # 1 hour
 def build_blocks_to_use(chain: ChainData, start_block: int | None = None, end_block: int | None = None) -> list[int]:
     """Returns the highest block for day on chain stored in the postgres db"""
 

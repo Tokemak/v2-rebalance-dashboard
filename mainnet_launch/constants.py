@@ -42,6 +42,7 @@ class ChainData:
     block_autopool_first_deployed: int
     approx_seconds_per_block: float
     chain_id: int
+    start_unix_timestamp: int
 
     def __hash__(self):
         return self.chain_id
@@ -79,14 +80,21 @@ class AutopoolConstants:
 
 
 ETH_CHAIN: ChainData = ChainData(
-    name="eth", block_autopool_first_deployed=20752910, approx_seconds_per_block=12.0, chain_id=1
+    name="eth",
+    block_autopool_first_deployed=20752910,
+    approx_seconds_per_block=12.0,
+    chain_id=1,
+    start_unix_timestamp=1726365887,
 )
 # real start date was 21241103
 # but only has assets after 21901103
 BASE_CHAIN: ChainData = ChainData(
-    name="base", block_autopool_first_deployed=21901103, approx_seconds_per_block=2.0, chain_id=8453
+    name="base",
+    block_autopool_first_deployed=21901103,
+    approx_seconds_per_block=2.0,
+    chain_id=8453,
+    start_unix_timestamp=1730591553,
 )
-
 
 ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN]
 

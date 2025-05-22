@@ -5,9 +5,6 @@ Run this, via a once a day lambada function (or as needed) to update the dashboa
 
 """
 
-from mainnet_launch.constants import time_decorator
-
-
 from mainnet_launch.database.schema.full import drop_and_full_rebuild_db, ENGINE
 from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
 
@@ -44,7 +41,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
 from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_rebalance_plans import (
     ensure_rebalance_plans_table_are_current,
 )
-
 
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
@@ -92,14 +88,12 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
 
 def main():
-    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=False)
+    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
 
 
 if __name__ == "__main__":
     from mainnet_launch.app.profiler import profile_function
-
-    main()
-    # profile_function(main, top_n=100)
+    profile_function(main, top_n=10)
 
 
 #    Ordered by: cumulative time

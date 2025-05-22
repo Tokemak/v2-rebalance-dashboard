@@ -127,7 +127,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
     composite_return_out_fig = px.line(total_apr_out_df, title=f"{autopool.name} Composite Return Out")
 
     _apply_default_style(composite_return_out_fig)
-    composite_return_out_fig.update_layout(yaxis_title="Composite Return Out")
+    composite_return_out_fig.update_layout(yaxis_title="Composite Return Out (%)")
     composite_return_out_fig.update_traces(
         selector=dict(name=f"{autopool.name} CR"),
         line=dict(dash="dash", color="blue"),
