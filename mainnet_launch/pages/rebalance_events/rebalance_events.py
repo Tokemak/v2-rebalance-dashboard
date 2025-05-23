@@ -51,7 +51,7 @@ REBALANCE_EVENTS_TABLE = "REBALANCE_EVENTS_TABLE"
 def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
     rebalance_df = fetch_rebalance_events_df(autopool)
     rebalance_figures = _make_rebalance_events_plots(rebalance_df)
-    st.header(f"{autopool.name} Rebalance Events")
+    st.header(f"{autopool.symbol} Rebalance Events")
 
     for figure in rebalance_figures:
         st.plotly_chart(figure, use_container_width=True)
@@ -191,7 +191,7 @@ def fetch_rebalance_events_df_from_external_source(autopool: AutopoolConstants, 
     clean_rebalance_df = add_timestamp_to_df_with_block_column(clean_rebalance_df, autopool.chain)
     clean_rebalance_df["timestamp"] = clean_rebalance_df.index
 
-    clean_rebalance_df["autopool"] = autopool.name
+    clean_rebalance_df["autopool"] = autopool.symbol
     # these columns are currently being used at least one plot the dashboard
     used_cols = [
         "event",

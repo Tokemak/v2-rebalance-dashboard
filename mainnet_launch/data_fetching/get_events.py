@@ -111,7 +111,8 @@ def fetch_events(
     """
     Collect every `event` between start_block and end_block into a DataFrame.
     """
-    end_block = max(build_blocks_to_use(chain)) if end_block is None else end_block
+    blocks = build_blocks_to_use(chain)
+    end_block = max(blocks) if end_block is None else end_block
 
     if end_block > start_block:
         clean_found_events = []
