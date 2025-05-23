@@ -74,7 +74,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
         order_by=Blocks.datetime,
     )
 
-    # todo patch the values over a 100 to be np.nan
+    destination_state_df = destination_state_df[destination_state_df["datetime"] >= autopool.start_display_date].copy()
 
     destination_state_df["readable_destination_name"] = destination_state_df.apply(
         lambda row: f"{row['underlying_symbol']} ({row['exchange_name']})", axis=1

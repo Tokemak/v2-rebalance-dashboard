@@ -74,6 +74,7 @@ class AutopoolConstants:
     block_deployed: int
     data_from_rebalance_plan: bool
     base_asset_symbol: str
+    start_display_date: str
 
     def __hash__(self):
         return hash(self.chain)
@@ -211,6 +212,7 @@ AUTO_ETH: AutopoolConstants = AutopoolConstants(
     block_deployed=20722908,
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
+    start_display_date="9-14-2024",
 )
 
 BAL_ETH: AutopoolConstants = AutopoolConstants(
@@ -224,6 +226,7 @@ BAL_ETH: AutopoolConstants = AutopoolConstants(
     block_deployed=20722909,
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
+    start_display_date="9-14-2024",
 )
 
 AUTO_LRT: AutopoolConstants = AutopoolConstants(
@@ -237,6 +240,7 @@ AUTO_LRT: AutopoolConstants = AutopoolConstants(
     block_deployed=20722910,
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
+    start_display_date="9-14-2024",
 )
 
 BASE_ETH: AutopoolConstants = AutopoolConstants(
@@ -250,6 +254,7 @@ BASE_ETH: AutopoolConstants = AutopoolConstants(
     block_deployed=21241103,
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
+    start_display_date="11-5-2024",
 )
 
 DINERO_ETH: AutopoolConstants = AutopoolConstants(
@@ -263,6 +268,7 @@ DINERO_ETH: AutopoolConstants = AutopoolConstants(
     block_deployed=21718586,
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
+    start_display_date="2-9-2025",
 )
 
 AUTO_USD: AutopoolConstants = AutopoolConstants(
@@ -276,6 +282,7 @@ AUTO_USD: AutopoolConstants = AutopoolConstants(
     block_deployed=22032640,
     data_from_rebalance_plan=True,
     base_asset_symbol="USDC",
+    start_display_date="4-8-2025",
 )
 
 

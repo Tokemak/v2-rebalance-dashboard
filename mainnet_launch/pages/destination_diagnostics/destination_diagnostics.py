@@ -54,6 +54,8 @@ def _fetch_destination_apr_data(autopool: AutopoolConstants) -> pd.DataFrame:
         order_by=Blocks.datetime,
     )
 
+    destination_state_df = destination_state_df[destination_state_df["datetime"] >= autopool.start_display_date].copy()
+
     destination_state_df["readable_name"] = destination_state_df.apply(
         lambda row: f"{row['underlying_symbol']} ({row['exchange_name']})", axis=1
     )

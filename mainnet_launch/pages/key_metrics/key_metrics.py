@@ -45,6 +45,7 @@ def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFra
 
     # by doing the filtering here, instead of in sql, the data gets cached in streamlit
     nav_per_share_df = nav_per_share_df[nav_per_share_df["autopool_vault_address"] == autopool.autopool_eth_addr].copy()
+    nav_per_share_df = nav_per_share_df[nav_per_share_df["datetime"] >= autopool.start_display_date].copy()
 
     nav_per_share_df = nav_per_share_df.set_index("datetime").resample("1d").last()
     nav_per_share_df.columns = [autopool.name, "NAV", "autopool_vault_address"]
@@ -114,6 +115,8 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     destination_state_df = destination_state_df[
         destination_state_df["autopool_vault_address"] == autopool.autopool_eth_addr
     ].copy()
+
+    destination_state_df = destination_state_df[destination_state_df["datetime"] >= autopool.start_display_date].copy()
 
     destination_state_df["unweighted_expected_apr"] = 100 * destination_state_df[
         ["fee_apr", "base_apr", "incentive_apr", "fee_plus_base_apr"]

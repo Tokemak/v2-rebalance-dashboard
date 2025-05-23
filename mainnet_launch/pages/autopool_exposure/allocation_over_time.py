@@ -95,6 +95,8 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
 
     df = pd.merge(destinations_df, token_value_df, on=["block", "token_address"], how="left")
 
+    df = df[df["datetime"] >= autopool.start_display_date].copy()
+
     underlying_symbol_to_readable_name = {
         underlying_symbol: f"{underlying_symbol} ({exchange_name})"
         for underlying_symbol, exchange_name in zip(df["underlying_symbol"], df["exchange_name"])
