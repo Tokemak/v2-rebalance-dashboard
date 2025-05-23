@@ -26,9 +26,12 @@ def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFra
         [
             TableSelector(
                 table=AutopoolStates,
-                select_fields=[AutopoolStates.nav_per_share, AutopoolStates.total_nav],
+                select_fields=[
+                    AutopoolStates.nav_per_share,
+                    AutopoolStates.total_nav,
+                    AutopoolStates.autopool_vault_address,
+                ],
                 join_on=None,
-                row_filter=(AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr),
             ),
             TableSelector(
                 table=Blocks,
@@ -39,8 +42,12 @@ def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFra
         where_clause=(AutopoolStates.block > autopool.block_deployed),
         order_by=Blocks.datetime,
     )
+
+    # by doing the filtering here, instead of in sql, the data gets cached in streamlit
+    nav_per_share_df = nav_per_share_df[nav_per_share_df["autopool_vault_address"] == autopool.autopool_eth_addr].copy()
+
     nav_per_share_df = nav_per_share_df.set_index("datetime").resample("1d").last()
-    nav_per_share_df.columns = [autopool.name, "NAV"]
+    nav_per_share_df.columns = [autopool.name, "NAV", "autopool_vault_address"]
 
     nav_per_share_df["30_day_difference"] = nav_per_share_df[autopool.name].diff(periods=30)
     nav_per_share_df["30_day_annualized_return"] = (
@@ -100,12 +107,13 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
                 select_fields=[Blocks.datetime],
             ),
         ],
-        # your global filter (you can also push this into a per‑selector row_filter if you prefer)
-        where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
-        & (AutopoolDestinationStates.block > autopool.block_deployed),
         order_by=Blocks.datetime,
         order="asc",
     )
+
+    destination_state_df = destination_state_df[
+        destination_state_df["autopool_vault_address"] == autopool.autopool_eth_addr
+    ].copy()
 
     destination_state_df["unweighted_expected_apr"] = 100 * destination_state_df[
         ["fee_apr", "base_apr", "incentive_apr", "fee_plus_base_apr"]
