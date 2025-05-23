@@ -10,6 +10,8 @@ from sqlalchemy.sql.elements import OperatorExpression, BooleanClauseList
 from sqlalchemy import text
 from psycopg2.extras import execute_values
 import pandas as pd
+import streamlit as st
+
 
 from mainnet_launch.database.schema.full import Session, Base, ENGINE
 
@@ -22,6 +24,7 @@ class TableSelector:
     row_filter: BooleanClauseList = None
 
 
+@st.cache_data(ttl=60 * 60)
 def merge_tables_as_df(
     selectors: list[TableSelector],
     where_clause: BooleanClauseList | None = None,

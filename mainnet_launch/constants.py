@@ -132,10 +132,10 @@ class TokemakAddress:
         will be True if addr matches either self.eth or self.base (after checksumming).
         """
         try:
-            csum = Web3.toChecksumAddress(addr)
+            check_sum_address = Web3.toChecksumAddress(addr)
         except Exception:
             return False
-        return csum == self.eth or csum == self.base
+        return check_sum_address == self.eth or check_sum_address == self.base
 
 
 SYSTEM_REGISTRY = TokemakAddress(

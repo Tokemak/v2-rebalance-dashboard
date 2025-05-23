@@ -1,12 +1,10 @@
 import plotly.express as px
 import plotly.graph_objects as go
-import pandas as pd
 import streamlit as st
 
 from mainnet_launch.constants import AutopoolConstants
 
 from mainnet_launch.database.schema.full import (
-    AutopoolStates,
     Blocks,
     DestinationStates,
     Destinations,
@@ -16,7 +14,6 @@ from mainnet_launch.database.schema.postgres_operations import (
     merge_tables_as_df,
     TableSelector,
 )
-from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 
 def fetch_and_render_weighted_crm_data(autopool: AutopoolConstants):

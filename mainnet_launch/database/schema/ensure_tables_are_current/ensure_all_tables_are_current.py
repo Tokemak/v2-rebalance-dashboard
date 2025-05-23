@@ -42,6 +42,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
     ensure_rebalance_plans_table_are_current,
 )
 
+
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
 
@@ -93,6 +94,7 @@ def main():
 
 if __name__ == "__main__":
     from mainnet_launch.app.profiler import profile_function
+
     profile_function(main, top_n=10)
 
 
