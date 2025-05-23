@@ -24,7 +24,6 @@ class TableSelector:
     row_filter: BooleanClauseList = None
 
 
-@st.cache_data(ttl=60 * 60)
 def merge_tables_as_df(
     selectors: list[TableSelector],
     where_clause: BooleanClauseList | None = None,
@@ -54,9 +53,6 @@ def merge_tables_as_df(
                 cols = spec.select_fields if isinstance(spec.select_fields, (list, tuple)) else [spec.select_fields]
                 for col in cols:
                     select_parts.append(f"{tbl_name}.{col.key}")
-
-        # Start SQL with FROM
-        first = selectors[0]
 
         sql = "SELECT\n" "    " + ",\n    ".join(select_parts) + "\n" f"FROM {selectors[0].table.__tablename__}\n"
 
@@ -89,6 +85,13 @@ def merge_tables_as_df(
             sql += "ORDER BY\n"
             sql += f"    {compiled_order} {dir_upper}\n"
 
+        return _exec_sql_and_cache(sql)
+
+
+@st.cache_data(ttl=60 * 60)
+def _exec_sql_and_cache(sql: str) -> pd.DataFrame:
+    """cached on just the SQL text"""
+    with Session.begin() as session:
         return pd.read_sql(text(sql), con=session.get_bind())
 
 
