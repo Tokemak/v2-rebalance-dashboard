@@ -13,10 +13,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
-# you need to use main instead of the dev_local_branch because of the limit of compute
-# only 5 compute hours / month on a branch vs 191 compute hours for free per month
 
-tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))  #  DEV_LOCAL_DATABASE_URL
+# tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))  #  DEV_LOCAL_DATABASE_URL
+tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
+
 
 ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
@@ -51,14 +51,6 @@ class Base(MappedAsDataclass, DeclarativeBase):
         # returns an instance of this class from the ordered tuple
         col_names = [c.name for c in cls.__table__.columns]
         return cls(**dict(zip(col_names, tup)))
-
-
-# class DatabaseCurrentUpTo(Base):
-#     # stores the hightes
-
-#     chain_id: Mapped[int] = mapped_column(primary_key=True)
-#     highest_on_chain_call_block: Mapped[int] = mapped_column(nullable=False)
-#     # eg select max(block) from (token_values, destination_token_values, destination_states, autopool_destination_states, autopool_states)
 
 
 class Blocks(Base):
@@ -652,4 +644,5 @@ def drop_and_full_rebuild_db():
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    drop_and_full_rebuild_db()
+    pass
+    # drop_and_full_rebuild_db()

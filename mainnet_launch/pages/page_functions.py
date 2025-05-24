@@ -58,4 +58,6 @@ CONTENT_FUNCTIONS = {
     # "Asset Discounts": fetch_and_render_asset_oracle_and_backing,
 }
 
-PAGES_WITHOUT_AUTOPOOL = ["Gas Costs", "Incentive Token Prices", "Protocol Level Profit and Loss", "Asset Discounts"]
+PAGES_WITHOUT_AUTOPOOL = (
+    []
+)  # ["Gas Costs", "Incentive Token Prices", "Protocol Level Profit and Loss", "Asset Discounts"]

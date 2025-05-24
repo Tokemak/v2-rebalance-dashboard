@@ -422,7 +422,10 @@ def set_some_cells_to_null(
 
 
 if __name__ == "__main__":
+
     from mainnet_launch.database.schema.full import Blocks
 
     all_blocks = get_full_table_as_orm(Blocks, Blocks.chain_id == 1)
     print(len(all_blocks))
+
+    pass

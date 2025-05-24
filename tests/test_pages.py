@@ -130,5 +130,16 @@ def main():
     testing_logger.info(f"Fetched and Cached all pages {time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB")
 
 
+def simple_debugging_loop():
+    autopools_to_check = ALL_AUTOPOOLS  # [BASE_ETH, AUTO_LRT]
+
+    for page_name, func in CONTENT_FUNCTIONS.items():
+        if page_name in PAGES_WITHOUT_AUTOPOOL:
+            func()
+        else:
+            for autopool in autopools_to_check:
+                func(autopool)
+
+
 if __name__ == "__main__":
     main()
