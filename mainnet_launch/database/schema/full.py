@@ -652,4 +652,5 @@ def drop_and_full_rebuild_db():
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    drop_and_full_rebuild_db()
+    pass
+    # drop_and_full_rebuild_db()
