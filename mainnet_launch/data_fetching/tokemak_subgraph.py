@@ -2,15 +2,14 @@
 
 import requests
 import pandas as pd
-from mainnet_launch.constants import *
-from mainnet_launch.constants import ChainData, AutopoolConstants
+from mainnet_launch.constants import ChainData, AutopoolConstants, ETH_CHAIN, BASE_CHAIN
 from web3 import Web3
 
 
 def _get_subgraph_api(chain: ChainData):
-    if chain == "eth":
+    if chain == ETH_CHAIN:
         api_url = "https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-eth-mainnet/api"
-    elif chain == "base":
+    elif chain == BASE_CHAIN:
         api_url = "https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-base-mainnet/api"
     else:
         raise ValueError("bad chain", chain)
@@ -42,11 +41,11 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
     return df
 
 
-def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants, chain: ChainData) -> list[dict]:
+def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> list[dict]:
     """
     fetch the
     """
-    subgraph_url = _get_subgraph_api(chain)
+    subgraph_url = _get_subgraph_api(autopool.chain)
 
     query = """
     query($autoEthAddress: String!, $first: Int!, $skip: Int!) {
@@ -96,3 +95,9 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants, c
 
     df = df.sort_values("blockNumber")
     return df
+
+
+if __name__ == '__main__':
+    from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH
+
+    fetch_autopool_rebalance_events_from_subgraph(AUTO_ETH)
