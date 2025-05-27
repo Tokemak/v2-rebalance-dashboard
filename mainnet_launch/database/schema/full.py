@@ -340,7 +340,7 @@ class RebalancePlans(Base):
     destination_in: Mapped[str] = mapped_column(nullable=True)
     token_in: Mapped[str] = mapped_column(nullable=True)
 
-    move_name: Mapped[str] = mapped_column(nullable=True)  # f"{data['destinationOut']} -> {data['destinationIn']}"
+    # move_name: Mapped[str] = mappe÷d_column(nullable=True)  # f"{data['destinationOut']} -> {data['destinationIn']}"
 
     amount_out: Mapped[float] = mapped_column(nullable=True)
     # amountOutETH
@@ -369,7 +369,7 @@ class RebalancePlans(Base):
     projected_gross_gain: Mapped[float] = mapped_column(nullable=True)
 
     projected_slippage: Mapped[float] = mapped_column(nullable=True)  # 100 projected_swap_cost / out_spot_eth
-    # maybe add projected break even days?
+
     __table_args__ = (
         ForeignKeyConstraint(
             ["destination_in", "chain_id"],
@@ -432,20 +432,20 @@ class RebalanceCandidateDestinations(Base):
 class RebalanceEvents(Base):
     __tablename__ = "rebalance_events"
     # autopool, solver, time + (expiration (10 minutes)), token out, amount out,
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
-    # this has a pointer to a block
-    autopool_vault_address: Mapped[str]
-    rebalance_file_path: Mapped[str] = mapped_column(ForeignKey("rebalance_plans.file_name"))
+    tx_hash: Mapped[str] = mapped_column(primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(nullable=False)
+    chain_id: Mapped[int] = mapped_column(nullable=False)
+    rebalance_file_path: Mapped[str] = mapped_column(nullable=False)
 
-    quanity_out: Mapped[float] = mapped_column(nullable=False)
-    safe_value_out: Mapped[float] = mapped_column(nullable=False)
-    spot_value_out: Mapped[float] = mapped_column(nullable=False)
-    backing_value_out: Mapped[float] = mapped_column(nullable=False)  # not used but can be useful later
+    quantity_out: Mapped[float] = mapped_column(nullable=False)
+    # safe_value_out: Mapped[float] = mapped_column(nullable=False)
+    # spot_value_out: Mapped[float] = mapped_column(nullable=False)
+    # backing_value_out: Mapped[float] = mapped_column(nullable=False)  # not used but can be useful later
 
-    quanity_in: Mapped[float] = mapped_column(nullable=False)
-    safe_value_in: Mapped[float] = mapped_column(nullable=False)
-    spot_value_in: Mapped[float] = mapped_column(nullable=False)
-    backing_value_in: Mapped[float] = mapped_column(nullable=False)  # not used but can be useful later
+    quantity_in: Mapped[float] = mapped_column(nullable=False)
+    # safe_value_in: Mapped[float] = mapped_column(nullable=False) # inferable later
+    # spot_value_in: Mapped[float] = mapped_column(nullable=False)
+    # backing_value_in: Mapped[float] = mapped_column(nullable=False)  # not used but can be useful later
 
     actual_swap_cost: Mapped[float] = mapped_column(nullable=False)
     break_even_days: Mapped[float] = mapped_column(nullable=False)
@@ -454,8 +454,14 @@ class RebalanceEvents(Base):
     predicted_gain_during_swap_cost_off_set_period: Mapped[float] = mapped_column(nullable=False)
     predicted_increase_after_swap_cost: Mapped[float] = mapped_column(nullable=False)
 
-    # consider adding in safe and acutal total supply here?
-    # only if wanted.
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"],
+            ["autopools.autopool_vault_address", "autopools.chain_id"],
+        ),
+        ForeignKeyConstraint(["rebalance_file_path"], ["rebalance_plans.file_name"]),
+        ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
+    )
 
 
 # extra
@@ -547,7 +553,7 @@ class ChainlinkGasCosts(Base):
     gas_cost_in_eth_with_chainlink_premium: Mapped[float] = mapped_column(nullable=False)
 
 
-# extra
+# extra note see extra
 class AutopoolDeposit(Base):
     __tablename__ = "autopool_deposit"
 

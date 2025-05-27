@@ -206,13 +206,13 @@ def ensure_rebalance_plans_table_are_current():
             where_clause=RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr,
         )
 
-        destinations = get_full_table_as_orm(
+        destinations: list[Destinations] = get_full_table_as_orm(
             Destinations, where_clause=Destinations.chain_id == autopool.chain.chain_id
         )
 
         destination_address_to_symbol = {d.destination_vault_address: d.underlying_symbol for d in destinations}
 
-        tokens = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == autopool.chain.chain_id)
+        tokens: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == autopool.chain.chain_id)
         token_address_to_decimals = {t.token_address: t.decimals for t in tokens}
 
         all_rebalance_plan_rows = []
@@ -231,6 +231,7 @@ def ensure_rebalance_plans_table_are_current():
             for new_rebalance_plan_row, new_dex_steps_rows in executor.map(_process_plan, plans_not_already_fetched):
                 all_rebalance_plan_rows.append(new_rebalance_plan_row)
                 all_dex_steps_rows.extend(new_dex_steps_rows)
+                # TODO add RebalanceCandidateDestinations here
 
         insert_avoid_conflicts(all_rebalance_plan_rows, RebalancePlans, index_elements=[RebalancePlans.file_name])
         insert_avoid_conflicts(
@@ -238,5 +239,17 @@ def ensure_rebalance_plans_table_are_current():
         )
 
 
+def print_count_of_rebalance_plans_in_db():
+    s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+
+    for autopool in ALL_AUTOPOOLS:
+
+        solver_plan_paths_on_remote = [
+            r["Key"] for r in s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket).get("Contents")
+        ]
+        print(autopool.autopool_eth_addr, len(solver_plan_paths_on_remote))
+
+
 if __name__ == "__main__":
+    # print_count_of_rebalance_plans_in_db()
     ensure_rebalance_plans_table_are_current()
