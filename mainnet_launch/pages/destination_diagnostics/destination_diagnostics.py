@@ -68,6 +68,10 @@ def _fetch_destination_apr_data(autopool: AutopoolConstants) -> pd.DataFrame:
 def fetch_and_render_destination_apr_data(autopool: AutopoolConstants) -> go.Figure:
     destination_state_df = _fetch_destination_apr_data(autopool)
 
+    destination_state_df["base_apr"] = destination_state_df["base_apr"].fillna(
+        destination_state_df["fee_plus_base_apr"]
+    )
+
     destination_choices = destination_state_df["readable_name"].unique()
 
     st.title("Destination APR Components")
@@ -77,7 +81,7 @@ def fetch_and_render_destination_apr_data(autopool: AutopoolConstants) -> go.Fig
     if autopool == AUTO_LRT:
         apr_columns = ["incentive_apr", "fee_apr", "base_apr", "points_apr", "datetime"]
     elif autopool == AUTO_USD:
-        apr_columns = ["incentive_apr", "fee_plus_base_apr", "datetime"]
+        apr_columns = ["incentive_apr", "base_apr", "datetime"]
     else:
         apr_columns = ["incentive_apr", "fee_apr", "base_apr", "datetime"]
 
