@@ -39,3 +39,4 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 test-pages = "tests.test_pages:main"
 reset-dev-db = "mainnet_launch.database.database_branching_scripts:reset_dev_local_branch_to_match_production"
+update-prod-db = "mainnet_launch.database.schema.ensure_tables_are_current.ensure_all_tables_are_current:main"
