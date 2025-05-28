@@ -340,7 +340,7 @@ class RebalancePlans(Base):
     destination_in: Mapped[str] = mapped_column(nullable=True)
     token_in: Mapped[str] = mapped_column(nullable=True)
 
-    # move_name: Mapped[str] = mappe÷d_column(nullable=True)  # f"{data['destinationOut']} -> {data['destinationIn']}"
+    move_name: Mapped[str] = mapped_column(nullable=True)  # f"{data['destinationOut']} -> {data['destinationIn']}"
 
     amount_out: Mapped[float] = mapped_column(nullable=True)
     # amountOutETH
@@ -646,9 +646,14 @@ def drop_and_full_rebuild_db():
     Base.metadata.create_all(bind=ENGINE)
     print("Recreated all tables from ORM definitions.")
 
+def reflect_and_create():
+    meta = MetaData()
+    meta.reflect(bind=ENGINE)
+    Base.metadata.create_all(bind=ENGINE)
+
 
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    pass
+    reflect_and_create()
     # drop_and_full_rebuild_db()
