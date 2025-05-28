@@ -97,7 +97,7 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
     return df
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH
 
     fetch_autopool_rebalance_events_from_subgraph(AUTO_ETH)
