@@ -297,5 +297,5 @@ def _build_blocks_to_use_dont_clip(
 if __name__ == "__main__":
     from mainnet_launch.constants import ETH_CHAIN
 
-    b = build_blocks_to_use(ETH_CHAIN)
+    b = ETH_CHAIN
     print(b)

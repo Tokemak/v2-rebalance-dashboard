@@ -63,7 +63,7 @@ def _connect_plans_to_rebalance_evnets(
 
     return rebalance_transaction_hash_to_rebalance_plan
 
-
+@time_decorator
 def ensure_rebalance_events_are_updated():
     for autopool in ALL_AUTOPOOLS:
 
@@ -147,6 +147,8 @@ def add_lp_token_safe_and_spot_prices(
             spot_value_in = float(token_in_spot_value * row["tokenInAmount"])
             spot_value_out = float(token_out_spot_value * row["tokenOutAmount"])
 
+            swap_offset_period = int(row["swapOffsetPeriod"]) if pd.notna(row["swapOffsetPeriod"]) else None
+
             return RebalanceEvents(
                 tx_hash=row["transactionHash"],
                 autopool_vault_address=row["autopool_vault_address"],
@@ -160,7 +162,7 @@ def add_lp_token_safe_and_spot_prices(
                 safe_value_in=safe_value_in,
                 spot_value_in=spot_value_in,
                 spot_value_out=spot_value_out,
-                swap_offset_period=row["swapOffsetPeriod"],
+                swap_offset_period=swap_offset_period,
             )
 
     new_rebalance_event_rows: list[RebalanceEvents] = []

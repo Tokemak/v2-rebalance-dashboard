@@ -56,6 +56,8 @@ def build_last_second_of_each_day_since_inception(chain: ChainData):
 def determine_what_days_have_highest_block_found(chain: ChainData) -> pd.DataFrame:
     # I still think this assumes we will previously have a block, timestmap of each day
     blocks = build_blocks_to_use(chain)
+    if not blocks:
+        return pd.DataFrame(columns=["date"])
     block_after = [b + 1 for b in blocks]
 
     df_before = get_raw_state_by_blocks([], blocks, chain, include_block_number=True).reset_index()

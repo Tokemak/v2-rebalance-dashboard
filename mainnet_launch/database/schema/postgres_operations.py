@@ -103,7 +103,7 @@ def insert_avoid_conflicts(
             raise ValueError("expecterd new rows here but found None")
         else:
             return
-        
+
     # tod remove index_elements
 
     rows_as_tuples = list(set([r.to_tuple() for r in new_rows]))

@@ -23,6 +23,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
     ensure_destination_token_values_are_current,
 )
 
+2
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_states_table import (
     ensure_destination_states_are_current,
 )
@@ -49,7 +50,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     # top level 6 hour check
     if full_reset_and_refetch:
         drop_and_full_rebuild_db()
-
+    # return
     ensure_blocks_is_current()
     ensure_autopools_are_current()
     # return
@@ -89,13 +90,13 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
 
 def main():
-    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
+    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=False)
 
 
 if __name__ == "__main__":
     from mainnet_launch.app.profiler import profile_function
 
-    profile_function(main, top_n=10)
+    profile_function(main, top_n=20)
 
 
 #    Ordered by: cumulative time
