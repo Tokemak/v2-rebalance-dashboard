@@ -443,10 +443,11 @@ class RebalanceEvents(Base):
     quantity_out: Mapped[float] = mapped_column(nullable=False)
     quantity_in: Mapped[float] = mapped_column(nullable=False)
 
-    # safe_value_out: Mapped[float] = mapped_column(nullable=False)
-    # spot_value_out: Mapped[float] = mapped_column(nullable=False)
+    safe_value_out: Mapped[float] = mapped_column(nullable=False)
+    safe_value_in: Mapped[float] = mapped_column(nullable=False)
 
-    # all of these can be infered from the token values and destination token values
+    spot_value_in: Mapped[float] = mapped_column(nullable=False)
+    spot_value_out: Mapped[float] = mapped_column(nullable=False)
 
     # make sure that you add
 

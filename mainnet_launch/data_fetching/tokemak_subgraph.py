@@ -6,6 +6,7 @@ from mainnet_launch.constants import ChainData, AutopoolConstants, ETH_CHAIN, BA
 from web3 import Web3
 
 
+
 def _get_subgraph_api(chain: ChainData):
     if chain == ETH_CHAIN:
         api_url = "https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-eth-mainnet/api"
@@ -29,7 +30,9 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
         vars_with_pagination = {**variables, "first": 500, "skip": skip}
         resp = requests.post(api_url, json={"query": query, "variables": vars_with_pagination})
         resp.raise_for_status()
-        batch = resp.json()["data"][data_col]
+        
+        response_json = resp.json()
+        batch = response_json["data"][data_col]
 
         if not batch:
             break
@@ -59,17 +62,19 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
         transactionHash
         timestamp
         blockNumber
-
-        tokenInAmount
-        tokenIn { id decimals }
-        tokenOutAmount
-        tokenOut { id decimals }
-
+        autopool
+        
+        tokenIn{id decimals}
         destinationInAddress
+        tokenInAmount
+        
+        tokenOut{id decimals }
         destinationOutAddress
+        tokenOutAmount
       }
     }
     """
+    # is safe tokenOutValueBaseAsset
 
     df = run_query_with_paginate(
         subgraph_url,
@@ -80,7 +85,7 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
 
     df["blockNumber"] = df["blockNumber"].astype(int)
 
-    df["tokenInAddress"] = df["tokenIn"].apply(lambda x: Web3.toChecksumAddress(x["id"]))
+    df["tokenInAddress"] = df["tokenIn"].apply(lambda x: Web3.toChecksumAddress(x["id"])) # these are the lp token addresses
     df["tokenOutAddress"] = df["tokenOut"].apply(lambda x: Web3.toChecksumAddress(x["id"]))
 
     df["destinationInAddress"] = df["destinationInAddress"].apply(lambda x: Web3.toChecksumAddress(x))
@@ -94,6 +99,13 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
     )
 
     df = df.sort_values("blockNumber")
+
+    df["datetime_executed"] = pd.to_datetime(
+        df["timestamp"].astype(int),
+        unit="s",
+        utc=True,
+    )
+
     return df
 
 

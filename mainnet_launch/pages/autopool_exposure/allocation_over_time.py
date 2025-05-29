@@ -16,9 +16,12 @@ from mainnet_launch.database.schema.postgres_operations import (
     merge_tables_as_df,
     TableSelector,
 )
+def _fetch_all_destination_lp_token_safe_value(autopool: AutopoolConstants) -> pd.DataFrame:
+    pass
 
+def _fetch_all_destination_lp_token_spot_value(autopool: AutopoolConstants) -> pd.DataFrame:
+    pass
 
-# consider caching in memory with streamlit
 def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataFrame:
     token_value_df = merge_tables_as_df(
         [
