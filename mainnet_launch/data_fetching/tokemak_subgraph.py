@@ -6,7 +6,6 @@ from mainnet_launch.constants import ChainData, AutopoolConstants, ETH_CHAIN, BA
 from web3 import Web3
 
 
-
 def _get_subgraph_api(chain: ChainData):
     if chain == ETH_CHAIN:
         api_url = "https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-eth-mainnet/api"
@@ -30,7 +29,7 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
         vars_with_pagination = {**variables, "first": 500, "skip": skip}
         resp = requests.post(api_url, json={"query": query, "variables": vars_with_pagination})
         resp.raise_for_status()
-        
+
         response_json = resp.json()
         batch = response_json["data"][data_col]
 
@@ -85,7 +84,9 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
 
     df["blockNumber"] = df["blockNumber"].astype(int)
 
-    df["tokenInAddress"] = df["tokenIn"].apply(lambda x: Web3.toChecksumAddress(x["id"])) # these are the lp token addresses
+    df["tokenInAddress"] = df["tokenIn"].apply(
+        lambda x: Web3.toChecksumAddress(x["id"])
+    )  # these are the lp token addresses
     df["tokenOutAddress"] = df["tokenOut"].apply(lambda x: Web3.toChecksumAddress(x["id"]))
 
     df["destinationInAddress"] = df["destinationInAddress"].apply(lambda x: Web3.toChecksumAddress(x))
@@ -105,6 +106,38 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
         unit="s",
         utc=True,
     )
+
+    # 2) Fetch metrics and merge on transactionHash
+    metrics_query = """
+    query($first: Int!, $skip: Int!) {
+      rebalanceBetweenDestinations(
+        first: $first,
+        skip: $skip
+      ) {
+        transactionHash
+        swapOffsetPeriod
+      }
+    }
+    """
+    #        # predictedAnnualizedGain
+
+    metrics_df = run_query_with_paginate(
+        subgraph_url,
+        metrics_query,
+        variables={},
+        data_col="rebalanceBetweenDestinations",
+    )
+
+    # Cast types if any metrics returned
+    if not metrics_df.empty:
+        metrics_df["swapOffsetPeriod"] = metrics_df["swapOffsetPeriod"].astype(int)
+    else:
+        metrics_df = pd.DataFrame(columns=["transactionHash", "swapOffsetPeriod"])
+
+    # Left join, fill missing with None
+    df = df.merge(metrics_df, on="transactionHash", how="left")
+    df["swapOffsetPeriod"] = df["swapOffsetPeriod"].where(df["swapOffsetPeriod"].notna(), None)
+    # df["predictedAnnualizedGain"] = df["predictedAnnualizedGain"].where(df["predictedAnnualizedGain"].notna(), None)
 
     return df
 

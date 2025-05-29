@@ -1,6 +1,6 @@
 import json
-from concurrent.futures import ThreadPoolExecutor
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
@@ -23,7 +23,7 @@ from mainnet_launch.database.schema.postgres_operations import (
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, get_state_by_one_block
 from mainnet_launch.data_fetching.tokemak_subgraph import fetch_autopool_rebalance_events_from_subgraph
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions import (
-    ensure_all_transactions_are_saved_in_db
+    ensure_all_transactions_are_saved_in_db,
 )
 from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, time_decorator
 
@@ -31,6 +31,7 @@ from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, time_deco
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_states_table import (
     build_lp_token_spot_and_safe_price_calls,
 )
+
 
 def _connect_plans_to_rebalance_evnets(
     rebalance_event_df: pd.DataFrame,
@@ -63,19 +64,6 @@ def _connect_plans_to_rebalance_evnets(
     return rebalance_transaction_hash_to_rebalance_plan
 
 
-def _extract_rebalance_event_row(row: pd.Series) -> RebalanceEvents:
-    return RebalanceEvents(
-        tx_hash=row["transactionHash"],
-        autopool_vault_address=row["autopool_vault_address"],
-        chain_id=row["chain_id"],
-        rebalance_file_path=row["rebalance_file_path"],
-        destination_out=row["destinationOutAddress"],
-        destination_in=row["destinationInAddress"],
-        quantity_out=row["tokenOutAmount"],
-        quantity_in=row["tokenInAmount"],
-    )
-
-
 def ensure_rebalance_events_are_updated():
     for autopool in ALL_AUTOPOOLS:
 
@@ -98,7 +86,8 @@ def ensure_rebalance_events_are_updated():
             rebalance_event_df["transactionHash"].isin(rebalance_event_hashes_to_fetch)
         ].copy()
 
-        if len(rebalance_event_df) == 0:
+        if rebalance_event_df.empty:
+            print(autopool.name, "no new rebalance events to fetch")
             continue
 
         hash_to_plan = _connect_plans_to_rebalance_evnets(rebalance_event_df, rebalance_plan_df)
@@ -107,46 +96,84 @@ def ensure_rebalance_events_are_updated():
         rebalance_event_df["autopool_vault_address"] = autopool.autopool_eth_addr
         rebalance_event_df["chain_id"] = autopool.chain.chain_id
 
-        # ensure_all_transactions_are_saved_in_db(rebalance_event_df['transactionHash'].to_list(), autopool.chain)
+        ensure_all_transactions_are_saved_in_db(rebalance_event_df["transactionHash"].to_list(), autopool.chain)
+
+        new_rebalance_event_rows = add_lp_token_safe_and_spot_prices(rebalance_event_df, autopool)
+        insert_avoid_conflicts(new_rebalance_event_rows, RebalanceEvents)
 
 
-        add_lp_token_safe_and_spot_prices(rebalance_event_df, autopool)
-
-        # return 
-        # new_rebalance_events_rows = rebalance_event_df.apply(_extract_rebalance_event_row, axis=1).to_list()
-
-        # insert_avoid_conflicts(new_events, RebalanceEvents)
-# 
-
-@time_decorator
-def add_lp_token_safe_and_spot_prices(rebalance_event_df:pd.DataFrame, autopool:AutopoolConstants):
-
-
+def add_lp_token_safe_and_spot_prices(
+    rebalance_event_df: pd.DataFrame,
+    autopool: AutopoolConstants,
+    max_concurrent_fetches: int = 50,
+) -> list[RebalanceEvents]:
     destinations_df = get_full_table_as_df(Destinations)
+    destination_vault_address_to_pool = {
+        d: p for d, p in zip(destinations_df["destination_vault_address"], destinations_df["pool"])
+    }
 
-    destination_vault_address_to_pool = {d:p for d, p in  zip(destinations_df['destination_vault_address'], destinations_df['pool'])}
-
-    rebalance_event_df['poolInAddress'] = rebalance_event_df['destinationInAddress'].map(destination_vault_address_to_pool)
-    rebalance_event_df['poolOutAddress'] = rebalance_event_df['destinationOutAddress'].map(destination_vault_address_to_pool)
-
-    blocks = [int(b) for b in rebalance_event_df['blockNumber']]
-
-    pass
-
-    # hmm, this is wildly over what is needed way to wide
-
-    token_in_value_calls = build_lp_token_spot_and_safe_price_calls(
-        rebalance_event_df['destinationInAddress'], rebalance_event_df['tokenInAddress'], rebalance_event_df['poolInAddress'],
-        autopool.chain, autopool.base_asset
+    rebalance_event_df["poolInAddress"] = rebalance_event_df["destinationInAddress"].map(
+        destination_vault_address_to_pool
+    )
+    rebalance_event_df["poolOutAddress"] = rebalance_event_df["destinationOutAddress"].map(
+        destination_vault_address_to_pool
     )
 
+    fetch_semaphore = threading.Semaphore(max_concurrent_fetches)
 
-    safe_and_spot_token_value_in_df = get_raw_state_by_blocks(
-        token_in_value_calls, blocks, chain=autopool.chain, include_block_number=True
-    )
+    def _fetch_prices_and_build_rebalance_event(row: pd.Series) -> RebalanceEvents:
+        with fetch_semaphore:
 
-    pass
+            calls = build_lp_token_spot_and_safe_price_calls(
+                destination_addresses=[row["destinationInAddress"], row["destinationOutAddress"]],
+                lp_token_addresses=[row["tokenInAddress"], row["tokenOutAddress"]],
+                pool_addresses=[row["poolInAddress"], row["poolOutAddress"]],
+                chain=autopool.chain,
+                base_asset=autopool.base_asset,
+            )
+
+            state = get_state_by_one_block(calls, int(row["blockNumber"]), chain=autopool.chain)
+
+            if (autopool.autopool_eth_addr, "lp_token_spot_and_safe") in state:
+                # the vault safe and spot prices are always 1.0
+                state[(autopool.autopool_eth_addr, "lp_token_spot_and_safe")] = (1.0, 1.0)
+
+            token_in_spot_value, token_in_safe_value = state[(row["destinationInAddress"], "lp_token_spot_and_safe")]
+            token_out_spot_value, token_out_safe_value = state[(row["destinationOutAddress"], "lp_token_spot_and_safe")]
+
+            safe_value_out = float(token_out_safe_value * row["tokenOutAmount"])
+            safe_value_in = float(token_in_safe_value * row["tokenInAmount"])
+
+            spot_value_in = float(token_in_spot_value * row["tokenInAmount"])
+            spot_value_out = float(token_out_spot_value * row["tokenOutAmount"])
+
+            return RebalanceEvents(
+                tx_hash=row["transactionHash"],
+                autopool_vault_address=row["autopool_vault_address"],
+                chain_id=int(row["chain_id"]),
+                rebalance_file_path=row["rebalance_file_path"],
+                destination_out=row["destinationOutAddress"],
+                destination_in=row["destinationInAddress"],
+                quantity_out=float(row["tokenOutAmount"]),
+                quantity_in=float(row["tokenInAmount"]),
+                safe_value_out=safe_value_out,
+                safe_value_in=safe_value_in,
+                spot_value_in=spot_value_in,
+                spot_value_out=spot_value_out,
+                swap_offset_period=row["swapOffsetPeriod"],
+            )
+
+    new_rebalance_event_rows: list[RebalanceEvents] = []
+    with ThreadPoolExecutor(max_workers=max_concurrent_fetches) as executor:
+        future_to_idx = {
+            executor.submit(_fetch_prices_and_build_rebalance_event, row): idx
+            for idx, row in rebalance_event_df.iterrows()
+        }
+        for future in as_completed(future_to_idx):
+            new_rebalance_event_rows.append(future.result())
+
+    return new_rebalance_event_rows
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ensure_rebalance_events_are_updated()

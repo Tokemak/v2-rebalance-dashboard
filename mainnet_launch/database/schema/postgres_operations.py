@@ -96,13 +96,15 @@ def _exec_sql_and_cache(sql: str) -> pd.DataFrame:
 
 
 def insert_avoid_conflicts(
-    new_rows: list[Base], table: Base, index_elements: list[InstrumentedAttribute], expecting_rows: bool = False
+    new_rows: list[Base], table: Base, index_elements: list[InstrumentedAttribute] = None, expecting_rows: bool = False
 ) -> None:
     if not new_rows:
         if expecting_rows:
             raise ValueError("expecterd new rows here but found None")
         else:
             return
+        
+    # tod remove index_elements
 
     rows_as_tuples = list(set([r.to_tuple() for r in new_rows]))
     bulk_copy_skip_duplicates(rows_as_tuples, table)

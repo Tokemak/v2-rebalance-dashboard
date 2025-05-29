@@ -449,6 +449,16 @@ class RebalanceEvents(Base):
     spot_value_in: Mapped[float] = mapped_column(nullable=False)
     spot_value_out: Mapped[float] = mapped_column(nullable=False)
 
+    swap_offset_period: Mapped[int] = mapped_column(nullable=True)
+
+    # these are inferable
+    # actual_swap_cost: Mapped[float] = mapped_column(nullable=False)
+    # break_even_days: Mapped[float] = mapped_column(nullable=False)
+    # actual_slippage: Mapped[float] = mapped_column(nullable=False)
+
+    # predicted_gain_during_swap_cost_off_set_period: Mapped[float] = mapped_column(nullable=False)
+    # predicted_increase_after_swap_cost: Mapped[float] = mapped_column(nullable=False)
+
     # make sure that you add
 
     # in order
@@ -681,5 +691,5 @@ def reflect_and_create():
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    reflect_and_create()
-    # drop_and_full_rebuild_db()
+    # reflect_and_create()
+    drop_and_full_rebuild_db()
