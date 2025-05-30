@@ -63,6 +63,7 @@ def _connect_plans_to_rebalance_evnets(
 
     return rebalance_transaction_hash_to_rebalance_plan
 
+
 @time_decorator
 def ensure_rebalance_events_are_updated():
     for autopool in ALL_AUTOPOOLS:
