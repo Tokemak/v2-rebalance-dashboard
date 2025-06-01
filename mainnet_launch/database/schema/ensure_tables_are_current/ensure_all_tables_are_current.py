@@ -43,6 +43,10 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
     ensure_rebalance_plans_table_are_current,
 )
 
+from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_rebalance_events import (
+    ensure_rebalance_events_are_updated,
+)
+
 
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
@@ -67,6 +71,8 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
     ensure_rebalance_plans_table_are_current()
 
+    ensure_rebalance_events_are_updated()
+
     # rebalance events
 
     # self contained parts add later
@@ -90,7 +96,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
 
 def main():
-    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=False)
+    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
 
 
 if __name__ == "__main__":

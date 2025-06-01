@@ -17,6 +17,9 @@ from mainnet_launch.database.schema.postgres_operations import (
 
 from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH
 
+# todo the scale on the rebalance safe amoutn in and min safe amount out is wrong, way too small for autoUSD
+# also safe the plans locally as well, just ot have them
+
 
 def convert_rebalance_plan_json_to_rebalance_plan_line(
     rebalance_plan_json_key: str, s3_client, autopool: AutopoolConstants

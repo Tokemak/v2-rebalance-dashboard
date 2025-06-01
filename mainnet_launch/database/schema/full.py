@@ -133,9 +133,6 @@ class Destinations(Base):
     destination_vault_decimals: Mapped[int] = mapped_column(nullable=False)  # DestinationVaultAddress.decimals()
 
 
-# maybe a autopool, destination table?
-
-
 class AutopoolDestinations(Base):
 
     __tablename__ = "autopool_destinations"
