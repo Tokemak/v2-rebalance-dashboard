@@ -23,7 +23,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
     ensure_destination_token_values_are_current,
 )
 
-2
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_states_table import (
     ensure_destination_states_are_current,
 )
