@@ -44,9 +44,6 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
 
 
 def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> list[dict]:
-    """
-    fetch the
-    """
     subgraph_url = _get_subgraph_api(autopool.chain)
 
     query = """

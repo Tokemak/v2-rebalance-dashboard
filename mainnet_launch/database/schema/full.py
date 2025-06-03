@@ -337,7 +337,9 @@ class RebalancePlans(Base):
     destination_in: Mapped[str] = mapped_column(nullable=True)
     token_in: Mapped[str] = mapped_column(nullable=True)
 
-    move_name: Mapped[str] = mapped_column(nullable=True)  # f"{data['destinationOut']} -> {data['destinationIn']}" ( I don't like this TODO pick a better move name)
+    move_name: Mapped[str] = mapped_column(
+        nullable=True
+    )  # f"{data['destinationOut']} -> {data['destinationIn']}" ( I don't like this TODO pick a better move name)
 
     amount_out: Mapped[float] = mapped_column(nullable=True)
     # amountOutETH

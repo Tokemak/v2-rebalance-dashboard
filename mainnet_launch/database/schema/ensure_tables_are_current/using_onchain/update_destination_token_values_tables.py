@@ -45,6 +45,7 @@ AUTO_USD_ROOT_PRICE_ORACLE = "0xdB8747a396D75D576Dc7a10bb6c8F02F4a3C20f1"
 
 def _build_USD_autopool_price_calls(chain: ChainData, destination_info_df: pd.DataFrame) -> list[Call]:
     # pricer_contract.functions.getSpotPriceInQuote(underlyingTokens[i], pool, quote).call({}, blockNo)
+    # note: this might need to be patched to include autopool.baseAsset -> 1.09
     pool_token_addresses = destination_info_df[
         destination_info_df["autopool_vault_address"] == AUTO_USD.autopool_eth_addr
     ][["pool", "token_address"]].drop_duplicates()
