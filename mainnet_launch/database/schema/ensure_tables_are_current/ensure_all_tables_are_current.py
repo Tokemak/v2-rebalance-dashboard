@@ -47,6 +47,8 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
 )
 
 
+# note sometimes after dropping and reflecting it breaks, but if you wait 10 minutes before repopulating then it works
+# not sure why
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
 
@@ -99,9 +101,10 @@ def main():
 
 
 if __name__ == "__main__":
-    from mainnet_launch.app.profiler import profile_function
+    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
 
-    profile_function(main, top_n=20)
+    # from mainnet_launch.app.profiler import profile_function
+    # profile_function(main, top_n=20)
 
 
 #    Ordered by: cumulative time

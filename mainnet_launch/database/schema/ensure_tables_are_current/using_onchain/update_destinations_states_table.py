@@ -555,14 +555,4 @@ def ensure_destination_states_are_current():
 import cProfile, pstats
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
-    profiler.enable()
     ensure_destination_states_are_current()
-    profiler.disable()
-    profiler.dump_stats(
-        "mainnet_launch/database/schema/ensure_tables_are_current/ensure_destination_states_are_current.prof"
-    )
-    stats = pstats.Stats(
-        "mainnet_launch/database/schema/ensure_tables_are_current/ensure_destination_states_are_current.prof"
-    )
-    stats.strip_dirs().sort_stats("cumtime").print_stats(30)

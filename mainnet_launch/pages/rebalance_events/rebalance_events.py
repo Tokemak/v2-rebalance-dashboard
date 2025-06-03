@@ -17,6 +17,10 @@ from mainnet_launch.database.schema.full import (
 )
 
 
+def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
+    return _load_full_rebalance_event_df(autopool)
+
+
 # @st.cache_data(ttl=60 * 60)
 def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
 

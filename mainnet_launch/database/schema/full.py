@@ -337,7 +337,7 @@ class RebalancePlans(Base):
     destination_in: Mapped[str] = mapped_column(nullable=True)
     token_in: Mapped[str] = mapped_column(nullable=True)
 
-    move_name: Mapped[str] = mapped_column(nullable=True)  # f"{data['destinationOut']} -> {data['destinationIn']}"
+    move_name: Mapped[str] = mapped_column(nullable=True)  # f"{data['destinationOut']} -> {data['destinationIn']}" ( I don't like this TODO pick a better move name)
 
     amount_out: Mapped[float] = mapped_column(nullable=True)
     # amountOutETH
@@ -446,8 +446,9 @@ class RebalanceEvents(Base):
     spot_value_in: Mapped[float] = mapped_column(nullable=False)
     spot_value_out: Mapped[float] = mapped_column(nullable=False)
 
-    swap_offset_period: Mapped[int] = mapped_column(nullable=True)
+    spot_value_in_solver_change: Mapped[float] = mapped_column(nullable=False)
 
+    # swap_offset_period: Mapped[int] = mapped_column(nullable=True) # in the rebalance plan
     # these are inferable
     # actual_swap_cost: Mapped[float] = mapped_column(nullable=False)
     # break_even_days: Mapped[float] = mapped_column(nullable=False)
@@ -688,6 +689,5 @@ def reflect_and_create():
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    print("add function here")
-    # reflect_and_create()
+    reflect_and_create()
     # drop_and_full_rebuild_db()
