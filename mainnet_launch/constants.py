@@ -180,6 +180,10 @@ USDC = TokemakAddress(
     eth="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", base="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 )
 
+DOLA = TokemakAddress(
+    eth="0x865377367054516e17014CcdED1e7d814EDC9ce4", base="0x4621b7A9c75199271F773Ebd9A499dbd165c3191"
+)
+
 STATS_CALCULATOR_REGISTRY = TokemakAddress(
     eth="0xaE6b250841fA7520AF843c776aA58E23060E2124", base="0x22dd2189728B40409476F4F80CA8f2f6BdB217D2"
 )
@@ -286,6 +290,40 @@ AUTO_USD: AutopoolConstants = AutopoolConstants(
 )
 
 
-ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH, AUTO_USD]
+BASE_USD: AutopoolConstants = AutopoolConstants(
+    "baseUSD",
+    "baseUSD",
+    autopool_eth_addr="0x9c6864105AEC23388C89600046213a44C384c831",
+    autopool_eth_strategy_addr=None,
+    solver_rebalance_plans_bucket=os.environ["BASE_USD_BUCKET"],
+    chain=BASE_CHAIN,
+    base_asset=USDC(BASE_CHAIN),
+    block_deployed=30310652,
+    data_from_rebalance_plan=True,
+    base_asset_symbol="USDC",
+    start_display_date="5-16-2025",
+)
+
+
+AUTO_DOLA: AutopoolConstants = AutopoolConstants(
+    "autoDOLA",
+    "autoDOLA",
+    autopool_eth_addr="0x79eB84B5E30Ef2481c8f00fD0Aa7aAd6Ac0AA54d",
+    autopool_eth_strategy_addr=None,
+    solver_rebalance_plans_bucket=os.environ["AUTO_DOLA_BUCKET"],
+    chain=ETH_CHAIN,
+    base_asset=DOLA(ETH_CHAIN),
+    block_deployed=22582955,
+    data_from_rebalance_plan=True,
+    base_asset_symbol="DOLA",
+    start_display_date="5-28-2025",
+)
+
+
+ALL_AUTOPOOLS: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH, AUTO_USD, BASE_USD]
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
-ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [AUTO_USD]
+ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [
+    AUTO_USD, BASE_USD
+]
+
+NOT_SUPPORTED_AUTOPOOLS = [BASE_USD, AUTO_DOLA]

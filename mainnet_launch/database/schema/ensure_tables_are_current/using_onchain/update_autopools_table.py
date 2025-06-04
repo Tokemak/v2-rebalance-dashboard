@@ -45,19 +45,23 @@ def ensure_autopools_are_current() -> None:
         autopool_state_dict = _fetch_autopool_state_dicts(autopools_not_in_table, chain)
         autopools_to_add = [a for a in ALL_AUTOPOOLS if a.autopool_eth_addr in autopools_not_in_table]
 
-        autopools_rows = [
-            Autopools(
+        autopools_rows = []
+        for a in autopools_to_add:
+            strategy_address = Web3.toChecksumAddress(autopool_state_dict[(a.autopool_eth_addr, "strategy")]) if autopool_state_dict[(a.autopool_eth_addr, "strategy")] is not None else None
+            row = Autopools(
                 autopool_vault_address=a.autopool_eth_addr,
                 chain_id=a.chain.chain_id,
                 block_deployed=a.block_deployed,
                 name=autopool_state_dict[(a.autopool_eth_addr, "name")],
                 symbol=autopool_state_dict[(a.autopool_eth_addr, "symbol")],
-                strategy_address=Web3.toChecksumAddress(autopool_state_dict[(a.autopool_eth_addr, "strategy")]),
-                base_asset=Web3.toChecksumAddress(autopool_state_dict[(a.autopool_eth_addr, "asset")]),
+                strategy_address=strategy_address,
+                base_asset=Web3.toChecksumAddress(
+                    autopool_state_dict[(a.autopool_eth_addr, "asset")]
+                ),
                 data_from_rebalance_plan=a.data_from_rebalance_plan,
             )
-            for a in autopools_to_add
-        ]
+            autopools_rows.append(row)
+
         new_blocks = [a.block_deployed for a in autopools_rows]
         ensure_all_blocks_are_in_table(new_blocks, chain)
         insert_avoid_conflicts(

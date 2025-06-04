@@ -118,9 +118,6 @@ def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
         st.plotly_chart(figure, use_container_width=True)
 
 
-# autoUSD total nav shows up as 16k USD on 22447978
-
-
 def _make_rebalance_events_plots(rebalance_df: pd.DataFrame):
     # per‐event stacked on value_out
     fig1 = px.bar(
@@ -192,4 +189,3 @@ if __name__ == "__main__":
     rebalance_df = _load_full_rebalance_event_df(AUTO_USD)
 
     rebalance_df.to_csv("mainnet_launch/working_data/autoUSD_rebalance_df_swap_costs.csv")
-
