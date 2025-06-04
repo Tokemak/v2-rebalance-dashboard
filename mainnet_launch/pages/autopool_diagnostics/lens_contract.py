@@ -264,11 +264,17 @@ def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks_add
 
 if __name__ == "__main__":
 
-    from mainnet_launch.constants import ETH_CHAIN
+    from mainnet_launch.constants import ETH_CHAIN, BASE_CHAIN
 
-    df = fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks_address(
-        ETH_CHAIN, [22448783, 22348783]
-    )
+    df = fetch_pools_and_destinations_df(BASE_CHAIN, [31133925])
+    print(df.columns)
+
+    data = df["getPoolsAndDestinations"].values[0]
+    from pprint import pprint
+
+    pprint(data)
+
+    pass
 
     # # Process and return results
 

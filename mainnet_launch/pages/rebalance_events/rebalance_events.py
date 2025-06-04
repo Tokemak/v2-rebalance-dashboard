@@ -36,7 +36,10 @@ def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
                 Transactions, [Transactions.block], join_on=(Transactions.tx_hash == RebalanceEvents.tx_hash)
             ),
             TableSelector(
-                AutopoolStates, [AutopoolStates.total_nav], join_on=(AutopoolStates.block == Transactions.block)
+                AutopoolStates,
+                [AutopoolStates.total_nav],
+                join_on=(AutopoolStates.block == Transactions.block),
+                row_filter=AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr,
             ),
             TableSelector(
                 Blocks,
@@ -47,14 +50,6 @@ def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
         where_clause=(RebalanceEvents.autopool_vault_address == autopool.autopool_eth_addr),
         order_by=Blocks.datetime,
     )
-
-    # plan_df = get_full_table_as_df(
-    #     RebalancePlans, where_clause=RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr
-    # )
-
-    #     autopool_state_df = get_full_table_as_df(
-    #     AutopoolStates, where_clause=AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr
-    # )[["block", "total_nav"]]
 
     tokens_df = merge_tables_as_df(
         [
@@ -95,7 +90,6 @@ def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
     rebalance_df["swap_cost_in_bps_of_NAV"] = 10_000 * rebalance_df["spot_swap_cost"] / rebalance_df["total_nav"]
 
     rebalance_df["from_idle"] = rebalance_df["destination_out"] == autopool.autopool_eth_addr
-    
 
     rebalance_df["swap_cost_in_bps_of_value_out_from_idle"] = rebalance_df["swap_cost_in_bps_of_value_out"].where(
         rebalance_df["from_idle"], 0
@@ -124,6 +118,9 @@ def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
         st.plotly_chart(figure, use_container_width=True)
 
 
+# autoUSD total nav shows up as 16k USD on 22447978
+
+
 def _make_rebalance_events_plots(rebalance_df: pd.DataFrame):
     # per‐event stacked on value_out
     fig1 = px.bar(
@@ -150,6 +147,7 @@ def _make_rebalance_events_plots(rebalance_df: pd.DataFrame):
     daily_nav = rebalance_df.resample("1d")[
         ["swap_cost_in_bps_of_NAV_from_idle", "swap_cost_in_bps_of_NAV_not_from_idle"]
     ].sum()
+
     fig3 = px.bar(
         daily_nav,
         x=daily_nav.index,
@@ -159,22 +157,22 @@ def _make_rebalance_events_plots(rebalance_df: pd.DataFrame):
     )
 
     # 7‐day rolling sum stacked on NAV
-    rolling7 = daily_nav.rolling(7).sum().dropna()
+    rolling7 = daily_nav.rolling(7).sum()
     fig4 = px.bar(
         rolling7,
         x=rolling7.index,
         y=["swap_cost_in_bps_of_NAV_from_idle", "swap_cost_in_bps_of_NAV_not_from_idle"],
-        title="7‑day rolling daily sum actual swap cost bps of NAV (idle vs not)",
+        title="7-day rolling daily sum actual swap cost bps of NAV (idle vs not)",
         barmode="stack",
     )
 
     # 28‐day rolling sum stacked on NAV
-    rolling28 = daily_nav.rolling(28).sum().dropna()
+    rolling28 = daily_nav.rolling(28).sum()
     fig5 = px.bar(
         rolling28,
         x=rolling28.index,
         y=["swap_cost_in_bps_of_NAV_from_idle", "swap_cost_in_bps_of_NAV_not_from_idle"],
-        title="28‑day rolling daily sum actual swap cost bps of NAV (idle vs not)",
+        title="28-day rolling daily sum actual swap cost bps of NAV (idle vs not)",
         barmode="stack",
     )
 
