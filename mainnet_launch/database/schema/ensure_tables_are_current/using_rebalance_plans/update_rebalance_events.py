@@ -5,6 +5,7 @@ from mainnet_launch.database.schema.full import (
     RebalancePlans,
     Destinations,
     DexSwapSteps,
+    AutopoolStates,
     Tokens,
     RebalanceEvents,
     Transactions,
@@ -37,8 +38,11 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
     _build_USD_autopool_price_calls,
     _build_ETH_autopool_price_calls,
 )
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopool_states import (
+    _fetch_new_autopool_state_rows,
+)
 
-from mainnet_launch.database.schema.full import AutopoolDestinations, Destinations, DestinationTokens
+from mainnet_launch.database.schema.full import AutopoolDestinations, Destinations, DestinationTokens, Autopools
 from multicall import Call
 import pandas as pd
 
@@ -154,6 +158,17 @@ def ensure_rebalance_events_are_updated():
         }
         rebalance_event_df["solver_address"] = rebalance_event_df["transactionHash"].map(tx_hash_to_to_address)
         new_rebalance_event_rows = add_lp_token_safe_and_spot_prices(rebalance_event_df, autopool)
+
+        # we care about the NAV at these blocks
+
+        autopools_to_fetch = get_full_table_as_orm(
+            Autopools, where_clause=Autopools.autopool_vault_address == autopool.autopool_eth_addr
+        )
+        new_autopool_state_rows = _fetch_new_autopool_state_rows(
+            autopools_to_fetch, [int(b) for b in transaction_df["block"]], autopool.chain
+        )
+        insert_avoid_conflicts(new_autopool_state_rows, AutopoolStates)
+
         insert_avoid_conflicts(new_rebalance_event_rows, RebalanceEvents)
 
 

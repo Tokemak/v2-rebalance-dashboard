@@ -5,7 +5,13 @@ import plotly.graph_objects as go
 
 from mainnet_launch.constants import AutopoolConstants
 
-from mainnet_launch.database.schema.postgres_operations import merge_tables_as_df, TableSelector, get_full_table_as_df
+
+from mainnet_launch.database.schema.postgres_operations import (
+    merge_tables_as_df,
+    TableSelector,
+    get_full_table_as_df,
+    insert_avoid_conflicts,
+)
 from mainnet_launch.database.schema.full import (
     RebalanceEvents,
     RebalancePlans,
@@ -14,6 +20,8 @@ from mainnet_launch.database.schema.full import (
     Transactions,
     DestinationTokens,
     Tokens,
+    Autopools,
+    AutopoolStates,
 )
 
 
@@ -21,7 +29,6 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
     return _load_full_rebalance_event_df(autopool)
 
 
-# @st.cache_data(ttl=60 * 60)
 def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
     rebalance_df = merge_tables_as_df(
@@ -84,7 +91,14 @@ def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
     common = rebalance_df.columns.intersection(plan_df.columns)
     plan_df = plan_df.drop(columns=common)
     rebalance_df = rebalance_df.merge(plan_df, left_on="rebalance_file_path", right_on="file_name", how="left")
-    return rebalance_df
+    rebalance_df = rebalance_df.set_index("datetime")
+
+    autopool_state_df = get_full_table_as_df(
+        AutopoolStates, where_clause=AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr
+    )[["block", "total_nav"]]
+    df = pd.merge(rebalance_df, autopool_state_df, on="block", how="left")
+    df.index = rebalance_df.index
+    return df
 
 
 def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
@@ -95,8 +109,8 @@ def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
 
     for figure in rebalance_figures:
 
-        figure.show()
-        # st.plotly_chart(figure, use_container_width=True)
+        # figure.show()
+        st.plotly_chart(figure, use_container_width=True)
 
 
 def make_expoded_box_plot(df: pd.DataFrame, col: str, resolution: str = "1W"):
@@ -106,93 +120,44 @@ def make_expoded_box_plot(df: pd.DataFrame, col: str, resolution: str = "1W"):
     return px.box(exploded_df, x="timestamp", y=col, title=f"Distribution of {col}")
 
 
-def _make_rebalance_events_plots(clean_rebalance_df):
-    figures = []
-    figures.append(_add_composite_return_figures(clean_rebalance_df))
-    figures.append(_add_in_out_eth_value(clean_rebalance_df))
-    figures.append(_add_predicted_gain_and_swap_cost(clean_rebalance_df))
-    figures.append(_add_swap_cost_percent(clean_rebalance_df))
-    figures.append(_add_break_even_days_and_offset_period(clean_rebalance_df))
-    return figures
+def _make_rebalance_events_plots(rebalance_df: pd.DataFrame):
+    rebalance_df["swap_cost_in_bps_of_value_out"] = rebalance_df["spot_slippage_bps"]
+    rebalance_df["swap_cost_in_bps_of_aum"] = 10_000 * rebalance_df["spot_swap_cost"] / rebalance_df["total_nav"]
 
-
-def _add_composite_return_figures(clean_rebalance_df: pd.DataFrame) -> go.Figure:
-    fig = go.Figure()
-    fig.add_trace(
-        go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["out_compositeReturn"], name="Out Composite Return")
+    total_daily_swap_cost_over_average_nav = rebalance_df.groupby(rebalance_df.index.date).apply(
+        lambda g: 10_000 * g["spot_swap_cost"].sum() / g["total_nav"].mean()
     )
-    fig.add_trace(
-        go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["in_compositeReturn"], name="In Composite Return")
-    )
-    fig.update_yaxes(title_text="Return (%)")
-    fig.update_layout(
-        title="Composite Returns",
-        bargap=0.0,
-        bargroupgap=0.01,
-    )
-    return fig
+    px.line(total_daily_swap_cost_over_average_nav, title="Daily Average Actual Swap Cost bps of NAV (method 2)"),
+
+    # these are side by side
+    px.bar(
+        rebalance_df["swap_cost_in_bps_of_value_out"],
+        title="Per Rebalance Actual Spot Swap Cost bps of spot value out",
+    ),
+    px.bar(rebalance_df["swap_cost_in_bps_of_aum"], title="Per Rebalance Actual Spot Swap Cost bps of NAV"),
 
 
-def _add_in_out_eth_value(clean_rebalance_df: pd.DataFrame) -> go.Figure:
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["outEthValue"], name="Out ETH Value"))
-    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["inEthValue"], name="In ETH Value"))
-    fig.update_yaxes(title_text="ETH")
-    fig.update_layout(
-        title="In/Out ETH Values",
-        bargap=0.0,
-        bargroupgap=0.01,
-    )
-    return fig
+    # these each are side by side
+    px.line(
+    rebalance_df["swap_cost_in_bps_of_aum"].resample("1d").mean(),
+    title="Daily Average Actual Swap Cost bps of NAV (method 1)",
+    ),
+
+    px.line(
+        rebalance_df["swap_cost_in_bps_of_aum"].resample("1d").mean().rolling(7).mean(),
+        title="7-day rolling Daily Average Actual Swap Cost bps of NAV (method 1)",
+    ),
+
+    px.line(
+        rebalance_df["swap_cost_in_bps_of_aum"].resample("1d").mean().rolling(28).mean(),
+        title="28-day rolling Daily Average Actual Swap Cost bps of NAV (method 1)",
+    ),
 
 
-def _add_predicted_gain_and_swap_cost(clean_rebalance_df: pd.DataFrame) -> go.Figure:
-    fig = go.Figure()
-    fig.add_trace(
-        go.Bar(
-            x=clean_rebalance_df.index,
-            y=clean_rebalance_df["predicted_gain_during_swap_cost_off_set_period"],
-            name="Predicted Gain",
-        )
-    )
-    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["swapCost"], name="Swap Cost"))
-    fig.update_yaxes(title_text="ETH")
-    fig.update_layout(title="Swap Cost and Predicted Gain", bargap=0.0, bargroupgap=0.01)
-    return fig
+    # these each are also side by side
+     px.line(total_daily_swap_cost_over_average_nav, title="Daily Average Actual Swap Cost bps of NAV (method 2)"),
 
 
-def _add_swap_cost_percent(clean_rebalance_df: pd.DataFrame) -> go.Figure:
-    swap_cost_percentage = clean_rebalance_df["slippage"] * 100
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=swap_cost_percentage, name="Swap Cost Percentage"))
-    fig.update_yaxes(title_text="Swap Cost (%)")
-    fig.update_layout(
-        title="Swap Cost as Percentage of Out ETH Value",
-        bargap=0.0,
-        bargroupgap=0.01,
-    )
-    return fig
-
-
-def _add_break_even_days_and_offset_period(clean_rebalance_df: pd.DataFrame) -> go.Figure:
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["break_even_days"], name="Break Even Days"))
-    fig.add_trace(go.Bar(x=clean_rebalance_df.index, y=clean_rebalance_df["offset_period"], name="Offset Period"))
-    fig.update_yaxes(title_text="Days")
-    fig.update_layout(
-        title="Break Even Days and Offset Period",
-        bargap=0.0,
-        bargroupgap=0.01,
-    )
-    return fig
-
-
-def make_expoded_box_plot(df: pd.DataFrame, col: str, resolution: str = "1W"):
-    # assumes df is timestmap index
-    list_df = df.resample(resolution)[col].apply(list).reset_index()
-    exploded_df = list_df.explode(col)
-
-    return px.box(exploded_df, x="timestamp", y=col, title=f"Distribution of {col}")
 
 
 if __name__ == "__main__":
