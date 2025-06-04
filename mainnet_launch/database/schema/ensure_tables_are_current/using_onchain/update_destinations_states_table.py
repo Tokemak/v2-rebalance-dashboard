@@ -32,7 +32,7 @@ from mainnet_launch.constants import (
 )
 
 
-def build_lp_token_spot_price_calls(
+def build_lp_token_spot_and_safe_price_calls(
     destination_addresses: list[str],
     lp_token_addresses: list[str],
     pool_addresses: list[str],
@@ -89,7 +89,7 @@ def _fetch_lp_token_spot_prices(
         lp_token_addresses = [dest.underlying for dest in this_autopool_active_destinations]
         pool_addresses = [dest.pool for dest in this_autopool_active_destinations]
 
-        calls = build_lp_token_spot_price_calls(
+        calls = build_lp_token_spot_and_safe_price_calls(
             destination_vault_addresses, lp_token_addresses, pool_addresses, chain, base_asset
         )
         lp_token_spot_prices_calls.extend(calls)
@@ -555,14 +555,4 @@ def ensure_destination_states_are_current():
 import cProfile, pstats
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
-    profiler.enable()
     ensure_destination_states_are_current()
-    profiler.disable()
-    profiler.dump_stats(
-        "mainnet_launch/database/schema/ensure_tables_are_current/ensure_destination_states_are_current.prof"
-    )
-    stats = pstats.Stats(
-        "mainnet_launch/database/schema/ensure_tables_are_current/ensure_destination_states_are_current.prof"
-    )
-    stats.strip_dirs().sort_stats("cumtime").print_stats(30)

@@ -42,14 +42,20 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
     ensure_rebalance_plans_table_are_current,
 )
 
+from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_rebalance_events import (
+    ensure_rebalance_events_are_updated,
+)
 
+
+# note sometimes after dropping and reflecting it breaks, but if you wait 10 minutes before repopulating then it works
+# not sure why
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
 
     # top level 6 hour check
     if full_reset_and_refetch:
         drop_and_full_rebuild_db()
-
+    # return
     ensure_blocks_is_current()
     ensure_autopools_are_current()
     # return
@@ -65,6 +71,8 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure_token_values_are_current()
 
     ensure_rebalance_plans_table_are_current()
+
+    ensure_rebalance_events_are_updated()
 
     # rebalance events
 
@@ -93,9 +101,10 @@ def main():
 
 
 if __name__ == "__main__":
-    from mainnet_launch.app.profiler import profile_function
+    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
 
-    profile_function(main, top_n=10)
+    # from mainnet_launch.app.profiler import profile_function
+    # profile_function(main, top_n=20)
 
 
 #    Ordered by: cumulative time

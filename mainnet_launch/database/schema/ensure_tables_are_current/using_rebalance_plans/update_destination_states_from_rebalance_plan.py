@@ -312,6 +312,8 @@ def update_destination_states_from_rebalance_plan():
 
 if __name__ == "__main__":
 
-    from mainnet_launch.app.profiler import profile_function
+    update_destination_states_from_rebalance_plan()
 
-    profile_function(update_destination_states_from_rebalance_plan)
+    # from mainnet_launch.app.profiler import profile_function
+
+    # profile_function(update_destination_states_from_rebalance_plan)

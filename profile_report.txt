@@ -1,28 +1,28 @@
-         2006727 function calls (2006220 primitive calls) in 6.181 seconds
+         20587 function calls (20044 primitive calls) in 1.072 seconds
 
    Ordered by: cumulative time
-   List reduced from 808 to 20 due to restriction <20>
+   List reduced from 754 to 20 due to restriction <20>
 
    ncalls  tottime  percall  cumtime  percall filename:lineno(function)
-        1    0.000    0.000    6.277    6.277 /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/ensure_tables_are_current/using_onchain/update_destination_token_values_tables.py:246(ensure_destination_token_values_are_current)
-        3    0.001    0.000    6.277    2.092 /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/ensure_tables_are_current/using_onchain/update_destination_token_values_tables.py:142(_fetch_and_insert_destination_token_values)
-        3    0.019    0.006    4.868    1.623 /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/ensure_tables_are_current/using_onchain/update_destination_token_values_tables.py:109(_determine_what_blocks_are_needed)
-       24    3.700    0.154    3.700    0.154 {method 'execute' of 'psycopg2.extensions.cursor' objects}
-        6    0.001    0.000    3.154    0.526 /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/postgres_operations.py:25(merge_tables_as_df)
-        6    0.001    0.000    3.143    0.524 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/pandas/io/sql.py:570(read_sql)
-        3    0.000    0.000    3.055    1.018 /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/postgres_operations.py:199(get_subset_not_already_in_column)
-        3    0.000    0.000    3.018    1.006 /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/postgres_operations.py:243(get_full_table_as_orm)
-       15    0.000    0.000    2.845    0.190 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/sql/elements.py:514(_execute_on_connection)
-       15    0.001    0.000    2.845    0.190 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1588(_execute_clauseelement)
-       15    0.001    0.000    2.843    0.190 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1788(_execute_context)
-       15    0.001    0.000    2.837    0.189 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1847(_exec_single_context)
-        9    0.000    0.000    2.832    0.315 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1372(execute)
-       15    0.000    0.000    2.819    0.188 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/engine/default.py:944(do_execute)
-        6    0.000    0.000    1.874    0.312 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/pandas/io/sql.py:1779(read_query)
-        6    0.000    0.000    1.832    0.305 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/pandas/io/sql.py:1655(execute)
-        3    0.020    0.007    1.348    0.449 /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/postgres_operations.py:255(<listcomp>)
-    32482    0.082    0.000    1.328    0.000 /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/full.py:44(from_tuple)
-        3    0.000    0.000    1.310    0.437 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/orm/session.py:2305(execute)
-        3    0.000    0.000    1.310    0.437 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/orm/session.py:2138(_execute_internal)
+        1    0.000    0.000    1.072    1.072 /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/ensure_tables_are_current/using_onchain/update_destination_token_values_tables.py:245(ensure_destination_token_values_are_current)
+        3    0.002    0.001    1.072    0.357 /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/ensure_tables_are_current/using_onchain/update_destination_token_values_tables.py:142(_fetch_and_insert_destination_token_values)
+        3    0.000    0.000    1.050    0.350 /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/ensure_tables_are_current/using_onchain/update_destination_token_values_tables.py:109(_determine_what_blocks_are_needed)
+        3    0.000    0.000    1.032    0.344 /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/postgres_operations.py:185(get_subset_not_already_in_column)
+        3    0.000    0.000    0.783    0.261 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/orm/session.py:2305(execute)
+        3    0.000    0.000    0.783    0.261 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/orm/session.py:2138(_execute_internal)
+        6    0.777    0.129    0.777    0.129 {method 'execute' of 'psycopg2.extensions.cursor' objects}
+        3    0.000    0.000    0.563    0.188 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1372(execute)
+        3    0.000    0.000    0.563    0.188 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/sql/elements.py:514(_execute_on_connection)
+        3    0.000    0.000    0.563    0.188 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1588(_execute_clauseelement)
+        3    0.000    0.000    0.562    0.187 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1788(_execute_context)
+        3    0.000    0.000    0.562    0.187 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/engine/base.py:1847(_exec_single_context)
+        3    0.000    0.000    0.558    0.186 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/engine/default.py:944(do_execute)
+    30/12    0.000    0.000    0.444    0.037 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py:95(_go)
+    75/39    0.000    0.000    0.235    0.006 {built-in method builtins.next}
+    33/15    0.000    0.000    0.228    0.015 /Users/pb/.pyenv/versions/3.10.14/lib/python3.10/contextlib.py:139(__exit__)
+       18    0.000    0.000    0.226    0.013 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/orm/session.py:1813(_maker_context_manager)
+        9    0.000    0.000    0.225    0.025 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/engine/util.py:129(__exit__)
+        9    0.000    0.000    0.224    0.025 <string>:1(commit)
+        9    0.001    0.000    0.224    0.025 /Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/sqlalchemy/orm/session.py:1306(commit)
 
 

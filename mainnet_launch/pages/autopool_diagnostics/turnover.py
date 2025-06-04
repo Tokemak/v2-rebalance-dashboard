@@ -4,9 +4,10 @@ import pandas as pd
 import streamlit as st
 
 from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, BASE_ETH, DINERO_ETH
-from mainnet_launch.pages.rebalance_events.rebalance_events import (
-    fetch_rebalance_events_df,
-)
+
+# from mainnet_launch.pages.rebalance_events.rebalance_events import (
+#     fetch_rebalance_events_df,
+# )
 from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
 
 
@@ -17,7 +18,7 @@ def fetch_and_render_turnover_data(autopool: AutopoolConstants):
 
 
 def fetch_turnover_data(autopool: AutopoolConstants) -> pd.DataFrame:
-    clean_rebalance_df = fetch_rebalance_events_df(autopool)
+    clean_rebalance_df = None  # fetch_rebalance_events_df(autopool)
 
     def _is_a_rebalance_between_the_same_destination(row) -> bool:
         # moveName = f"{out_destination_symbol} -> {in_destination_symbol}"

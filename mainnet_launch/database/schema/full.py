@@ -13,10 +13,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
-# you need to use main instead of the dev_local_branch because of the limit of compute
-# only 5 compute hours / month on a branch vs 191 compute hours for free per month
 
-tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))  #  DEV_LOCAL_DATABASE_URL
+# tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))  #  DEV_LOCAL_DATABASE_URL
+tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
+
 
 ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
@@ -51,14 +51,6 @@ class Base(MappedAsDataclass, DeclarativeBase):
         # returns an instance of this class from the ordered tuple
         col_names = [c.name for c in cls.__table__.columns]
         return cls(**dict(zip(col_names, tup)))
-
-
-# class DatabaseCurrentUpTo(Base):
-#     # stores the hightes
-
-#     chain_id: Mapped[int] = mapped_column(primary_key=True)
-#     highest_on_chain_call_block: Mapped[int] = mapped_column(nullable=False)
-#     # eg select max(block) from (token_values, destination_token_values, destination_states, autopool_destination_states, autopool_states)
 
 
 class Blocks(Base):
@@ -139,9 +131,6 @@ class Destinations(Base):
 
     denominated_in: Mapped[str] = mapped_column(nullable=False)  # DestinationVaultAddress.baseAsset()
     destination_vault_decimals: Mapped[int] = mapped_column(nullable=False)  # DestinationVaultAddress.decimals()
-
-
-# maybe a autopool, destination table?
 
 
 class AutopoolDestinations(Base):
@@ -348,7 +337,9 @@ class RebalancePlans(Base):
     destination_in: Mapped[str] = mapped_column(nullable=True)
     token_in: Mapped[str] = mapped_column(nullable=True)
 
-    move_name: Mapped[str] = mapped_column(nullable=True)  # f"{data['destinationOut']} -> {data['destinationIn']}"
+    move_name: Mapped[str] = mapped_column(
+        nullable=True
+    )  # f"{data['destinationOut']} -> {data['destinationIn']}" ( I don't like this TODO pick a better move name)
 
     amount_out: Mapped[float] = mapped_column(nullable=True)
     # amountOutETH
@@ -377,7 +368,7 @@ class RebalancePlans(Base):
     projected_gross_gain: Mapped[float] = mapped_column(nullable=True)
 
     projected_slippage: Mapped[float] = mapped_column(nullable=True)  # 100 projected_swap_cost / out_spot_eth
-    # maybe add projected break even days?
+
     __table_args__ = (
         ForeignKeyConstraint(
             ["destination_in", "chain_id"],
@@ -439,31 +430,73 @@ class RebalanceCandidateDestinations(Base):
 # needed
 class RebalanceEvents(Base):
     __tablename__ = "rebalance_events"
-    # autopool, solver, time + (expiration (10 minutes)), token out, amount out,
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
-    # this has a pointer to a block
-    autopool_vault_address: Mapped[str]
-    rebalance_file_path: Mapped[str] = mapped_column(ForeignKey("rebalance_plans.file_name"))
+    tx_hash: Mapped[str] = mapped_column(primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(nullable=False)
+    chain_id: Mapped[int] = mapped_column(nullable=False)
 
-    quanity_out: Mapped[float] = mapped_column(nullable=False)
+    rebalance_file_path: Mapped[str] = mapped_column(nullable=True)
+
+    destination_out: Mapped[str] = mapped_column(nullable=False)
+    destination_in: Mapped[str] = mapped_column(nullable=False)
+
+    quantity_out: Mapped[float] = mapped_column(nullable=False)
+    quantity_in: Mapped[float] = mapped_column(nullable=False)
+
     safe_value_out: Mapped[float] = mapped_column(nullable=False)
-    spot_value_out: Mapped[float] = mapped_column(nullable=False)
-    backing_value_out: Mapped[float] = mapped_column(nullable=False)  # not used but can be useful later
-
-    quanity_in: Mapped[float] = mapped_column(nullable=False)
     safe_value_in: Mapped[float] = mapped_column(nullable=False)
+
     spot_value_in: Mapped[float] = mapped_column(nullable=False)
-    backing_value_in: Mapped[float] = mapped_column(nullable=False)  # not used but can be useful later
+    spot_value_out: Mapped[float] = mapped_column(nullable=False)
 
-    actual_swap_cost: Mapped[float] = mapped_column(nullable=False)
-    break_even_days: Mapped[float] = mapped_column(nullable=False)
-    actual_slippage: Mapped[float] = mapped_column(nullable=False)
+    spot_value_in_solver_change: Mapped[float] = mapped_column(nullable=False)
 
-    predicted_gain_during_swap_cost_off_set_period: Mapped[float] = mapped_column(nullable=False)
-    predicted_increase_after_swap_cost: Mapped[float] = mapped_column(nullable=False)
+    # swap_offset_period: Mapped[int] = mapped_column(nullable=True) # in the rebalance plan
+    # these are inferable
+    # actual_swap_cost: Mapped[float] = mapped_column(nullable=False)
+    # break_even_days: Mapped[float] = mapped_column(nullable=False)
+    # actual_slippage: Mapped[float] = mapped_column(nullable=False)
 
-    # consider adding in safe and acutal total supply here?
-    # only if wanted.
+    # predicted_gain_during_swap_cost_off_set_period: Mapped[float] = mapped_column(nullable=False)
+    # predicted_increase_after_swap_cost: Mapped[float] = mapped_column(nullable=False)
+
+    # make sure that you add
+
+    # in order
+
+    # rebalance_plans,
+    # blocks,
+    # destination_token_values (at this block) (connected from rebalance transactions)
+    #
+
+    # backing_value_out: Mapped[float] = mapped_column(nullable=False)  # not used but can be useful later
+
+    # safe_value_in: Mapped[float] = mapped_column(nullable=False) # inferable later
+    # spot_value_in: Mapped[float] = mapped_column(nullable=False)
+    # backing_value_in: Mapped[float] = mapped_column(nullable=False)  # not used but can be useful later
+
+    # actual_swap_cost: Mapped[float] = mapped_column(nullable=False)
+    # break_even_days: Mapped[float] = mapped_column(nullable=False)
+    # actual_slippage: Mapped[float] = mapped_column(nullable=False)
+
+    # predicted_gain_during_swap_cost_off_set_period: Mapped[float] = mapped_column(nullable=False)
+    # predicted_increase_after_swap_cost: Mapped[float] = mapped_column(nullable=False)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"],
+            ["autopools.autopool_vault_address", "autopools.chain_id"],
+        ),
+        ForeignKeyConstraint(
+            ["destination_out", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+        ForeignKeyConstraint(
+            ["destination_in", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+        ForeignKeyConstraint(["rebalance_file_path"], ["rebalance_plans.file_name"]),
+        ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
+    )
 
 
 # extra
@@ -649,8 +682,14 @@ def drop_and_full_rebuild_db():
     print("Recreated all tables from ORM definitions.")
 
 
+def reflect_and_create():
+    meta = MetaData()
+    meta.reflect(bind=ENGINE)
+    Base.metadata.create_all(bind=ENGINE)
+
+
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    pass
+    reflect_and_create()
     # drop_and_full_rebuild_db()

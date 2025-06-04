@@ -96,13 +96,15 @@ def _exec_sql_and_cache(sql: str) -> pd.DataFrame:
 
 
 def insert_avoid_conflicts(
-    new_rows: list[Base], table: Base, index_elements: list[InstrumentedAttribute], expecting_rows: bool = False
+    new_rows: list[Base], table: Base, index_elements: list[InstrumentedAttribute] = None, expecting_rows: bool = False
 ) -> None:
     if not new_rows:
         if expecting_rows:
             raise ValueError("expecterd new rows here but found None")
         else:
             return
+
+    # tod remove index_elements
 
     rows_as_tuples = list(set([r.to_tuple() for r in new_rows]))
     bulk_copy_skip_duplicates(rows_as_tuples, table)
@@ -422,7 +424,10 @@ def set_some_cells_to_null(
 
 
 if __name__ == "__main__":
+
     from mainnet_launch.database.schema.full import Blocks
 
     all_blocks = get_full_table_as_orm(Blocks, Blocks.chain_id == 1)
     print(len(all_blocks))
+
+    pass
