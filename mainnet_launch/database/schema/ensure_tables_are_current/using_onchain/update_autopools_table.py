@@ -47,7 +47,11 @@ def ensure_autopools_are_current() -> None:
 
         autopools_rows = []
         for a in autopools_to_add:
-            strategy_address = Web3.toChecksumAddress(autopool_state_dict[(a.autopool_eth_addr, "strategy")]) if autopool_state_dict[(a.autopool_eth_addr, "strategy")] is not None else None
+            strategy_address = (
+                Web3.toChecksumAddress(autopool_state_dict[(a.autopool_eth_addr, "strategy")])
+                if autopool_state_dict[(a.autopool_eth_addr, "strategy")] is not None
+                else None
+            )
             row = Autopools(
                 autopool_vault_address=a.autopool_eth_addr,
                 chain_id=a.chain.chain_id,
@@ -55,9 +59,7 @@ def ensure_autopools_are_current() -> None:
                 name=autopool_state_dict[(a.autopool_eth_addr, "name")],
                 symbol=autopool_state_dict[(a.autopool_eth_addr, "symbol")],
                 strategy_address=strategy_address,
-                base_asset=Web3.toChecksumAddress(
-                    autopool_state_dict[(a.autopool_eth_addr, "asset")]
-                ),
+                base_asset=Web3.toChecksumAddress(autopool_state_dict[(a.autopool_eth_addr, "asset")]),
                 data_from_rebalance_plan=a.data_from_rebalance_plan,
             )
             autopools_rows.append(row)

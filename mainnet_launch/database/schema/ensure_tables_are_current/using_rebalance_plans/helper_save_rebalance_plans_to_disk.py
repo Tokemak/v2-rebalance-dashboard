@@ -10,11 +10,12 @@ from botocore.config import Config
 from mainnet_launch.constants import WORKING_DATA_DIR, ALL_AUTOPOOLS, AutopoolConstants, NOT_SUPPORTED_AUTOPOOLS
 
 
-
 # assumes AutopoolConstants is already imported from your constants module
 # and that WORKING_DATA_DIR is defined as the parent "working_data" folder
 
 LOCAL_REBALANCE_ROOT = WORKING_DATA_DIR / "local_rebalance_plans"
+
+
 def download_local_rebalance_plans(autopools: list[AutopoolConstants], max_workers: int = 50):
     """
     iterates through each autopool, lists its s3 bucket of rebalance-plan jsons,
@@ -53,13 +54,13 @@ def download_local_rebalance_plans(autopools: list[AutopoolConstants], max_worke
                 except Exception as e:
                     if attempt == attempts - 1:
                         return
-                    time.sleep((2 ** attempt) / 2)
+                    time.sleep((2**attempt) / 2)
 
         # download missing files in parallel
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             executor.map(download, keys_to_fetch)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     download_local_rebalance_plans(ALL_AUTOPOOLS)
     download_local_rebalance_plans(NOT_SUPPORTED_AUTOPOOLS)
