@@ -48,7 +48,7 @@ CONTENT_FUNCTIONS = {
     "Autopool Exposure": fetch_and_render_asset_allocation_over_time,
     "Autopool CRM": fetch_and_render_weighted_crm_data,
     "Destination Diagnostics": fetch_and_render_destination_apr_data,
-    # "Rebalance Events": fetch_and_render_rebalance_events_data,
+    "Rebalance Events": fetch_and_render_rebalance_events_data,
     # "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
     # "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
     # "Expected and Actual Returns": fetch_and_render_actual_and_gross_and_projected_returns,
