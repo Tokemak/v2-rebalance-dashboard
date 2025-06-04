@@ -189,4 +189,7 @@ def make_expoded_box_plot(df: pd.DataFrame, col: str, resolution: str = "1W"):
 if __name__ == "__main__":
     from mainnet_launch.constants import AUTO_LRT, AUTO_USD
 
-    fetch_and_render_rebalance_events_data(AUTO_USD)
+    rebalance_df = _load_full_rebalance_event_df(AUTO_USD)
+
+    rebalance_df.to_csv("mainnet_launch/working_data/autoUSD_rebalance_df_swap_costs.csv")
+
