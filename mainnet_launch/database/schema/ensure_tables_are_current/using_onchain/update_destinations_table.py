@@ -10,16 +10,9 @@ from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,
-    build_blocks_to_use,
 )
-from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
-
 from mainnet_launch.database.schema.full import Destinations, DestinationTokens, Tokens, AutopoolDestinations
-from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_highest_value_in_field_where
-
-from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
-    fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks_address,
-)
+from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts
 
 
 def _fetch_token_rows(token_addresses: list[str], chain: ChainData) -> list[Tokens]:
@@ -254,7 +247,6 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
                 AutopoolDestinations.destination_vault_address,
             ],
         )
-
 
 if __name__ == "__main__":
     ensure__destinations__tokens__and__destination_tokens_are_current()

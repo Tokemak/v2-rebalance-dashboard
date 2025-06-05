@@ -103,26 +103,24 @@ def _extract_safe_values(plan: dict, autopool: AutopoolConstants):
     return amount_out_safe_value, min_amount_in_safe_value
 
 
-def _extract_spot_values(plan: dict, autopool: AutopoolConstants):
-
+def _extract_spot_values(rebalance_test: dict, autopool: AutopoolConstants):
     if autopool.base_asset in USDC:
         spot_value_out_key = "outSpotUSD"
         min_amount_in_spot_value_key = "inSpotUSD"
-
     elif autopool.base_asset in WETH:
         spot_value_out_key = "outSpotETH"
         min_amount_in_spot_value_key = "inSpotETH"
     elif autopool.base_asset in DOLA:
         spot_value_out_key = "outSpotQuote"
         min_amount_in_spot_value_key = "inSpotQuote"
-
     else:
-        raise ValueError(f"Unexpected {autopool.base_asset=}")
+        raise ValueError(f"unexpected base_asset {autopool.base_asset}")
 
-    amount_out_spot_value = int(plan["rebalanceTest"][spot_value_out_key]) / 1e18
-    min_amount_in_spot_value = (
-        int(plan["rebalanceTest"][min_amount_in_spot_value_key]) / 1e18
-    )  # not ceratin here about size
+    out_val = rebalance_test.get(spot_value_out_key)
+    in_val = rebalance_test.get(min_amount_in_spot_value_key)
+
+    amount_out_spot_value = int(out_val) / 1e18 if out_val is not None else None
+    min_amount_in_spot_value = int(in_val) / 1e18 if in_val is not None else None
 
     return amount_out_spot_value, min_amount_in_spot_value
 
@@ -147,16 +145,38 @@ def _extract_rebalance_plan_and_dex_steps(
 
     amount_out_spot_value, min_amount_in_spot_value = _extract_spot_values(plan, autopool)
 
-    in_destination_name = plan["rebalanceTest"]["inDest"]
+    rebalance_test = plan.get("rebalanceTest") or {
+        "currentTimestamp": None,
+        "type": None,
+        "outDest": None,
+        "outSpotUSD": None,
+        "outDestApr": None,
+        "inDest": None,
+        "inSpotUSD": None,
+        "inDestApr": None,
+        "inDestAdjApr": None,
+        "swapOffsetPeriod": None,
+    }
+
+    in_destination_name = rebalance_test["inDest"]
     projected_gross_gain = 0
     candidate_destinations_rank = None
-    projected_net_gain = projected_swap_cost
+    projected_net_gain = 0
+
     if plan["destinationIn"] != autopool.autopool_eth_addr:
-        for i, d in enumerate(plan["addRank"]):
+        for i, d in enumerate(plan.get("addRank", [])):
             if d[0] == in_destination_name:
                 candidate_destinations_rank = i
                 projected_net_gain = d[1] / 1e18
                 projected_gross_gain = projected_net_gain + projected_swap_cost
+
+    out_dest_apr = float(rebalance_test["outDestApr"]) if rebalance_test["outDestApr"] else None
+    in_dest_apr = float(rebalance_test["inDestApr"]) if rebalance_test["inDestApr"] else None
+    in_dest_adj_apr = float(rebalance_test["inDestAdjApr"]) if rebalance_test["inDestAdjApr"] else None
+    apr_delta = (in_dest_adj_apr if in_dest_adj_apr else 0) - (out_dest_apr if out_dest_apr else 0)
+    swap_offset_period = int(rebalance_test["swapOffsetPeriod"]) if rebalance_test["swapOffsetPeriod"] else None
+    num_candidate_destinations = len(plan.get("addRank", []))
+    projected_slippage = 100 * projected_swap_cost / amount_out_safe_value if amount_out_safe_value else None
 
     new_rebalance_plan_row = RebalancePlans(
         file_name=plan["rebalance_plan_json_key"],
@@ -164,31 +184,29 @@ def _extract_rebalance_plan_and_dex_steps(
         autopool_vault_address=plan["autopool_vault_address"],
         chain_id=int(plan["chainId"]),
         solver_address=Web3.toChecksumAddress(plan["solverAddress"]),
-        rebalance_type=plan["rebalanceTest"]["type"],
+        rebalance_type=rebalance_test["type"],
         destination_in=Web3.toChecksumAddress(plan["destinationIn"]),
         token_in=Web3.toChecksumAddress(plan["tokenIn"]),
         destination_out=Web3.toChecksumAddress(plan["destinationOut"]),
         token_out=Web3.toChecksumAddress(plan["tokenOut"]),
         move_name=f"{underlying_out_symbol} -> {underlying_in_symbol}",
-        # NOTE: this might amountOutETH might be different for autoUSD, not certain what decimals it is
         amount_out=amount_out,
         amount_out_safe_value=amount_out_safe_value,
         min_amount_in=min_amount_in,
         min_amount_in_safe_value=min_amount_in_safe_value,
-        # rebalanceTest values
         amount_out_spot_value=amount_out_spot_value,
-        out_dest_apr=float(plan["rebalanceTest"]["outDestApr"]),
+        out_dest_apr=out_dest_apr,
         min_amount_in_spot_value=min_amount_in_spot_value,
-        in_dest_apr=float(plan["rebalanceTest"]["outDestApr"]),
-        in_dest_adj_apr=float(plan["rebalanceTest"]["inDestAdjApr"]),
-        apr_delta=float(plan["rebalanceTest"]["inDestAdjApr"]) - float(plan["rebalanceTest"]["outDestApr"]),
-        swap_offset_period=int(plan["rebalanceTest"]["swapOffsetPeriod"]),
-        num_candidate_destinations=len(plan["addRank"]),
+        in_dest_apr=in_dest_apr,
+        in_dest_adj_apr=in_dest_adj_apr,
+        apr_delta=apr_delta,
+        swap_offset_period=swap_offset_period,
+        num_candidate_destinations=num_candidate_destinations,
         candidate_destinations_rank=candidate_destinations_rank,
         projected_swap_cost=projected_swap_cost,
         projected_net_gain=projected_net_gain,
         projected_gross_gain=projected_gross_gain,
-        projected_slippage=100 * projected_swap_cost / amount_out_safe_value,  # todo add spot and safe slippage
+        projected_slippage=projected_slippage,
     )
 
     new_dex_steps = []

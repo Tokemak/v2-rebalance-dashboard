@@ -93,8 +93,10 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
     # has it at least an hour
 
+
 def main():
     ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
+
 
 if __name__ == "__main__":
     main()
