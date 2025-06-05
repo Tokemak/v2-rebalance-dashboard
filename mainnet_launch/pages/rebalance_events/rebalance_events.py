@@ -26,7 +26,6 @@ def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
 
 def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
-
     rebalance_df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -85,7 +84,53 @@ def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
         rebalance_df["destination_out_tokens"] + " -> " + rebalance_df["destination_in_tokens"]
     )
 
+    #     df["long_move_name"] = df["move_name"] + "   " + df["tokens_move_name"]
+    # cond = df["move_name"].isin(["autoDOLA -> sDOLA", "baseUSD -> fUSDC", "baseUSD -> smUSDC", "baseUSD -> mwUSDC"])
+    # cond = cond | (df["tokens_move_name"] == "('USDC',) -> ('USDC',)")
+    # df["adjusted_spot_swap_cost"] = df["spot_value_in_solver_change"].where(
+    #     cond, df["spot_swap_cost"] - df["spot_value_in_solver_change"]
+    # )
+    # df["adjusted_spot_swap_cost_in_bps_of_value_out"] = 10_000 * df["adjusted_spot_swap_cost"] / df["spot_value_out"]
+    # df["adjusted_spot_swap_cost_in_bps_of_NAV"] = 10_000 * df["adjusted_spot_swap_cost"] / df["total_nav"]
+
+    # if the swap should be not losses less (eg staking lending base -> base asset deployments)
+    # swap cost = spot value out - spot value in
+    # if we do think it should be lossless then
+    # swap cost = spot value difference in solver
+
+    # todo I don't like this pattern
+
+    autoUSD_lossless_move_names = [
+        "autoUSD -> fUSDC",
+        "gtUSDCcore -> fUSDC",
+        "autoUSD -> gtUSDC",
+        "gtUSDC -> fUSDC",
+        "steakUSDC -> fUSDC",
+        "fUSDC -> gtUSDCcore",
+        "autoUSD -> gtUSDCcore",
+        "autoUSD -> steakUSDC",
+    ]
+
+    autoDOLA_lossless_move_names = ["autoDOLA -> sDOLA"]
+
+    baseUSD_lossless_move_names = [
+        "baseUSD -> smUSDC",
+        "baseUSD -> fUSDC",
+        "baseUSD -> mwUSDC",
+        "baseUSD -> eUSDC-1",
+        "eUSDC-1 -> smUSDC",
+        "smUSDC -> mwUSDC",
+    ]
+
+    rebalance_df["expected_to_be_lossless"] = rebalance_df["move_name"].isin(
+        [*autoUSD_lossless_move_names, *autoDOLA_lossless_move_names, *baseUSD_lossless_move_names]
+    )
     rebalance_df["spot_swap_cost"] = rebalance_df["spot_value_out"] - rebalance_df["spot_value_in"]
+
+    rebalance_df["spot_swap_cost"] = rebalance_df["spot_swap_cost"].where(
+        ~rebalance_df["expected_to_be_lossless"], rebalance_df["spot_value_in_solver_change"]
+    )
+
     rebalance_df["spot_slippage_bps"] = 10_000 * rebalance_df["spot_swap_cost"] / rebalance_df["spot_value_out"]
 
     rebalance_df["safe_swap_cost"] = rebalance_df["safe_value_out"] - rebalance_df["safe_value_in"]
@@ -190,8 +235,8 @@ def make_expoded_box_plot(df: pd.DataFrame, col: str, resolution: str = "1W"):
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import AUTO_LRT, AUTO_USD
+    from mainnet_launch.constants import *
 
-    rebalance_df = _load_full_rebalance_event_df(AUTO_USD)
+    rebalance_df = _load_full_rebalance_event_df(AUTO_DOLA)
 
-    rebalance_df.to_csv("mainnet_launch/working_data/autoUSD_rebalance_df_swap_costs.csv")
+    # rebalance_df.to_csv("mainnet_launch/working_data/autoUSD_rebalance_df_swap_costs.csv")

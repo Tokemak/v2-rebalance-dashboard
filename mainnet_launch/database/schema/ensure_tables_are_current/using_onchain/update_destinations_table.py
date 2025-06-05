@@ -248,5 +248,6 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
             ],
         )
 
+
 if __name__ == "__main__":
     ensure__destinations__tokens__and__destination_tokens_are_current()

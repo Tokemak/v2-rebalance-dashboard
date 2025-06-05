@@ -75,6 +75,9 @@ def _build_ETH_autopool_price_calls(chain: ChainData, destination_info_df: pd.Da
     ]
 
 
+# this should be used but it is greyed out, not sure why
+# I think this method is bad
+# TODO bad method
 def _build_DOLA_autopool_price_calls(chain: ChainData, destination_info_df: pd.DataFrame) -> list[Call]:
     # pricer_contract.functions.getSpotPriceInQuote(underlyingTokens[i], pool, quote).call({}, blockNo)
     # note: this might need to be patched to include autopool.baseAsset -> 1.09

@@ -21,7 +21,7 @@ tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))  #  DEV_LOCAL_DATABASE_UR
 ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
     f"@{tmpPostgres.hostname}{tmpPostgres.path}?sslmode=require",
-    echo=True,  # Enable SQL query logging for debugging.
+    echo=False,  # Enable SQL query logging for debugging.
     pool_pre_ping=True,  # ← test connections before using them
     pool_timeout=30,  # wait for a free conn before error
     pool_size=5,  # keep 5 open connections
