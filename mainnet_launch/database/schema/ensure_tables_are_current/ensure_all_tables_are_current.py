@@ -70,6 +70,8 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure_rebalance_plans_table_are_current()
     ensure_rebalance_events_are_updated()
 
+    # TODO add a download rebalance events button to rebalance events page
+
     # rebalance events
 
     # self contained parts add later
@@ -91,6 +93,8 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
     # has it at least an hour
 
+def main():
+    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
 
 if __name__ == "__main__":
-    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=True)
+    main()
