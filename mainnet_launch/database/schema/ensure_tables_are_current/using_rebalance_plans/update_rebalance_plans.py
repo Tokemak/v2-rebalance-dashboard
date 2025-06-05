@@ -1,6 +1,6 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
-
+from decimal import Decimal
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
@@ -15,7 +15,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     get_subset_not_already_in_column,
 )
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH
+from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA
 
 # todo the scale on the rebalance safe amoutn in and min safe amount out is wrong, way too small for autoUSD
 # also safe the plans locally as well, just ot have them
@@ -75,21 +75,25 @@ def _extract_normalized_amounts(plan: dict, token_address_to_decimals: dict):
     out_decimals = token_address_to_decimals[plan["tokenOut"]]
     in_decimals = token_address_to_decimals[plan["tokenIn"]]
 
-    amount_out = int(plan["amountOut"]) / 10**out_decimals
-    min_amount_in = int(plan["minAmountIn"]) / 10**in_decimals
+    amount_out = int(Decimal(plan["amountOut"])) / 10**out_decimals
+    min_amount_in = int(Decimal(plan["minAmountIn"])) / 10**in_decimals
 
     return amount_out, min_amount_in
 
 
 def _extract_safe_values(plan: dict, autopool: AutopoolConstants):
 
-    if autopool.base_asset == USDC(autopool.chain):
+    if autopool.base_asset in USDC:
         amount_out_key = "amountOutUSD"
         min_amount_in_key = "minAmountInUSD"
 
-    elif autopool.base_asset == WETH(autopool.chain):
+    elif autopool.base_asset in WETH:
         amount_out_key = "amountOutETH"
         min_amount_in_key = "minAmountInETH"
+
+    elif autopool.base_asset in DOLA:
+        amount_out_key = "amountOutQuote"
+        min_amount_in_key = "minAmountInQuote"
     else:
         raise ValueError(f"Unexpected {autopool.base_asset=}")
 
@@ -101,13 +105,17 @@ def _extract_safe_values(plan: dict, autopool: AutopoolConstants):
 
 def _extract_spot_values(plan: dict, autopool: AutopoolConstants):
 
-    if autopool.base_asset == USDC(autopool.chain):
+    if autopool.base_asset in USDC:
         spot_value_out_key = "outSpotUSD"
         min_amount_in_spot_value_key = "inSpotUSD"
 
-    elif autopool.base_asset == WETH(autopool.chain):
+    elif autopool.base_asset in WETH:
         spot_value_out_key = "outSpotETH"
         min_amount_in_spot_value_key = "inSpotETH"
+    elif autopool.base_asset in DOLA:
+        spot_value_out_key = "outSpotQuote"
+        min_amount_in_spot_value_key = "inSpotQuote"
+
     else:
         raise ValueError(f"Unexpected {autopool.base_asset=}")
 

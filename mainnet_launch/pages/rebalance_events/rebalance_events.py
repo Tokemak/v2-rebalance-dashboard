@@ -41,21 +41,17 @@ def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
                 join_on=(AutopoolStates.block == Transactions.block),
                 row_filter=AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr,
             ),
-
             TableSelector(
                 RebalancePlans,
                 [RebalancePlans.move_name],
                 join_on=(RebalancePlans.file_name == RebalanceEvents.rebalance_file_path),
                 row_filter=RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr,
             ),
-            
-
             TableSelector(
                 Blocks,
                 [Blocks.datetime],
                 (Transactions.block == Blocks.block) & (Transactions.chain_id == Blocks.chain_id),
             ),
-
         ],
         where_clause=(RebalanceEvents.autopool_vault_address == autopool.autopool_eth_addr),
         order_by=Blocks.datetime,

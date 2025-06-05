@@ -26,6 +26,7 @@ from mainnet_launch.constants import (
     ROOT_PRICE_ORACLE,
     USDC,
     WETH,
+    DOLA,
     ETH_CHAIN,
     BASE_CHAIN,
     ALL_AUTOPOOLS_DATA_ON_CHAIN,
@@ -40,9 +41,9 @@ def build_lp_token_spot_and_safe_price_calls(
     base_asset: str,
 ) -> list[Call]:
 
-    if base_asset in [USDC(ETH_CHAIN), USDC(BASE_CHAIN)]:
+    if base_asset in USDC:
         base_asset_decimals = 6
-    elif base_asset in [WETH(ETH_CHAIN), WETH(BASE_CHAIN)]:
+    elif base_asset in WETH or base_asset in DOLA:
         base_asset_decimals = 18
     else:
         raise ValueError("Unexpected base_asset", base_asset)

@@ -36,6 +36,7 @@ from mainnet_launch.constants import (
     AutopoolConstants,
     WETH,
     USDC,
+    DOLA,
     AUTO_USD,
 )
 
@@ -69,6 +70,22 @@ def _build_ETH_autopool_price_calls(chain: ChainData, destination_info_df: pd.Da
             ROOT_PRICE_ORACLE(chain),
             ["getSpotPriceInEth(address,address)(uint256)", token_address, pool_address],
             [((pool_address, token_address, "spot_price"), safe_normalize_with_bool_success)],
+        )
+        for (pool_address, token_address) in zip(pool_token_addresses["pool"], pool_token_addresses["token_address"])
+    ]
+
+
+def _build_DOLA_autopool_price_calls(chain: ChainData, destination_info_df: pd.DataFrame) -> list[Call]:
+    # pricer_contract.functions.getSpotPriceInQuote(underlyingTokens[i], pool, quote).call({}, blockNo)
+    # note: this might need to be patched to include autopool.baseAsset -> 1.09
+    pool_token_addresses = destination_info_df[
+        destination_info_df["autopool_vault_address"] == AUTO_USD.autopool_eth_addr
+    ][["pool", "token_address"]].drop_duplicates()
+    return [
+        Call(
+            AUTO_USD_ROOT_PRICE_ORACLE,
+            ["getSpotPriceInQuote(address,address,address)(uint256)", token_address, pool_address, DOLA(chain)],
+            [((pool_address, token_address, "spot_price"), safe_normalize_6_with_bool_success)],
         )
         for (pool_address, token_address) in zip(pool_token_addresses["pool"], pool_token_addresses["token_address"])
     ]

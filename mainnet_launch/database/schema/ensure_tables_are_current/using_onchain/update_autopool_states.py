@@ -28,6 +28,7 @@ from mainnet_launch.constants import (
     ChainData,
     USDC,
     WETH,
+    DOLA,
     AutopoolConstants,
     ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN,
     ALL_AUTOPOOLS_DATA_ON_CHAIN,
@@ -56,6 +57,9 @@ def _fetch_new_autopool_state_rows(
         elif autopool.base_asset in WETH:
             total_nav_cleaning_function = _extract_debt_plus_idle_18
             nav_per_share_cleaning_function = safe_normalize_with_bool_success
+        elif autopool.base_asset in DOLA:
+            total_nav_cleaning_function = _extract_debt_plus_idle_18
+            nav_per_share_cleaning_function = safe_normalize_with_bool_success
         else:
             raise ValueError(f"Unknown base asset {autopool.base_asset} for autopool {autopool.autopool_vault_address}")
 
@@ -75,7 +79,7 @@ def _fetch_new_autopool_state_rows(
                 ),
                 Call(
                     autopool.autopool_vault_address,
-                    ["convertToAssets(uint256)(uint256)", int(1e18)],
+                    ["convertToAssets(uint256)(uint256)", int(1e18)],  # autopool shares are always in 1e18
                     [((autopool.autopool_vault_address, "nav_per_share"), nav_per_share_cleaning_function)],
                 ),
             ]
