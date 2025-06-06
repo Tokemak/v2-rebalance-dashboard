@@ -38,6 +38,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-test-pages = "tests.test_pages:main"
+test-pages = "tests.test_pages:verify_all_pages_work"
+time-test-pages = "tests.test_pages:verify_all_pages_work_with_times"
 reset-dev-db = "mainnet_launch.database.database_branching_scripts:reset_dev_local_branch_to_match_production"
 update-prod-db = "mainnet_launch.database.schema.ensure_tables_are_current.ensure_all_tables_are_current:main"

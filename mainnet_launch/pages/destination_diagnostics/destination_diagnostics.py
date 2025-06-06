@@ -2,17 +2,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 import pandas as pd
-import plotly.io as pio
-
-pio.templates.default = None
-
-from mainnet_launch.constants import AutopoolConstants, AUTO_ETH, AUTO_LRT, AUTO_USD
+from mainnet_launch.constants import AutopoolConstants, AUTO_LRT, AUTO_USD
 
 from mainnet_launch.database.schema.full import (
     Blocks,
     DestinationStates,
     Destinations,
-    AutopoolDestinationStates,
     AutopoolDestinations,
 )
 from mainnet_launch.database.schema.postgres_operations import (
@@ -68,6 +63,8 @@ def _fetch_destination_apr_data(autopool: AutopoolConstants) -> pd.DataFrame:
 def fetch_and_render_destination_apr_data(autopool: AutopoolConstants) -> go.Figure:
     destination_state_df = _fetch_destination_apr_data(autopool)
 
+    destination_state_df["base_apr"] = pd.to_numeric(destination_state_df["base_apr"])
+    destination_state_df["fee_plus_base_apr"] = pd.to_numeric(destination_state_df["fee_plus_base_apr"])
     destination_state_df["base_apr"] = destination_state_df["base_apr"].fillna(
         destination_state_df["fee_plus_base_apr"]
     )

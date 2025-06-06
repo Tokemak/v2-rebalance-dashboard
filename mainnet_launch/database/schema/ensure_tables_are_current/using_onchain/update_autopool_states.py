@@ -36,7 +36,7 @@ from mainnet_launch.constants import (
 
 
 def _fetch_new_autopool_state_rows(
-    autopools: list[Autopools], missing_blocks: list[int], chain: ChainData
+    autopools: list[AutopoolConstants], missing_blocks: list[int], chain: ChainData
 ) -> pd.DataFrame:
 
     def _extract_debt_plus_idle_18(success, AssetBreakdown):
@@ -51,36 +51,31 @@ def _fetch_new_autopool_state_rows(
 
     calls = []
     for autopool in autopools:
-        if autopool.base_asset in USDC:
+        if autopool.base_asset_decimals == 18:
+            total_nav_cleaning_function = _extract_debt_plus_idle_18
+            nav_per_share_cleaning_function = safe_normalize_with_bool_success
+        elif autopool.base_asset_decimals == 6:
             total_nav_cleaning_function = _extract_debt_plus_idle_6
             nav_per_share_cleaning_function = safe_normalize_6_with_bool_success
-        elif autopool.base_asset in WETH:
-            total_nav_cleaning_function = _extract_debt_plus_idle_18
-            nav_per_share_cleaning_function = safe_normalize_with_bool_success
-        elif autopool.base_asset in DOLA:
-            total_nav_cleaning_function = _extract_debt_plus_idle_18
-            nav_per_share_cleaning_function = safe_normalize_with_bool_success
         else:
-            raise ValueError(f"Unknown base asset {autopool.base_asset} for autopool {autopool.autopool_vault_address}")
+            raise ValueError(f"Unknown base asset {autopool.base_asset} for autopool {autopool.autopool_eth_addr}")
 
         calls.extend(
             [
                 Call(
-                    autopool.autopool_vault_address,
+                    autopool.autopool_eth_addr,
                     ["totalSupply()(uint256)"],
-                    [
-                        ((autopool.autopool_vault_address, "total_shares"), safe_normalize_with_bool_success)
-                    ],  # always 1e18
+                    [((autopool.autopool_eth_addr, "total_shares"), safe_normalize_with_bool_success)],  # always 1e18
                 ),
                 Call(
-                    autopool.autopool_vault_address,
+                    autopool.autopool_eth_addr,
                     ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
-                    [((autopool.autopool_vault_address, "total_nav"), total_nav_cleaning_function)],
+                    [((autopool.autopool_eth_addr, "total_nav"), total_nav_cleaning_function)],
                 ),
                 Call(
-                    autopool.autopool_vault_address,
+                    autopool.autopool_eth_addr,
                     ["convertToAssets(uint256)(uint256)", int(1e18)],  # autopool shares are always in 1e18
-                    [((autopool.autopool_vault_address, "nav_per_share"), nav_per_share_cleaning_function)],
+                    [((autopool.autopool_eth_addr, "nav_per_share"), nav_per_share_cleaning_function)],
                 ),
             ]
         )
@@ -93,12 +88,12 @@ def _fetch_new_autopool_state_rows(
         for autopool in autopools:
             new_autopool_state_rows.append(
                 AutopoolStates(
-                    autopool_vault_address=autopool.autopool_vault_address,
+                    autopool_vault_address=autopool.autopool_eth_addr,
                     block=int(row.get("block")),
                     chain_id=chain.chain_id,
-                    total_shares=row.get((autopool.autopool_vault_address, "total_shares")),
-                    total_nav=row.get((autopool.autopool_vault_address, "total_nav")),
-                    nav_per_share=row.get((autopool.autopool_vault_address, "nav_per_share")),
+                    total_shares=row.get((autopool.autopool_eth_addr, "total_shares")),
+                    total_nav=row.get((autopool.autopool_eth_addr, "total_nav")),
+                    nav_per_share=row.get((autopool.autopool_eth_addr, "nav_per_share")),
                 )
             )
 
@@ -112,7 +107,6 @@ def _fetch_and_insert_new_autopool_states(autopools: list[AutopoolConstants], ch
     if not missing_blocks:
         return
 
-    autopools = get_full_table_as_orm(Autopools, where_clause=Autopools.chain_id == chain.chain_id)
     new_autopool_states_rows = _fetch_new_autopool_state_rows(autopools, missing_blocks, chain)
 
     insert_avoid_conflicts(
@@ -157,6 +151,8 @@ def ensure_autopool_states_are_current():
         if autopools:
             _fetch_and_insert_new_autopool_states(autopools, chain)
 
+        # these are different because the blocks are diferent,
+        # eg the rebalannce plant blocks don't always line up with the highest block of each day
         autopools = [a for a in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN if a.chain == chain]
         if autopools:
             _fetch_and_insert_new_autopool_states(autopools, chain)

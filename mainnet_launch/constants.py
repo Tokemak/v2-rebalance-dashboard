@@ -75,9 +75,10 @@ class AutopoolConstants:
     data_from_rebalance_plan: bool
     base_asset_symbol: str
     start_display_date: str
+    base_asset_decimals: int
 
     def __hash__(self):
-        return hash(self.chain)
+        return hash(self.autopool_eth_addr)
 
 
 ETH_CHAIN: ChainData = ChainData(
@@ -217,6 +218,7 @@ AUTO_ETH: AutopoolConstants = AutopoolConstants(
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
     start_display_date="9-14-2024",
+    base_asset_decimals=18,
 )
 
 BAL_ETH: AutopoolConstants = AutopoolConstants(
@@ -231,6 +233,7 @@ BAL_ETH: AutopoolConstants = AutopoolConstants(
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
     start_display_date="9-14-2024",
+    base_asset_decimals=18,
 )
 
 AUTO_LRT: AutopoolConstants = AutopoolConstants(
@@ -245,6 +248,7 @@ AUTO_LRT: AutopoolConstants = AutopoolConstants(
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
     start_display_date="9-14-2024",
+    base_asset_decimals=18,
 )
 
 BASE_ETH: AutopoolConstants = AutopoolConstants(
@@ -259,6 +263,7 @@ BASE_ETH: AutopoolConstants = AutopoolConstants(
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
     start_display_date="11-5-2024",
+    base_asset_decimals=18,
 )
 
 DINERO_ETH: AutopoolConstants = AutopoolConstants(
@@ -273,6 +278,7 @@ DINERO_ETH: AutopoolConstants = AutopoolConstants(
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
     start_display_date="2-9-2025",
+    base_asset_decimals=18,
 )
 
 AUTO_USD: AutopoolConstants = AutopoolConstants(
@@ -287,6 +293,7 @@ AUTO_USD: AutopoolConstants = AutopoolConstants(
     data_from_rebalance_plan=True,
     base_asset_symbol="USDC",
     start_display_date="4-8-2025",
+    base_asset_decimals=6,
 )
 
 
@@ -302,6 +309,7 @@ BASE_USD: AutopoolConstants = AutopoolConstants(
     data_from_rebalance_plan=True,
     base_asset_symbol="USDC",
     start_display_date="5-16-2025",
+    base_asset_decimals=6,
 )
 
 
@@ -317,6 +325,7 @@ AUTO_DOLA: AutopoolConstants = AutopoolConstants(
     data_from_rebalance_plan=True,
     base_asset_symbol="DOLA",
     start_display_date="5-28-2025",
+    base_asset_decimals=18,
 )
 
 

@@ -347,8 +347,8 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
 
     st.markdown(
         f"""
-        **Highest Block Used**: `{highest_block_and_datetime[0]}`  
-        **Timestamp**: `{highest_block_and_datetime[1]}`  
+        **Highest Block Used**: `{highest_block_and_datetime.iloc[0]}`  
+        **Timestamp**: `{highest_block_and_datetime.iloc[1]}`  
         **Chain**: `{autopool.chain.name}`
         """
     )

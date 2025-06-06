@@ -6,15 +6,18 @@ import time
 import psutil
 import shutil
 import traceback
+import inspect
+from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+from concurrent.futures import ThreadPoolExecutor
 
 from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit
 from mainnet_launch.constants import ALL_AUTOPOOLS, TEST_LOG_FILE_NAME, AutopoolConstants
 from mainnet_launch.pages.page_functions import CONTENT_FUNCTIONS, PAGES_WITHOUT_AUTOPOOL
 
-from mainnet_launch.data_fetching.add_info_to_dataframes import initialize_tx_hash_to_gas_info_db
-from mainnet_launch.database.should_update_database import ensure_table_to_last_updated_exists, DB_FILE
 
-# run this with `$poetry run test-pages`
+for name, logger in logging.root.manager.loggerDict.items():
+    if "streamlit" in name:
+        logging.getLogger(name).disabled = True
 
 config_plotly_and_streamlit()
 
@@ -27,7 +30,6 @@ st.set_page_config(
 testing_logger = logging.getLogger("testing_logger")
 testing_logger.setLevel(logging.INFO)
 
-# Only add the handler if it doesn't already exist
 if not testing_logger.hasHandlers():
     handler = logging.FileHandler(TEST_LOG_FILE_NAME, mode="w")
     handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
@@ -35,111 +37,122 @@ if not testing_logger.hasHandlers():
     testing_logger.propagate = False
 
 
-def get_memory_usage():
-    process = psutil.Process()
-    mem_info = process.memory_info()
-    return mem_info.rss / (1024**2)
-
-
 def open_log_in_vscode(log_file: str):
-    """
-    Open (or create) the given log_file in Visual Studio Code on macOS.
-    Tries to use the 'code' CLI if available, otherwise falls back to:
-        open -a "Visual Studio Code" <file>
-    """
-    # 1) Ensure the file exists
     if not os.path.exists(log_file):
         try:
             open(log_file, "w").close()
         except Exception as e:
-            testing_logger.error(f"Failed to create log file '{log_file}': {e}")
+            testing_logger.error(f"failed to create log file '{log_file}': {e}")
             return
 
-    # 2) Choose the right command
     if shutil.which("code"):
-        cmd = ["code", log_file]
+        cmd = ["code", "-r", log_file]
     else:
         cmd = ["open", "-a", "Visual Studio Code", log_file]
 
-    # 3) Run the command
     try:
         subprocess.run(cmd, check=True)
     except Exception as e:
-        testing_logger.error(f"Could not open log file in VS Code: {e}")
+        testing_logger.error(f"could not open log file in vs code: {e}")
 
 
 def log_and_time_function(page_name, func, autopool: AutopoolConstants):
-    start_time = time.time()
-
+    start = time.time()
     try:
+        signature = inspect.signature(func)
         if autopool is None:
-            func()
+            if len(signature.parameters) == 0:
+                func()
+            else:
+                func(autopool=None)
         else:
-            func(autopool)
+            if "autopool" in signature.parameters:
+                func(autopool=autopool)
+            else:
+                func(autopool)
     except Exception as e:
         stack_trace = traceback.format_exc()
-
         if autopool is None:
-            testing_logger.info(f"Function: {func.__name__} failed | Page: {page_name}")
+            testing_logger.info(f"function: {func.__name__} failed | page: {page_name}")
         else:
-            testing_logger.info(f"Function: {func.__name__} failed | Page: {page_name} | Autopool: {autopool.name}")
-
-        testing_logger.info(f"Exception: {e}")
-        testing_logger.info("Stack trace:\n" + stack_trace)
+            testing_logger.info(f"function: {func.__name__} failed | page: {page_name} | autopool: {autopool.name}")
+        testing_logger.info(f"exception: {e}")
+        testing_logger.info("stack trace:\n" + stack_trace)
     finally:
-        time_taken = time.time() - start_time
+        elapsed = time.time() - start
         if autopool is None:
-            testing_logger.info(f"Execution Time: {time_taken:.2f} seconds | Page: {page_name}")
+            testing_logger.info(f"execution time: {elapsed:.2f} seconds | page: {page_name}")
         else:
             testing_logger.info(
-                f"Execution Time: {time_taken:.2f} seconds | Page: {page_name} | Autopool: {autopool.name}"
+                f"execution time: {elapsed:.2f} seconds | page: {page_name} | autopool: {autopool.name}"
             )
 
 
-def main():
+def build_tasks():
+    tasks = []
+    for page_name, func in CONTENT_FUNCTIONS.items():
+        if page_name in PAGES_WITHOUT_AUTOPOOL:
+            tasks.append((page_name, func, None))
+        else:
+            for autopool in ALL_AUTOPOOLS:
+                tasks.append((page_name, func, autopool))
+    return tasks
 
+
+def run_task_with_logging(page_name, func, autopool):
+    # ensure Streamlit script run context to silence missing context warnings
+    try:
+        ctx = get_script_run_ctx()
+        if ctx is not None:
+            add_script_run_ctx(ctx)
+    except Exception:
+        pass
+    log_and_time_function(page_name, func, autopool)
+
+
+def run_task_no_logging(page_name, func, autopool):
+    # ensure Streamlit script run context to silence missing context warnings
+    try:
+        ctx = get_script_run_ctx()
+        if ctx is not None:
+            add_script_run_ctx(ctx)
+    except Exception:
+        pass
+
+    try:
+        func(autopool)
+    except Exception as e:
+        open_log_in_vscode(TEST_LOG_FILE_NAME)
+        log_and_time_function(page_name, func, autopool)
+        raise e
+
+
+def verify_all_pages_work():
+    print("starting test-pages")
+    start = time.time()
+    with ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(run_task_no_logging, page_name, func, autopool)
+            for page_name, func, autopool in build_tasks()
+        ]
+        for future in futures:
+            future.result()
+    duration = time.time() - start
+    this_process_memory_usage_in_mb = psutil.Process().memory_info().rss / (1024**2)
+    print(
+        f"verify_all_pages_work() took {duration:.2f} seconds | memory usage: {this_process_memory_usage_in_mb:.2f} MB"
+    )
+
+
+def verify_all_pages_work_with_times():
     open_log_in_vscode(TEST_LOG_FILE_NAME)
 
-    autopools_to_check = ALL_AUTOPOOLS  # [BASE_ETH, AUTO_LRT]
-    testing_logger.info("First run of page view and caching")
-
-    start_time = time.time()
-    for page_name, func in CONTENT_FUNCTIONS.items():
-        if page_name in PAGES_WITHOUT_AUTOPOOL:
-            log_and_time_function(page_name, func, autopool=None)
-        else:
-            for autopool in autopools_to_check:
-                log_and_time_function(page_name, func, autopool=autopool)
-
-    time_taken = time.time() - start_time
-    usage = get_memory_usage()
-    testing_logger.info(f"Fetched and Cached all pages {time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB")
-
-    testing_logger.info("Second run of page view and caching")
-
-    start_time = time.time()
-    for page_name, func in CONTENT_FUNCTIONS.items():
-        if page_name in PAGES_WITHOUT_AUTOPOOL:
-            log_and_time_function(page_name, func, autopool=None)
-        else:
-            for autopool in autopools_to_check:
-                log_and_time_function(page_name, func, autopool=autopool)
-
-    time_taken = time.time() - start_time
-    usage = get_memory_usage()
-    testing_logger.info(f"Fetched and Cached all pages {time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB")
-
-
-def simple_debugging_loop():
-    autopools_to_check = ALL_AUTOPOOLS  # [BASE_ETH, AUTO_LRT]
-
-    for page_name, func in CONTENT_FUNCTIONS.items():
-        if page_name in PAGES_WITHOUT_AUTOPOOL:
-            func()
-        else:
-            for autopool in autopools_to_check:
-                func(autopool)
-
-
-if __name__ == "__main__":
-    main()
+    for run_number in ["1st", "2nd"]:
+        start = time.time()
+        for page_name, func, autopool in build_tasks():
+            run_task_with_logging(page_name, func, autopool)
+        duration = time.time() - start
+        this_process_memory_usage_in_mb = psutil.Process().memory_info().rss / (1024**2)
+        print(
+            f"verify_all_pages_work_with_times() {run_number=} took {duration:.2f} seconds | memory usage: {this_process_memory_usage_in_mb:.2f} MB"
+        )

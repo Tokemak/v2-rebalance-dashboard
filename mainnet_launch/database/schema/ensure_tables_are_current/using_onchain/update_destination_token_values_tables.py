@@ -280,15 +280,11 @@ def _fetch_idle_destination_token_values(
 
     idle_calls = []
     for autopool in autopools:
-        if autopool.base_asset in WETH:
-            decimals = 18
-        elif autopool.base_asset in USDC:
-            decimals = 6
 
         def _asset_breakdown_to_idle(success, args):
             if success:
                 totalIdle, totalDebt, totalDebtMin, totalDebtMax = args
-                return int(totalIdle) / (10**decimals)
+                return int(totalIdle) / (10**autopool.base_asset_decimals)
 
         idle_calls.append(
             Call(
@@ -321,33 +317,5 @@ def _fetch_idle_destination_token_values(
     return idle_destination_token_values
 
 
-import logging
-import time
-import cProfile
-import pstats
-
-
 if __name__ == "__main__":
-    # — configure logging format & level —
-    logging.basicConfig(
-        format="%(asctime)s %(levelname)s %(message)s",
-        level=logging.INFO,
-    )
-
-    # — simple wall‑clock timing —
-    logging.info("Starting destination token‑values update")
-    start = time.time()
     ensure_destination_token_values_are_current()
-    duration = time.time() - start
-    logging.info(f"Finished initial run in {duration:.2f}s")
-
-    # — profile second run and write to file —
-    pr = cProfile.Profile()
-    pr.enable()
-    ensure_destination_token_values_are_current()
-    pr.disable()
-
-    # dump cumulative times for top 20 functions into profile_report.txt
-    with open("profile_report.txt", "w") as f:
-        ps = pstats.Stats(pr, stream=f).sort_stats("cumtime")
-        ps.print_stats(20)
