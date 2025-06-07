@@ -8,7 +8,8 @@ import shutil
 import traceback
 import inspect
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
 
 from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit
 from mainnet_launch.constants import ALL_AUTOPOOLS, TEST_LOG_FILE_NAME, AutopoolConstants
@@ -128,20 +129,16 @@ def run_task_no_logging(page_name, func, autopool):
 
 
 def verify_all_pages_work():
-    print("starting test-pages")
-    start = time.time()
     with ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(run_task_no_logging, page_name, func, autopool)
-            for page_name, func, autopool in build_tasks()
-        ]
-        for future in futures:
-            future.result()
-    duration = time.time() - start
-    this_process_memory_usage_in_mb = psutil.Process().memory_info().rss / (1024**2)
-    print(
-        f"verify_all_pages_work() took {duration:.2f} seconds | memory usage: {this_process_memory_usage_in_mb:.2f} MB"
-    )
+        futures = {
+            executor.submit(run_task_no_logging, name, func, autopool): name for name, func, autopool in build_tasks()
+        }
+        for future in tqdm(as_completed(futures), total=len(futures), desc="verifying pages"):
+            page = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                print(f"❌ {page} failed: {e}")
 
 
 def verify_all_pages_work_with_times():
