@@ -1,7 +1,11 @@
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-import plotly.graph_objects as go
+import json
+import boto3
+from botocore import UNSIGNED
+from botocore.config import Config
+
 
 from mainnet_launch.constants import AutopoolConstants
 from mainnet_launch.database.schema.postgres_operations import (
@@ -256,13 +260,6 @@ def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
 
     render_average_destination_to_destination_move_performance(filtered_rebalance_df)
 
-    st.download_button(
-        label="Download Rebalance Events Data",
-        data=rebalance_df.to_csv().encode("utf-8"),
-        file_name=f"{autopool.name}_rebalance_events.csv",
-        mime="text/csv",
-    )
-
     st.plotly_chart(
         px.scatter(
             filtered_rebalance_df,
@@ -277,7 +274,16 @@ def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
         use_container_width=True,
     )
 
+    render_fetch_plan_ui(rebalance_df, autopool)
+
     with st.expander("All Rebalance Events"):
+        st.download_button(
+            label="Download Rebalance Events Data",
+            data=rebalance_df.to_csv().encode("utf-8"),
+            file_name=f"{autopool.name}_rebalance_events.csv",
+            mime="text/csv",
+        )
+
         st.dataframe(filtered_rebalance_df, use_container_width=True)
 
 
@@ -301,13 +307,42 @@ def render_average_destination_to_destination_move_performance(rebalance_df: pd.
     )
 
     # bps averages
-    grp["Average Swap Bps"] = grp["Total Swap Cost"] / grp["Total Value Out"] * 10_000
-    grp["Average Swap Bps (less solver)"] = grp["Total Swap Cost (less solver)"] / grp["Total Value Out"] * 10_000
+    grp["Average Swap Cost bps"] = grp["Total Swap Cost"] / grp["Total Value Out"] * 10_000
+    grp["Average Swap Cost bps (less solver)"] = grp["Total Swap Cost (less solver)"] / grp["Total Value Out"] * 10_000
 
     st.subheader("Move Performance Summary")
-    st.dataframe(use_container_width=True)
-    with st.expander("Detailed Move Performance"):
-        st.write("")
+    st.dataframe(
+        grp[["Total Value Out", "Average Swap Cost bps", "Average Swap Cost bps (less solver)"]].style.format("{:.2f}"),
+        use_container_width=True,
+    )
+
+
+def render_fetch_plan_ui(rebalance_df: pd.DataFrame, autopool: AutopoolConstants):
+    with st.form("fetch_plan_form"):
+        tx = st.text_input("rebalance event transaction hash")
+        submitted = st.form_submit_button("fetch plan")
+    if submitted:
+        try:
+            with st.spinner("fetching plan..."):
+                plan = _fetch_plan_for_tx(tx.strip(), rebalance_df, autopool)
+            st.json(plan)
+        except KeyError:
+            st.error(f"no plan found for tx {tx}")
+        except Exception as e:
+            st.error(f"unexpected error: {e}")
+
+
+def _fetch_plan_for_tx(tx_hash: str, rebalance_df: pd.DataFrame, autopool: AutopoolConstants) -> dict:
+    # instantiate s3 with unsigned config
+    s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+
+    row = rebalance_df.loc[rebalance_df["tx_hash"].str.lower() == tx_hash.lower()]
+    if row.empty:
+        raise KeyError(f"no plan for tx {tx_hash}")
+    key = row.iloc[0]["rebalance_file_path"]
+
+    resp = s3.get_object(Bucket=autopool.solver_rebalance_plans_bucket, Key=key)
+    return json.loads(resp["Body"].read())
 
 
 if __name__ == "__main__":
