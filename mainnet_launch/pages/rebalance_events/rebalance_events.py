@@ -156,17 +156,17 @@ def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
         ~rebalance_df["from_idle"], 0
     )
 
+    rebalance_df["spot_swap_cost_less_value_in_solver"] = (
+        rebalance_df["spot_value_out"] - rebalance_df["spot_value_in"]
+    ) - rebalance_df["spot_value_in_solver_change"]
+    rebalance_df["spot_swap_cost_less_value_in_solver"] = rebalance_df["spot_swap_cost_less_value_in_solver"].where(
+        ~rebalance_df["expected_to_be_lossless"], rebalance_df["spot_value_in_solver_change"]
+    )
+    rebalance_df["spot_slippage_bps_less_value_in_solver"] = (
+        rebalance_df["spot_swap_cost_less_value_in_solver"] / rebalance_df["spot_value_out"] * 10_000
+    )
+
     return rebalance_df
-
-
-def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
-    rebalance_df = _load_full_rebalance_event_df(autopool)
-
-    rebalance_figures = _make_rebalance_events_plots(rebalance_df)
-    st.header(f"{autopool.symbol} Rebalance Events")
-
-    for figure in rebalance_figures:
-        st.plotly_chart(figure, use_container_width=True)
 
 
 def _make_rebalance_events_plots(rebalance_df: pd.DataFrame):
@@ -234,9 +234,85 @@ def make_expoded_box_plot(df: pd.DataFrame, col: str, resolution: str = "1W"):
     return px.box(exploded_df, x="timestamp", y=col, title=f"Distribution of {col}")
 
 
+def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
+    rebalance_df = _load_full_rebalance_event_df(autopool)
+
+    rebalance_figures = _make_rebalance_events_plots(rebalance_df)
+    st.header(f"{autopool.symbol} Rebalance Events")
+
+    for figure in rebalance_figures:
+        st.plotly_chart(figure, use_container_width=True)
+
+    st.subheader("Individual Rebalance Events Data")
+
+    date_cutoff = st.date_input(
+        "show events after",
+        value=rebalance_df.index.min().tz_convert("UTC").date(),
+        min_value=rebalance_df.index.min().tz_convert("UTC").date(),
+        max_value=rebalance_df.index.max().tz_convert("UTC").date(),
+    )
+    date_cutoff = pd.Timestamp(date_cutoff, tz="UTC")
+    filtered_rebalance_df = rebalance_df[rebalance_df.index >= date_cutoff]
+
+    render_average_destination_to_destination_move_performance(filtered_rebalance_df)
+
+    st.download_button(
+        label="Download Rebalance Events Data",
+        data=rebalance_df.to_csv().encode("utf-8"),
+        file_name=f"{autopool.name}_rebalance_events.csv",
+        mime="text/csv",
+    )
+
+    st.plotly_chart(
+        px.scatter(
+            filtered_rebalance_df,
+            x=filtered_rebalance_df.index,
+            y="spot_slippage_bps_less_value_in_solver",
+            color="move_name",
+        ),
+        use_container_width=True,
+    )
+    st.plotly_chart(
+        px.scatter(filtered_rebalance_df, x=filtered_rebalance_df.index, y="spot_value_out", color="move_name"),
+        use_container_width=True,
+    )
+
+    with st.expander("All Rebalance Events"):
+        st.dataframe(filtered_rebalance_df, use_container_width=True)
+
+
+def render_average_destination_to_destination_move_performance(rebalance_df: pd.DataFrame):
+    grp = (
+        rebalance_df.groupby("move_name")
+        .sum()[
+            [
+                "spot_value_out",
+                "spot_swap_cost",
+                "spot_swap_cost_less_value_in_solver",
+            ]
+        ]
+        .rename(
+            columns={
+                "spot_value_out": "Total Value Out",
+                "spot_swap_cost": "Total Swap Cost",
+                "spot_swap_cost_less_value_in_solver": "Total Swap Cost (less solver)",
+            }
+        )
+    )
+
+    # bps averages
+    grp["Average Swap Bps"] = grp["Total Swap Cost"] / grp["Total Value Out"] * 10_000
+    grp["Average Swap Bps (less solver)"] = grp["Total Swap Cost (less solver)"] / grp["Total Value Out"] * 10_000
+
+    st.subheader("Move Performance Summary")
+    st.dataframe(use_container_width=True)
+    with st.expander("Detailed Move Performance"):
+        st.write("")
+
+
 if __name__ == "__main__":
     from mainnet_launch.constants import *
 
-    rebalance_df = _load_full_rebalance_event_df(AUTO_DOLA)
+    rebalance_df = fetch_and_render_rebalance_events_data(AUTO_DOLA)
 
     # rebalance_df.to_csv("mainnet_launch/working_data/autoUSD_rebalance_df_swap_costs.csv")
