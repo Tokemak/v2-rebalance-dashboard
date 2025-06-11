@@ -15,6 +15,8 @@ from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats i
 
 # from mainnet_launch.pages.key_metrics.fetch_nav_per_share import fetch_nav_per_share
 
+# todo accuracy == Expected Return (weighted price return at (t=0) - annulized change nav per share t=0  vs t=30
+
 
 def _build_expected_return_df(autopool: AutopoolConstants, n_days: int) -> pd.DataFrame:
     """

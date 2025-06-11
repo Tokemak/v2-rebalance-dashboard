@@ -37,7 +37,7 @@ from mainnet_launch.pages.expected_vs_actual_returns.expected_vs_actual_returns 
 
 
 from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import (
-    fetch_and_render_asset_oracle_and_backing,
+    fetch_and_render_asset_discounts,
 )
 
 
@@ -49,6 +49,7 @@ CONTENT_FUNCTIONS = {
     "Autopool CRM": fetch_and_render_weighted_crm_data,
     "Destination Diagnostics": fetch_and_render_destination_apr_data,
     "Rebalance Events": fetch_and_render_rebalance_events_data,
+    "Asset Discounts": fetch_and_render_asset_discounts,
     # "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
     # "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
     # "Expected and Actual Returns": fetch_and_render_actual_and_gross_and_projected_returns,

@@ -274,6 +274,13 @@ def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
         use_container_width=True,
     )
 
+    st.plotly_chart(
+        px.scatter(
+            filtered_rebalance_df, x="spot_value_out", y="spot_slippage_bps_less_value_in_solver", color="move_name"
+        ),
+        use_container_width=True,
+    )
+
     render_fetch_plan_ui(rebalance_df, autopool)
 
     with st.expander("All Rebalance Events"):
@@ -333,7 +340,6 @@ def render_fetch_plan_ui(rebalance_df: pd.DataFrame, autopool: AutopoolConstants
 
 
 def _fetch_plan_for_tx(tx_hash: str, rebalance_df: pd.DataFrame, autopool: AutopoolConstants) -> dict:
-    # instantiate s3 with unsigned config
     s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 
     row = rebalance_df.loc[rebalance_df["tx_hash"].str.lower() == tx_hash.lower()]
