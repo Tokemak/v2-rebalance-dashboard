@@ -14,8 +14,8 @@ from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
 
-tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))  #  DEV_LOCAL_DATABASE_URL
-# tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
+# tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))  #  DEV_LOCAL_DATABASE_URL
+tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
 
 
 ENGINE = create_engine(
@@ -392,10 +392,10 @@ class DexSwapSteps(Base):
     file_name: Mapped[str] = mapped_column(primary_key=True)
     step_index: Mapped[int] = mapped_column(primary_key=True)
     dex: Mapped[str] = mapped_column(nullable=False)
+    aggregator_names: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=True)
 
     # maybe add how much value is moved in this step
     # consider adding the other step data here as needed
-
     # consider adding info about the route here too
     __table_args__ = (ForeignKeyConstraint(["file_name"], ["rebalance_plans.file_name"]),)
 
@@ -411,7 +411,7 @@ class RebalanceCandidateDestinations(Base):
     net_gain: Mapped[float] = mapped_column(nullable=False)
     expected_swap_cost: Mapped[float] = mapped_column(nullable=False)
 
-    gross_gain_during_swap_cost_offset_period: Mapped[float] = mapped_column(nullable=False)
+    gross_gain_during_swap_cost_offset_period: Mapped[float | None] = mapped_column(nullable=False)
 
     #     'Tokemak-Wrapped Ether-osETH/rETH', # destination name,
     #    8.017298132176219e+17,  (net gain during swap cost offset period),
@@ -692,4 +692,4 @@ Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
     reflect_and_create()
-    # drop_and_full_rebuild_db()
+    drop_and_full_rebuild_db()

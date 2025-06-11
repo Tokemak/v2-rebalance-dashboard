@@ -40,7 +40,7 @@ from mainnet_launch.constants import (
     AUTO_USD,
 )
 
-
+# TODO, should be a constant?
 AUTO_USD_ROOT_PRICE_ORACLE = "0xdB8747a396D75D576Dc7a10bb6c8F02F4a3C20f1"
 
 

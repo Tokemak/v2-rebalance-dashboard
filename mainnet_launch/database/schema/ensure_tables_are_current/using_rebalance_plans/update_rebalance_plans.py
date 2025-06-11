@@ -189,7 +189,7 @@ def _extract_rebalance_plan_and_dex_steps(
         token_in=Web3.toChecksumAddress(plan["tokenIn"]),
         destination_out=Web3.toChecksumAddress(plan["destinationOut"]),
         token_out=Web3.toChecksumAddress(plan["tokenOut"]),
-        move_name=f"{underlying_out_symbol} -> {underlying_in_symbol}",
+        move_name=f"{underlying_out_symbol} -> {underlying_in_symbol}",  # what is a better move name?
         amount_out=amount_out,
         amount_out_safe_value=amount_out_safe_value,
         min_amount_in=min_amount_in,
@@ -211,10 +211,31 @@ def _extract_rebalance_plan_and_dex_steps(
 
     new_dex_steps = []
 
+    def find_agg_names(step_dictionary_details: dict, target="aggregatorName"):
+        results = []
+        for key, value in step_dictionary_details.items():
+            if key == target:
+                results.append(value)
+            elif isinstance(value, dict):
+                results.extend(find_agg_names(value, target))
+
+        return results
+
     for step_index, step in enumerate(plan["steps"]):
         if step["stepType"] == "swap":
+
+            if step["dex"] == "tokemakApi":
+                aggregator_names = "{" + ",".join(find_agg_names(step["payload"], target="aggregatorName")) + "}"
+            else:
+                aggregator_names = None
+
             new_dex_steps.append(
-                DexSwapSteps(file_name=plan["rebalance_plan_json_key"], step_index=step_index, dex=step["dex"])
+                DexSwapSteps(
+                    file_name=plan["rebalance_plan_json_key"],
+                    step_index=step_index,
+                    dex=step["dex"],
+                    aggregator_names=aggregator_names,
+                )
             )
 
     return new_rebalance_plan_row, new_dex_steps

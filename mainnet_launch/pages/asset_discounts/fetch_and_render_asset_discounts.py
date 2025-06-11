@@ -126,6 +126,7 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
 
 
 def _render_underlying_token_spot_and_safe_prices(token_value_df: pd.DataFrame):
+    # TODO
     pass
 
 
@@ -137,8 +138,6 @@ def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
         autopool_destinations_df["token_address"].unique().tolist(),
         autopool_destinations_df["destination_vault_address"].unique().tolist(),
     )
-
-    return autopool_destinations_df, token_value_df
 
     _render_component_token_safe_price_and_backing(token_value_df)
 
