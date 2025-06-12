@@ -52,4 +52,5 @@ def reset_main_to_match_dev_local():
 
 
 if __name__ == '__main__':
-    reset_main_to_match_dev_local()
+    # reset_main_to_match_dev_local()
+    pass
