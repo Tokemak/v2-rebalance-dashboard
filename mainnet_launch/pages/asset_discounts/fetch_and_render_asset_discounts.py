@@ -113,7 +113,7 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
     st.plotly_chart(px.line(safe_price_df, title="Safe Price"), use_container_width=True)
     st.plotly_chart(px.line(backing_df, title="Backing"), use_container_width=True)
     st.plotly_chart(px.line(price_return_df, title="Price Return"), use_container_width=True)
-    st.write(safe_price_df.columns)
+
     with st.expander("Details"):
         st.markdown(
             """

@@ -256,6 +256,9 @@ def ensure_rebalance_plans_table_are_current():
             where_clause=RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr,
         )
 
+        if not plans_not_already_fetched:
+            continue
+
         destinations: list[Destinations] = get_full_table_as_orm(
             Destinations, where_clause=Destinations.chain_id == autopool.chain.chain_id
         )
