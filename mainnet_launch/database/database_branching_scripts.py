@@ -51,6 +51,6 @@ def reset_main_to_match_dev_local():
         print("Error resetting main branch:", response.status_code, response.text)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # reset_main_to_match_dev_local()
     pass
