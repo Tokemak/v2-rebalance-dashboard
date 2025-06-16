@@ -7,7 +7,7 @@ import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 
-from mainnet_launch.constants import WORKING_DATA_DIR, ALL_AUTOPOOLS, AutopoolConstants, NOT_SUPPORTED_AUTOPOOLS
+from mainnet_launch.constants import WORKING_DATA_DIR, ALL_AUTOPOOLS, AutopoolConstants
 
 
 # assumes AutopoolConstants is already imported from your constants module
@@ -63,4 +63,3 @@ def download_local_rebalance_plans(autopools: list[AutopoolConstants], max_worke
 
 if __name__ == "__main__":
     download_local_rebalance_plans(ALL_AUTOPOOLS)
-    download_local_rebalance_plans(NOT_SUPPORTED_AUTOPOOLS)

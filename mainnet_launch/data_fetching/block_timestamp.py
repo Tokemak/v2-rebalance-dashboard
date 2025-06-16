@@ -1,11 +1,10 @@
 from datetime import datetime, timedelta, timezone
-import time
-from urllib.parse import urlparse
-import random
 
 import pandas as pd
 import os
 import requests
+
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from mainnet_launch.database.schema.full import Blocks
 from mainnet_launch.database.schema.postgres_operations import (
@@ -83,49 +82,32 @@ def ensure_blocks_is_current():
         ]
         highest_block_of_each_day_to_add = []
         for last_second_of_day in seconds_to_get:
-            block_before = get_block_after_timestamp_from_alchemy(last_second_of_day, chain, direction="BEFORE")
+            block_before = get_block_by_timestamp_etherscan(last_second_of_day, chain, closest="before")
             highest_block_of_each_day_to_add.append(block_before)
 
         ensure_all_blocks_are_in_table(highest_block_of_each_day_to_add, chain)
 
 
-def get_block_after_timestamp_from_alchemy(
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True)
+def get_block_by_timestamp_etherscan(
     unix_timestamp: int,
     chain: ChainData,
-    direction: str = "AFTER",  # or BEFORE
+    closest:str
 ) -> int:
     """
-    Fetch the first block before or after the given UNIX timestamp on chain
+    Fetch the first block after the given UNIX timestamp
+    using Etherscan's getblocknobytime endpoint.
     """
-    if not isinstance(unix_timestamp, int):
-        raise TypeError(f"{unix_timestamp=} should be an integer")
-    rpc_url = os.environ["ALCHEMY_URL"]
-    parsed = urlparse(rpc_url)
-    api_key = parsed.path.rsplit("/", 1)[-1]
-
-    endpoint = f"https://api.g.alchemy.com/data/v1/{api_key}/utility/blocks/by-timestamp"
-
-    headers = {"Authorization": api_key}  #
-
     params = {
-        "networks": [chain.name + "-mainnet"],
+        "module": "block",
+        "action": "getblocknobytime",
         "timestamp": str(unix_timestamp),
-        "direction": direction.upper(),  # “BEFORE” or “AFTER”
+        "closest": closest,
+        "chainid": str(chain.chain_id),
+        "apikey": os.getenv("ETHERSCAN_API_KEY"),
     }
-
-    headers = {"Authorization": "<Authorization>"}
-    max_retries = 3
-    for attempt in range(1, max_retries + 1):
-        try:
-            resp = requests.get(endpoint, headers=headers, params=params, timeout=(5, 15))
-            resp.raise_for_status()
-            return int(resp.json()["data"][0]["block"]["number"])
-        except Exception as e:
-            if attempt == max_retries:
-                raise e
-            delay = 2 ** (attempt)
-            print(f"[Attempt {attempt}/{max_retries}] Error: {e!r}. Retrying in {delay:.1f}s…")
-            time.sleep(delay + random.uniform(0, 1))
+    resp = requests.get("https://api.etherscan.io/api", params=params)
+    return int(resp.json()["result"])
 
 
 def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> list[Blocks]:

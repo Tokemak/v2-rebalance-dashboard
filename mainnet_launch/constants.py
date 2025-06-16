@@ -90,16 +90,16 @@ class AutopoolConstants:
 
 ETH_CHAIN: ChainData = ChainData(
     name="eth",
-    block_autopool_first_deployed=20752910,
+    block_autopool_first_deployed=20722908,
     approx_seconds_per_block=12.0,
     chain_id=1,
     start_unix_timestamp=1726365887,
 )
-# real start date was 21241103
-# but only has assets after 21901103
+
+
 BASE_CHAIN: ChainData = ChainData(
     name="base",
-    block_autopool_first_deployed=21901103,
+    block_autopool_first_deployed=21241103,
     approx_seconds_per_block=2.0,
     chain_id=8453,
     start_unix_timestamp=1730591553,
@@ -109,12 +109,12 @@ BASE_CHAIN: ChainData = ChainData(
 SONIC_CHAIN: ChainData = ChainData(
     name="sonic",
     block_autopool_first_deployed=31593624,
-    approx_seconds_per_block=-1,
-    chain_id=8453,
-    start_unix_timestamp=1730591553,
+    approx_seconds_per_block=0.5,  # TODO remove this arg
+    chain_id=146,
+    start_unix_timestamp=1748961926,
 )
 
-ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN]
+ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN]
 
 
 @dataclass
@@ -391,8 +391,7 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
     AUTO_USD,
     BASE_USD,
     AUTO_DOLA,
-    SONIC_USD,
 ]
 
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
-ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [AUTO_USD, BASE_USD, AUTO_DOLA, SONIC_USD]
+ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [AUTO_USD, BASE_USD, AUTO_DOLA]

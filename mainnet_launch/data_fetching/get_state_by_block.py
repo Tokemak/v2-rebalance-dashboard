@@ -20,15 +20,16 @@ from mainnet_launch.database.should_update_database import should_update_table
 
 from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS, time_decorator
 
-from mainnet_launch.database.schema.full import Blocks, Session
+from mainnet_launch.database.schema.full import Blocks
+from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df, Session
 
 # needed to run these functions in a jupyter notebook
 nest_asyncio.apply()
 
-
-MULTICALL2_DEPLOYMENT_BLOCK = 12336033
 MULTICALL_V3 = TokemakAddress(
-    eth="0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696", base="0xcA11bde05977b3631167028862bE2a173976CA11"
+    eth="0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696",
+    base="0xcA11bde05977b3631167028862bE2a173976CA11",
+    sonic="0xcA11bde05977b3631167028862bE2a173976CA11",
 )
 
 
@@ -231,44 +232,25 @@ def make_dummy_1_call(name: str) -> Call:
     )
 
 
-BLOCKS_TO_USE_TABLE = "BLOCKS_TO_USE_TABLE"
-
-
-def _add_to_blocks_to_use_table():
-    # drop_table(BLOCKS_TO_USE_TABLE)
-    if should_update_table(BLOCKS_TO_USE_TABLE, max_latency=pd.Timedelta("1 hour")):
-        for chain in ALL_CHAINS:
-            highest_block = get_earliest_block_from_table_with_chain(BLOCKS_TO_USE_TABLE, chain)
-            hour_blocks = _build_blocks_to_use_dont_clip(chain, start_block=highest_block, approx_num_blocks_per_day=48)
-
-            # Retrieve the raw state for the given blocks, including block numbers
-            df = get_raw_state_by_blocks([], hour_blocks, chain, include_block_number=True)
-            df["chain"] = chain.name
-            df = df.reset_index()
-            write_dataframe_to_table(df, BLOCKS_TO_USE_TABLE)
-
-
-# 180 seconds, too slow
-
-
-def postgres_build_blocks_to_use(
-    chain: ChainData, start_block: int | None = None, end_block: int | None = None
-) -> list[int]:
-    # TODO switch this to postgres version
-    with Session.begin() as session:
-        stmt = (
-            select(func.max(Blocks.block).label("block"))
-            .where(
-                Blocks.chain_id == chain.chain_id,
-                Blocks.block >= start_block,
-                Blocks.block <= end_block,
-            )
-            .group_by(func.date_trunc("day", Blocks.datetime))
-            .order_by(func.date_trunc("day", Blocks.datetime))
+def postgres_build_blocks_to_use(chain: ChainData, start_block: int, end_block: int) -> list[int]:
+    df = (
+        get_full_table_as_df(
+            Blocks,
+            where_clause=(Blocks.chain_id == chain.chain_id)
+            and (start_block <= Blocks.block)
+            and (Blocks.block <= end_block),
         )
-        highest_block_in_each_day = session.scalars(stmt).all()
-
-        return highest_block_in_each_day
+        .set_index("datetime")
+        .sort_index()
+    )
+    # fails if a table is empty
+    if df.empty:
+        # is needed for cold
+        blocks_to_use = []
+    else:
+        # this drop na might cause problems down the line
+        blocks_to_use = df["block"].resample("1d").max().dropna().astype(int).to_list()
+    return blocks_to_use
 
 
 # @st.cache_data(ttl=60 * 60)  # 1 hour
@@ -295,7 +277,7 @@ def _build_blocks_to_use_dont_clip(
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import ETH_CHAIN
+    from mainnet_launch.constants import ETH_CHAIN, BASE_CHAIN, ALL_CHAINS
 
-    b = ETH_CHAIN
-    print(b)
+    for c in ALL_CHAINS:
+        build_blocks_to_use(c)
