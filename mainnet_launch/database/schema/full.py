@@ -14,8 +14,9 @@ from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
 
-tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))  #  DEV_LOCAL_DATABASE_URL
+# tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))  #  DEV_LOCAL_DATABASE_URL
 # tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
+tmpPostgres = urlparse(os.getenv("ADD_SONIC_DATABASE_URL"))
 
 
 ENGINE = create_engine(
@@ -691,5 +692,6 @@ def reflect_and_create():
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    reflect_and_create()
-    drop_and_full_rebuild_db()
+    pass
+    # reflect_and_create()
+    # drop_and_full_rebuild_db()

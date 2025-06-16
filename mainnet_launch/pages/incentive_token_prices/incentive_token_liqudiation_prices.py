@@ -21,7 +21,7 @@ from mainnet_launch.database.should_update_database import should_update_table
 from mainnet_launch.data_fetching.get_events import fetch_events
 
 from mainnet_launch.constants import (
-    INCENTIVE_PRICNIG_STATS,
+    INCENTIVE_PRICING_STATS,
     LIQUIDATION_ROW,
     ROOT_PRICE_ORACLE,
     ALL_CHAINS,
@@ -77,7 +77,7 @@ def _fetch_incentive_calculator_price_df(swapped_df: pd.DataFrame, chain: ChainD
 
     oracle_price_calls = [
         Call(
-            INCENTIVE_PRICNIG_STATS(chain),
+            INCENTIVE_PRICING_STATS(chain),
             ["getPrice(address,uint40)((uint256,uint256))", addr, 2 * 86400],  # 2 days of latency
             [(addr, _min_of_low_and_high_price)],
         )

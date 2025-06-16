@@ -8,7 +8,7 @@ import requests
 load_dotenv()
 
 
-def reset_dev_local_branch_to_match_production():
+def reset_dev_local_branch_to_match_main():
     project_id = os.getenv("NEON_PROJECT_ID")
     dev_branch_id = os.getenv("DEV_LOCAL_NEON_BRANCH_ID")
     production_branch_id = os.getenv("MAIN_NEON_BRANCH_ID")
@@ -52,5 +52,5 @@ def reset_main_to_match_dev_local():
 
 
 if __name__ == "__main__":
-    # reset_main_to_match_dev_local()
+    reset_dev_local_branch_to_match_main()
     pass
