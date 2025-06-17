@@ -27,7 +27,6 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
     skip = 0
 
     while True:
-        print(query)
         vars_with_pagination = {**variables, "first": 500, "skip": skip}
         resp = requests.post(api_url, json={"query": query, "variables": vars_with_pagination})
         resp.raise_for_status()
@@ -49,8 +48,12 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
     return df
 
 
-def _fetch_autopool_rebalance_events_from_subgraph_old(autopool: AutopoolConstants):
-    # TODO check if we are deprecating old schema to use this schema instead
+def _fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
+    if autopool == SONIC_USD:
+        api_url = f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet2/api"
+
+    else:
+        api_url = f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api"
 
     query = """
     query($autoEthAddress: String!, $first: Int!, $skip: Int!) {
@@ -78,7 +81,7 @@ def _fetch_autopool_rebalance_events_from_subgraph_old(autopool: AutopoolConstan
     """
 
     df = run_query_with_paginate(
-        f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api",
+        api_url,
         query,
         variables={"autoEthAddress": autopool.autopool_eth_addr.lower()},
         data_col="autopoolRebalances",
@@ -98,91 +101,6 @@ def _fetch_autopool_rebalance_events_from_subgraph_old(autopool: AutopoolConstan
     )
     df["tokenInAmount"] = df.apply(
         lambda row: int(row["tokenInAmount"]) / (10 ** int(row["tokenIn"]["decimals"])), axis=1
-    )
-
-    return df
-
-
-# so far only sonicUSD
-def _fetch_autopool_rebalance_events_from_subgraph_new(autopool: AutopoolConstants):
-    rebalances_query = """
-        query($autoEthAddress: String!, $first: Int!, $skip: Int!) {
-        rebalances(
-            first: $first,
-            skip: $skip,
-            orderBy: id,
-            orderDirection: desc,
-            where: { autopool: $autoEthAddress }
-        ) {
-            hash
-            timestamp
-            blockNumber
-            autopool
-            outData {
-                destination
-                underlyer {
-                    id
-                    decimals
-                }
-            }
-            inData {
-                destination
-                underlyer {
-                    id
-                    decimals
-                }
-            }
-        }
-        }
-        """
-
-    df = run_query_with_paginate(
-        f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api",
-        rebalances_query,
-        variables={"autoEthAddress": autopool.autopool_eth_addr.lower()},
-        data_col="rebalances",
-    )
-
-    rebalance_amounts_query = """
-        query($first: Int!, $skip: Int!) {
-        rebalanceBetweenDestinations(
-            first: $first,
-            skip: $skip,
-            orderBy: id,
-            orderDirection: desc,
-        ) {
-            transactionHash
-            params_amountOut
-            params_amountIn
-        }
-        }
-    """
-
-    # note I suspect this misses reblances back to idle
-    amounts_df = run_query_with_paginate(
-        f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api",
-        rebalance_amounts_query,
-        variables={},
-        data_col="rebalanceBetweenDestinations",
-    )
-    # note
-    df = df.merge(amounts_df, how="left", left_on="hash", right_on="transactionHash")
-
-    df["blockNumber"] = df["blockNumber"].astype(int)
-
-    df["tokenInAddress"] = df["inData"].apply(lambda x: Web3.toChecksumAddress(x["underlyer"]["id"]))
-
-    df["destinationInAddress"] = df["outData"].apply(lambda x: Web3.toChecksumAddress(x["underlyer"]["id"]))
-
-    df["tokenInAddress"] = df["inData"].apply(lambda x: Web3.toChecksumAddress(x["destination"]))
-
-    df["tokenOutAddress"] = df["outData"].apply(lambda x: Web3.toChecksumAddress(x["destination"]))
-
-    df["tokenOutAmount"] = df.apply(
-        lambda row: int(row["params_amountOut"]) / (10 ** int(row["outData"]["underlyer"]["decimals"])), axis=1
-    )
-    df["tokenInAmount"] = df.apply(
-        lambda row: int(row["tokenInAmount"]) / (10 ** int(row["inData"]["underlyer"]["decimals"])), axis=1
     )
 
     return df
@@ -220,11 +138,7 @@ def _fetch_tx_hash_to_swap_cost_offset(autopool: AutopoolConstants) -> dict[str,
 
 def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
 
-    if autopool in [SONIC_USD]:
-        df = _fetch_autopool_rebalance_events_from_subgraph_new(autopool)
-    else:
-        df = _fetch_autopool_rebalance_events_from_subgraph_old(autopool)
-
+    df = _fetch_autopool_rebalance_events_from_subgraph(autopool)
     df = df.sort_values("blockNumber")
 
     df["datetime_executed"] = pd.to_datetime(
@@ -245,5 +159,3 @@ if __name__ == "__main__":
     # print(df.columns)
 
     df = fetch_autopool_rebalance_events_from_subgraph(SONIC_USD)
-
-    print(df.columns)

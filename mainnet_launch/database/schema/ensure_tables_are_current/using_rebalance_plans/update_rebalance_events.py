@@ -31,7 +31,7 @@ from mainnet_launch.data_fetching.tokemak_subgraph import fetch_autopool_rebalan
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions import (
     ensure_all_transactions_are_saved_in_db,
 )
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, WETH
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, WETH, SONIC_USD
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_states_table import (
     build_lp_token_spot_and_safe_price_calls,

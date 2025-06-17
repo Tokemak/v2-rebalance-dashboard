@@ -51,9 +51,9 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ENGINE.echo = echo_sql_to_console
 
     # top level 6 hour check
-    # if full_reset_and_refetch:
-    #     drop_and_full_rebuild_db()
-    ensure_blocks_is_current()  # sonic blocks is bad
+    if full_reset_and_refetch:
+        drop_and_full_rebuild_db()
+    ensure_blocks_is_current()
     ensure_autopools_are_current()
     ensure__destinations__tokens__and__destination_tokens_are_current()  # I don't like this name
 
@@ -67,8 +67,6 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     ensure_token_values_are_current()
     ensure_rebalance_plans_table_are_current()
     ensure_rebalance_events_are_current()
-
-    # TODO add a download rebalance events button to rebalance events page
 
     # rebalance events
 
