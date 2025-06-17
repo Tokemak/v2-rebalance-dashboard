@@ -7,6 +7,8 @@ import pandas as pd
 from mainnet_launch.constants import AutopoolConstants, SONIC_USD
 from web3 import Web3
 
+# TODO this fetches everything from 0, duplicates fetching
+# is using subgraph so not really a big issue since the subgraph is very fast and this is run once/day
 
 # TODO Fix TokenValues Root Price Oracle
 
@@ -25,6 +27,7 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
     skip = 0
 
     while True:
+        print(query)
         vars_with_pagination = {**variables, "first": 500, "skip": skip}
         resp = requests.post(api_url, json={"query": query, "variables": vars_with_pagination})
         resp.raise_for_status()
@@ -102,18 +105,16 @@ def _fetch_autopool_rebalance_events_from_subgraph_old(autopool: AutopoolConstan
 
 # so far only sonicUSD
 def _fetch_autopool_rebalance_events_from_subgraph_new(autopool: AutopoolConstants):
-    # TODO check if we are deprecating old schema to use this schema instead
-
     rebalances_query = """
         query($autoEthAddress: String!, $first: Int!, $skip: Int!) {
-        Reblances(
+        rebalances(
             first: $first,
             skip: $skip,
             orderBy: id,
             orderDirection: desc,
             where: { autopool: $autoEthAddress }
         ) {
-            transactionHash
+            hash
             timestamp
             blockNumber
             autopool
@@ -135,14 +136,20 @@ def _fetch_autopool_rebalance_events_from_subgraph_new(autopool: AutopoolConstan
         }
         """
 
+    df = run_query_with_paginate(
+        f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api",
+        rebalances_query,
+        variables={"autoEthAddress": autopool.autopool_eth_addr.lower()},
+        data_col="rebalances",
+    )
+
     rebalance_amounts_query = """
-        query($autoEthAddress: String!, $first: Int!, $skip: Int!) {
-        Reblances(
+        query($first: Int!, $skip: Int!) {
+        rebalanceBetweenDestinations(
             first: $first,
             skip: $skip,
             orderBy: id,
             orderDirection: desc,
-            where: { autopool: $autoEthAddress }
         ) {
             transactionHash
             params_amountOut
@@ -151,22 +158,15 @@ def _fetch_autopool_rebalance_events_from_subgraph_new(autopool: AutopoolConstan
         }
     """
 
-    df = run_query_with_paginate(
-        f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api",
-        rebalances_query,
-        variables={"autoEthAddress": autopool.autopool_eth_addr.lower()},
-        data_col="Reblances",
-    )
-
     # note I suspect this misses reblances back to idle
     amounts_df = run_query_with_paginate(
         f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api",
         rebalance_amounts_query,
-        variables={"autoEthAddress": autopool.autopool_eth_addr.lower()},
-        data_col="RebalanceBetweenDestination",
+        variables={},
+        data_col="rebalanceBetweenDestinations",
     )
-
-    df = df.merge(amounts_df, how="full", on="transactionHash")
+    # note
+    df = df.merge(amounts_df, how="left", left_on="hash", right_on="transactionHash")
 
     df["blockNumber"] = df["blockNumber"].astype(int)
 
@@ -218,7 +218,7 @@ def _fetch_tx_hash_to_swap_cost_offset(autopool: AutopoolConstants) -> dict[str,
     return tx_hash_to_swap_cost_offset
 
 
-def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> list[dict]:
+def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
 
     if autopool in [SONIC_USD]:
         df = _fetch_autopool_rebalance_events_from_subgraph_new(autopool)
@@ -238,6 +238,12 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH
+    from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH, SONIC_USD
 
-    fetch_autopool_rebalance_events_from_subgraph(AUTO_ETH)
+    # df = fetch_autopool_rebalance_events_from_subgraph(AUTO_ETH)
+
+    # print(df.columns)
+
+    df = fetch_autopool_rebalance_events_from_subgraph(SONIC_USD)
+
+    print(df.columns)

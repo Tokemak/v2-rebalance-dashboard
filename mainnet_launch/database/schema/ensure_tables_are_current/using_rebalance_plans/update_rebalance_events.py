@@ -1,10 +1,14 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
+
+from multicall import Call
+import pandas as pd
+
+
 from mainnet_launch.database.schema.full import (
     RebalancePlans,
     Destinations,
-    DexSwapSteps,
     AutopoolStates,
     Tokens,
     RebalanceEvents,
@@ -27,24 +31,20 @@ from mainnet_launch.data_fetching.tokemak_subgraph import fetch_autopool_rebalan
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions import (
     ensure_all_transactions_are_saved_in_db,
 )
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA
-
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, WETH
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_states_table import (
     build_lp_token_spot_and_safe_price_calls,
 )
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destination_token_values_tables import (
-    _build_USD_autopool_price_calls,
-    _build_ETH_autopool_price_calls,
-    _build_DOLA_autopool_price_calls,
+    _build_get_spot_price_in_eth_calls,
+    _build_get_spot_price_in_quote_calls,
 )
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopool_states import (
     _fetch_new_autopool_state_rows,
 )
 
 from mainnet_launch.database.schema.full import AutopoolDestinations, Destinations, DestinationTokens
-from multicall import Call
-import pandas as pd
 
 
 # broken on sonicUSD
@@ -310,12 +310,13 @@ def _get_spot_value_change_in_solver(
     ]
     destination_token_in_for_spot_prices = pd.concat([out_destination_sub_df, in_destination_sub_df])
 
-    if autopool.base_asset in USDC:
-        spot_price_calls_function = _build_USD_autopool_price_calls
-    elif autopool.base_asset in WETH:
-        spot_price_calls_function = _build_ETH_autopool_price_calls
-    elif autopool.base_asset in DOLA:
-        spot_price_calls_function = _build_DOLA_autopool_price_calls
+    destination_token_in_for_spot_prices["base_asset"] = autopool.base_asset
+    destination_token_in_for_spot_prices["base_asset_decimals"] = autopool.base_asset_decimals
+
+    if autopool.base_asset in WETH:
+        spot_price_calls_function = _build_get_spot_price_in_eth_calls
+    else:
+        spot_price_calls_function = _build_get_spot_price_in_quote_calls
 
     spot_price_dict = get_state_by_one_block(
         spot_price_calls_function(autopool.chain, destination_token_in_for_spot_prices),
