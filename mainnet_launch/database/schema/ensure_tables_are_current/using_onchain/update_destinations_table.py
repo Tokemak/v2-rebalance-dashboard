@@ -143,7 +143,7 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
     """
     Make sure that the Destinations, DestinationTokens and Tokens tables are current for all the underlying tokens in each of the destinations
     """
-    for chain in ALL_CHAINS[-1:]:
+    for chain in ALL_CHAINS:
         autopool_vault_added_dfs = []
 
         for autopool in ALL_AUTOPOOLS:

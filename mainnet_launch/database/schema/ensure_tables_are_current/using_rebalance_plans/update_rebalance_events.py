@@ -11,7 +11,6 @@ from mainnet_launch.database.schema.full import (
     Transactions,
 )
 from mainnet_launch.database.schema.postgres_operations import (
-    get_full_table_as_orm,
     get_full_table_as_df,
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
@@ -28,7 +27,7 @@ from mainnet_launch.data_fetching.tokemak_subgraph import fetch_autopool_rebalan
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions import (
     ensure_all_transactions_are_saved_in_db,
 )
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, AUTO_LRT, AUTO_USD, USDC, WETH, DOLA
+from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA
 
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_states_table import (
@@ -43,11 +42,12 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
     _fetch_new_autopool_state_rows,
 )
 
-from mainnet_launch.database.schema.full import AutopoolDestinations, Destinations, DestinationTokens, Autopools
+from mainnet_launch.database.schema.full import AutopoolDestinations, Destinations, DestinationTokens
 from multicall import Call
 import pandas as pd
 
 
+# broken on sonicUSD
 def _connect_plans_to_rebalance_events(
     rebalance_event_df: pd.DataFrame,
     rebalance_plan_df: pd.DataFrame,
@@ -113,6 +113,7 @@ def _load_destination_info_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
 
 def _load_raw_rebalance_event_df(autopool: AutopoolConstants):
+    # this is not smart, it gets every rebalance event
     rebalance_event_df = fetch_autopool_rebalance_events_from_subgraph(autopool)
     rebalance_plan_df = get_full_table_as_df(
         RebalancePlans,

@@ -83,24 +83,16 @@ def _extract_normalized_amounts(plan: dict, token_address_to_decimals: dict):
 
 def _extract_safe_values(plan: dict, autopool: AutopoolConstants):
 
-    if autopool.base_asset in USDC:
-        amount_out_key = "amountOutUSD"
-        min_amount_in_key = "minAmountInUSD"
+    possible_amount_out_keys = ["amountOutUSD", "amountOutETH", "amountOutQuote"]
+    possible_amount_in_keys = ["minAmountInUSD", "minAmountInETH", "minAmountInQuote"]
 
-    elif autopool.base_asset in WETH:
-        amount_out_key = "amountOutETH"
-        min_amount_in_key = "minAmountInETH"
+    for out_key, in_key in zip(possible_amount_out_keys, possible_amount_in_keys):
+        if (out_key in plan) and (in_key in plan):
+            amount_out_safe_value = int(plan[out_key]) / 10**autopool.base_asset_decimals
+            min_amount_in_safe_value = int(plan[in_key]) / 10**autopool.base_asset_decimals
+            return amount_out_safe_value, min_amount_in_safe_value
 
-    elif autopool.base_asset in DOLA:
-        amount_out_key = "amountOutQuote"
-        min_amount_in_key = "minAmountInQuote"
-    else:
-        raise ValueError(f"Unexpected {autopool.base_asset=}")
-
-    amount_out_safe_value = int(plan[amount_out_key]) / 1e18
-    min_amount_in_safe_value = int(plan[min_amount_in_key]) / 1e18
-
-    return amount_out_safe_value, min_amount_in_safe_value
+    raise ValueError(f"unknown safe amount value keys {plan.keys()=}")
 
 
 def _extract_spot_values(rebalance_test: dict, autopool: AutopoolConstants):

@@ -1,5 +1,5 @@
 from multicall import Call
-
+import pandas as pd
 
 from mainnet_launch.database.schema.full import (
     DestinationTokenValues,
@@ -167,14 +167,16 @@ def _build_idle_autopool_destination_states(
 
     idle_autopool_destination_states = []
 
-    def _extract_idle_autopool_destination_state(row: dict):
+    # TODO known bug here with not knowning idle USDC in baseUSDC
+    def _extract_idle_autopool_destination_state(row: pd.Series):
+
         idle_autopool_destination_states.append(
             AutopoolDestinationStates(
                 destination_vault_address=row["destination_vault_address"],
                 autopool_vault_address=row["destination_vault_address"],  # same because this is idle
                 block=int(row["block"]),
                 chain_id=chain.chain_id,
-                owned_shares=float(row["quantity"]),
+                owned_shares=float(row.__dict__.get("quantity", 0)),
             )
         )
 

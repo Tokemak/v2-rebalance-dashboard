@@ -1,20 +1,19 @@
 """Helper methods to fetch data from the tokemak subgraph"""
 
+from pprint import pprint
+
 import requests
 import pandas as pd
-from mainnet_launch.constants import ChainData, AutopoolConstants, ETH_CHAIN, BASE_CHAIN
+from mainnet_launch.constants import AutopoolConstants, SONIC_USD
 from web3 import Web3
 
 
-def _get_subgraph_api(chain: ChainData):
-    if chain == ETH_CHAIN:
-        api_url = "https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-eth-mainnet/api"
-    elif chain == BASE_CHAIN:
-        api_url = "https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-base-mainnet/api"
-    else:
-        raise ValueError("bad chain", chain)
+# TODO Fix TokenValues Root Price Oracle
 
-    return api_url
+# conflict with autoETH oracle?
+# fix rebalance event queries
+# ask nick if we are keeping the new or old schema
+# https://subgraph.satsuma-prod.com/tokemak/v2-gen3-sonic-mainnet/playground
 
 
 def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col: str) -> pd.DataFrame:
@@ -31,6 +30,10 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
         resp.raise_for_status()
 
         response_json = resp.json()
+        if "errors" in response_json:
+            pprint(response_json)
+            raise ValueError("Error fetching from tokemak subgraph")
+
         batch = response_json["data"][data_col]
 
         if not batch:
@@ -43,8 +46,8 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
     return df
 
 
-def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> list[dict]:
-    subgraph_url = _get_subgraph_api(autopool.chain)
+def _fetch_autopool_rebalance_events_from_subgraph_old(autopool: AutopoolConstants):
+    # TODO check if we are deprecating old schema to use this schema instead
 
     query = """
     query($autoEthAddress: String!, $first: Int!, $skip: Int!) {
@@ -70,10 +73,9 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
       }
     }
     """
-    # is safe tokenOutValueBaseAsset
 
     df = run_query_with_paginate(
-        subgraph_url,
+        f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api",
         query,
         variables={"autoEthAddress": autopool.autopool_eth_addr.lower()},
         data_col="autopoolRebalances",
@@ -85,7 +87,6 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
         lambda x: Web3.toChecksumAddress(x["id"])
     )  # these are the lp token addresses
     df["tokenOutAddress"] = df["tokenOut"].apply(lambda x: Web3.toChecksumAddress(x["id"]))
-
     df["destinationInAddress"] = df["destinationInAddress"].apply(lambda x: Web3.toChecksumAddress(x))
     df["destinationOutAddress"] = df["destinationOutAddress"].apply(lambda x: Web3.toChecksumAddress(x))
 
@@ -96,15 +97,99 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
         lambda row: int(row["tokenInAmount"]) / (10 ** int(row["tokenIn"]["decimals"])), axis=1
     )
 
-    df = df.sort_values("blockNumber")
+    return df
 
-    df["datetime_executed"] = pd.to_datetime(
-        df["timestamp"].astype(int),
-        unit="s",
-        utc=True,
+
+# so far only sonicUSD
+def _fetch_autopool_rebalance_events_from_subgraph_new(autopool: AutopoolConstants):
+    # TODO check if we are deprecating old schema to use this schema instead
+
+    rebalances_query = """
+        query($autoEthAddress: String!, $first: Int!, $skip: Int!) {
+        Reblances(
+            first: $first,
+            skip: $skip,
+            orderBy: id,
+            orderDirection: desc,
+            where: { autopool: $autoEthAddress }
+        ) {
+            transactionHash
+            timestamp
+            blockNumber
+            autopool
+            outData {
+                destination
+                underlyer {
+                    id
+                    decimals
+                }
+            }
+            inData {
+                destination
+                underlyer {
+                    id
+                    decimals
+                }
+            }
+        }
+        }
+        """
+
+    rebalance_amounts_query = """
+        query($autoEthAddress: String!, $first: Int!, $skip: Int!) {
+        Reblances(
+            first: $first,
+            skip: $skip,
+            orderBy: id,
+            orderDirection: desc,
+            where: { autopool: $autoEthAddress }
+        ) {
+            transactionHash
+            params_amountOut
+            params_amountIn
+        }
+        }
+    """
+
+    df = run_query_with_paginate(
+        f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api",
+        rebalances_query,
+        variables={"autoEthAddress": autopool.autopool_eth_addr.lower()},
+        data_col="Reblances",
     )
 
-    # 2) Fetch metrics and merge on transactionHash
+    # note I suspect this misses reblances back to idle
+    amounts_df = run_query_with_paginate(
+        f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api",
+        rebalance_amounts_query,
+        variables={"autoEthAddress": autopool.autopool_eth_addr.lower()},
+        data_col="RebalanceBetweenDestination",
+    )
+
+    df = df.merge(amounts_df, how="full", on="transactionHash")
+
+    df["blockNumber"] = df["blockNumber"].astype(int)
+
+    df["tokenInAddress"] = df["inData"].apply(lambda x: Web3.toChecksumAddress(x["underlyer"]["id"]))
+
+    df["destinationInAddress"] = df["outData"].apply(lambda x: Web3.toChecksumAddress(x["underlyer"]["id"]))
+
+    df["tokenInAddress"] = df["inData"].apply(lambda x: Web3.toChecksumAddress(x["destination"]))
+
+    df["tokenOutAddress"] = df["outData"].apply(lambda x: Web3.toChecksumAddress(x["destination"]))
+
+    df["tokenOutAmount"] = df.apply(
+        lambda row: int(row["params_amountOut"]) / (10 ** int(row["outData"]["underlyer"]["decimals"])), axis=1
+    )
+    df["tokenInAmount"] = df.apply(
+        lambda row: int(row["tokenInAmount"]) / (10 ** int(row["inData"]["underlyer"]["decimals"])), axis=1
+    )
+
+    return df
+
+
+def _fetch_tx_hash_to_swap_cost_offset(autopool: AutopoolConstants) -> dict[str, int]:
+
     metrics_query = """
     query($first: Int!, $skip: Int!) {
       rebalanceBetweenDestinations(
@@ -116,26 +201,39 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
       }
     }
     """
-    #        # predictedAnnualizedGain
 
-    metrics_df = run_query_with_paginate(
-        subgraph_url,
+    df = run_query_with_paginate(
+        f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api",
         metrics_query,
         variables={},
         data_col="rebalanceBetweenDestinations",
     )
 
-    # Cast types if any metrics returned
-    if not metrics_df.empty:
-        metrics_df["swapOffsetPeriod"] = metrics_df["swapOffsetPeriod"].astype(int)
+    if not df.empty:
+        df["swapOffsetPeriod"] = df["swapOffsetPeriod"].astype(int)
     else:
-        metrics_df = pd.DataFrame(columns=["transactionHash", "swapOffsetPeriod"])
+        df = pd.DataFrame(columns=["transactionHash", "swapOffsetPeriod"])
 
-    # Left join, fill missing with None
-    df = df.merge(metrics_df, on="transactionHash", how="left")
-    df["swapOffsetPeriod"] = df["swapOffsetPeriod"].where(df["swapOffsetPeriod"].notna(), None)
-    # df["predictedAnnualizedGain"] = df["predictedAnnualizedGain"].where(df["predictedAnnualizedGain"].notna(), None)
+    tx_hash_to_swap_cost_offset = df.set_index("transactionHash")["swapOffsetPeriod"].to_dict()
+    return tx_hash_to_swap_cost_offset
 
+
+def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> list[dict]:
+
+    if autopool in [SONIC_USD]:
+        df = _fetch_autopool_rebalance_events_from_subgraph_new(autopool)
+    else:
+        df = _fetch_autopool_rebalance_events_from_subgraph_old(autopool)
+
+    df = df.sort_values("blockNumber")
+
+    df["datetime_executed"] = pd.to_datetime(
+        df["timestamp"].astype(int),
+        unit="s",
+        utc=True,
+    )
+    tx_hash_to_swap_cost_offset = _fetch_tx_hash_to_swap_cost_offset(autopool)
+    df["swapOffsetPeriod"] = df["transactionHash"].map(lambda tx: tx_hash_to_swap_cost_offset.get(tx))
     return df
 
 

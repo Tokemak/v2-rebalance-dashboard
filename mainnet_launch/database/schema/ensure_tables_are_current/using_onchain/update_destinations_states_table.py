@@ -336,6 +336,10 @@ def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainDa
         where_clause=(Destinations.chain_id == chain.chain_id)
         & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in ALL_AUTOPOOLS_DATA_ON_CHAIN])),
     )
+    if autopool_and_destinations_df.empty:
+        # if there are no autopools on this chain that we are using the onchain sources
+        # instead of the rebalance plan sources then early exit
+        return
 
     autopool_to_all_ever_active_destinations = (
         autopool_and_destinations_df.groupby("autopool_vault_address")["destination_vault_address"]
@@ -547,20 +551,11 @@ from mainnet_launch.constants import SONIC_CHAIN
 
 
 def ensure_destination_states_are_current():
-    # for chain in ALL_CHAINS:
-    #     possible_blocks = build_blocks_to_use(chain)  # the highest block of each full day on this chain
-    #     _add_new_destination_states_to_db(possible_blocks, chain)
-
-    # _overwrite_bad_summary_states_rows()
-
-    # # only from onchain
-    from mainnet_launch.constants import SONIC_CHAIN
-    for chain in [SONIC_CHAIN]:
+    for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)  # the highest block of each full day on this chain
         _add_new_destination_states_to_db(possible_blocks, chain)
 
     _overwrite_bad_summary_states_rows()
-
 
 
 import cProfile, pstats

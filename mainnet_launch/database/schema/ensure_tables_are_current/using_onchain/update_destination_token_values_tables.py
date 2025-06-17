@@ -43,6 +43,8 @@ from mainnet_launch.constants import (
 # TODO, should be a constant?
 AUTO_USD_ROOT_PRICE_ORACLE = "0xdB8747a396D75D576Dc7a10bb6c8F02F4a3C20f1"
 
+# note this is fix to use the root price oracle isntead
+
 
 def _build_USD_autopool_price_calls(chain: ChainData, destination_info_df: pd.DataFrame) -> list[Call]:
     # pricer_contract.functions.getSpotPriceInQuote(underlyingTokens[i], pool, quote).call({}, blockNo)
@@ -264,6 +266,7 @@ def _fetch_and_insert_destination_token_values(
 
 
 def ensure_destination_token_values_are_current():
+    # baseUSD does not correctly label idle, not reading properly
     for chain in ALL_CHAINS:
         autopools = [a for a in ALL_AUTOPOOLS_DATA_ON_CHAIN if a.chain == chain]
         if autopools:

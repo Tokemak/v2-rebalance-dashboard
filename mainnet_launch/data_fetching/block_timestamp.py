@@ -103,10 +103,10 @@ def get_block_by_timestamp_etherscan(unix_timestamp: int, chain: ChainData, clos
         "chainid": str(chain.chain_id),
         "apikey": os.getenv("ETHERSCAN_API_KEY"),
     }
-    print('fetching', chain.name, unix_timestamp)
+    print("fetching", chain.name, unix_timestamp)
     resp = requests.get("https://api.etherscan.io/v2/api", params=params)
     block = int(resp.json()["result"])
-    print('got', block)
+    print("got", block)
     return block
 
 
