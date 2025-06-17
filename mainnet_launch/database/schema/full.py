@@ -237,6 +237,7 @@ class DestinationStates(Base):
     )
 
 
+# this is not getting balETH, autoLRT, and dineroETH unsure why
 # done
 class AutopoolDestinationStates(Base):
     # information about this one autopool's lp tokens at this destination

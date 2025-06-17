@@ -552,7 +552,7 @@ from mainnet_launch.constants import SONIC_CHAIN
 
 def ensure_destination_states_are_current():
     for chain in ALL_CHAINS:
-        possible_blocks = build_blocks_to_use(chain)  # the highest block of each full day on this chain
+        possible_blocks = build_blocks_to_use(chain)
         _add_new_destination_states_to_db(possible_blocks, chain)
 
     _overwrite_bad_summary_states_rows()

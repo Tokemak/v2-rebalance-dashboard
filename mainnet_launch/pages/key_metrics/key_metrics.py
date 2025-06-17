@@ -129,6 +129,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     destination_state_df["readable_name"] = destination_state_df.apply(
         lambda row: f"{row['underlying_symbol']} ({row['exchange_name']})", axis=1
     )
+    print(destination_state_df['readable_name'].unique())
 
     # fluid is not scaled right, should be higher?
     safe_tvl_by_destination = (
@@ -137,6 +138,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         .reset_index()
         .pivot(values="safe_tvl_by_destination", index="datetime", columns="readable_name")
     )
+    
 
     total_safe_tvl_over_time = safe_tvl_by_destination.sum(axis=1)
     portion_alloaction_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl_over_time, axis=0)
@@ -187,10 +189,10 @@ def _diffReturn(x: list):
 
 
 def _compute_percent_deployed(
-    portion_alloaction_by_destination_df: pd.DataFrame, autopool: AutopoolConstants
+    portion_allocation_by_destination_df: pd.DataFrame, autopool: AutopoolConstants
 ) -> tuple[float, float]:
-    idle_yesterday = portion_alloaction_by_destination_df[f"{autopool.name} (tokemak)"].iloc[-2]
-    idle_today = portion_alloaction_by_destination_df[f"{autopool.name} (tokemak)"].iloc[-1]
+    idle_yesterday = portion_allocation_by_destination_df[f"{autopool.name} (tokemak)"].iloc[-2]
+    idle_today = portion_allocation_by_destination_df[f"{autopool.name} (tokemak)"].iloc[-1]
     return round(100 - (100 * idle_today), 2), round(100 - (100 * idle_yesterday), 2)
 
 
@@ -363,5 +365,5 @@ if __name__ == "__main__":
 
     # fetch_and_render_key_metrics_data(AUTO_ETH)
 
-    fetch_and_render_key_metrics_data(AUTO_USD)
+    fetch_and_render_key_metrics_data(DINERO_ETH)
     pass

@@ -33,6 +33,7 @@ from mainnet_launch.constants import (
     ChainData,
     AutopoolConstants,
     TokemakAddress,
+    DINERO_ETH
 )
 
 # good enoough but is missing the values for the first few days towards the start
@@ -262,10 +263,6 @@ def _fetch_and_insert_destination_token_values(autopool: AutopoolConstants):
     )
 
 
-def ensure_destination_token_values_are_current():
-
-    for autopool in ALL_AUTOPOOLS:
-        _fetch_and_insert_destination_token_values(autopool)
 
 
 def _fetch_idle_destination_token_values(
@@ -288,23 +285,32 @@ def _fetch_idle_destination_token_values(
 
     idle_destination_token_values = []
 
-    def _extract_idle_destination_token_values(row: dict):
-        for autopool_vault_address, total_idle in row.items():
-            if autopool_vault_address != "block":
-                idle_destination_token_values.append(
-                    DestinationTokenValues(
-                        block=int(row["block"]),
-                        chain_id=autopool.chain.chain_id,
-                        destination_vault_address=autopool_vault_address,
-                        token_address=autopool.base_asset,
-                        spot_price=1.0,
-                        quantity=total_idle,
-                        denominated_in=autopool.base_asset,
-                    )
-                )
+    def _extract_idle_destination_token_values(row: pd.Series):
+
+        total_idle = float(row[autopool.autopool_eth_addr])
+
+        idle_destination_token_values.append(
+            DestinationTokenValues(
+                block=int(row["block"]),
+                chain_id=autopool.chain.chain_id,
+                destination_vault_address=autopool.autopool_eth_addr,
+                token_address=autopool.base_asset,
+                spot_price=1.0,
+                quantity=total_idle,
+                denominated_in=autopool.base_asset,
+            )
+        )
 
     idle_df.apply(_extract_idle_destination_token_values, axis=1)
     return idle_destination_token_values
+
+
+def ensure_destination_token_values_are_current():
+    for autopool in ALL_AUTOPOOLS:
+        _fetch_and_insert_destination_token_values(autopool)
+
+    # for autopool in [DINERO_ETH]:
+        # _fetch_and_insert_destination_token_values(autopool)
 
 
 if __name__ == "__main__":
