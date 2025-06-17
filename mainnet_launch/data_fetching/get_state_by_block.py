@@ -10,15 +10,10 @@ from sqlalchemy import select, func
 
 import nest_asyncio
 import asyncio
-from mainnet_launch.app.app_config import STREAMLIT_IN_MEMORY_CACHE_TIME, SEMAPHORE_LIMITS_FOR_MULTICALL
-from mainnet_launch.database.database_operations import (
-    write_dataframe_to_table,
-    get_earliest_block_from_table_with_chain,
-)
-from mainnet_launch.database.should_update_database import should_update_table
+from mainnet_launch.app.app_config import SEMAPHORE_LIMITS_FOR_MULTICALL
 
 
-from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS, time_decorator
+from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS, ETH_CHAIN
 
 from mainnet_launch.database.schema.full import Blocks
 from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df, Session
@@ -38,7 +33,15 @@ def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):
 
 
 async def safe_get_raw_state_by_block_one_block(calls: list[Call], block: int, chain: ChainData) -> dict:
-    multicall = Multicall(calls=calls, block_id=block, _w3=chain.client, require_success=False, gas_limit=550_000_000)
+    multicall = Multicall(
+        calls=calls, block_id=block, _w3=ETH_CHAIN.client, require_success=False, gas_limit=550_000_000
+    )
+
+    # hacky, gets around Sonic not being in the old version of multicall
+
+    multicall.w3 = chain.client
+    multicall.chainid = chain.chain_id
+    multicall.multicall_address = MULTICALL_V3(chain)
     response = await multicall.coroutine()
     return response
 
@@ -120,12 +123,18 @@ async def async_safe_get_raw_state_by_block(
         Multicall(
             calls=[*calls, get_block_call, get_timestamp_call],
             block_id=int(block),
-            _w3=chain.client,
+            _w3=ETH_CHAIN.client,
             require_success=False,
             gas_limit=550_000_000,
         )
         for block in blocks
     ]
+
+    # hacky, gets around Sonic not being in the old version of multicall
+    for m in all_multicalls:
+        m.w3 = chain.client
+        m.chainid = chain.chain_id
+        m.multicall_address = MULTICALL_V3(chain)
 
     semaphore = asyncio.Semaphore(semaphore_limits[0])
 
@@ -280,4 +289,4 @@ if __name__ == "__main__":
     from mainnet_launch.constants import ETH_CHAIN, BASE_CHAIN, ALL_CHAINS
 
     for c in ALL_CHAINS:
-        build_blocks_to_use(c)
+        print(get_raw_state_by_blocks([], [20_000_000], chain=c, include_block_number=True))

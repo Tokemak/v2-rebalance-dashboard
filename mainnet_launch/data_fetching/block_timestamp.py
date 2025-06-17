@@ -89,15 +89,12 @@ def ensure_blocks_is_current():
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True)
-def get_block_by_timestamp_etherscan(
-    unix_timestamp: int,
-    chain: ChainData,
-    closest:str
-) -> int:
+def get_block_by_timestamp_etherscan(unix_timestamp: int, chain: ChainData, closest: str) -> int:
     """
     Fetch the first block after the given UNIX timestamp
     using Etherscan's getblocknobytime endpoint.
     """
+    # TODO consider making threadsafe else you get 'Max calls per sec rate limit reached (5/sec)' from etherscan
     params = {
         "module": "block",
         "action": "getblocknobytime",
@@ -106,8 +103,11 @@ def get_block_by_timestamp_etherscan(
         "chainid": str(chain.chain_id),
         "apikey": os.getenv("ETHERSCAN_API_KEY"),
     }
-    resp = requests.get("https://api.etherscan.io/api", params=params)
-    return int(resp.json()["result"])
+    print('fetching', chain.name, unix_timestamp)
+    resp = requests.get("https://api.etherscan.io/v2/api", params=params)
+    block = int(resp.json()["result"])
+    print('got', block)
+    return block
 
 
 def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> list[Blocks]:

@@ -24,7 +24,7 @@ from mainnet_launch.database.schema.postgres_operations import (
 from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, ChainData
 from mainnet_launch.data_fetching.block_timestamp import (
     ensure_all_blocks_are_in_table,
-    get_block_after_timestamp_from_alchemy,
+    get_block_by_timestamp_etherscan,
 )
 
 
@@ -69,8 +69,8 @@ def convert_rebalance_plan_to_rows(
     tokens_address_to_decimals: dict[str, int],
 ) -> list[DestinationStates]:
 
-    block_after_plan_timestamp = get_block_after_timestamp_from_alchemy(
-        plan["sod"]["currentTimestamp"], chain=autopool.chain
+    block_after_plan_timestamp = get_block_by_timestamp_etherscan(
+        plan["sod"]["currentTimestamp"], chain=autopool.chain, closest="after"
     )
     quantity_of_idle = _get_quantity_of_base_asset_in_idle(
         autopool, tokens_address_to_decimals, block_after_plan_timestamp
@@ -120,7 +120,7 @@ def _extract_destination_token_values(
                     destination_vault_address=Web3.toChecksumAddress(dest_state["address"]),
                     denominated_in=autopool.base_asset,
                     spot_price=spot_price,
-                    quantity=int(raw_amount) / (10**18),
+                    quantity=int(raw_amount) / (10**decimals),  # todo rerun from 0
                 )
             )
             pass
@@ -233,7 +233,7 @@ def _extract_destination_states_rows(
     return new_destination_states_rows
 
 
-def update_destination_states_from_rebalance_plan():
+def ensure_destination_states_from_rebalance_plan_are_current():
     s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 
     for autopool in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN:
@@ -266,10 +266,10 @@ def update_destination_states_from_rebalance_plan():
 
         # have to use few workers (8) because of the get_block_after_timestamp_from_alchemy
         # throws a lot of 500 errors
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        # switched to 4 threads, because of etherscan free rate limiting
 
-            futures = {executor.submit(_process_plan, path): path for path in solver_plan_paths_on_remote[::-1]}
-
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            futures = {executor.submit(_process_plan, path): path for path in plans_to_fetch[::-1]}
             for fut in as_completed(futures):
                 new_destination_states_rows, new_token_values_rows, new_destination_token_values = fut.result()
                 all_destination_states.extend(new_destination_states_rows)
@@ -312,7 +312,7 @@ def update_destination_states_from_rebalance_plan():
 
 if __name__ == "__main__":
 
-    update_destination_states_from_rebalance_plan()
+    ensure_destination_states_from_rebalance_plan_are_current()
 
     # from mainnet_launch.app.profiler import profile_function
 

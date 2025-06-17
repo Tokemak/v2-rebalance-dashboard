@@ -248,6 +248,7 @@ def _extract_new_destination_states(
     chain: ChainData,
 ):
     all_new_destination_states = []
+    # currently broken
     # autopool_summary_stats_df, destination_underlying_total_supply_df, token_value_df, autopool_to_all_ever_active_destinations
     raw_destination_states_df = pd.merge(autopool_summary_stats_df, destination_underlying_total_supply_df, on="block")
     raw_destination_states_df = pd.merge(raw_destination_states_df, autopool_points_df, on="block")
@@ -523,15 +524,13 @@ def _overwrite_bad_summary_states_rows():
             **other_values_set_to_null,
         ),
     ]
-    # helper to see what destination states are wrong
+    # helper sql to see what destination states are wrong
 
     #     SELECT *
     # FROM destination_states
     # where incentive_apr > 0
     # ORDER BY incentive_apr DESC
     # LIMIT 5;
-
-    # 3) null out the three APR columns on exactly those PKs
     set_some_cells_to_null(
         table=DestinationStates,
         rows=bad_rows,
@@ -544,13 +543,24 @@ def _overwrite_bad_summary_states_rows():
     pass
 
 
+from mainnet_launch.constants import SONIC_CHAIN
+
+
 def ensure_destination_states_are_current():
-    # only from onchain
-    for chain in ALL_CHAINS:
+    # for chain in ALL_CHAINS:
+    #     possible_blocks = build_blocks_to_use(chain)  # the highest block of each full day on this chain
+    #     _add_new_destination_states_to_db(possible_blocks, chain)
+
+    # _overwrite_bad_summary_states_rows()
+
+    # # only from onchain
+    from mainnet_launch.constants import SONIC_CHAIN
+    for chain in [SONIC_CHAIN]:
         possible_blocks = build_blocks_to_use(chain)  # the highest block of each full day on this chain
         _add_new_destination_states_to_db(possible_blocks, chain)
 
     _overwrite_bad_summary_states_rows()
+
 
 
 import cProfile, pstats

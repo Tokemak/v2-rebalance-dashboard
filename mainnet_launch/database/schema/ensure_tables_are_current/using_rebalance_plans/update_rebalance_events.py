@@ -140,7 +140,7 @@ def _load_raw_rebalance_event_df(autopool: AutopoolConstants):
     return rebalance_event_df
 
 
-def ensure_rebalance_events_are_updated():
+def ensure_rebalance_events_are_current():
     for autopool in ALL_AUTOPOOLS:
         rebalance_event_df = _load_raw_rebalance_event_df(autopool)
 
@@ -335,4 +335,4 @@ def _get_spot_value_change_in_solver(
 
 
 if __name__ == "__main__":
-    ensure_rebalance_events_are_updated()
+    ensure_rebalance_events_are_current()

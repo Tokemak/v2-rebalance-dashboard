@@ -111,7 +111,7 @@ def fetch_events(
     """
     Collect every `event` between start_block and end_block into a DataFrame.
     """
-    blocks = build_blocks_to_use(chain)
+    blocks = build_blocks_to_use(chain)  # TODO I don't like this, use a live read instead?
     end_block = max(blocks) if end_block is None else end_block
 
     if end_block > start_block:
