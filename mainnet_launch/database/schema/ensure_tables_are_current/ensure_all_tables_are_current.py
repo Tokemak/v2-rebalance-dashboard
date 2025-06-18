@@ -50,9 +50,8 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
 
-    # top level 6 hour check
-    if full_reset_and_refetch:
-        drop_and_full_rebuild_db()
+    # if full_reset_and_refetch:
+    #     drop_and_full_rebuild_db()
     ensure_blocks_is_current()
     ensure_autopools_are_current()
     ensure__destinations__tokens__and__destination_tokens_are_current()  # I don't like this name
