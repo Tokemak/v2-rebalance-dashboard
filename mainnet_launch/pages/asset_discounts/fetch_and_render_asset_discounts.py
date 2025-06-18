@@ -12,7 +12,7 @@ def _fetch_autopool_dest_token_table(autopool: AutopoolConstants) -> pd.DataFram
     """
     returns a df of destinations, their tokens & token symbols for the given autopool
     """
-    return merge_tables_as_df(
+    df = merge_tables_as_df(
         selectors=[
             TableSelector(
                 table=AutopoolDestinations,
@@ -54,6 +54,8 @@ def _fetch_autopool_dest_token_table(autopool: AutopoolConstants) -> pd.DataFram
             & (AutopoolDestinations.chain_id == autopool.chain.chain_id)
         ),
     )
+    df["destination_readable_name"] = df["underlying_name"] + " (" + df["exchange_name"] + ") "
+    return df
 
 
 def _fetch_token_values(
@@ -93,36 +95,148 @@ def _fetch_token_values(
     token_value_df["price_return"] = (
         100 * (token_value_df["backing"] - token_value_df["safe_price"]) / token_value_df["backing"]
     )
+    token_value_df["safe_spot_spread"] = (
+        100 * (token_value_df["spot_price"] - token_value_df["safe_price"]) / token_value_df["safe_price"]
+    )
+
     return token_value_df
 
 
 def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame):
-    component_token_prices_df = token_value_df[
-        ["datetime", "symbol", "backing", "safe_price", "price_return"]
-    ].drop_duplicates()
+
     backing_df = (
-        component_token_prices_df.pivot(index="datetime", columns="symbol", values="backing").resample("1d").last()
+        token_value_df[["datetime", "symbol", "backing"]]
+        .drop_duplicates()
+        .pivot(index="datetime", columns="symbol", values="backing")
+        .resample("1d")
+        .last()
     )
     safe_price_df = (
-        component_token_prices_df.pivot(index="datetime", columns="symbol", values="safe_price").resample("1d").last()
+        token_value_df[["datetime", "symbol", "safe_price"]]
+        .drop_duplicates()
+        .pivot(index="datetime", columns="symbol", values="safe_price")
+        .resample("1d")
+        .last()
     )
     price_return_df = (
-        component_token_prices_df.pivot(index="datetime", columns="symbol", values="price_return").resample("1d").last()
+        token_value_df[["datetime", "symbol", "price_return"]]
+        .drop_duplicates()
+        .pivot(index="datetime", columns="symbol", values="price_return")
     )
 
-    st.plotly_chart(px.line(safe_price_df, title="Safe Price"), use_container_width=True)
-    st.plotly_chart(px.line(backing_df, title="Backing"), use_container_width=True)
-    st.plotly_chart(px.line(price_return_df, title="Price Return"), use_container_width=True)
+    safe_spot_spread_df = (
+        token_value_df[["datetime", "destination_readable_name", "safe_spot_spread"]]
+        .drop_duplicates()
+        .pivot(index="datetime", columns="destination_readable_name", values="safe_spot_spread")
+    )
 
-    with st.expander("Details"):
-        st.markdown(
-            """
-        Uses the latest *safe_price* and *backing* values for each day.  
-        selects either
-        - the day's final rebalance plan  
-        - the block with the highest number that day  
-        """
-        )
+    st.plotly_chart(
+        px.line(price_return_df.resample("1d").last(), title="Daily Price Return (backing - safe) / safe "),
+        use_container_width=True,
+    )
+    st.plotly_chart(
+        px.scatter(price_return_df, title="All Price Return (backing - safe) / safe "), use_container_width=True
+    )
+    st.plotly_chart(
+        px.line(safe_spot_spread_df.resample("1d").last(), title="Daily Safe Spot Spread (spot_price - safe) / safe"),
+        use_container_width=True,
+    )
+    st.plotly_chart(
+        px.scatter(safe_spot_spread_df, title="All time Safe Spot Spread (spot_price - safe) / safe"),
+        use_container_width=True,
+    )
+
+    st.subheader("Safe Spot Spread (bps) Stats")
+    st.markdown("Positive Means Spot > Safe")
+    st.markdown("Negative Means Safe > Spot")
+    st.markdown("Count, Mean, 10th percentile, 90th percentile")
+    mean_safe_spot_spread = _compute_all_time_30_and_7_day_means(token_value_df)
+    st.dataframe(mean_safe_spot_spread)
+    st.plotly_chart(px.line(safe_price_df, title="Daily Safe Price"), use_container_width=True)
+    st.plotly_chart(px.line(backing_df, title="Daily Backing"), use_container_width=True)
+
+
+def _compute_all_time_30_and_7_day_means(token_value_df: pd.DataFrame):
+    # token_value_df_no_duplicate_destinations = token_value_df.drop_duplicates(
+    #     subset=["destination_readable_name", "token_address"]
+    # )
+    # TODO consider how to remove the duplicate destiatnions here, we don't need duplciate destinations
+    safe_spot_spread_df = (
+        token_value_df[["datetime", "destination_readable_name", "safe_spot_spread"]]
+        .drop_duplicates()
+        .pivot(index="datetime", columns="destination_readable_name", values="safe_spot_spread")
+    ) * 100
+
+    latest = pd.Timestamp.utcnow()
+
+    mean_df = pd.DataFrame(
+        {
+            "All Time Average Safe Spot Spread": safe_spot_spread_df.mean(),
+            "Last 30 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
+                safe_spot_spread_df.index >= latest - pd.Timedelta(days=30)
+            ].mean(),
+            "Last 7 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
+                safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)
+            ].mean(),
+        }
+    )
+    count_df = pd.DataFrame(
+        {
+            "All Time Average Safe Spot Spread": safe_spot_spread_df.count(),
+            "Last 30 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
+                safe_spot_spread_df.index >= latest - pd.Timedelta(days=30)
+            ].count(),
+            "Last 7 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
+                safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)
+            ].count(),
+        }
+    )
+
+    bottom_10th = pd.DataFrame(
+        {
+            "All Time Average Safe Spot Spread": safe_spot_spread_df.quantile(0.1),
+            "Last 30 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
+                safe_spot_spread_df.index >= latest - pd.Timedelta(days=30)
+            ].quantile(0.1),
+            "Last 7 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
+                safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)
+            ].quantile(0.1),
+        }
+    )
+
+    top_90th = pd.DataFrame(
+        {
+            "All Time Average Safe Spot Spread": safe_spot_spread_df.quantile(0.9),
+            "Last 30 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
+                safe_spot_spread_df.index >= latest - pd.Timedelta(days=30)
+            ].quantile(0.9),
+            "Last 7 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
+                safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)
+            ].quantile(0.9),
+        }
+    )
+
+    safe_spread_descriptive_stats_df = pd.DataFrame(
+        {
+            col: [
+                (
+                    count,
+                    round(mean, 2),
+                    round(percentile_10, 2),
+                    round(percentile_90, 2),
+                )
+                for count, mean, percentile_10, percentile_90 in zip(
+                    count_df[col],
+                    mean_df[col],
+                    bottom_10th[col],
+                    top_90th[col],
+                )
+            ]
+            for col in count_df.columns
+        },
+        index=count_df.index,
+    )
+    return safe_spread_descriptive_stats_df
 
 
 def _render_underlying_token_spot_and_safe_prices(token_value_df: pd.DataFrame):
@@ -133,10 +247,22 @@ def _render_underlying_token_spot_and_safe_prices(token_value_df: pd.DataFrame):
 def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
 
     autopool_destinations_df = _fetch_autopool_dest_token_table(autopool)
+
     token_value_df = _fetch_token_values(
         autopool,
         autopool_destinations_df["token_address"].unique().tolist(),
         autopool_destinations_df["destination_vault_address"].unique().tolist(),
+    )
+
+    token_value_df["destination_readable_name"] = token_value_df["destination_vault_address"].map(
+        autopool_destinations_df.set_index("destination_vault_address")["destination_readable_name"].to_dict()
+    )
+    token_value_df["underlying_name"] = token_value_df["destination_vault_address"].map(
+        autopool_destinations_df.set_index("destination_vault_address")["underlying_name"].to_dict()
+    )
+
+    token_value_df["destination_readable_name"] = (
+        token_value_df["symbol"] + "\t" + token_value_df["destination_readable_name"]
     )
 
     _render_component_token_safe_price_and_backing(token_value_df)
