@@ -57,18 +57,18 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     # if full_reset_and_refetch:
     #     drop_and_full_rebuild_db()
     time_taken = {}
-    for i, func in [
-        ensure_blocks_is_current(),
-        ensure_autopools_are_current(),
-        ensure__destinations__tokens__and__destination_tokens_are_current(),  # I don't like this name
-        ensure_destination_states_from_rebalance_plan_are_current(),
-        ensure_destination_states_are_current(),
-        ensure_destination_token_values_are_current(),
-        ensure_autopool_destination_states_are_current(),
-        ensure_autopool_states_are_current(),
-        ensure_token_values_are_current(),
-        ensure_rebalance_plans_table_are_current(),
-        ensure_rebalance_events_are_current(),
+    for func in [
+        ensure_blocks_is_current,
+        ensure_autopools_are_current,
+        ensure__destinations__tokens__and__destination_tokens_are_current,  # I don't like this name
+        ensure_destination_states_from_rebalance_plan_are_current,
+        ensure_destination_states_are_current,
+        ensure_destination_token_values_are_current,
+        ensure_autopool_destination_states_are_current,
+        ensure_autopool_states_are_current,
+        ensure_token_values_are_current,
+        ensure_rebalance_plans_table_are_current,
+        ensure_rebalance_events_are_current,
     ]:
         start = datetime.now()
         func()
