@@ -3,8 +3,8 @@ from multicall import Call
 from web3 import Web3
 
 
-from mainnet_launch.constants import DESTINATION_VAULT_REGISTRY, ChainData, ALL_CHAINS, ALL_AUTOPOOLS
-from mainnet_launch.abis import DESTINATION_VAULT_REGISTRY_ABI, AUTOPOOL_VAULT_ABI
+from mainnet_launch.constants import ChainData, ALL_CHAINS, ALL_AUTOPOOLS
+from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import (
@@ -139,6 +139,22 @@ def _make_idle_destination_tokens(chain: ChainData) -> list[DestinationTokens]:
     return idle_details
 
 
+def _make_idle_autopool_destinations(chain: ChainData) -> list[AutopoolDestinations]:
+    idle_details = []
+
+    for autopool in ALL_AUTOPOOLS:
+        if autopool.chain == chain:
+            idle_details.append(
+                AutopoolDestinations(
+                    destination_vault_address=autopool.autopool_eth_addr,
+                    chain_id=chain.chain_id,
+                    autopool_vault_address=autopool.autopool_eth_addr,
+                )
+            )
+
+    return idle_details
+
+
 def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
     """
     Make sure that the Destinations, DestinationTokens and Tokens tables are current for all the underlying tokens in each of the destinations
@@ -169,7 +185,7 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
             [v for v in DestinationVaultAdded["destination"]], max(DestinationVaultAdded["block"].astype(int)), chain
         )
 
-        new_autopool_destinations = []
+        new_autopool_destinations = _make_idle_autopool_destinations(chain)
 
         new_destination_rows = []
         for v, autopool_vault_address in zip(DestinationVaultAdded["destination"], DestinationVaultAdded["autopool"]):

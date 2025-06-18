@@ -33,7 +33,7 @@ from mainnet_launch.constants import (
     ChainData,
     AutopoolConstants,
     TokemakAddress,
-    DINERO_ETH
+    DINERO_ETH,
 )
 
 # good enoough but is missing the values for the first few days towards the start
@@ -263,8 +263,6 @@ def _fetch_and_insert_destination_token_values(autopool: AutopoolConstants):
     )
 
 
-
-
 def _fetch_idle_destination_token_values(
     autopool: AutopoolConstants, missing_blocks: list[int]
 ) -> list[DestinationTokenValues]:
@@ -310,7 +308,7 @@ def ensure_destination_token_values_are_current():
         _fetch_and_insert_destination_token_values(autopool)
 
     # for autopool in [DINERO_ETH]:
-        # _fetch_and_insert_destination_token_values(autopool)
+    # _fetch_and_insert_destination_token_values(autopool)
 
 
 if __name__ == "__main__":
