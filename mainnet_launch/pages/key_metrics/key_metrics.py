@@ -194,7 +194,7 @@ def _compute_percent_deployed(
     return round(100 - (100 * idle_today), 2), round(100 - (100 * idle_yesterday), 2)
 
 
-def _render_top_level_stats(nav_per_share_df, expected_return_series, portion_alloaction_by_destination_df, autopool):
+def _render_top_level_stats(nav_per_share_df, expected_return_series, portion_allocation_by_destination_df, autopool):
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     col1.metric(
         "30-day Rolling APY (%)",
@@ -223,7 +223,7 @@ def _render_top_level_stats(nav_per_share_df, expected_return_series, portion_al
     )
 
     percent_deployed_today, percent_deployed_yesterday = _compute_percent_deployed(
-        portion_alloaction_by_destination_df, autopool
+        portion_allocation_by_destination_df, autopool
     )
 
     col6.metric(

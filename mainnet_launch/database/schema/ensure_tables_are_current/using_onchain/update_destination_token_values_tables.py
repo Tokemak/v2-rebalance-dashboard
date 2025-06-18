@@ -159,10 +159,12 @@ def _determine_what_blocks_are_needed(autopool: AutopoolConstants) -> list[int]:
         where_clause=DestinationTokenValues.destination_vault_address.in_(expected_destinations),
     )
 
-    return missing_blocks
+    return blocks_expected_to_have, missing_blocks
 
 
-def _fetch_and_insert_destination_token_values(autopool: AutopoolConstants):
+def _fetch_destination_token_values_not_idle(autopool: AutopoolConstants, missing_blocks: list[int]):
+    if not missing_blocks:
+        return []
     destination_info_df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -196,9 +198,6 @@ def _fetch_and_insert_destination_token_values(autopool: AutopoolConstants):
     destination_info_df["base_asset"] = autopool.base_asset
     destination_info_df["base_asset_decimals"] = autopool.base_asset_decimals
 
-    missing_blocks = _determine_what_blocks_are_needed(autopool)
-    if not missing_blocks:
-        return
     token_spot_prices_and_reserves_df = _fetch_destination_token_value_data_from_external_source(
         autopool.chain, destination_info_df, missing_blocks
     )
@@ -249,23 +248,15 @@ def _fetch_and_insert_destination_token_values(autopool: AutopoolConstants):
 
     unique_destination_info_df.apply(lambda row: _extract_destination_token_values(row), axis=1)
 
-    idle_destination_token_values = _fetch_idle_destination_token_values(autopool, missing_blocks)
-
-    insert_avoid_conflicts(
-        [*new_destination_token_values_rows, *idle_destination_token_values],
-        DestinationTokenValues,
-        index_elements=[
-            DestinationTokenValues.block,
-            DestinationTokenValues.chain_id,
-            DestinationTokenValues.token_address,
-            DestinationTokenValues.destination_vault_address,
-        ],
-    )
+    return new_destination_token_values_rows
 
 
-def _fetch_idle_destination_token_values(
+def _fetch_destination_token_values_idle(
     autopool: AutopoolConstants, missing_blocks: list[int]
 ) -> list[DestinationTokenValues]:
+    if not missing_blocks:
+        return []
+
     def _asset_breakdown_to_idle(success, args):
         if success:
             totalIdle, totalDebt, totalDebtMin, totalDebtMax = args
@@ -284,9 +275,6 @@ def _fetch_idle_destination_token_values(
     idle_destination_token_values = []
 
     def _extract_idle_destination_token_values(row: pd.Series):
-
-        total_idle = float(row[autopool.autopool_eth_addr])
-
         idle_destination_token_values.append(
             DestinationTokenValues(
                 block=int(row["block"]),
@@ -294,7 +282,7 @@ def _fetch_idle_destination_token_values(
                 destination_vault_address=autopool.autopool_eth_addr,
                 token_address=autopool.base_asset,
                 spot_price=1.0,
-                quantity=total_idle,
+                quantity=float(row[autopool.autopool_eth_addr]),
                 denominated_in=autopool.base_asset,
             )
         )
@@ -303,12 +291,29 @@ def _fetch_idle_destination_token_values(
     return idle_destination_token_values
 
 
+def _fetch_and_insert_destination_token_values(autopool: AutopoolConstants):
+    blocks_expected_to_have, dest_missing = _determine_what_blocks_are_needed(autopool)
+    idle_missing = get_subset_not_already_in_column(
+        DestinationTokenValues,
+        DestinationTokenValues.block,
+        blocks_expected_to_have,
+        where_clause=DestinationTokenValues.destination_vault_address == autopool.autopool_eth_addr,
+    )
+    if not dest_missing and not idle_missing:
+        return
+
+    new_destination_token_values_rows = _fetch_destination_token_values_not_idle(autopool, dest_missing)
+    idle_destination_token_values = _fetch_destination_token_values_idle(autopool, idle_missing)
+
+    insert_avoid_conflicts(
+        [*new_destination_token_values_rows, *idle_destination_token_values],
+        DestinationTokenValues,
+    )
+
+
 def ensure_destination_token_values_are_current():
     for autopool in ALL_AUTOPOOLS:
         _fetch_and_insert_destination_token_values(autopool)
-
-    # for autopool in [DINERO_ETH]:
-    # _fetch_and_insert_destination_token_values(autopool)
 
 
 if __name__ == "__main__":

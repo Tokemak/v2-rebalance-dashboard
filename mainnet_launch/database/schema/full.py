@@ -157,7 +157,6 @@ class AutopoolDestinations(Base):
 
 # done
 class DestinationTokens(Base):
-    # missing idle destination
     __tablename__ = "destination_tokens"
 
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
@@ -238,7 +237,8 @@ class DestinationStates(Base):
 
 
 # this is not getting balETH, autoLRT, and dineroETH unsure why
-# done
+
+
 class AutopoolDestinationStates(Base):
     # information about this one autopool's lp tokens at this destination
     __tablename__ = "autopool_destination_states"

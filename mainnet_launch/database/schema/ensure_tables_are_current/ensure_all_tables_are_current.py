@@ -78,6 +78,20 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
     pprint(time_taken)
 
+    # when everything is current
+
+    #     {'ensure__destinations__tokens__and__destination_tokens_are_current': datetime.timedelta(seconds=18, microseconds=270867),
+    #  'ensure_autopool_destination_states_are_current': datetime.timedelta(seconds=7, microseconds=976514),
+    #  'ensure_autopool_states_are_current': datetime.timedelta(seconds=1, microseconds=665894),
+    #  'ensure_autopools_are_current': datetime.timedelta(microseconds=854560),
+    #  'ensure_blocks_is_current': datetime.timedelta(seconds=13, microseconds=961159),
+    #  'ensure_destination_states_are_current': datetime.timedelta(seconds=3, microseconds=16369),
+    #  'ensure_destination_states_from_rebalance_plan_are_current': datetime.timedelta(seconds=3, microseconds=782301),
+    #  'ensure_destination_token_values_are_current': datetime.timedelta(seconds=10, microseconds=583220),
+    #  'ensure_rebalance_events_are_current': datetime.timedelta(seconds=44, microseconds=975282),
+    #  'ensure_rebalance_plans_table_are_current': datetime.timedelta(seconds=8, microseconds=587201),
+    #  'ensure_token_values_are_current': datetime.timedelta(seconds=1, microseconds=540103)}
+
     # rebalance events
 
     # self contained parts add later

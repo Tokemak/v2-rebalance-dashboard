@@ -142,7 +142,7 @@ def bulk_copy_skip_duplicates(rows: list[tuple], table: type[Base]) -> None:
         fields=sql.SQL(", ").join(map(sql.Identifier, cols)),
         pkey=sql.SQL(", ").join(map(sql.Identifier, id_cols)),
     )
-
+    ENGINE.echo = True
     with ENGINE.connect() as conn:
         # this begin() opens a transaction and will commit on exit
         with conn.begin():
