@@ -22,13 +22,12 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 from mainnet_launch.constants import (
     ALL_CHAINS,
     ChainData,
-    ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN,
-    ALL_AUTOPOOLS_DATA_ON_CHAIN,
+    ALL_AUTOPOOLS,
     AutopoolConstants,
 )
 
 
-def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain: ChainData) -> list[int]:
+def _determine_what_blocks_are_needed(autopool: AutopoolConstants) -> list[int]:
     blocks_expected_to_have = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -44,21 +43,27 @@ def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain:
                 join_on=(DestinationStates.destination_vault_address == AutopoolDestinations.destination_vault_address),
             ),
         ],
-        where_clause=(DestinationStates.chain_id == chain.chain_id)
-        & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools])),
+        where_clause=(DestinationStates.chain_id == autopool.chain.chain_id)
+        & (AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr),
     )["block"].unique()
 
     blocks_to_fetch = get_subset_not_already_in_column(
         AutopoolDestinationStates,
         AutopoolDestinationStates.block,
         blocks_expected_to_have,
-        where_clause=AutopoolDestinationStates.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools]),
+        where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
     )
+
     blocks_to_fetch = [int(b) for b in blocks_to_fetch]
-    return blocks_to_fetch
+
+    return [int(b) for b in blocks_to_fetch]
 
 
-def _fetch_and_insert_new_autopool_destination_states(autopools: list[AutopoolConstants], chain: ChainData):
+def _fetch_and_insert_new_autopool_destination_states(autopool: AutopoolConstants):
+    missing_blocks = _determine_what_blocks_are_needed(autopool)
+    if len(missing_blocks) == 0:
+        return
+
     destination_info_df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -74,17 +79,17 @@ def _fetch_and_insert_new_autopool_destination_states(autopools: list[AutopoolCo
                 join_on=AutopoolDestinations.destination_vault_address == Destinations.destination_vault_address,
             ),
         ],
-        where_clause=(AutopoolDestinations.chain_id == chain.chain_id)
-        & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools]))
+        where_clause=(AutopoolDestinations.chain_id == autopool.chain.chain_id)
         & (
-            AutopoolDestinations.autopool_vault_address != AutopoolDestinations.destination_vault_address
-        ),  # exclude idle
+            AutopoolDestinations.autopool_vault_address
+            == autopool.autopool_eth_addr
+            & (AutopoolDestinations.autopool_vault_address != AutopoolDestinations.destination_vault_address),
+        ),
     )
 
     balance_of_calls = []
 
-    for autopool_vault_address, destination_vault_address, decimals in zip(
-        destination_info_df["autopool_vault_address"],
+    for destination_vault_address, decimals in zip(
         destination_info_df["destination_vault_address"],
         destination_info_df["destination_vault_decimals"],
     ):
@@ -96,106 +101,58 @@ def _fetch_and_insert_new_autopool_destination_states(autopools: list[AutopoolCo
         balance_of_calls.append(
             Call(
                 destination_vault_address,
-                ["balanceOf(address)(uint256)", autopool_vault_address],
-                [((autopool_vault_address, destination_vault_address, "balanceOf"), cleaning_function)],
+                ["balanceOf(address)(uint256)", autopool.autopool_eth_addr],
+                [(destination_vault_address, cleaning_function)],
             )
         )
 
-    missing_blocks = _determine_what_blocks_are_needed(autopools, chain)
+    if autopool.base_asset_decimals == 18:
+        cleaning_function = safe_normalize_with_bool_success
+    elif autopool.base_asset_decimals == 6:
+        cleaning_function = safe_normalize_6_with_bool_success
 
-    if len(missing_blocks) == 0:
-        return
+    # add in the balance of idle here as well
+    balance_of_calls.append(
+        Call(
+            autopool.base_asset,
+            ["balanceOf(address)(uint256)", autopool.autopool_eth_addr],
+            [(autopool.autopool_eth_addr, cleaning_function)],
+        )
+    )
 
     autopool_destination_balance_of_df = get_raw_state_by_blocks(
-        balance_of_calls, missing_blocks, chain, include_block_number=True
+        balance_of_calls, missing_blocks, autopool.chain, include_block_number=True
     )
+    # how much of each destination does this autopool have in shares at this block
 
     new_autopool_destination_states_rows = []
 
     def _extract_autopool_destination_vault_balance_of_block(row: dict):
-        for k in row.keys():
-            if k != "block":
-                autopool_vault_address, destination_vault_address, _ = k
-                owned_shares = float(row[k]) if row[k] is not None else 0.0
 
-                new_autopool_destination_states_rows.append(
-                    AutopoolDestinationStates(
-                        destination_vault_address=destination_vault_address,
-                        autopool_vault_address=autopool_vault_address,
-                        block=int(row["block"]),
-                        chain_id=chain.chain_id,
-                        owned_shares=owned_shares,
-                    )
+        for destination_vault_address in destination_info_df["destination_vault_address"]:
+            owned_shares = float(row[destination_vault_address])
+
+            new_autopool_destination_states_rows.append(
+                AutopoolDestinationStates(
+                    destination_vault_address=destination_vault_address,
+                    autopool_vault_address=autopool.autopool_eth_addr,
+                    block=int(row["block"]),
+                    chain_id=autopool.chain.chain_id,
+                    owned_shares=owned_shares,
                 )
+            )
 
     autopool_destination_balance_of_df.apply(_extract_autopool_destination_vault_balance_of_block, axis=1)
 
-    idle_autopool_destination_states = _build_idle_autopool_destination_states(missing_blocks, autopools, chain)
-
     insert_avoid_conflicts(
-        [*new_autopool_destination_states_rows, *idle_autopool_destination_states],
+        new_autopool_destination_states_rows,
         AutopoolDestinationStates,
-        index_elements=[
-            AutopoolDestinationStates.destination_vault_address,
-            AutopoolDestinationStates.autopool_vault_address,
-            AutopoolDestinationStates.block,
-            AutopoolDestinationStates.chain_id,
-        ],
     )
-
-
-def _build_idle_autopool_destination_states(
-    missing_blocks: list[int], autopools: list[AutopoolConstants], chain: ChainData
-) -> list[AutopoolDestinationStates]:
-    # this is not correct, some
-    # this is silently failng,
-    idle_destination_token_value_df = merge_tables_as_df(
-        selectors=[
-            TableSelector(
-                DestinationTokenValues,
-                [
-                    DestinationTokenValues.destination_vault_address,
-                    DestinationTokenValues.block,
-                    DestinationTokenValues.quantity,
-                ],
-            ),
-        ],
-        where_clause=(DestinationTokenValues.chain_id == chain.chain_id)
-        & (DestinationTokenValues.destination_vault_address.in_([a.autopool_eth_addr for a in autopools]))
-        & (DestinationTokenValues.block.in_(missing_blocks)),
-    )
-
-    idle_autopool_destination_states = []
-
-    # TODO known bug here with not knowning idle USDC in baseUSDC
-    def _extract_idle_autopool_destination_state(row: pd.Series):
-
-        idle_autopool_destination_states.append(
-            AutopoolDestinationStates(
-                destination_vault_address=row["destination_vault_address"],
-                autopool_vault_address=row["destination_vault_address"],  # same because this is idle
-                block=int(row["block"]),
-                chain_id=chain.chain_id,
-                owned_shares=float(row.__dict__.get("quantity", 0)),
-            )
-        )
-
-    idle_destination_token_value_df.apply(_extract_idle_autopool_destination_state, axis=1)
-
-    if len(idle_autopool_destination_states) == 0:
-        raise ValueError("should not be 0, should have early stopped earlier")
-    return idle_autopool_destination_states
 
 
 def ensure_autopool_destination_states_are_current():
-    for chain in ALL_CHAINS:
-        autopools = [a for a in ALL_AUTOPOOLS_DATA_ON_CHAIN if a.chain == chain]
-        if autopools:
-            _fetch_and_insert_new_autopool_destination_states(autopools, chain)
-
-        autopools = [a for a in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN if a.chain == chain]
-        if autopools:
-            _fetch_and_insert_new_autopool_destination_states(autopools, chain)
+    for autopool in ALL_AUTOPOOLS:
+        _fetch_and_insert_new_autopool_destination_states(autopool)
 
 
 if __name__ == "__main__":

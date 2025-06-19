@@ -108,15 +108,11 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
                 select_fields=[Blocks.datetime],
             ),
         ],
+        where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
+        & (Blocks.datetime >= autopool.start_display_date),
         order_by=Blocks.datetime,
         order="asc",
     )
-
-    destination_state_df = destination_state_df[
-        destination_state_df["autopool_vault_address"] == autopool.autopool_eth_addr
-    ].copy()
-
-    destination_state_df = destination_state_df[destination_state_df["datetime"] >= autopool.start_display_date].copy()
 
     destination_state_df["unweighted_expected_apr"] = 100 * destination_state_df[
         ["fee_apr", "base_apr", "incentive_apr", "fee_plus_base_apr"]
@@ -127,7 +123,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     )
 
     destination_state_df["readable_name"] = destination_state_df.apply(
-        lambda row: f"{row['underlying_symbol']} ({row['exchange_name']})", axis=1
+        lambda row: f"{row['underlying_name']} ({row['exchange_name']})", axis=1
     )
 
     # fluid is not scaled right, should be higher?
@@ -139,7 +135,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     )
 
     total_safe_tvl_over_time = safe_tvl_by_destination.sum(axis=1)
-    portion_alloaction_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl_over_time, axis=0)
+    portion_allocation_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl_over_time, axis=0)
 
     max_apr_by_destination = (
         destination_state_df.groupby(["datetime", "readable_name"])[["unweighted_expected_apr"]]
@@ -148,7 +144,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         .pivot(values="unweighted_expected_apr", index="datetime", columns="readable_name")
     )
     expected_return_series = (
-        (max_apr_by_destination * portion_alloaction_by_destination_df).sum(axis=1).resample("1d").last()
+        (max_apr_by_destination * portion_allocation_by_destination_df).sum(axis=1).resample("1d").last()
     )
     total_nav_series = nav_per_share_df["NAV"]
 
@@ -158,7 +154,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         nav_per_share_df,
         total_nav_series,
         expected_return_series,
-        portion_alloaction_by_destination_df,
+        portion_allocation_by_destination_df,
         highest_block_and_datetime,
     )
 
@@ -311,9 +307,6 @@ def _fetch_price_return(autopool: AutopoolConstants):
 
     autopool_price_return = 100 * (autopool_backing_value - autopool_safe_value) / autopool_backing_value
 
-    if autopool == AUTO_USD:
-        autopool_price_return = autopool_price_return[autopool_price_return.index > "4-8-2025"].copy()
-
     return autopool_price_return
 
 
@@ -322,7 +315,7 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
         nav_per_share_df,
         total_nav_series,
         expected_return_series,
-        portion_alloaction_by_destination_df,
+        portion_allocation_by_destination_df,
         highest_block_and_datetime,
     ) = fetch_key_metrics_data(autopool)
 
@@ -330,7 +323,7 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
     weighted_price_return_series = _fetch_price_return(autopool)
 
     st.header(f"{autopool.name} Key Metrics")
-    _render_top_level_stats(nav_per_share_df, expected_return_series, portion_alloaction_by_destination_df, autopool)
+    _render_top_level_stats(nav_per_share_df, expected_return_series, portion_allocation_by_destination_df, autopool)
     _render_top_level_charts(
         nav_per_share_df, autopool, total_nav_series, expected_return_series, weighted_price_return_series
     )
@@ -363,5 +356,5 @@ if __name__ == "__main__":
 
     # fetch_and_render_key_metrics_data(AUTO_ETH)
 
-    fetch_and_render_key_metrics_data(DINERO_ETH)
+    fetch_and_render_key_metrics_data(AUTO_USD)
     pass

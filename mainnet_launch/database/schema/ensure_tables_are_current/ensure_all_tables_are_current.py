@@ -54,8 +54,8 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
 
-    # if full_reset_and_refetch:
-    #     drop_and_full_rebuild_db()
+    if full_reset_and_refetch:
+        drop_and_full_rebuild_db()
     time_taken = {}
     for func in [
         ensure_blocks_is_current,
@@ -76,7 +76,22 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
         time_taken[func.__name__] = fin
         print(func.__name__, fin)
 
-    pprint(time_taken)
+    for k, v in time_taken.items():
+        print(k, v)
+
+    # from 0
+    # ensure_rebalance_events_are_current 0:07:58.397145
+    # ensure_blocks_is_current 0:03:04.112034
+    # ensure_autopools_are_current 0:00:06.650396
+    # ensure__destinations__tokens__and__destination_tokens_are_current 0:00:17.238423
+    # ensure_destination_states_from_rebalance_plan_are_current 0:13:51.609945
+    # ensure_destination_states_are_current 0:01:07.984473
+    # ensure_destination_token_values_are_current 0:01:13.489094
+    # ensure_autopool_destination_states_are_current 0:00:51.984280
+    # ensure_autopool_states_are_current 0:00:29.053355
+    # ensure_token_values_are_current 0:00:55.603703
+    # ensure_rebalance_plans_table_are_current 0:00:56.739360
+    # ensure_rebalance_events_are_current 0:07:58.397145
 
     # when everything is current
 
@@ -114,8 +129,13 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     # has it at least an hour
 
 
+# if this fails, to fix it
+# in AutopoolDestinationStates by just reading from idle,
+# not certain
+
+
 def main():
-    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=False)
+    ensure_database_is_current(full_reset_and_refetch=True, echo_sql_to_console=False)
 
 
 if __name__ == "__main__":

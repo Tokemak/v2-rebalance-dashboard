@@ -294,6 +294,7 @@ class TokenValues(Base):
     )
 
 
+# TODO not correct for idle
 # done
 class DestinationTokenValues(Base):
     __tablename__ = "destination_token_values"
