@@ -213,7 +213,7 @@ def _compute_all_time_30_and_7_day_means(token_value_df: pd.DataFrame):
                     round(percentile_10, 2),
                     round(percentile_90, 2),
                 )
-                for count, mean, percentile_10, percentile_90 in zip(
+                for mean, percentile_10, percentile_90 in zip(
                     mean_df[col],
                     bottom_10th[col],
                     top_90th[col],
