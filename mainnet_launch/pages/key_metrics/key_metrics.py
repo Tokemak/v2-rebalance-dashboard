@@ -116,8 +116,11 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
 
     destination_state_df["unweighted_expected_apr"] = 100 * destination_state_df[
         ["fee_apr", "base_apr", "incentive_apr", "fee_plus_base_apr"]
-    ].replace(np.nan, 0).sum(axis=1)
-
+    ].astype(float).fillna(
+        0
+    ).sum(  #
+        axis=1
+    )
     destination_state_df["safe_tvl_by_destination"] = (
         destination_state_df["lp_token_safe_price"] * destination_state_df["owned_shares"]
     )

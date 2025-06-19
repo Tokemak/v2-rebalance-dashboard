@@ -54,10 +54,7 @@ def _determine_what_blocks_are_needed(autopool: AutopoolConstants) -> list[int]:
         blocks_expected_to_have,
         where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
     )
-
-    # blocks_to_fetch = [int(b) for b in blocks_to_fetch]
-
-    return [int(b) for b in blocks_expected_to_have]
+    return [int(b) for b in blocks_to_fetch]
 
 
 def _fetch_and_insert_new_autopool_destination_states(autopool: AutopoolConstants):
