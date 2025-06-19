@@ -76,11 +76,11 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
             ),
             TableSelector(
                 table=Destinations,
+                select_fields=[Destinations.pool_type, Destinations.underlying_name, Destinations.exchange_name],
                 join_on=(
                     (Destinations.destination_vault_address == AutopoolDestinationStates.destination_vault_address)
                     & (Destinations.chain_id == AutopoolDestinationStates.chain_id)
                 ),
-                select_fields=[Destinations.pool_type, Destinations.underlying_symbol, Destinations.exchange_name],
             ),
             TableSelector(
                 table=DestinationStates,

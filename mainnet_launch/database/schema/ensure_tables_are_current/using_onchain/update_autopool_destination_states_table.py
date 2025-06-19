@@ -16,6 +16,7 @@ from mainnet_launch.database.schema.postgres_operations import (
 )
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
+    get_state_by_one_block,
     safe_normalize_with_bool_success,
     safe_normalize_6_with_bool_success,
 )
@@ -54,9 +55,9 @@ def _determine_what_blocks_are_needed(autopool: AutopoolConstants) -> list[int]:
         where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
     )
 
-    blocks_to_fetch = [int(b) for b in blocks_to_fetch]
+    # blocks_to_fetch = [int(b) for b in blocks_to_fetch]
 
-    return [int(b) for b in blocks_to_fetch]
+    return [int(b) for b in blocks_expected_to_have]
 
 
 def _fetch_and_insert_new_autopool_destination_states(autopool: AutopoolConstants):
@@ -79,11 +80,10 @@ def _fetch_and_insert_new_autopool_destination_states(autopool: AutopoolConstant
                 join_on=AutopoolDestinations.destination_vault_address == Destinations.destination_vault_address,
             ),
         ],
-        where_clause=(AutopoolDestinations.chain_id == autopool.chain.chain_id)
-        & (
-            AutopoolDestinations.autopool_vault_address
-            == autopool.autopool_eth_addr
-            & (AutopoolDestinations.autopool_vault_address != AutopoolDestinations.destination_vault_address),
+        where_clause=(
+            (AutopoolDestinations.chain_id == autopool.chain.chain_id)
+            & (AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr)
+            & (AutopoolDestinations.autopool_vault_address != AutopoolDestinations.destination_vault_address)
         ),
     )
 
@@ -119,6 +119,7 @@ def _fetch_and_insert_new_autopool_destination_states(autopool: AutopoolConstant
             [(autopool.autopool_eth_addr, cleaning_function)],
         )
     )
+    # we know for certain that idle is correct (autopoool.auto_eth_addr: float(idle)
 
     autopool_destination_balance_of_df = get_raw_state_by_blocks(
         balance_of_calls, missing_blocks, autopool.chain, include_block_number=True
@@ -129,8 +130,14 @@ def _fetch_and_insert_new_autopool_destination_states(autopool: AutopoolConstant
 
     def _extract_autopool_destination_vault_balance_of_block(row: dict):
 
-        for destination_vault_address in destination_info_df["destination_vault_address"]:
+        for destination_vault_address in [
+            *destination_info_df["destination_vault_address"].values,
+            autopool.autopool_eth_addr,
+        ]:
             owned_shares = float(row[destination_vault_address])
+
+            if destination_vault_address == autopool.autopool_eth_addr:
+                pass
 
             new_autopool_destination_states_rows.append(
                 AutopoolDestinationStates(
