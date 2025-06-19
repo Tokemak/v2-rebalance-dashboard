@@ -149,7 +149,7 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
     st.subheader("Safe Spot Spread (bps) Stats")
     st.markdown("Positive Means Spot > Safe")
     st.markdown("Negative Means Safe > Spot")
-    st.markdown("Count, Mean, 10th percentile, 90th percentile")
+    st.markdown("Mean, 10th percentile, 90th percentile")
     mean_safe_spot_spread = _compute_all_time_30_and_7_day_means(token_value_df)
     st.dataframe(mean_safe_spot_spread)
     st.plotly_chart(px.line(safe_price_df, title="Daily Safe Price"), use_container_width=True)
@@ -178,17 +178,6 @@ def _compute_all_time_30_and_7_day_means(token_value_df: pd.DataFrame):
             "Last 7 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
                 safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)
             ].mean(),
-        }
-    )
-    count_df = pd.DataFrame(
-        {
-            "All Time Average Safe Spot Spread": safe_spot_spread_df.count(),
-            "Last 30 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
-                safe_spot_spread_df.index >= latest - pd.Timedelta(days=30)
-            ].count(),
-            "Last 7 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
-                safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)
-            ].count(),
         }
     )
 
@@ -220,21 +209,19 @@ def _compute_all_time_30_and_7_day_means(token_value_df: pd.DataFrame):
         {
             col: [
                 (
-                    count,
                     round(mean, 2),
                     round(percentile_10, 2),
                     round(percentile_90, 2),
                 )
                 for count, mean, percentile_10, percentile_90 in zip(
-                    count_df[col],
                     mean_df[col],
                     bottom_10th[col],
                     top_90th[col],
                 )
             ]
-            for col in count_df.columns
+            for col in mean_df.columns
         },
-        index=count_df.index,
+        index=mean_df.index,
     )
     return safe_spread_descriptive_stats_df
 
