@@ -9,7 +9,7 @@ DEFAULT_PACKAGE_FILTER = os.path.basename(os.getcwd())
 
 
 def profile_function(
-    func: Callable[..., Any], *args, package_filter: Optional[str] = DEFAULT_PACKAGE_FILTER, top_n: int = 10, **kwargs
+    func: Callable[..., Any], *args, package_filter: Optional[str] = DEFAULT_PACKAGE_FILTER, top_n: int = 20, **kwargs
 ) -> Any:
     """
     Profiles the given function call and prints the top_n functions by cumulative time.
@@ -32,8 +32,9 @@ def profile_function(
     stats.sort_stats("cumtime")
     if package_filter:
         stats.print_stats(package_filter, top_n)
-    else:
-        stats.print_stats(top_n)
+
+    print("all")
+    stats.print_stats(top_n)
     print(buf.getvalue())
 
     return result

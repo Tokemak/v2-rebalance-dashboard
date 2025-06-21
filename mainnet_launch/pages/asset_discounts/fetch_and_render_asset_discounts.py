@@ -138,29 +138,41 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
         px.scatter(price_return_df, title="All Price Return (backing - safe) / safe "), use_container_width=True
     )
     st.plotly_chart(
-        px.line(safe_spot_spread_df.resample("1d").last(), title="Daily Safe Spot Spread (spot_price - safe) / safe"),
+        px.line(safe_spot_spread_df.resample("1d").last(), title="Daily  (spot_price - safe) / safe"),
         use_container_width=True,
     )
     st.plotly_chart(
-        px.scatter(safe_spot_spread_df, title="All time Safe Spot Spread (spot_price - safe) / safe"),
+        px.scatter(safe_spot_spread_df, title="All time  (spot_price - safe) / safe"),
         use_container_width=True,
     )
 
-    st.subheader("Safe Spot Spread (bps) Stats")
-    st.markdown("Positive Means Spot > Safe")
-    st.markdown("Negative Means Safe > Spot")
-    st.markdown("Mean, 10th percentile, 90th percentile")
-    mean_safe_spot_spread = _compute_all_time_30_and_7_day_means(token_value_df)
-    st.dataframe(mean_safe_spot_spread)
+    with st.expander("Safe Spot Bps Spread Descriptive Stats"):
+        filter_text = st.text_input("Filter By Readable Name:", "")
+
+        mean_df, abs_mean_df, percentile_10_df, percentile_90_df = _compute_all_time_30_and_7_day_means(
+            token_value_df[token_value_df["destination_readable_name"].str.contains(filter_text, case=False, na=False)]
+        )
+        st.markdown("10_000 * (spot - safe) / safe")
+        st.markdown("Positive Means Spot > Safe")
+        st.markdown("Negative Means Safe > Spot\n\n")
+        st.markdown("all values are in bps")
+        st.markdown("Mean")
+        st.dataframe(mean_df, use_container_width=True)
+
+        st.markdown("Absolute Mean")
+        st.dataframe(abs_mean_df, use_container_width=True)
+
+        st.markdown("Bottom 10th Percentile")
+        st.dataframe(percentile_10_df, use_container_width=True)
+
+        st.markdown("Top 190h Percentile")
+        st.dataframe(percentile_90_df, use_container_width=True)
+
     st.plotly_chart(px.line(safe_price_df, title="Daily Safe Price"), use_container_width=True)
     st.plotly_chart(px.line(backing_df, title="Daily Backing"), use_container_width=True)
 
 
 def _compute_all_time_30_and_7_day_means(token_value_df: pd.DataFrame):
-    # token_value_df_no_duplicate_destinations = token_value_df.drop_duplicates(
-    #     subset=["destination_readable_name", "token_address"]
-    # )
-    # TODO consider how to remove the duplicate destiatnions here, we don't need duplciate destinations
     safe_spot_spread_df = (
         token_value_df[["datetime", "destination_readable_name", "safe_spot_spread"]]
         .drop_duplicates()
@@ -168,62 +180,42 @@ def _compute_all_time_30_and_7_day_means(token_value_df: pd.DataFrame):
     ) * 100
 
     latest = pd.Timestamp.utcnow()
+    last_30_days_df = safe_spot_spread_df.loc[safe_spot_spread_df.index >= latest - pd.Timedelta(days=30)]
+    last_7_days_df = safe_spot_spread_df.loc[safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)]
 
     mean_df = pd.DataFrame(
         {
-            "All Time Average Safe Spot Spread": safe_spot_spread_df.mean(),
-            "Last 30 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
-                safe_spot_spread_df.index >= latest - pd.Timedelta(days=30)
-            ].mean(),
-            "Last 7 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
-                safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)
-            ].mean(),
+            "Average (All Time)": safe_spot_spread_df.mean(),
+            "Average (Last 30 Days)": last_30_days_df.mean(),
+            "Average (Last 7 Days)": last_7_days_df.mean(),
         }
     )
 
-    bottom_10th = pd.DataFrame(
+    abs_mean_df = pd.DataFrame(
         {
-            "All Time Average Safe Spot Spread": safe_spot_spread_df.quantile(0.1),
-            "Last 30 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
-                safe_spot_spread_df.index >= latest - pd.Timedelta(days=30)
-            ].quantile(0.1),
-            "Last 7 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
-                safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)
-            ].quantile(0.1),
+            "Absolute Average (All Time)": safe_spot_spread_df.abs().mean(),
+            "Absolute Average (Last 30 Days)": last_30_days_df.abs().mean(),
+            "Absolute Average (Last 7 Days)": last_7_days_df.abs().mean(),
         }
     )
 
-    top_90th = pd.DataFrame(
+    percentile_10_df = pd.DataFrame(
         {
-            "All Time Average Safe Spot Spread": safe_spot_spread_df.quantile(0.9),
-            "Last 30 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
-                safe_spot_spread_df.index >= latest - pd.Timedelta(days=30)
-            ].quantile(0.9),
-            "Last 7 Days Average Safe Spot Spread": safe_spot_spread_df.loc[
-                safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)
-            ].quantile(0.9),
+            "10th Percentile (All Time)": safe_spot_spread_df.quantile(0.10),
+            "10th Percentile (Last 30 Days)": last_30_days_df.quantile(0.10),
+            "10th Percentile (Last 7 Days)": last_7_days_df.quantile(0.10),
         }
     )
 
-    safe_spread_descriptive_stats_df = pd.DataFrame(
+    percentile_90_df = pd.DataFrame(
         {
-            col: [
-                (
-                    round(mean, 2),
-                    round(percentile_10, 2),
-                    round(percentile_90, 2),
-                )
-                for mean, percentile_10, percentile_90 in zip(
-                    mean_df[col],
-                    bottom_10th[col],
-                    top_90th[col],
-                )
-            ]
-            for col in mean_df.columns
-        },
-        index=mean_df.index,
+            "90th Percentile (All Time)": safe_spot_spread_df.quantile(0.90),
+            "90th Percentile (Last 30 Days)": last_30_days_df.quantile(0.90),
+            "90th Percentile (Last 7 Days)": last_7_days_df.quantile(0.90),
+        }
     )
-    return safe_spread_descriptive_stats_df
+
+    return mean_df, abs_mean_df, percentile_10_df, percentile_90_df
 
 
 def _render_underlying_token_spot_and_safe_prices(token_value_df: pd.DataFrame):

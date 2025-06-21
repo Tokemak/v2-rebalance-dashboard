@@ -357,7 +357,10 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
 if __name__ == "__main__":
     from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, AUTO_ETH, BASE_ETH, DINERO_ETH, AUTO_USD
 
+    fetch_and_render_key_metrics_data(AUTO_ETH)
+    from mainnet_launch.app.profiler import profile_function
+
     # fetch_and_render_key_metrics_data(AUTO_ETH)
 
-    fetch_and_render_key_metrics_data(AUTO_USD)
+    # profile_function(fetch_and_render_key_metrics_data, AUTO_USD)
     pass
