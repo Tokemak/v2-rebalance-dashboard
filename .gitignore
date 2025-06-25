@@ -15,3 +15,5 @@ test_pages.log
 
 working_data/
 mainnet_launch/app/to_toml.py
+
+mainnet_launch/data_fetching/quotes/local_quote_data/
