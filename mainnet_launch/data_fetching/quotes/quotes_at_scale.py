@@ -45,7 +45,7 @@ async def fetch_swap_quote(
             "buyToken": buy_token,
             "sellAmount": str(sell_amount),
             "includeSources": include_sources,
-            "excludeSources": '',
+            "excludeSources": "",
             "sellAll": sell_all,
             "timeoutMS": str(timeout_ms) if timeout_ms is not None else "",
             "transferToCaller": str(transfer_to_caller),
@@ -110,6 +110,7 @@ async def fetch_quote_df(
 
 from mainnet_launch.pages.autopool_exposure.allocation_over_time import _fetch_tvl_by_asset_and_destination
 
+
 async def main():
 
     autopool = AUTO_DOLA
@@ -122,35 +123,32 @@ async def main():
     # note this introduces some latency, but not a big deal imo
     quantity_by_asset
 
-
     latest_quantity_by_assets = quantity_by_asset.iloc[-1]
-    tokens_to_get_quotes_for = [t for t in token_orms if t.symbol in latest_quantity_by_assets.index ]
+    tokens_to_get_quotes_for = [t for t in token_orms if t.symbol in latest_quantity_by_assets.index]
     tokens_to_get_quotes_for
-
-
 
     token_symbol_to_token_orm = {t.symbol: t for t in token_orms}
     all_quotes = []
     for token_symbol, normalized_quantity in latest_quantity_by_assets.items():
         this_token_orm: Tokens = token_symbol_to_token_orm[token_symbol]
-        unscaled_quantity = int(normalized_quantity * (10 ** (this_token_orm.decimals) ))
-        print(token_symbol_to_token_orm[token_symbol],  normalized_quantity, unscaled_quantity)
+        unscaled_quantity = int(normalized_quantity * (10 ** (this_token_orm.decimals)))
+        print(token_symbol_to_token_orm[token_symbol], normalized_quantity, unscaled_quantity)
 
-
-        for scale in range(1,10):
-            percent_of_assets_to_liquidate =  scale / 10
+        for scale in range(1, 10):
+            percent_of_assets_to_liquidate = scale / 10
 
             quote = fetch_swap_quote(
-                        chain_id=autopool.chain.chain_id,
-                        sell_token=this_token_orm.token_address,
-                        buy_token=autopool.base_asset,
-                        sell_amount=int(unscaled_quantity * percent_of_assets_to_liquidate)
-                    )
+                chain_id=autopool.chain.chain_id,
+                sell_token=this_token_orm.token_address,
+                buy_token=autopool.base_asset,
+                sell_amount=int(unscaled_quantity * percent_of_assets_to_liquidate),
+            )
             all_quotes.append(quote)
             break
 
     a_quote = await all_quotes[0]
     return a_quote
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     asyncio.run(main())

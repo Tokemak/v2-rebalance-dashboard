@@ -297,8 +297,8 @@ def _render_top_level_charts(
 
 
 def _fetch_price_return(autopool: AutopoolConstants):
-    safe_value_by_destination, safe_value_by_asset, backing_value_by_destination, quantity_by_asset = _fetch_tvl_by_asset_and_destination(
-        autopool
+    safe_value_by_destination, safe_value_by_asset, backing_value_by_destination, quantity_by_asset = (
+        _fetch_tvl_by_asset_and_destination(autopool)
     )
 
     backing_value_by_destination = backing_value_by_destination.replace(0, np.nan)

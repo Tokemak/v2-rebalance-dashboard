@@ -200,9 +200,9 @@ def _extract_destination_states_rows(
 
     for dest_state in plan["sod"]["destStates"]:
 
-        incentive = dest_state["incentiveAPR"] # this is un adjusted
+        incentive = dest_state["incentiveAPR"]  # this is un adjusted
         total_in = dest_state["totalAprIn"]
-        total_out = dest_state["totalAprOut"] # these are adjusted
+        total_out = dest_state["totalAprOut"]  # these are adjusted
 
         # incnetive is bigger than it is in total apr out, so you multiply instead of divide
 
