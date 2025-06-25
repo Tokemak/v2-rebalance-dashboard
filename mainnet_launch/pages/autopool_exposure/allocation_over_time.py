@@ -112,6 +112,7 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
     df["portion_owned"] = (df["owned_shares"] / df["underlying_token_total_supply"]).fillna(1.0)
     df["autopool_implied_safe_value"] = df["portion_owned"] * df["quantity"] * df["safe_price"]
     df["autopool_implied_backing_value"] = df["portion_owned"] * df["quantity"] * df["backing"]
+    df["autopool_implied_quantity"] = df["portion_owned"] * df["quantity"]
 
     safe_value_by_destination = (
         df.groupby(["datetime", "underlying_symbol"])["autopool_implied_safe_value"]
@@ -144,15 +145,22 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
         for undelrying_symbol in backing_value_by_destination.columns
     ]
 
+    quantity_by_asset = (
+        df.groupby(["datetime", "symbol"])["autopool_implied_quantity"]
+        .sum()
+        .reset_index()
+        .pivot(columns=["symbol"], index=["datetime"], values="autopool_implied_quantity")
+    )
+    safe_value_by_asset = safe_value_by_asset.resample("1D").last()
+
     backing_value_by_destination = backing_value_by_destination.resample("1D").last()
-    return safe_value_by_destination, safe_value_by_asset, backing_value_by_destination
+    return safe_value_by_destination, safe_value_by_asset, backing_value_by_destination, quantity_by_asset
 
 
 def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
-    safe_value_by_destination, safe_value_by_asset, backing_value_by_asset = _fetch_tvl_by_asset_and_destination(
-        autopool
+    safe_value_by_destination, safe_value_by_asset, backing_value_by_destination, quantity_by_asset = (
+        _fetch_tvl_by_asset_and_destination(autopool)
     )
-    del backing_value_by_asset
 
     percent_tvl_by_destination = 100 * safe_value_by_destination.div(safe_value_by_destination.sum(axis=1), axis=0)
 

@@ -8,8 +8,6 @@ from mainnet_launch.database.schema.full import *
 from mainnet_launch.database.schema.postgres_operations import *
 import numpy as np
 
-# allow nested loops if you ever run this inside Jupyter/debugger
-
 nest_asyncio.apply()
 
 _rate_limit = asyncio.Semaphore(10)
@@ -45,22 +43,28 @@ async def fetch_swap_quote(
             "taker": DEAD_ADDRESS,
             "sellToken": sell_token,
             "buyToken": buy_token,
-            "sellAmount": sell_amount,
+            "sellAmount": str(sell_amount),
             "includeSources": include_sources,
-            "excludeSources": exclude_sources,
+            "excludeSources": '',
             "sellAll": sell_all,
             "timeoutMS": str(timeout_ms) if timeout_ms is not None else "",
             "transferToCaller": str(transfer_to_caller),
         }
-
         session = await get_session()
         async with session.post(url, json=payload) as resp:
-            try:
-                resp.raise_for_status()
-                data = await resp.json()
-                data.update(payload)
-            except Exception as e:
-                data = {"error": str(e), **payload}
+            resp.raise_for_status()
+            data = await resp.json()
+            data.update(payload)
+            return data
+        # session = await get_session()
+        # async with session.post(url, json=payload) as resp:
+        #     try:
+        #         resp.raise_for_status()
+        #         data = await resp.json()
+        #         data.update(payload)
+        #     except Exception as e:
+        #         data = {"error": str(e), **payload}
+        #         raise e
         return data
 
 
@@ -104,52 +108,49 @@ async def fetch_quote_df(
     return pd.DataFrame.from_records(quotes)
 
 
-async def quote_at_scale():
-    autopool = SONIC_USD
-    token_orms = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == autopool.chain.chain_id)
-    tokens_df = pd.DataFrame.from_records([t.to_record() for t in token_orms])
+from mainnet_launch.pages.autopool_exposure.allocation_over_time import _fetch_tvl_by_asset_and_destination
 
-    # first pass to filter out errors
-    initial_df = await fetch_quote_df(token_orms, 100, autopool)
-    merged = pd.merge(initial_df, tokens_df, how="left", left_on="sellToken", right_on="token_address")
-    tokens_we_can_get_quotes_for = merged[merged["error"].isna()]["token_address"].unique().tolist()
-    quote_able_tokens_orm = [t for t in token_orms if t.token_address in tokens_we_can_get_quotes_for]
-    sizes = [
-        100,
-        1000,
-        10_000,
-        50_000,
-        100_000,
-        200_000,
-        300_000,
-        400_000,
-        500_000,
-        1_000_000,
-        1_500_000,
-        2_000_000,
-        2_500_000,
-        3_000_000,
-        4_000_000,
-        5_000_000,
-    ]
+async def main():
 
-    scale_quote_df = await fetch_quote_size_df(quote_able_tokens_orm, sizes, autopool)
-    df = pd.merge(scale_quote_df, tokens_df, how="left", left_on="sellToken", right_on="token_address")
+    autopool = AUTO_DOLA
 
-    df["min_buy_scaled"] = df["minBuyAmount"].apply(lambda x: int(x) / 1e6 if x > 0 else np.nan)
-    df["buy_scaled"] = df["buyAmount"].apply(lambda x: int(x) / 1e6 if x > 0 else np.nan)
-
-    # scale sellAmount by its own per-row decimals
-    df["sell_amount_scaled"] = df.apply(lambda row: int(row["sellAmount"]) / (10 ** row["decimals"]), axis=1)
-
-    df["buy_ratio"] = df["buy_scaled"] / df["sell_amount_scaled"]
-    df["min_buy_ratio"] = df["min_buy_scaled"] / df["sell_amount_scaled"]
-
-    df.to_csv(
-        "/Users/pb/Documents/Github/Tokemak/"
-        "v2-rebalance-dashboard/mainnet_launch/data_fetching/"
-        f"quotes/{autopool.name}_scale_quotes.csv"
+    safe_value_by_destination, safe_value_by_asset, backing_value_by_destination, quantity_by_asset = (
+        _fetch_tvl_by_asset_and_destination(autopool)
     )
+    token_orms = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == autopool.chain.chain_id)
 
-if __name__ == "__main__":
-    asyncio.run(quote_at_scale())
+    # note this introduces some latency, but not a big deal imo
+    quantity_by_asset
+
+
+    latest_quantity_by_assets = quantity_by_asset.iloc[-1]
+    tokens_to_get_quotes_for = [t for t in token_orms if t.symbol in latest_quantity_by_assets.index ]
+    tokens_to_get_quotes_for
+
+
+
+    token_symbol_to_token_orm = {t.symbol: t for t in token_orms}
+    all_quotes = []
+    for token_symbol, normalized_quantity in latest_quantity_by_assets.items():
+        this_token_orm: Tokens = token_symbol_to_token_orm[token_symbol]
+        unscaled_quantity = int(normalized_quantity * (10 ** (this_token_orm.decimals) ))
+        print(token_symbol_to_token_orm[token_symbol],  normalized_quantity, unscaled_quantity)
+
+
+        for scale in range(1,10):
+            percent_of_assets_to_liquidate =  scale / 10
+
+            quote = fetch_swap_quote(
+                        chain_id=autopool.chain.chain_id,
+                        sell_token=this_token_orm.token_address,
+                        buy_token=autopool.base_asset,
+                        sell_amount=int(unscaled_quantity * percent_of_assets_to_liquidate)
+                    )
+            all_quotes.append(quote)
+            break
+
+    a_quote = await all_quotes[0]
+    return a_quote
+
+if __name__ == '__main__':
+    asyncio.run(main())
