@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from time import time
+import time
 import os
 
 from pathlib import Path
@@ -30,17 +30,49 @@ sonic_client.middleware_onion.inject(geth_poa_middleware, layer=0)
 
 
 os.environ["GAS_LIMIT"] = "550000000"
+
+
+def add_retry_get_block_number(
+    client: Web3,
+    retries: int = 3,
+    backoff: float = 1.0,
+) -> None:
+    """
+    Monkey-patch client.eth.get_block_number to retry on failure.
+    retries: total attempts (including the first)
+    backoff: initial sleep in seconds; doubles each retry
+    """
+    original_fn: Callable[[], int] = client.eth.get_block_number  # no-arg
+
+    def get_block_number_with_retry() -> int:
+        delay = backoff
+        for attempt in range(1, retries + 1):
+            try:
+                return original_fn()
+            except Exception:
+                if attempt == retries:
+                    raise
+                time.sleep(delay)
+                delay *= 2
+
+    client.eth.get_block_number = get_block_number_with_retry  # type: ignore
+
+
 # make sure the chain ids are loaded as properties
+# to skip a failable rpc call
+
 eth_client.eth._chain_id = lambda: 1
 base_client.eth._chain_id = lambda: 8453
 sonic_client.eth._chain_id = lambda: 146
-
 
 WEB3_CLIENTS: dict[str, Web3] = {
     "eth": eth_client,
     "base": base_client,
     "sonic": sonic_client,
 }
+
+for client in WEB3_CLIENTS.values():
+    add_retry_get_block_number(client, retries=4, backoff=0.5)
 
 
 @dataclass(frozen=True)
@@ -229,9 +261,9 @@ DOLA = TokemakAddress(
 
 def time_decorator(func):
     def wrapper(*args, **kwargs):
-        start_time = time()
+        start_time = time.time()
         result = func(*args, **kwargs)
-        elapsed_time = time() - start_time
+        elapsed_time = time.time() - start_time
         print(f"{func.__name__} took {elapsed_time:.4f} seconds.")
         return result
 
