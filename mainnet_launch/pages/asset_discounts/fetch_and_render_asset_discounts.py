@@ -243,4 +243,4 @@ def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
 
 
 if __name__ == "__main__":
-    fetch_and_render_asset_discounts(AUTO_DOLA)
+    fetch_and_render_asset_discounts(BASE_USD)

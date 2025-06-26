@@ -91,7 +91,7 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
             ),
             TableSelector(
                 table=Destinations,
-                select_fields=[Destinations.underlying_symbol, Destinations.exchange_name],
+                select_fields=[Destinations.underlying_name, Destinations.exchange_name],
                 join_on=(Destinations.chain_id == DestinationTokenValues.chain_id)
                 & (Destinations.destination_vault_address == DestinationTokenValues.destination_vault_address),
             ),
@@ -104,9 +104,9 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
 
     df = df[df["datetime"] >= autopool.start_display_date].copy()
 
-    underlying_symbol_to_readable_name = {
-        underlying_symbol: f"{underlying_symbol} ({exchange_name})"
-        for underlying_symbol, exchange_name in zip(df["underlying_symbol"], df["exchange_name"])
+    underlying_name_to_readable_symbol = {
+        underlying_name: f"{underlying_name} ({exchange_name})"
+        for underlying_name, exchange_name in zip(df["underlying_name"], df["exchange_name"])
     }
 
     df["portion_owned"] = (df["owned_shares"] / df["underlying_token_total_supply"]).fillna(1.0)
@@ -115,13 +115,13 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
     df["autopool_implied_quantity"] = df["portion_owned"] * df["quantity"]
 
     safe_value_by_destination = (
-        df.groupby(["datetime", "underlying_symbol"])["autopool_implied_safe_value"]
+        df.groupby(["datetime", "underlying_name"])["autopool_implied_safe_value"]
         .sum()
         .reset_index()
-        .pivot(columns=["underlying_symbol"], index=["datetime"], values="autopool_implied_safe_value")
+        .pivot(columns=["underlying_name"], index=["datetime"], values="autopool_implied_safe_value")
     )
     safe_value_by_destination.columns = [
-        underlying_symbol_to_readable_name[undelrying_symbol] for undelrying_symbol in safe_value_by_destination.columns
+        underlying_name_to_readable_symbol[undelrying_symbol] for undelrying_symbol in safe_value_by_destination.columns
     ]
     safe_value_by_destination = safe_value_by_destination.resample("1D").last()
 
@@ -134,14 +134,14 @@ def _fetch_tvl_by_asset_and_destination(autopool: AutopoolConstants) -> pd.DataF
     safe_value_by_asset = safe_value_by_asset.resample("1D").last()
 
     backing_value_by_destination = (
-        df.groupby(["datetime", "underlying_symbol"])["autopool_implied_backing_value"]
+        df.groupby(["datetime", "underlying_name"])["autopool_implied_backing_value"]
         .sum()
         .reset_index()
-        .pivot(columns=["underlying_symbol"], index=["datetime"], values="autopool_implied_backing_value")
+        .pivot(columns=["underlying_name"], index=["datetime"], values="autopool_implied_backing_value")
     )
 
     backing_value_by_destination.columns = [
-        underlying_symbol_to_readable_name[undelrying_symbol]
+        underlying_name_to_readable_symbol[undelrying_symbol]
         for undelrying_symbol in backing_value_by_destination.columns
     ]
 
@@ -199,8 +199,8 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import AUTO_ETH, AUTO_USD
+    from mainnet_launch.constants import *
 
-    fetch_and_render_asset_allocation_over_time(AUTO_ETH)
+    fetch_and_render_asset_allocation_over_time(SONIC_USD)
     # fetch_and_render_asset_allocation_over_time(AUTO_ETH)
     # pass

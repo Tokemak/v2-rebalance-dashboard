@@ -48,7 +48,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
             TableSelector(
                 Destinations,
                 select_fields=[
-                    Destinations.underlying_symbol,
+                    Destinations.underlying_name,
                     Destinations.exchange_name,
                 ],
                 join_on=(Destinations.destination_vault_address == DestinationStates.destination_vault_address)
@@ -77,7 +77,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
     destination_state_df = destination_state_df[destination_state_df["datetime"] >= autopool.start_display_date].copy()
 
     destination_state_df["readable_destination_name"] = destination_state_df.apply(
-        lambda row: f"{row['underlying_symbol']} ({row['exchange_name']})", axis=1
+        lambda row: f"{row['underlying_name']} ({row['exchange_name']})", axis=1
     )
 
     sum_df = (

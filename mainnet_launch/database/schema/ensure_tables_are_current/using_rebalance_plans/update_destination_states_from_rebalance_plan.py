@@ -1,15 +1,10 @@
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import os
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
-import requests
 from web3 import Web3
-import time
-import random
 
-from urllib.parse import urlparse
 
 from multicall.call import Call
 
@@ -204,8 +199,6 @@ def _extract_destination_states_rows(
         total_in = dest_state["totalAprIn"]
         total_out = dest_state["totalAprOut"]  # these are adjusted
 
-        # incnetive is bigger than it is in total apr out, so you multiply instead of divide
-
         raw_underlying_token_total_supply = float(dest_state["totSupply"])
         underlying_token_total_supply = raw_underlying_token_total_supply / (
             10 ** tokens_address_to_decimals[dest_state["underlying"]]
@@ -219,7 +212,7 @@ def _extract_destination_states_rows(
             fee_apr=None,
             base_apr=None,
             points_apr=None,
-            fee_plus_base_apr=total_out - (incentive / 0.9),  # remove downscaling
+            fee_plus_base_apr=total_out - (incentive * 0.9),  # remove downscaling
             total_apr_in=total_in,
             total_apr_out=total_out,
             underlying_token_total_supply=underlying_token_total_supply,

@@ -133,6 +133,8 @@ class Destinations(Base):
     denominated_in: Mapped[str] = mapped_column(nullable=False)  # DestinationVaultAddress.baseAsset()
     destination_vault_decimals: Mapped[int] = mapped_column(nullable=False)  # DestinationVaultAddress.decimals()
 
+    # maybe add block deployed, timestamp deployed?
+
 
 class AutopoolDestinations(Base):
 
