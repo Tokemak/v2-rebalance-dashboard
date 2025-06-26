@@ -16,7 +16,6 @@ from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blo
 from mainnet_launch.constants import ALL_CHAINS, ChainData
 
 
-
 def add_blocks_from_dataframe_to_database(df: pd.DataFrame):
     if df.index.name == "timestamp":
         df["datetime"] = df.index

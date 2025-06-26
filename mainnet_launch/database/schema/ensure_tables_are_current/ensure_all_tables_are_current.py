@@ -51,6 +51,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
     ensure_rebalance_events_are_current,
 )
 
+
 @time_decorator
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
