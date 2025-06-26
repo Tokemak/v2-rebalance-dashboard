@@ -10,6 +10,7 @@ from pprint import pprint
 
 from mainnet_launch.database.schema.full import drop_and_full_rebuild_db, ENGINE
 from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
+from mainnet_launch.constants import time_decorator
 
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_table import (
@@ -50,7 +51,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
     ensure_rebalance_events_are_current,
 )
 
-
+@time_decorator
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
 
@@ -74,7 +75,6 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
         func()
         fin = datetime.now() - start
         time_taken[func.__name__] = fin
-        print(func.__name__, fin)
 
     for k, v in time_taken.items():
         print(k, v)

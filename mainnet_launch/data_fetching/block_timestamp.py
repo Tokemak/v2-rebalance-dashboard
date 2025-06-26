@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta, timezone
-
-import pandas as pd
-import os
-import requests
 import threading
 import time
+import os
+
+import pandas as pd
+import requests
 
 from mainnet_launch.database.schema.full import Blocks
 from mainnet_launch.database.schema.postgres_operations import (
@@ -14,6 +14,7 @@ from mainnet_launch.database.schema.postgres_operations import (
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, build_blocks_to_use
 
 from mainnet_launch.constants import ALL_CHAINS, ChainData
+
 
 
 def add_blocks_from_dataframe_to_database(df: pd.DataFrame):
@@ -88,7 +89,7 @@ def ensure_blocks_is_current():
         ensure_all_blocks_are_in_table(highest_block_of_each_day_to_add, chain)
 
 
-_etherscan_semaphore = threading.BoundedSemaphore(5)
+_etherscan_semaphore = threading.BoundedSemaphore(4)
 
 
 def get_block_by_timestamp_etherscan(unix_timestamp: int, chain: ChainData, closest: str) -> int:
@@ -110,9 +111,9 @@ def get_block_by_timestamp_etherscan(unix_timestamp: int, chain: ChainData, clos
                 resp = requests.get("https://api.etherscan.io/v2/api", params=params)
                 block = int(resp.json()["result"])
                 return block
-            except Exception as e:
+            except ValueError as e:
                 if i < 3:
-                    time.sleep(1**i)
+                    time.sleep(1 + (2**i))
                 else:
                     raise e
 
