@@ -80,58 +80,22 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
         print(k, v)
 
     # from 0
-    # ensure_rebalance_events_are_current 0:07:58.397145
-    # ensure_blocks_is_current 0:03:04.112034
-    # ensure_autopools_are_current 0:00:06.650396
-    # ensure__destinations__tokens__and__destination_tokens_are_current 0:00:17.238423
-    # ensure_destination_states_from_rebalance_plan_are_current 0:13:51.609945
-    # ensure_destination_states_are_current 0:01:07.984473
-    # ensure_destination_token_values_are_current 0:01:13.489094
-    # ensure_autopool_destination_states_are_current 0:00:51.984280
-    # ensure_autopool_states_are_current 0:00:29.053355
-    # ensure_token_values_are_current 0:00:55.603703
-    # ensure_rebalance_plans_table_are_current 0:00:56.739360
-    # ensure_rebalance_events_are_current 0:07:58.397145
-
-    # when everything is current
-
-    #     {'ensure__destinations__tokens__and__destination_tokens_are_current': datetime.timedelta(seconds=18, microseconds=270867),
-    #  'ensure_autopool_destination_states_are_current': datetime.timedelta(seconds=7, microseconds=976514),
-    #  'ensure_autopool_states_are_current': datetime.timedelta(seconds=1, microseconds=665894),
-    #  'ensure_autopools_are_current': datetime.timedelta(microseconds=854560),
-    #  'ensure_blocks_is_current': datetime.timedelta(seconds=13, microseconds=961159),
-    #  'ensure_destination_states_are_current': datetime.timedelta(seconds=3, microseconds=16369),
-    #  'ensure_destination_states_from_rebalance_plan_are_current': datetime.timedelta(seconds=3, microseconds=782301),
-    #  'ensure_destination_token_values_are_current': datetime.timedelta(seconds=10, microseconds=583220),
-    #  'ensure_rebalance_events_are_current': datetime.timedelta(seconds=44, microseconds=975282),
-    #  'ensure_rebalance_plans_table_are_current': datetime.timedelta(seconds=8, microseconds=587201),
-    #  'ensure_token_values_are_current': datetime.timedelta(seconds=1, microseconds=540103)}
-
-    # rebalance events
+    # June 26 from  0
+    # ensure_rebalance_events_are_current 0:07:53.975450
+    # ensure_blocks_is_current 0:00:12.555990
+    # ensure_autopools_are_current 0:00:00.960664
+    # ensure__destinations__tokens__and__destination_tokens_are_current 0:00:13.856148
+    # ensure_destination_states_from_rebalance_plan_are_current  0:17:35.417473
+    # ensure_destination_states_are_current 0:01:02.743695
+    # ensure_destination_token_values_are_current 0:01:13.483548
+    # ensure_autopool_destination_states_are_current 0:01:01.335403
+    # ensure_autopool_states_are_current 0:01:23.220615
+    # ensure_token_values_are_current 0:00:26.729837
+    # ensure_rebalance_plans_table_are_current 0:00:53.385648
+    # ensure_rebalance_events_are_current 0:07:53.975450
+    #     # rebalance events
 
     # self contained parts add later
-
-    # add after autoUSD
-    # IncentiveTokenLiquidations   # AutopoolWithdrawal
-    # AutopoolDeposit
-    # chainlink gas costs
-    # solver profit ( maybe exclude for complexity reasons, and solver profit is near 0)
-    # debt reporting
-
-    # last time database made to be current,
-
-    # add to schema (maybe there is a way to store as one row instead of many)
-    # tx_hash, asset, amount, to_user_address, from, (primary key serial (auto incrementing))
-    # some person takes assets out, ETH, 100, bob, autopool
-    # some person takes assets out, curve LP tokens, 20, bob
-    # tx_hash, aave aWETH, 20, bob
-
-    # has it at least an hour
-
-
-# if this fails, to fix it
-# in AutopoolDestinationStates by just reading from idle,
-# not certain
 
 
 def main():
@@ -140,3 +104,23 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# TODOs
+
+# add after autoUSD
+# IncentiveTokenLiquidations   # AutopoolWithdrawal
+# AutopoolDeposit
+# chainlink gas costs
+# solver profit ( maybe exclude for complexity reasons, and solver profit is near 0)
+# debt reporting
+
+# last time database made to be current,
+
+# add to schema (maybe there is a way to store as one row instead of many)
+# tx_hash, asset, amount, to_user_address, from, (primary key serial (auto incrementing))
+# some person takes assets out, ETH, 100, bob, autopool
+# some person takes assets out, curve LP tokens, 20, bob
+# tx_hash, aave aWETH, 20, bob
+
+# has it at least an hour

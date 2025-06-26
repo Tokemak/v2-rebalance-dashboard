@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import os
 import requests
-
-from tenacity import retry, stop_after_attempt, wait_exponential
+import threading
+import time
 
 from mainnet_launch.database.schema.full import Blocks
 from mainnet_launch.database.schema.postgres_operations import (
@@ -88,29 +88,36 @@ def ensure_blocks_is_current():
         ensure_all_blocks_are_in_table(highest_block_of_each_day_to_add, chain)
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True)
+_etherscan_semaphore = threading.BoundedSemaphore(5)
+
+
 def get_block_by_timestamp_etherscan(unix_timestamp: int, chain: ChainData, closest: str) -> int:
     """
     Fetch the first block after the given UNIX timestamp
     using Etherscan's getblocknobytime endpoint.
     """
-    # TODO consider making threadsafe else you get 'Max calls per sec rate limit reached (5/sec)' from etherscan
-    params = {
-        "module": "block",
-        "action": "getblocknobytime",
-        "timestamp": str(unix_timestamp),
-        "closest": closest,
-        "chainid": str(chain.chain_id),
-        "apikey": os.getenv("ETHERSCAN_API_KEY"),
-    }
-    print("fetching", chain.name, unix_timestamp)
-    resp = requests.get("https://api.etherscan.io/v2/api", params=params)
-    block = int(resp.json()["result"])
-    print("got", block)
-    return block
+    with _etherscan_semaphore:
+        params = {
+            "module": "block",
+            "action": "getblocknobytime",
+            "timestamp": str(unix_timestamp),
+            "closest": closest,
+            "chainid": str(chain.chain_id),
+            "apikey": os.getenv("ETHERSCAN_API_KEY"),
+        }
+        for i in range(4):
+            try:
+                resp = requests.get("https://api.etherscan.io/v2/api", params=params)
+                block = int(resp.json()["result"])
+                return block
+            except Exception as e:
+                if i < 3:
+                    time.sleep(1**i)
+                else:
+                    raise e
 
 
-def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> list[Blocks]:
+def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> None:
     blocks_to_add = get_subset_not_already_in_column(
         table=Blocks, column=Blocks.block, values=blocks, where_clause=Blocks.chain_id == chain.chain_id
     )

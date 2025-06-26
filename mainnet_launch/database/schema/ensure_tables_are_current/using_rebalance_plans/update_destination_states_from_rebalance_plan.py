@@ -16,7 +16,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     get_subset_not_already_in_column,
 )
 
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, ChainData
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, time_decorator
 from mainnet_launch.data_fetching.block_timestamp import (
     ensure_all_blocks_are_in_table,
     get_block_by_timestamp_etherscan,
@@ -105,8 +105,6 @@ def _extract_destination_token_values(
             dest_state["underlyingTokenAmounts"],
             dest_state["decimals"],
         ):
-            if dest_state["address"] == "0x7876F91BB22148345b3De16af9448081E9853830":
-                pass
             new_destination_token_values.append(
                 DestinationTokenValues(
                     block=block_after_plan_timestamp,
@@ -115,10 +113,9 @@ def _extract_destination_token_values(
                     destination_vault_address=Web3.toChecksumAddress(dest_state["address"]),
                     denominated_in=autopool.base_asset,
                     spot_price=spot_price,
-                    quantity=int(raw_amount) / (10**decimals),  # todo rerun from 0
+                    quantity=int(raw_amount) / 1e18,  # note in the destination states, everything is in 1e18
                 )
             )
-            pass
 
     return new_destination_token_values
 
@@ -228,6 +225,7 @@ def _extract_destination_states_rows(
     return new_destination_states_rows
 
 
+@time_decorator
 def ensure_destination_states_from_rebalance_plan_are_current():
     s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 
@@ -239,7 +237,7 @@ def ensure_destination_states_from_rebalance_plan_are_current():
         plans_to_fetch = get_subset_not_already_in_column(  # much slower than it needs to be
             DestinationStates, DestinationStates.rebalance_plan_key, solver_plan_paths_on_remote, where_clause=None
         )
-        # plans_to_fetch = solver_plan_paths_on_remote[:2]
+
         if not plans_to_fetch:
             continue
 
@@ -259,12 +257,8 @@ def ensure_destination_states_from_rebalance_plan_are_current():
         all_new_token_values_rows = []
         all_destination_token_rows = []
 
-        # have to use few workers (8) because of the get_block_after_timestamp_from_alchemy
-        # throws a lot of 500 errors
-        # switched to 4 threads, because of etherscan free rate limiting
-
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            futures = {executor.submit(_process_plan, path): path for path in plans_to_fetch[::-1]}
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(_process_plan, path): path for path in plans_to_fetch}
             for fut in as_completed(futures):
                 new_destination_states_rows, new_token_values_rows, new_destination_token_values = fut.result()
                 all_destination_states.extend(new_destination_states_rows)
@@ -272,6 +266,7 @@ def ensure_destination_states_from_rebalance_plan_are_current():
                 all_destination_token_rows.extend(new_destination_token_values)
 
         all_blocks_to_add = list(set([d.block for d in all_destination_states]))
+
         ensure_all_blocks_are_in_table(all_blocks_to_add, autopool.chain)
         insert_avoid_conflicts(
             all_destination_states,
