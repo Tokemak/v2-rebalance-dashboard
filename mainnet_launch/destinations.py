@@ -1,3 +1,5 @@
+# DEPRECATED
+
 from dataclasses import dataclass, asdict
 
 from multicall import Call
@@ -19,6 +21,7 @@ from mainnet_launch.database.database_operations import (
     get_all_rows_in_table_by_autopool,
 )
 from mainnet_launch.database.should_update_database import should_update_table
+
 
 DESTINATION_DETAILS_TABLE = "DESTINATION_DETAILS_TABLE"
 CHAIN_BLOCK_QUERIED_TABLE = "CHAIN_BLOCK_QUERIED_TABLE"
