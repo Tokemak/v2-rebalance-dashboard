@@ -32,7 +32,7 @@ sonic_client.middleware_onion.inject(geth_poa_middleware, layer=0)
 os.environ["GAS_LIMIT"] = "550000000"
 
 
-def add_retry_get_block_number(
+def _add_retry_get_block_number(
     client: Web3,
     retries: int = 3,
     backoff: float = 1.0,
@@ -42,7 +42,7 @@ def add_retry_get_block_number(
     retries: total attempts (including the first)
     backoff: initial sleep in seconds; doubles each retry
     """
-    original_fn: Callable[[], int] = client.eth.get_block_number  # no-arg
+    original_fn = client.eth.get_block_number  # no-arg
 
     def get_block_number_with_retry() -> int:
         delay = backoff
@@ -72,7 +72,7 @@ WEB3_CLIENTS: dict[str, Web3] = {
 }
 
 for client in WEB3_CLIENTS.values():
-    add_retry_get_block_number(client, retries=4, backoff=0.5)
+    _add_retry_get_block_number(client, retries=4, backoff=0.5)
 
 
 @dataclass(frozen=True)

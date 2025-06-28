@@ -17,6 +17,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     TableSelector,
     merge_tables_as_df,
 )
+from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
 
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
@@ -28,16 +29,14 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 from mainnet_launch.constants import (
     ROOT_PRICE_ORACLE,
     WETH,
-    AUTO_USD,
-    ALL_AUTOPOOLS,
     ChainData,
     AutopoolConstants,
     TokemakAddress,
-    DINERO_ETH,
+    ALL_AUTOPOOLS,
 )
 
-# good enoough but is missing the values for the first few days towards the start
-# # has getSpotPriceInQuote function
+# good enough but is missing the values for the first few days towards the start
+# has getSpotPriceInQuote function
 
 SOLVER_ROOT_ORACLE = TokemakAddress(
     eth="0xdB8747a396D75D576Dc7a10bb6c8F02F4a3C20f1",
@@ -46,10 +45,10 @@ SOLVER_ROOT_ORACLE = TokemakAddress(
 )
 
 
-def _build_get_spot_price_in_quote_calls(chain: ChainData, destination_info_df: pd.DataFrame) -> list[Call]:
+def _build_get_spot_price_in_quote_calls(chain: ChainData, destination_address_info_df: pd.DataFrame) -> list[Call]:
     # pricer_contract.functions.getSpotPriceInQuote(underlyingTokens[i], pool, quote).call({}, blockNo)
     # note: this might need to be patched to include autopool.baseAsset -> 1.0
-    pool_token_addresses = destination_info_df[
+    pool_token_addresses = destination_address_info_df[
         ["pool", "token_address", "base_asset", "base_asset_decimals"]
     ].drop_duplicates()
     calls = []
@@ -77,11 +76,8 @@ def _build_get_spot_price_in_quote_calls(chain: ChainData, destination_info_df: 
     return calls
 
 
-def _build_get_spot_price_in_eth_calls(chain: ChainData, destination_info_df: pd.DataFrame) -> list[Call]:
-    pool_token_addresses = destination_info_df[
-        destination_info_df["autopool_vault_address"] != AUTO_USD.autopool_eth_addr
-    ][["pool", "token_address"]].drop_duplicates()
-
+def _build_get_spot_price_in_eth_calls(chain: ChainData, destination_address_info_df: pd.DataFrame) -> list[Call]:
+    pool_token_addresses = destination_address_info_df[["pool", "token_address"]].drop_duplicates()
     return [
         Call(
             ROOT_PRICE_ORACLE(chain),
@@ -92,8 +88,8 @@ def _build_get_spot_price_in_eth_calls(chain: ChainData, destination_info_df: pd
     ]
 
 
-def _build_underlying_reserves_calls(destination_info_df: list[str]) -> list[Call]:
-    unique_destinations = destination_info_df["destination_vault_address"].unique()
+def _build_underlying_reserves_calls(destination_address_info_df: list[str]) -> list[Call]:
+    unique_destinations = destination_address_info_df["destination_vault_address"].unique()
     return [
         Call(
             destination_vault_address,
@@ -108,16 +104,17 @@ def _build_underlying_reserves_calls(destination_info_df: list[str]) -> list[Cal
 
 
 def _fetch_destination_token_value_data_from_external_source(
-    chain: ChainData, destination_info_df: pd.DataFrame, missing_blocks: list[int]
+    chain: ChainData, destination_address_info_df: pd.DataFrame, missing_blocks: list[int]
 ) -> pd.DataFrame:
 
+    # need to use WETH and ETH as seperate sources because getSpotPriceInQuote was not added on older version of the price oracle
     eth_destinations_spot_price_calls = _build_get_spot_price_in_eth_calls(
-        chain, destination_info_df[destination_info_df["base_asset"] == WETH(chain)]
+        chain, destination_address_info_df[destination_address_info_df["base_asset"] == WETH(chain)]
     )
     non_eth_destinations_spot_price_calls = _build_get_spot_price_in_quote_calls(
-        chain, destination_info_df[destination_info_df["base_asset"] != WETH(chain)]
+        chain, destination_address_info_df[destination_address_info_df["base_asset"] != WETH(chain)]
     )
-    underlying_reserves_calls = _build_underlying_reserves_calls(destination_info_df)
+    underlying_reserves_calls = _build_underlying_reserves_calls(destination_address_info_df)
 
     df = get_raw_state_by_blocks(
         [*eth_destinations_spot_price_calls, *non_eth_destinations_spot_price_calls, *underlying_reserves_calls],
@@ -125,7 +122,6 @@ def _fetch_destination_token_value_data_from_external_source(
         chain,
         include_block_number=True,
     )
-
     return df
 
 
@@ -149,23 +145,60 @@ def _determine_what_blocks_are_needed(autopool: AutopoolConstants) -> list[int]:
         & (AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr),
     )
 
-    blocks_expected_to_have = destination_state_df["block"].unique()
-    expected_destinations = destination_state_df["destination_vault_address"].unique()
-
-    missing_blocks = get_subset_not_already_in_column(
-        DestinationTokenValues,
-        DestinationTokenValues.block,
-        blocks_expected_to_have,
-        where_clause=DestinationTokenValues.destination_vault_address.in_(expected_destinations),
+    destination_state_df = merge_tables_as_df(
+        selectors=[
+            TableSelector(
+                AutopoolDestinations,
+                [
+                    AutopoolDestinations.destination_vault_address,
+                    AutopoolDestinations.autopool_vault_address,
+                ],
+            ),
+            TableSelector(
+                DestinationStates,
+                DestinationStates.block,
+                join_on=(DestinationStates.destination_vault_address == AutopoolDestinations.destination_vault_address),
+            ),
+        ],
+        where_clause=(DestinationStates.chain_id == autopool.chain.chain_id)
+        & (AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr),
     )
 
-    return blocks_expected_to_have, missing_blocks
+    expected_destinations = destination_state_df["destination_vault_address"].unique()
+
+    destination_token_values_df = merge_tables_as_df(
+        selectors=[
+            TableSelector(
+                DestinationTokenValues,
+                [
+                    DestinationTokenValues.destination_vault_address,
+                    DestinationTokenValues.block,
+                ],
+            ),
+        ],
+        where_clause=(DestinationTokenValues.chain_id == autopool.chain.chain_id)
+        & DestinationTokenValues.destination_vault_address.in_(expected_destinations),
+    )
+
+    missing_blocks = set()
+
+    for destination_vault_address in expected_destinations:
+        this_destination_needed_blocks = destination_state_df[
+            destination_state_df["destination_vault_address"] == destination_vault_address
+        ]["block"]
+        this_destination_found_blocks = destination_token_values_df[
+            destination_token_values_df["destination_vault_address"] == destination_vault_address
+        ]["block"]
+        this_destination_missing_blocks = [
+            int(b) for b in this_destination_needed_blocks if b not in this_destination_found_blocks
+        ]
+        missing_blocks.update(this_destination_missing_blocks)
+
+    return list(missing_blocks)
 
 
-def _fetch_destination_token_values_not_idle(autopool: AutopoolConstants, missing_blocks: list[int]):
-    if not missing_blocks:
-        return []
-    destination_info_df = merge_tables_as_df(
+def _fetch_destination_token_addresses_df(autopool: AutopoolConstants) -> pd.DataFrame:
+    destination_address_info_df = merge_tables_as_df(
         selectors=[
             TableSelector(
                 AutopoolDestinations,
@@ -176,7 +209,7 @@ def _fetch_destination_token_values_not_idle(autopool: AutopoolConstants, missin
             ),
             TableSelector(
                 Destinations,
-                [Destinations.underlying, Destinations.pool, Destinations.denominated_in],
+                [Destinations.underlying, Destinations.pool, Destinations.denominated_in, Destinations.underlying_name],
                 join_on=AutopoolDestinations.destination_vault_address == Destinations.destination_vault_address,
             ),
             TableSelector(
@@ -193,22 +226,32 @@ def _fetch_destination_token_values_not_idle(autopool: AutopoolConstants, missin
         where_clause=(AutopoolDestinations.chain_id == autopool.chain.chain_id)
         & (Destinations.pool_type != "idle")
         & (AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr),
-    ).drop_duplicates()
-
-    destination_info_df["base_asset"] = autopool.base_asset
-    destination_info_df["base_asset_decimals"] = autopool.base_asset_decimals
-
-    token_spot_prices_and_reserves_df = _fetch_destination_token_value_data_from_external_source(
-        autopool.chain, destination_info_df, missing_blocks
     )
+    destination_address_info_df = (
+        destination_address_info_df.drop_duplicates()
+    )  # not certain drop duplicates is needed here
 
+    destination_address_info_df["base_asset"] = autopool.base_asset
+    destination_address_info_df["base_asset_decimals"] = autopool.base_asset_decimals
+
+    return destination_address_info_df
+
+
+def _extract_destination_token_values(
+    autopool: AutopoolConstants,
+    destination_address_info_df: pd.DataFrame,
+    token_spot_prices_and_reserves_df: pd.DataFrame,
+):
+    # I don't like this, redo the function
     new_destination_token_values_rows = []
 
-    unique_destination_info_df = destination_info_df[
-        ["destination_vault_address", "token_address", "pool", "index", "decimals", "denominated_in"]
+    unique_destination_info_df = destination_address_info_df[
+        ["destination_vault_address", "token_address", "pool", "index", "decimals", "denominated_in", "underlying_name"]
     ].drop_duplicates()
 
     def _extract_destination_token_values(row: dict) -> None:
+        if row["pool"] == "0x596192bB6e41802428Ac943D2f1476C1Af25CC0E":
+            pass
         token_spot_price_column = (row["pool"], row["token_address"], "spot_price")
         quantity_column = (row["destination_vault_address"], "underlyingReserves_amounts")
         token_address_column = (row["destination_vault_address"], "underlyingReserves_tokens")
@@ -247,6 +290,24 @@ def _fetch_destination_token_values_not_idle(autopool: AutopoolConstants, missin
         )
 
     unique_destination_info_df.apply(lambda row: _extract_destination_token_values(row), axis=1)
+
+    return new_destination_token_values_rows
+
+
+def _fetch_destination_token_values_not_idle(autopool: AutopoolConstants, missing_blocks: list[int]):
+    if not missing_blocks:
+        return []
+
+    destination_address_info_df = _fetch_destination_token_addresses_df(autopool)
+
+    token_spot_prices_and_reserves_df = _fetch_destination_token_value_data_from_external_source(
+        autopool.chain, destination_address_info_df, missing_blocks
+    )
+
+    new_destination_token_values_rows = _extract_destination_token_values(
+        autopool, destination_address_info_df, token_spot_prices_and_reserves_df
+    )
+    # as of June 28, this has the proper spot price and quantity for ezETH/WETH balancer
 
     return new_destination_token_values_rows
 
@@ -292,18 +353,13 @@ def _fetch_destination_token_values_idle(
 
 
 def _fetch_and_insert_destination_token_values(autopool: AutopoolConstants):
-    blocks_expected_to_have, dest_missing = _determine_what_blocks_are_needed(autopool)
-    idle_missing = get_subset_not_already_in_column(
-        DestinationTokenValues,
-        DestinationTokenValues.block,
-        blocks_expected_to_have,
-        where_clause=DestinationTokenValues.destination_vault_address == autopool.autopool_eth_addr,
-    )
-    if not dest_missing and not idle_missing:
+    missing_blocks = _determine_what_blocks_are_needed(autopool)
+
+    if not missing_blocks:
         return
 
-    new_destination_token_values_rows = _fetch_destination_token_values_not_idle(autopool, dest_missing)
-    idle_destination_token_values = _fetch_destination_token_values_idle(autopool, idle_missing)
+    new_destination_token_values_rows = _fetch_destination_token_values_not_idle(autopool, missing_blocks)
+    idle_destination_token_values = _fetch_destination_token_values_idle(autopool, missing_blocks)
 
     insert_avoid_conflicts(
         [*new_destination_token_values_rows, *idle_destination_token_values],

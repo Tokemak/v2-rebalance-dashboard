@@ -294,11 +294,8 @@ class TokenValues(Base):
     )
 
 
-# TODO not correct for idle
-# done
 class DestinationTokenValues(Base):
     __tablename__ = "destination_token_values"
-    # might need to have denominated in here as well
 
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
@@ -306,10 +303,11 @@ class DestinationTokenValues(Base):
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
     denominated_in: Mapped[str] = mapped_column(primary_key=True)
 
-    # the spot price of this token in this destination
+    # the spot price of this token in this destination, using our price oracle
     spot_price: Mapped[float] = mapped_column(nullable=True)
-    # the quantity of this token in this address at this pont
-    quantity: Mapped[float] = mapped_column(nullable=True)  # how many of this asset is in this pool.
+
+    # the quantity of this token in this pool at this point
+    quantity: Mapped[float] = mapped_column(nullable=True)
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),

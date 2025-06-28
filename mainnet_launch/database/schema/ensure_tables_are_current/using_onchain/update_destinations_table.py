@@ -169,7 +169,6 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
             DestinationVaultAdded = fetch_events(
                 autopool_vault_contract.events.DestinationVaultAdded,
                 start_block=autopool.block_deployed,
-                end_block=chain.client.eth.block_number,
                 chain=chain,
             )
             DestinationVaultAdded["autopool"] = autopool.autopool_eth_addr
