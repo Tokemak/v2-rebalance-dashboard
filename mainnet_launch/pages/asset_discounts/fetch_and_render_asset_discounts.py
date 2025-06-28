@@ -9,6 +9,7 @@ from mainnet_launch.database.schema.postgres_operations import *
 
 # consider this as a view
 def _fetch_autopool_dest_token_table(autopool: AutopoolConstants) -> pd.DataFrame:
+    # can be replaced by the view
     df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -126,22 +127,15 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
     )
 
     st.plotly_chart(
-        px.line(price_return_df.resample("1d").last(), title="Daily % Price Return 100 * (backing - safe) / safe "),
-        use_container_width=True,
-    )
-    st.plotly_chart(
         px.scatter(price_return_df, title="All Time % Price Return (backing - safe) / safe "), use_container_width=True
     )
-    st.plotly_chart(
-        px.line(safe_spot_spread_df.resample("1d").last(), title="Daily % 100 * (spot_price - safe) / safe"),
-        use_container_width=True,
-    )
+
     st.plotly_chart(
         px.scatter(safe_spot_spread_df, title="All Time % 100 * (spot_price - safe) / safe"),
         use_container_width=True,
     )
 
-    with st.expander("Safe Spot Bps Spread Descriptive Stats"):
+    with st.expander("(click here) Safe Spot Bps Spread Descriptive Stats"):
         filter_text = st.text_input("Filter By Readable Name:", "")
 
         mean_df, abs_mean_df, percentile_10_df, percentile_90_df = _compute_all_time_30_and_7_day_means(
@@ -150,7 +144,7 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
         st.markdown("10_000 * (spot - safe) / safe")
         st.markdown("Positive Means Spot > Safe")
         st.markdown("Negative Means Safe > Spot\n\n")
-        st.markdown("all values are in bps")
+        st.markdown("All values are in bps \n")
         st.markdown("Mean")
         st.dataframe(mean_df, use_container_width=True)
 
