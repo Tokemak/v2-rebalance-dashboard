@@ -18,7 +18,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     TableSelector,
 )
 
-from mainnet_launch.pages.autopool_exposure.allocation_over_time import _fetch_tvl_by_asset_and_destination
+from mainnet_launch.database.schema.views import fetch_autopool_destination_state_df
 
 
 def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFrame:
@@ -39,13 +39,10 @@ def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFra
                 join_on=(AutopoolStates.chain_id == Blocks.chain_id) & (AutopoolStates.block == Blocks.block),
             ),
         ],
-        where_clause=(AutopoolStates.block > autopool.block_deployed),
+        where_clause=(Blocks.datetime > autopool.start_display_date)
+        & (AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr),
         order_by=Blocks.datetime,
     )
-
-    # by doing the filtering here, instead of in sql, the data gets cached in streamlit
-    nav_per_share_df = nav_per_share_df[nav_per_share_df["autopool_vault_address"] == autopool.autopool_eth_addr].copy()
-    nav_per_share_df = nav_per_share_df[nav_per_share_df["datetime"] >= autopool.start_display_date].copy()
 
     nav_per_share_df = nav_per_share_df.set_index("datetime").resample("1d").last()
     nav_per_share_df.columns = [autopool.name, "NAV", "autopool_vault_address"]
@@ -66,13 +63,14 @@ def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFra
     return nav_per_share_df
 
 
-def fetch_key_metrics_data(autopool: AutopoolConstants):
-    nav_per_share_df = fetch_nav_per_share_and_total_nav(autopool)
-
-    destination_state_df = merge_tables_as_df(
+def fetch_destination_apr_state_df(autopool: AutopoolConstants) -> pd.DataFrame:
+    destination_apr_state_df = merge_tables_as_df(
         selectors=[
             TableSelector(
                 table=AutopoolDestinationStates,
+                select_fields=[
+                    AutopoolDestinationStates.owned_shares,
+                ],
             ),
             TableSelector(
                 table=Destinations,
@@ -114,28 +112,39 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         order="asc",
     )
 
-    destination_state_df["unweighted_expected_apr"] = 100 * destination_state_df[
+    destination_apr_state_df["unweighted_expected_apr"] = 100 * destination_apr_state_df[
         ["fee_apr", "base_apr", "incentive_apr", "fee_plus_base_apr"]
-    ].astype(float).fillna(
-        0
-    ).sum(  #
-        axis=1
-    )
-    destination_state_df["safe_tvl_by_destination"] = (
-        destination_state_df["lp_token_safe_price"] * destination_state_df["owned_shares"]
+    ].astype(float).fillna(0).sum(axis=1)
+    destination_apr_state_df["safe_tvl_by_destination"] = (
+        destination_apr_state_df["lp_token_safe_price"] * destination_apr_state_df["owned_shares"]
     )
 
-    destination_state_df["readable_name"] = destination_state_df.apply(
+    destination_apr_state_df["readable_name"] = destination_apr_state_df.apply(
         lambda row: f"{row['underlying_name']} ({row['exchange_name']})", axis=1
     )
 
-    # fluid is not scaled right, should be higher?
+    return destination_apr_state_df
+
+
+def fetch_key_metrics_data(autopool: AutopoolConstants):
+    nav_per_share_df = fetch_nav_per_share_and_total_nav(autopool)
+    destination_state_df = fetch_autopool_destination_state_df(autopool)
+
     safe_tvl_by_destination = (
-        destination_state_df.groupby(["datetime", "readable_name"])[["safe_tvl_by_destination"]]
+        destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_safe_value"]]
         .sum()
         .reset_index()
-        .pivot(values="safe_tvl_by_destination", index="datetime", columns="readable_name")
+        .pivot(values="autopool_implied_safe_value", index="datetime", columns="readable_name")
     )
+
+    backing_tvl_by_destination = (
+        destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_backing_value"]]
+        .sum()
+        .reset_index()
+        .pivot(values="autopool_implied_backing_value", index="datetime", columns="readable_name")
+    )
+
+    price_return_series = 100 * (backing_tvl_by_destination - safe_tvl_by_destination) / backing_tvl_by_destination
 
     total_safe_tvl_over_time = safe_tvl_by_destination.sum(axis=1)
     portion_allocation_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl_over_time, axis=0)
@@ -146,6 +155,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         .reset_index()
         .pivot(values="unweighted_expected_apr", index="datetime", columns="readable_name")
     )
+
     expected_return_series = (
         (max_apr_by_destination * portion_allocation_by_destination_df).sum(axis=1).resample("1d").last()
     )
@@ -159,35 +169,14 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         expected_return_series,
         portion_allocation_by_destination_df,
         highest_block_and_datetime,
+        price_return_series,
     )
-
-
-def _apply_default_style(fig: go.Figure) -> None:
-    fig.update_traces(line=dict(width=3))
-    fig.update_layout(
-        title_x=0.5,
-        margin=dict(l=40, r=40, t=40, b=80),
-        height=400,
-        width=800,
-        font=dict(size=16),
-        xaxis_title="",
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        xaxis=dict(showgrid=True, gridcolor="lightgray"),
-        yaxis=dict(showgrid=True, gridcolor="lightgray"),
-    )
-    return fig
-
-
-def _diffReturn(x: list):
-    if len(x) < 2:
-        return None  # Not enough elements to calculate difference
-    return round(x.iloc[-1] - x.iloc[-2], 4)
 
 
 def _compute_percent_deployed(
     portion_allocation_by_destination_df: pd.DataFrame, autopool: AutopoolConstants
 ) -> tuple[float, float]:
+
     idle_yesterday = portion_allocation_by_destination_df[f"{autopool.name} (tokemak)"].iloc[-2]
     idle_today = portion_allocation_by_destination_df[f"{autopool.name} (tokemak)"].iloc[-1]
     return round(100 - (100 * idle_today), 2), round(100 - (100 * idle_yesterday), 2)
@@ -230,7 +219,6 @@ def _render_top_level_stats(nav_per_share_df, expected_return_series, portion_al
         round(percent_deployed_today, 2),
         round(percent_deployed_today - percent_deployed_yesterday, 2),
     )
-    # might need to do this instead  # nav_per_share_fig.update_layout(yaxis_title="NAV Per Share")
 
 
 def _render_top_level_charts(
@@ -296,22 +284,6 @@ def _render_top_level_charts(
         st.plotly_chart(price_return_fig, use_container_width=True)
 
 
-def _fetch_price_return(autopool: AutopoolConstants):
-    safe_value_by_destination, safe_value_by_asset, backing_value_by_destination, quantity_by_asset = (
-        _fetch_tvl_by_asset_and_destination(autopool)
-    )
-
-    backing_value_by_destination = backing_value_by_destination.replace(0, np.nan)
-    safe_value_by_destination = safe_value_by_destination.replace(0, np.nan)
-
-    autopool_safe_value = safe_value_by_destination.sum(axis=1)
-    autopool_backing_value = backing_value_by_destination.sum(axis=1)
-
-    autopool_price_return = 100 * (autopool_backing_value - autopool_safe_value) / autopool_backing_value
-
-    return autopool_price_return
-
-
 def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
     (
         nav_per_share_df,
@@ -319,16 +291,15 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
         expected_return_series,
         portion_allocation_by_destination_df,
         highest_block_and_datetime,
+        price_return_series,
     ) = fetch_key_metrics_data(autopool)
 
     # autopool_price_return = 100 * (autopool_backing_value - autopool_safe_value) / autopool_backing_value
-    weighted_price_return_series = _fetch_price_return(autopool)
+    # weighted_price_return_series = _fetch_price_return(autopool)
 
     st.header(f"{autopool.name} Key Metrics")
     _render_top_level_stats(nav_per_share_df, expected_return_series, portion_allocation_by_destination_df, autopool)
-    _render_top_level_charts(
-        nav_per_share_df, autopool, total_nav_series, expected_return_series, weighted_price_return_series
-    )
+    _render_top_level_charts(nav_per_share_df, autopool, total_nav_series, expected_return_series, price_return_series)
 
     with st.expander("See explanation for Key Metrics"):
         st.write(
@@ -349,8 +320,30 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
     )
 
     memory_used = psutil.Process().memory_info().rss / (1024**2)
-
     st.write(f"Memory Usage: {memory_used:.2f} MB")
+
+
+def _apply_default_style(fig: go.Figure) -> None:
+    fig.update_traces(line=dict(width=3))
+    fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=80),
+        height=400,
+        width=800,
+        font=dict(size=16),
+        xaxis_title="",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        xaxis=dict(showgrid=True, gridcolor="lightgray"),
+        yaxis=dict(showgrid=True, gridcolor="lightgray"),
+    )
+    return fig
+
+
+def _diffReturn(x: list):
+    if len(x) < 2:
+        return None  # Not enough elements to calculate difference
+    return round(x.iloc[-1] - x.iloc[-2], 4)
 
 
 if __name__ == "__main__":
