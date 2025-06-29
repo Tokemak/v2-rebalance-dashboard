@@ -120,6 +120,7 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
         .pivot(index="datetime", columns="symbol", values="price_return")
     )
 
+    # this part is broken
     safe_spot_spread_df = (
         token_value_df[["datetime", "destination_readable_name", "safe_spot_spread"]]
         .drop_duplicates()
