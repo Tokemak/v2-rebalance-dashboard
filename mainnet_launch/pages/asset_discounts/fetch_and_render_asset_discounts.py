@@ -120,11 +120,20 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
         .pivot(index="datetime", columns="symbol", values="price_return")
     )
 
-    # this part is broken
+    # Balancer Aave USDC-Aave GHO (balancerV3)
+    # Balancer Aave GHO-USR (balancerV3)
+    # have tiny maybe rounding differences, not sure why, TODO
+    # might have to do with pricing as USDC instead of aUSDC?
+    # not certain
+    # figure out why later
+    # eg {-0.08380000000000054, -0.08369999999999767}
+    # {-0.03901209374906236, -0.03731156658563722}
+    # {0.010102899532167506, 0.010202928240409647}
+
     safe_spot_spread_df = (
         token_value_df[["datetime", "destination_readable_name", "safe_spot_spread"]]
         .drop_duplicates()
-        .pivot(index="datetime", columns="destination_readable_name", values="safe_spot_spread")
+        .pivot(index="datetime", columns="destination_readable_name", values="safe_spot_spread", aggfunc="first")
     )
 
     st.plotly_chart(
@@ -233,6 +242,7 @@ def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
     token_value_df["destination_readable_name"] = (
         token_value_df["symbol"] + "\t" + token_value_df["destination_readable_name"]
     )
+    return token_value_df
 
     _render_component_token_safe_price_and_backing(token_value_df)
 
