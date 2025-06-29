@@ -166,6 +166,7 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
             if autopool.chain != chain:
                 continue
             autopool_vault_contract = chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+
             DestinationVaultAdded = fetch_events(
                 autopool_vault_contract.events.DestinationVaultAdded,
                 start_block=autopool.block_deployed,

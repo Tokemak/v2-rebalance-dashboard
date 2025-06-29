@@ -257,7 +257,7 @@ def ensure_destination_states_from_rebalance_plan_are_current():
         all_new_token_values_rows = []
         all_destination_token_rows = []
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             futures = {executor.submit(_process_plan, path): path for path in plans_to_fetch}
             for fut in as_completed(futures):
                 new_destination_states_rows, new_token_values_rows, new_destination_token_values = fut.result()
@@ -301,9 +301,4 @@ def ensure_destination_states_from_rebalance_plan_are_current():
 
 
 if __name__ == "__main__":
-
     ensure_destination_states_from_rebalance_plan_are_current()
-
-    # from mainnet_launch.app.profiler import profile_function
-
-    # profile_function(update_destination_states_from_rebalance_plan)

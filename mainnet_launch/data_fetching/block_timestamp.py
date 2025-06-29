@@ -108,13 +108,21 @@ def get_block_by_timestamp_etherscan(unix_timestamp: int, chain: ChainData, clos
         for i in range(4):
             try:
                 resp = requests.get("https://api.etherscan.io/v2/api", params=params)
-                block = int(resp.json()["result"])
+                result = resp.json()["result"]
+                block = int(result)
+
+                # we get this error invalid literal for int() with base 10: 'Error! No closest block found'
+                # for a time 17 minutes ago on base
+                # maybe etherscan is not reliable here
+
                 return block
             except ValueError as e:
                 if i < 3:
                     time.sleep(1 + (2**i))
                 else:
-                    raise e
+                    # for when etherscan fails, when it shouldn't
+                    # try a timestamp before
+                    return get_block_by_timestamp_etherscan(unix_timestamp -1 , chain, closest)
 
 
 def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> None:

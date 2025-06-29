@@ -58,6 +58,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 
     if full_reset_and_refetch:
         drop_and_full_rebuild_db()
+
     time_taken = {}
     for func in [
         ensure_blocks_is_current,
@@ -80,7 +81,6 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     for k, v in time_taken.items():
         print(k, v)
 
-    # from 0
     # June 26 from  0
     # ensure_rebalance_events_are_current 0:07:53.975450
     # ensure_blocks_is_current 0:00:12.555990
@@ -94,8 +94,6 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     # ensure_token_values_are_current 0:00:26.729837
     # ensure_rebalance_plans_table_are_current 0:00:53.385648
     # ensure_rebalance_events_are_current 0:07:53.975450
-    #     # rebalance events
-
     # self contained parts add later
 
 

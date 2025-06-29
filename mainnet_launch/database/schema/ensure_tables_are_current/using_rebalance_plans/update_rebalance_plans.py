@@ -272,7 +272,7 @@ def ensure_rebalance_plans_table_are_current():
         all_rebalance_plan_rows = []
         all_dex_steps_rows = []
 
-        with ThreadPoolExecutor(max_workers=128) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             for new_rebalance_plan_row, new_dex_steps_rows in executor.map(_process_plan, plans_not_already_fetched):
                 all_rebalance_plan_rows.append(new_rebalance_plan_row)
                 all_dex_steps_rows.extend(new_dex_steps_rows)

@@ -80,7 +80,8 @@ def _recursive_helper_get_all_events_within_range(
 
     except (TimeoutError, ValueError, ReadTimeout, HTTPError, ChunkedEncodingError, ConnectionError) as e:
         if isinstance(e, ValueError) and e.args[0].get("code") != -32602:
-            # Re-raise non "Log response size exceeded" errors
+            print(start_block, end_block, event, str(e), type(e))
+            pass
             raise e
         # otherwise cut the blocks in half and try again
 
@@ -111,7 +112,15 @@ def fetch_events(
     """
     Collect every `event` between start_block and end_block into a DataFrame.
     """
-    end_block = chain.client.eth.block_number if end_block is None else end_block
+    # -100 is to make sure that the block is properly indexed for alchemy
+    # not totally certain this is the fix
+    # be we get this error when using the current block for base
+
+    # after 32222436 exists
+    # 32222436 <class 'web3._utils.datatypes.DestinationVaultAdded'>
+    # {'code': -32000, 'message': 'One of the blocks specified in filter (fromBlock, toBlock or blockHash) cannot be found.'} <class 'ValueError'>
+    # this gives all the events up to -100 blocks for the current
+    end_block = (chain.client.eth.block_number - 100) if end_block is None else end_block
 
     if end_block > start_block:
         clean_found_events = []

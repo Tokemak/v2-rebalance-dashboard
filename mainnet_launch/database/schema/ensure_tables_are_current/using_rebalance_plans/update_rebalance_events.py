@@ -172,7 +172,7 @@ def ensure_rebalance_events_are_current():
 def add_lp_token_safe_and_spot_prices(
     rebalance_event_df: pd.DataFrame,
     autopool: AutopoolConstants,
-    max_concurrent_fetches: int = 50,
+    max_concurrent_fetches: int = 1,
 ) -> list[RebalanceEvents]:
 
     destination_info_df = _load_destination_info_df(autopool)
@@ -220,7 +220,7 @@ def add_lp_token_safe_and_spot_prices(
 
     new_rebalance_event_rows: list[RebalanceEvents] = []
     rows = rebalance_event_df.to_dict("records")
-    with ThreadPoolExecutor(max_workers=max_concurrent_fetches) as executor:
+    with ThreadPoolExecutor(max_workers=1) as executor:
         futures = [executor.submit(_fetch_prices_and_build_rebalance_event, row) for row in rows]
         for future in as_completed(futures):
             new_rebalance_event_rows.append(future.result())
