@@ -135,19 +135,20 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         .sum()
         .reset_index()
         .pivot(values="autopool_implied_safe_value", index="datetime", columns="readable_name")
-    )
+    ).fillna(0)
 
     backing_tvl_by_destination = (
         destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_backing_value"]]
         .sum()
         .reset_index()
         .pivot(values="autopool_implied_backing_value", index="datetime", columns="readable_name")
-    )
+    ).fillna(0)
 
-    price_return_series = 100 * (backing_tvl_by_destination - safe_tvl_by_destination) / backing_tvl_by_destination
+    total_safe_tvl = safe_tvl_by_destination.sum(axis=1)
+    total_backing_tvl = backing_tvl_by_destination.sum(axis=1)
+    price_return_series = 100 * (total_backing_tvl - total_safe_tvl) / total_backing_tvl
 
-    total_safe_tvl_over_time = safe_tvl_by_destination.sum(axis=1)
-    portion_allocation_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl_over_time, axis=0)
+    portion_allocation_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl, axis=0)
 
     max_apr_by_destination = (
         destination_state_df.groupby(["datetime", "readable_name"])[["unweighted_expected_apr"]]
@@ -159,8 +160,8 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     expected_return_series = (
         (max_apr_by_destination * portion_allocation_by_destination_df).sum(axis=1).resample("1d").last()
     )
-    total_nav_series = nav_per_share_df["NAV"]
 
+    total_nav_series = nav_per_share_df["NAV"]
     highest_block_and_datetime = destination_state_df[["block", "datetime"]].iloc[-1]
 
     return (
@@ -349,7 +350,7 @@ def _diffReturn(x: list):
 if __name__ == "__main__":
     from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, AUTO_ETH, BASE_ETH, DINERO_ETH, AUTO_USD
 
-    fetch_and_render_key_metrics_data(AUTO_ETH)
+    fetch_and_render_key_metrics_data(BASE_ETH)
     from mainnet_launch.app.profiler import profile_function
 
     # fetch_and_render_key_metrics_data(AUTO_ETH)
