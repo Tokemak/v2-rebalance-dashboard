@@ -13,7 +13,7 @@ from mainnet_launch.database.schema.postgres_operations import (
 )
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, build_blocks_to_use
 
-from mainnet_launch.constants import ALL_CHAINS, ChainData
+from mainnet_launch.constants import ALL_CHAINS, ChainData, ETH_CHAIN
 
 
 def add_blocks_from_dataframe_to_database(df: pd.DataFrame):
@@ -122,7 +122,43 @@ def get_block_by_timestamp_etherscan(unix_timestamp: int, chain: ChainData, clos
                 else:
                     # for when etherscan fails, when it shouldn't
                     # try a timestamp before
-                    return get_block_by_timestamp_etherscan(unix_timestamp -1 , chain, closest)
+                    return get_block_by_timestamp_defi_llama(unix_timestamp, chain, closest)
+
+
+def get_block_by_timestamp_defi_llama(unix_timestamp: int, chain: ChainData, closest: str) -> int:
+    """
+    Fetch the block closest to the given UNIX timestamp using DeFi Llama.
+    If `closest=="before"`, returns the block at or immediately before the timestamp.
+    If `closest=="after"`, returns one greater than that block (i.e. the next block).
+    """
+    if chain == ETH_CHAIN:
+        chain_slug = "ethereum"
+    else:
+        chain_slug = chain.name
+
+    url = f"https://coins.llama.fi/block/{chain_slug}/{unix_timestamp}"
+
+    for attempt in range(4):
+        try:
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            height = int(data["height"])
+            # Llama always gives you the block ≤ timestamp,
+            # so bump for "after" semantics.
+            return height + 1 if closest == "after" else height
+        except (ValueError, KeyError) as e:
+            # JSON parse or missing key
+            if attempt < 3:
+                time.sleep(1 + 2**attempt)
+                continue
+            raise
+        except requests.RequestException:
+            # network/server error
+            if attempt < 3:
+                time.sleep(1 + 2**attempt)
+                continue
+            raise
 
 
 def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> None:

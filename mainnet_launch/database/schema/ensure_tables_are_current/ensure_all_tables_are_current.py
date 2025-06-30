@@ -104,7 +104,9 @@ def main():
 if __name__ == "__main__":
     main()
 
-
+#
+# ensure_database_is_current took 4802.3633 seconds.
+# 80 minutes from 0
 # TODOs
 
 # add after autoUSD
