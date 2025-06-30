@@ -100,26 +100,6 @@ def _fetch_token_values(
 
 def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame):
 
-    backing_df = (
-        token_value_df[["datetime", "symbol", "backing"]]
-        .drop_duplicates()
-        .pivot(index="datetime", columns="symbol", values="backing")
-        .resample("1d")
-        .last()
-    )
-    safe_price_df = (
-        token_value_df[["datetime", "symbol", "safe_price"]]
-        .drop_duplicates()
-        .pivot(index="datetime", columns="symbol", values="safe_price")
-        .resample("1d")
-        .last()
-    )
-    price_return_df = (
-        token_value_df[["datetime", "symbol", "price_return"]]
-        .drop_duplicates()
-        .pivot(index="datetime", columns="symbol", values="price_return")
-    )
-
     # Balancer Aave USDC-Aave GHO (balancerV3)
     # Balancer Aave GHO-USR (balancerV3)
     # have tiny maybe rounding differences, not sure why, TODO
@@ -130,14 +110,25 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
     # {-0.03901209374906236, -0.03731156658563722}
     # {0.010102899532167506, 0.010202928240409647}
 
-    safe_spot_spread_df = (
-        token_value_df[["datetime", "destination_readable_name", "safe_spot_spread"]]
+    price_return_df = (
+        token_value_df[["datetime", "symbol", "price_return"]]
         .drop_duplicates()
-        .pivot(index="datetime", columns="destination_readable_name", values="safe_spot_spread", aggfunc="first")
+        .pivot(index="datetime", columns="symbol", values="price_return")
     )
-
     st.plotly_chart(
         px.scatter(price_return_df, title="All Time % Price Return (backing - safe) / safe "), use_container_width=True
+    )
+
+    safe_spot_spread_df = (
+        token_value_df.groupby(
+            [
+                "datetime",
+                "token_destination_readable_name",
+            ]
+        )[["safe_spot_spread"]]
+        .first()
+        .reset_index()
+        .pivot(index="datetime", columns="token_destination_readable_name", values="safe_spot_spread")
     )
 
     st.plotly_chart(
@@ -147,9 +138,10 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
 
     with st.expander("(click here) Safe Spot Bps Spread Descriptive Stats"):
         filter_text = st.text_input("Filter By Readable Name:", "")
+        cols = [c for c in safe_spot_spread_df.columns if filter_text in c]
 
         mean_df, abs_mean_df, percentile_10_df, percentile_90_df = _compute_all_time_30_and_7_day_means(
-            token_value_df[token_value_df["destination_readable_name"].str.contains(filter_text, case=False, na=False)]
+            safe_spot_spread_df[cols]
         )
         st.markdown("10_000 * (spot - safe) / safe")
         st.markdown("Positive Means Spot > Safe")
@@ -167,24 +159,38 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
         st.markdown("Top 90th Percentile")
         st.dataframe(percentile_90_df, use_container_width=True)
 
-    st.plotly_chart(px.line(safe_price_df, title="Daily Safe Price"), use_container_width=True)
-    st.plotly_chart(px.line(backing_df, title="Daily Backing"), use_container_width=True)
-
-
-def _compute_all_time_30_and_7_day_means(token_value_df: pd.DataFrame):
-    safe_spot_spread_df = (
-        token_value_df[["datetime", "destination_readable_name", "safe_spot_spread"]]
+    backing_df = (
+        token_value_df[["datetime", "symbol", "backing"]]
         .drop_duplicates()
-        .pivot(index="datetime", columns="destination_readable_name", values="safe_spot_spread")
-    ) * 100
+        .pivot(index="datetime", columns="symbol", values="backing")
+    )
 
+    safe_price_df = (
+        token_value_df[["datetime", "symbol", "safe_price"]]
+        .drop_duplicates()
+        .pivot(index="datetime", columns="symbol", values="safe_price")
+    )
+
+    spot_price_df = (
+        token_value_df[["datetime", "token_destination_readable_name", "safe_price"]]
+        .drop_duplicates()
+        .pivot(index="datetime", columns="token_destination_readable_name", values="safe_price")
+    )
+
+    st.plotly_chart(px.line(spot_price_df, title="All Time Spot Price"), use_container_width=True)
+    st.plotly_chart(px.line(safe_price_df, title="All Time Safe Price"), use_container_width=True)
+    st.plotly_chart(px.line(backing_df, title="All Time Backing"), use_container_width=True)
+
+
+def _compute_all_time_30_and_7_day_means(safe_spot_spread_df: pd.DataFrame):
     latest = pd.Timestamp.utcnow()
-    last_30_days_df = safe_spot_spread_df.loc[safe_spot_spread_df.index >= latest - pd.Timedelta(days=30)]
-    last_7_days_df = safe_spot_spread_df.loc[safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)]
+    all_time_df = safe_spot_spread_df * 100
+    last_7_days_df = safe_spot_spread_df.loc[safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)] * 100
+    last_30_days_df = safe_spot_spread_df.loc[safe_spot_spread_df.index >= latest - pd.Timedelta(days=30)] * 100
 
     mean_df = pd.DataFrame(
         {
-            "Average (All Time)": safe_spot_spread_df.mean(),
+            "Average (All Time)": all_time_df.mean(),
             "Average (Last 30 Days)": last_30_days_df.mean(),
             "Average (Last 7 Days)": last_7_days_df.mean(),
         }
@@ -192,7 +198,7 @@ def _compute_all_time_30_and_7_day_means(token_value_df: pd.DataFrame):
 
     abs_mean_df = pd.DataFrame(
         {
-            "Absolute Average (All Time)": safe_spot_spread_df.abs().mean(),
+            "Absolute Average (All Time)": all_time_df.abs().mean(),
             "Absolute Average (Last 30 Days)": last_30_days_df.abs().mean(),
             "Absolute Average (Last 7 Days)": last_7_days_df.abs().mean(),
         }
@@ -200,7 +206,7 @@ def _compute_all_time_30_and_7_day_means(token_value_df: pd.DataFrame):
 
     percentile_10_df = pd.DataFrame(
         {
-            "10th Percentile (All Time)": safe_spot_spread_df.quantile(0.10),
+            "10th Percentile (All Time)": all_time_df.quantile(0.10),
             "10th Percentile (Last 30 Days)": last_30_days_df.quantile(0.10),
             "10th Percentile (Last 7 Days)": last_7_days_df.quantile(0.10),
         }
@@ -208,7 +214,7 @@ def _compute_all_time_30_and_7_day_means(token_value_df: pd.DataFrame):
 
     percentile_90_df = pd.DataFrame(
         {
-            "90th Percentile (All Time)": safe_spot_spread_df.quantile(0.90),
+            "90th Percentile (All Time)": all_time_df.quantile(0.90),
             "90th Percentile (Last 30 Days)": last_30_days_df.quantile(0.90),
             "90th Percentile (Last 7 Days)": last_7_days_df.quantile(0.90),
         }
@@ -239,10 +245,9 @@ def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
         autopool_destinations_df.set_index("destination_vault_address")["underlying_name"].to_dict()
     )
 
-    token_value_df["destination_readable_name"] = (
+    token_value_df["token_destination_readable_name"] = (
         token_value_df["symbol"] + "\t" + token_value_df["destination_readable_name"]
     )
-    return token_value_df
 
     _render_component_token_safe_price_and_backing(token_value_df)
 
