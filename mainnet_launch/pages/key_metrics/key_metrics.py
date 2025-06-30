@@ -162,7 +162,9 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     )
 
     total_nav_series = nav_per_share_df["NAV"]
-    highest_block_and_datetime = destination_state_df[["block", "datetime"]].iloc[-1]
+    highest_block_and_datetime = (
+        destination_state_df[["block", "datetime"]].sort_values("block", ascending=True).iloc[-1]
+    )
 
     return (
         nav_per_share_df,
