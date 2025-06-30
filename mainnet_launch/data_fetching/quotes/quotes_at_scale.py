@@ -56,16 +56,6 @@ async def fetch_swap_quote(
             data = await resp.json()
             data.update(payload)
             return data
-        # session = await get_session()
-        # async with session.post(url, json=payload) as resp:
-        #     try:
-        #         resp.raise_for_status()
-        #         data = await resp.json()
-        #         data.update(payload)
-        #     except Exception as e:
-        #         data = {"error": str(e), **payload}
-        #         raise e
-        return data
 
 
 async def fetch_quote_size_df(
