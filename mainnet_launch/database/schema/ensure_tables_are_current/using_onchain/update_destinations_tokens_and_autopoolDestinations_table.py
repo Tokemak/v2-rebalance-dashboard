@@ -3,7 +3,7 @@ from multicall import Call
 from web3 import Web3
 
 
-from mainnet_launch.constants import ChainData, ALL_CHAINS, ALL_AUTOPOOLS
+from mainnet_launch.constants import ChainData, ALL_CHAINS, ALL_AUTOPOOLS, WETH, USDC
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
 from mainnet_launch.data_fetching.get_events import fetch_events
@@ -235,11 +235,18 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
             index_elements=[Destinations.destination_vault_address, Destinations.chain_id],
         )
 
-        tokens = _fetch_token_rows(set([t.token_address for t in destination_tokens]), chain)
-        underlying_tokens = _fetch_token_rows(set([t.underlying for t in new_destination_rows]), chain)
+        tokens_addresses_to_get = [
+            *[t.token_address for t in destination_tokens],
+            *[t.underlying for t in new_destination_rows],
+            WETH(chain),
+            USDC(chain),
+        ]
+        new_token_rows = _fetch_token_rows(tokens_addresses_to_get, chain)
 
         insert_avoid_conflicts(
-            [*tokens, *underlying_tokens], Tokens, index_elements=[Tokens.token_address, Tokens.chain_id]
+            new_token_rows,
+            Tokens,
+            index_elements=[Tokens.token_address, Tokens.chain_id],
         )
 
         idle_destination_tokens = _make_idle_destination_tokens(chain)

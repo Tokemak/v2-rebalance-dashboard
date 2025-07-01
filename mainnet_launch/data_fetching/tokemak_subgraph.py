@@ -18,6 +18,10 @@ from web3 import Web3
 # https://subgraph.satsuma-prod.com/tokemak/v2-gen3-sonic-mainnet/playground
 
 
+class TokemakSubgraphError(Exception):
+    pass
+
+
 def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col: str) -> pd.DataFrame:
     """
     Helper to page through a GraphQL connection using `first`/`skip`.
@@ -26,6 +30,9 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
     all_records = []
     skip = 0
 
+    if ("$first" not in query) or ("$skip" not in query):
+        raise ValueError("")
+
     while True:
         vars_with_pagination = {**variables, "first": 500, "skip": skip}
         resp = requests.post(api_url, json={"query": query, "variables": vars_with_pagination})
@@ -33,9 +40,7 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
 
         response_json = resp.json()
         if "errors" in response_json:
-            pprint(response_json)
-            raise ValueError("Error fetching from tokemak subgraph")
-
+            raise TokemakSubgraphError("Query must contain `first` and `skip` variables" + "\n" + query)
         batch = response_json["data"][data_col]
 
         if not batch:
@@ -51,7 +56,6 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
 def _fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
     if autopool == SONIC_USD:
         api_url = f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet2/api"
-
     else:
         api_url = f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api"
 
@@ -159,3 +163,4 @@ if __name__ == "__main__":
     # print(df.columns)
 
     df = fetch_autopool_rebalance_events_from_subgraph(SONIC_USD)
+    pass

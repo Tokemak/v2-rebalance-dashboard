@@ -19,7 +19,6 @@ DB_FILE = DB_DIR / "autopool_dashboard.db"
 os.makedirs(SOLVER_REBALANCE_PLANS_DIR, exist_ok=True)
 os.makedirs(WORKING_DATA_DIR, exist_ok=True)
 
-
 eth_client = Web3(Web3.HTTPProvider(os.environ["ALCHEMY_URL"]))
 
 base_client = Web3(Web3.HTTPProvider(os.environ["ALCHEMY_URL"].replace("eth-mainnet", "base-mainnet")))
@@ -42,7 +41,7 @@ def _add_retry_get_block_number(
     retries: total attempts (including the first)
     backoff: initial sleep in seconds; doubles each retry
     """
-    original_fn = client.eth.get_block_number  # no-arg
+    original_fn = client.eth.get_block_number
 
     def get_block_number_with_retry() -> int:
         delay = backoff
@@ -55,11 +54,10 @@ def _add_retry_get_block_number(
                 time.sleep(delay)
                 delay *= 2
 
-    client.eth.get_block_number = get_block_number_with_retry  # type: ignore
+    client.eth.get_block_number = get_block_number_with_retry
 
 
-# make sure the chain ids are loaded as properties
-# to skip a failable rpc call
+# make sure the chain ids are loaded as properties to skip a failable rpc call
 
 eth_client.eth._chain_id = lambda: 1
 base_client.eth._chain_id = lambda: 8453

@@ -37,7 +37,7 @@ from mainnet_launch.constants import (
     ChainData,
     STATS_CALCULATOR_REGISTRY,
     WETH,
-    TokemakAddress,
+    SONIC_CHAIN,
     USDC,
     ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN,
     ALL_AUTOPOOLS_DATA_ON_CHAIN,
@@ -74,20 +74,15 @@ def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain:
     return blocks_to_fetch
 
 
-def _fetch_and_insert_new_token_values(autopools: list[AutopoolConstants], chain: ChainData):
-    needed_blocks = _determine_what_blocks_are_needed(autopools, chain)
+def _fetch_new_token_values_rows(blocks: list[int], tokens_orms: list[Tokens], chain: ChainData) -> list[TokenValues]:
+    """Returns the token safe price in USDC, and WETH for each to token in tokens_orms, and each block in blocks"""
 
-    if not needed_blocks:
-        return
-
-    all_tokens_orm: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
-
-    df = _fetch_safe_and_backing_values(needed_blocks, all_tokens_orm, chain)
+    df = _fetch_safe_and_backing_values(blocks, tokens_orms, chain)
 
     new_token_values_rows = []
 
     def _extract_token_values_by_row(row: dict):
-        for token in all_tokens_orm:
+        for token in tokens_orms:
             for denominated_in in [WETH(chain), USDC(chain)]:
 
                 backing = row.get((token.token_address, "backing"))
@@ -108,6 +103,17 @@ def _fetch_and_insert_new_token_values(autopools: list[AutopoolConstants], chain
                 new_token_values_rows.append(new_token_values_row)
 
     df.apply(_extract_token_values_by_row, axis=1)
+    return new_token_values_rows
+
+
+def _fetch_and_insert_new_token_values(autopools: list[AutopoolConstants], chain: ChainData):
+    needed_blocks = _determine_what_blocks_are_needed(autopools, chain)
+
+    if not needed_blocks:
+        return
+
+    tokens_orms: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
+    new_token_values_rows = _fetch_new_token_values_rows(needed_blocks, tokens_orms, chain)
 
     insert_avoid_conflicts(
         new_token_values_rows,
@@ -151,13 +157,17 @@ def _build_safe_price_calls(tokens: list[Tokens], chain: ChainData) -> list[Call
         )
         for t in tokens
     ]
-    # quote tokens for usdc on base might be 1e6
+
     return [*eth_safe_price_calls, *usdc_safe_price_calls]
 
 
 def _build_backing_calls(tokens: list[Tokens], chain: ChainData) -> list[Call]:
     # this is a self contained problem to make this more readable,
     # consider hardcoding it
+
+    if chain == SONIC_CHAIN:
+        # there are no calculators on sonic
+        return []
 
     stats_calculator_registry_contract = chain.client.eth.contract(
         STATS_CALCULATOR_REGISTRY(chain), abi=STATS_CALCULATOR_REGISTRY_ABI
@@ -206,6 +216,8 @@ def _build_backing_calls(tokens: list[Tokens], chain: ChainData) -> list[Call]:
 
 def _fetch_safe_and_backing_values(missing_blocks: list[int], tokens: list[Tokens], chain: ChainData) -> pd.DataFrame:
     calls = [*_build_safe_price_calls(tokens, chain), *_build_backing_calls(tokens, chain)]
+
+    state = get_state_by_one_block(calls, max(missing_blocks), chain)
     df = get_raw_state_by_blocks(calls, missing_blocks, chain, include_block_number=True)
     return df
 

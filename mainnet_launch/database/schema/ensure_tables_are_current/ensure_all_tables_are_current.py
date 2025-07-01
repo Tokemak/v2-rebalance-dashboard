@@ -13,7 +13,7 @@ from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_curren
 from mainnet_launch.constants import time_decorator
 
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_table import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_tokens_and_autopoolDestinations_table import (
     ensure__destinations__tokens__and__destination_tokens_are_current,
 )
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopools_table import (
