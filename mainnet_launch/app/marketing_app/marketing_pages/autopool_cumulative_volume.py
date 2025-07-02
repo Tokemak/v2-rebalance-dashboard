@@ -155,7 +155,7 @@ def fetch_and_render_cumulative_volume():
     latest_day = latest_day[cols]
     st.dataframe(latest_day)
 
-    latest_event_utc = raw_df.index.max()
+    latest_event_utc = raw_df["datetime"].max()
     readable = latest_event_utc.strftime("%B %d, %Y at %I:%M %p %Z")
 
     st.write(f"USD volume is current as of: **{readable}**")

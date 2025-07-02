@@ -1,7 +1,14 @@
 import subprocess
 import sys
 
+# needed for poetry scripts
+
 
 def app():
-    # forward any extra args on the end if you like
     subprocess.run(["streamlit", "run", "mainnet_launch/app/main.py", *sys.argv[1:]], check=True)
+
+
+def marketing_app():
+    subprocess.run(
+        ["streamlit", "run", "mainnet_launch/app/marketing_app/marketing_main.py", *sys.argv[1:]], check=True
+    )
