@@ -2,9 +2,7 @@ from multicall import Call
 import pandas as pd
 from web3 import Web3
 
-from mainnet_launch.data_fetching.get_state_by_block import (
-    get_raw_state_by_blocks,
-)
+from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, get_state_by_one_block
 from mainnet_launch.constants import LENS_CONTRACT, ChainData
 from mainnet_launch.database.schema.full import (
     Autopools,
@@ -262,100 +260,101 @@ def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks_add
     return autopool_to_all_ever_active_destinations
 
 
+def get_full_destination_pools_and_destinations_at_one_block(chain: ChainData, block: int) -> dict:
+    calls = [get_pools_and_destinations_call(chain)]
+    return get_state_by_one_block(calls, block, chain)["getPoolsAndDestinations"]
+
+
 if __name__ == "__main__":
 
     from mainnet_launch.constants import ETH_CHAIN, BASE_CHAIN
 
     df = fetch_pools_and_destinations_df(BASE_CHAIN, [31133925])
-    print(df.columns)
-
     data = df["getPoolsAndDestinations"].values[0]
-    from pprint import pprint
 
-    pprint(data)
 
-    pass
+# it might be simpler, to run the collect at this block?
 
-    # # Process and return results
+# # Process and return results
 
-    # struct Autopool {
-    #     address poolAddress;
-    #     string name;
-    #     string symbol;
-    #     bytes32 vaultType;
-    #     address baseAsset;
-    #     uint256 streamingFeeBps;
-    #     uint256 periodicFeeBps;
-    #     bool feeHighMarkEnabled;
-    #     bool feeSettingsIncomplete;
-    #     bool isShutdown;
-    #     IAutopool.VaultShutdownStatus shutdownStatus;
-    #     address rewarder;
-    #     address strategy;
-    #     uint256 totalSupply;
-    #     uint256 totalAssets;
-    #     uint256 totalIdle;
-    #     uint256 totalDebt;
-    #     uint256 navPerShare;
-    # }
+# struct Autopool {
+#     address poolAddress;
+#     string name;
+#     string symbol;
+#     bytes32 vaultType;
+#     address baseAsset;
+#     uint256 streamingFeeBps;
+#     uint256 periodicFeeBps;
+#     bool feeHighMarkEnabled;
+#     bool feeSettingsIncomplete;
+#     bool isShutdown;
+#     IAutopool.VaultShutdownStatus shutdownStatus;
+#     address rewarder;
+#     address strategy;
+#     uint256 totalSupply;
+#     uint256 totalAssets;
+#     uint256 totalIdle;
+#     uint256 totalDebt;
+#     uint256 navPerShare;
+# }
 
-    # struct RewardToken {
-    #     address tokenAddress;
-    # }
+# struct RewardToken {
+#     address tokenAddress;
+# }
 
-    # struct TokenAmount {
-    #     uint256 amount;
-    # }
+# struct TokenAmount {
+#     uint256 amount;
+# }
 
-    # struct UnderlyingTokenValueHeld {
-    #     uint256 valueHeldInEth;
-    # }
+# struct UnderlyingTokenValueHeld {
+#     uint256 valueHeldInEth;
+# }
 
-    # struct UnderlyingTokenAddress {
-    #     address tokenAddress;
-    # }
+# struct UnderlyingTokenAddress {
+#     address tokenAddress;
+# }
 
-    # struct UnderlyingTokenSymbol {
-    #     string symbol;
-    # }
+# struct UnderlyingTokenSymbol {
+#     string symbol;
+# }
 
-    # struct DestinationVault {
-    #     address vaultAddress;
-    #     string exchangeName;
-    #     uint256 totalSupply;
-    #     uint256 lastSnapshotTimestamp;
-    #     uint256 feeApr;
-    #     uint256 lastDebtReportTime;
-    #     uint256 minDebtValue;
-    #     uint256 maxDebtValue;
-    #     uint256 debtValueHeldByVault;
-    #     bool queuedForRemoval;
-    #     bool statsIncomplete;
-    #     bool isShutdown;
-    #     IDestinationVault.VaultShutdownStatus shutdownStatus;
-    #     uint256 autoPoolOwnsShares;
-    #     uint256 actualLPTotalSupply;
-    #     address dexPool;
-    #     address lpTokenAddress;
-    #     string lpTokenSymbol;
-    #     string lpTokenName;
-    #     uint256 statsSafeLPTotalSupply;
-    #     uint8 statsIncentiveCredits;
-    #     int256 compositeReturn;
-    #     RewardToken[] rewardsTokens;
-    #     UnderlyingTokenAddress[] underlyingTokens;
-    #     UnderlyingTokenSymbol[] underlyingTokenSymbols;
-    #     ILSTStats.LSTStatsData[] lstStatsData;
-    #     UnderlyingTokenValueHeld[] underlyingTokenValueHeld;
-    #     uint256[] reservesInEth;
-    #     uint40[] statsPeriodFinishForRewards;
-    #     uint256[] statsAnnualizedRewardAmounts;
-    # }
+# struct DestinationVault {
+#     address vaultAddress;
+#     string exchangeName;
+#     uint256 totalSupply;
+#     uint256 lastSnapshotTimestamp;
+#     uint256 feeApr;
+#     uint256 lastDebtReportTime;
+#     uint256 minDebtValue;
+#     uint256 maxDebtValue;
+#     uint256 debtValueHeldByVault;
+#     bool queuedForRemoval;
+#     bool statsIncomplete;
+#     bool isShutdown;
+#     IDestinationVault.VaultShutdownStatus shutdownStatus;
+#     uint256 autoPoolOwnsShares;
+#     uint256 actualLPTotalSupply;
+#     address dexPool;
+#     address lpTokenAddress;
+#     string lpTokenSymbol;
+#     string lpTokenName;
+#     uint256 statsSafeLPTotalSupply;
+#     uint8 statsIncentiveCredits;
+#     int256 compositeReturn;
+#     RewardToken[] rewardsTokens;
+#     UnderlyingTokenAddress[] underlyingTokens;
+#     UnderlyingTokenSymbol[] underlyingTokenSymbols;
+#     ILSTStats.LSTStatsData[] lstStatsData;
+#     UnderlyingTokenValueHeld[] underlyingTokenValueHeld;
+#     uint256[] reservesInEth;
+#     uint40[] statsPeriodFinishForRewards;
+#     uint256[] statsAnnualizedRewardAmounts;
+# }
 
-    # struct Autopools {
-    #     Autopool[] autoPools;
-    #     DestinationVault[][] destinations;
-    # }
+# struct Autopools {
+#     Autopool[] autoPools;
+#     DestinationVault[][] destinations;
+# }
 
 
 # if __name__ == "__main__":
