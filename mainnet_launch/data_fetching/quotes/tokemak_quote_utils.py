@@ -11,7 +11,7 @@ import numpy as np
 
 nest_asyncio.apply()
 
-_rate_limit = asyncio.Semaphore(10)
+_rate_limit = asyncio.Semaphore(50)
 
 
 async def fetch_swap_quote(
