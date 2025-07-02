@@ -28,6 +28,7 @@ async def fetch_swap_quote(
     timeout_ms: int = None,
     transfer_to_caller: bool = True,
 ) -> dict:
+    # todo add
 
     async with _rate_limit:
         url = "https://swaps-pricing.tokemaklabs.com/swap-quote-v2"
@@ -45,8 +46,13 @@ async def fetch_swap_quote(
             "timeoutMS": str(timeout_ms) if timeout_ms is not None else "",
             "transferToCaller": transfer_to_caller,
         }
-        async with session.post(url, json=payload) as resp:
-            resp.raise_for_status()
-            data = await resp.json()
-            data.update(payload)
-            return data
+        if sell_token.lower() == buy_token.lower():
+            return {"same_token": True, **payload}
+
+        else:
+            async with session.post(url, json=payload) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+                data.update(payload)
+                data["same_token"] = False
+                return data
