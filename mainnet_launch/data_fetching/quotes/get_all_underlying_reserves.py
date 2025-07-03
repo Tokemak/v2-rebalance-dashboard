@@ -20,11 +20,15 @@ def get_eth_value_by_destination_by_autopool(lens_contract_data: dict):
     for autopool_len_contract_data, list_of_destinations in zip(
         lens_contract_data["autopools"], lens_contract_data["destinations"]
     ):
-        autopool: AutopoolConstants = autopool_symbol_to_autopool_constant[autopool_len_contract_data["symbol"]]
-        for dest in list_of_destinations:
-            dest["autopool_base_asset_decimals"] = autopool.base_asset_decimals
-            dest["autopool_symbol"] = autopool.symbol
-            dests.append(dest)
+        if autopool_len_contract_data["symbol"] in autopool_symbol_to_autopool_constant:
+            autopool: AutopoolConstants = autopool_symbol_to_autopool_constant[autopool_len_contract_data["symbol"]]
+            for dest in list_of_destinations:
+                dest["autopool_base_asset_decimals"] = autopool.base_asset_decimals
+                dest["autopool_symbol"] = autopool.symbol
+                dests.append(dest)
+        else:
+            # skip autoS for now
+            pass
 
     return pd.DataFrame(dests)[
         ["vaultAddress", "autoPoolOwnsShares", "actualLPTotalSupply", "autopool_base_asset_decimals", "autopool_symbol"]

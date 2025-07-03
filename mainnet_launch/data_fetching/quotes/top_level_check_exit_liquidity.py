@@ -40,6 +40,10 @@ async def fetch_quotes(
             # selling 1 unit of the token is the reference point for slippage
             one_unit_of_sell_token = 10 ** token_to_decimals[sell_token_address]
             amounts_to_check.append(one_unit_of_sell_token)
+            amounts_to_check.append(0)  # see what happens at 0 price?
+            amounts_to_check.append(
+                one_unit_of_sell_token // 100_000
+            )  # see what happens at .0000001 (infintesimal) price?
 
             for scaled_sell_raw_amount in amounts_to_check:
                 task = fetch_swap_quote(
