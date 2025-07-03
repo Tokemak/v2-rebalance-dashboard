@@ -10,8 +10,9 @@ from mainnet_launch.database.schema.postgres_operations import get_full_table_as
 from mainnet_launch.data_fetching.quotes.tokemak_quote_utils import fetch_swap_quote
 
 
-# PORITONS = [round(0.1 * i, 1) for i in range(1, 11)]
-PORITONS = [round(0.2 * i, 1) for i in range(1, 6)]  # 20% chunks
+PORITONS = [round(0.05 * i, 1) for i in range(1, 21)]  # 5% chunks
+# PORITONS = [round(0.1 * i, 1) for i in range(1, 11)]  # 10% chunks
+# PORITONS = [round(0.2 * i, 1) for i in range(1, 6)]  # 20% chunks
 
 
 async def fetch_quotes(
@@ -38,12 +39,13 @@ async def fetch_quotes(
             amounts_to_check = [int(raw_amount * portion) for portion in PORITONS]
 
             # selling 1 unit of the token is the reference point for slippage
-            one_unit_of_sell_token = 10 ** token_to_decimals[sell_token_address]
-            amounts_to_check.append(one_unit_of_sell_token)
-            amounts_to_check.append(0)  # see what happens at 0 price?
-            amounts_to_check.append(
-                one_unit_of_sell_token // 100_000
-            )  # see what happens at .0000001 (infintesimal) price?
+            # one_unit_of_sell_token = 10 ** token_to_decimals[sell_token_address]
+            # amounts_to_check.append(one_unit_of_sell_token)
+            # both of these are noise
+            # amounts_to_check.append(0)  # see what happens at 0 price?
+            # amounts_to_check.append(
+            #     one_unit_of_sell_token // 100_000
+            # )  # see what happens at .0000001 (infintesimal) price?
 
             for scaled_sell_raw_amount in amounts_to_check:
                 task = fetch_swap_quote(
@@ -84,18 +86,26 @@ async def fetch_quotes(
 def compute_excess_slippage_from_size(quote_df: pd.DataFrame) -> pd.DataFrame:
 
     # todo add min_buy_amount_ratio
+
     slippage_df = quote_df.groupby(["symbol", "sell_amount_norm"])[["buy_amount_norm", "ratio"]].first().reset_index()
-    buy_token_ratio_at_sell_1_token = (
-        slippage_df[slippage_df["sell_amount_norm"] == 1][["symbol", "ratio"]].set_index("symbol").to_dict()["ratio"]
+
+    buy_token_ratio_at_smallest = (
+        slippage_df.groupby(["symbol", "ratio"])["sell_amount_norm"]
+        .min()
+        .reset_index()
+        .set_index("symbol")
+        .to_dict()["ratio"]
     )
+
     highest_sold_amount = slippage_df.groupby("symbol")["sell_amount_norm"].max().to_dict()
 
-    slippage_df["buy_token_ratio_at_one_token_sold"] = slippage_df["symbol"].map(buy_token_ratio_at_sell_1_token)
+    slippage_df["buy_token_ratio_at_smallest"] = slippage_df["symbol"].map(buy_token_ratio_at_smallest)
     slippage_df["highest_sold_amount"] = slippage_df["symbol"].map(highest_sold_amount)
+
     slippage_df["percent_sold"] = slippage_df.apply(
         lambda row: round(100 * row["sell_amount_norm"] / row["highest_sold_amount"], 2), axis=1
     )
-    slippage_df["bps_excess_loss_vs_1"] = slippage_df.apply(
-        lambda row: 10_000 * (row["buy_token_ratio_at_one_token_sold"] - row["ratio"]) / row["ratio"], axis=1
+    slippage_df["bps_loss_excess_vs_smallest"] = slippage_df.apply(
+        lambda row: 10_000 * (row["buy_token_ratio_at_smallest"] - row["ratio"]) / row["ratio"], axis=1
     )
     return slippage_df

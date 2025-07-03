@@ -38,7 +38,7 @@ def fetch_and_render_exit_liquidity_from_quotes(autopool: AutopoolConstants, out
         px.scatter(
             slippage_df,
             x="percent_sold",
-            y="bps_excess_loss_vs_1",
+            y="bps_loss_excess_vs_smallest",
             color="symbol",
             title="Excess slippage bps by % sold",
         )
@@ -47,7 +47,7 @@ def fetch_and_render_exit_liquidity_from_quotes(autopool: AutopoolConstants, out
         px.scatter(
             slippage_df,
             x="sell_amount_norm",
-            y="bps_excess_loss_vs_1",
+            y="bps_loss_excess_vs_smallest",
             color="symbol",
             title="Excess slippage bps by quantity sold",
         )
