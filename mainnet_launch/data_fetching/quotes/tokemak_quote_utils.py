@@ -1,13 +1,8 @@
 import aiohttp
 import asyncio
 import nest_asyncio
-import pandas as pd
 
-
-from mainnet_launch.constants import *
-from mainnet_launch.database.schema.full import *
-from mainnet_launch.database.schema.postgres_operations import *
-import numpy as np
+from mainnet_launch.constants import DEAD_ADDRESS
 
 nest_asyncio.apply()
 
@@ -28,8 +23,6 @@ async def fetch_swap_quote(
     timeout_ms: int = None,
     transfer_to_caller: bool = True,
 ) -> dict:
-    # todo add
-
     async with _rate_limit:
         url = "https://swaps-pricing.tokemaklabs.com/swap-quote-v2"
         payload = {
@@ -47,15 +40,15 @@ async def fetch_swap_quote(
             "transferToCaller": transfer_to_caller,
         }
         if sell_token.lower() == buy_token.lower():
-
-            # todo in this case, add what you need to
-            # buyMinAmount minAmount ... others
             return {"same_token": True, **payload, "buyAmount": int(sell_amount), "minBuyAmount": int(sell_amount)}
 
         else:
             async with session.post(url, json=payload) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-                data.update(payload)
-                data["same_token"] = False
-                return data
+                try:
+                    resp.raise_for_status()
+                    data = await resp.json()
+                    data.update(payload)
+                    data["same_token"] = False
+                    return data
+                except aiohttp.client_exceptions.ClientResponseError as e:
+                    return {"same_token": False, **payload, "buyAmount": None, "minBuyAmount": None}

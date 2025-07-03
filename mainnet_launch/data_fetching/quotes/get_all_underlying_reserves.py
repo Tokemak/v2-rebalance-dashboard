@@ -1,11 +1,16 @@
-from mainnet_launch.pages.autopool_diagnostics.lens_contract import *
-from mainnet_launch.data_fetching.get_state_by_block import *
-from mainnet_launch.database.schema.full import *
-from mainnet_launch.database.schema.postgres_operations import *
-from mainnet_launch.constants import *
+"""Get the reserves of an autopool at this block"""
 
-from pprint import pprint
 from web3 import Web3
+import pandas as pd
+from multicall import Call
+
+from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
+    get_full_destination_pools_and_destinations_at_one_block,
+)
+from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block, identity_with_bool_success
+from mainnet_launch.database.schema.full import Destinations, Tokens
+from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
+from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, AutopoolConstants, time_decorator
 
 
 def get_eth_value_by_destination_by_autopool(lens_contract_data: dict):
@@ -43,6 +48,7 @@ def get_underlying_reserves_by_block(lens_contract_df: pd.DataFrame, block: int,
     return acutal_reserves_state
 
 
+@time_decorator
 def fetch_raw_amounts_by_destination(block: int, chain: ChainData) -> pd.DataFrame:
     data = get_full_destination_pools_and_destinations_at_one_block(chain, block)
 
@@ -79,8 +85,13 @@ def fetch_raw_amounts_by_destination(block: int, chain: ChainData) -> pd.DataFra
     )
     reserve_token_ownership_df = pd.DataFrame.from_records(raw_base_token_value_by_destination)
 
-    token_df = get_full_table_as_df(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
+    balancer_tokens_df = get_full_table_as_df(
+        Tokens, where_clause=(Tokens.chain_id == chain.chain_id) & (Tokens.name.contains("Balancer"))
+    )
 
+    # exclude balancer pool tokens here
+    reserve_token_ownership_df = reserve_token_ownership_df[
+        ~reserve_token_ownership_df["token_address"].isin(balancer_tokens_df["token_address"])
+    ]
     reserve_token_ownership_df = reserve_token_ownership_df[reserve_token_ownership_df["reserve_amount"] > 0]
-
-    return lens_contract_df, reserve_token_ownership_df, token_df
+    return reserve_token_ownership_df
