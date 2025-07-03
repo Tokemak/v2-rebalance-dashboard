@@ -6,7 +6,9 @@ from mainnet_launch.constants import DEAD_ADDRESS
 
 nest_asyncio.apply()
 
-_rate_limit = asyncio.Semaphore(50)
+_rate_limit = asyncio.Semaphore(20)
+
+# maybe call 3 times and use median?
 
 
 async def fetch_swap_quote(
@@ -18,7 +20,7 @@ async def fetch_swap_quote(
     system_name: str = "gen3",
     slippage_bps: int = 50,
     include_sources: str = "",
-    exclude_sources: str = "Bebop",
+    exclude_sources: str = "Bebop",  # mabye exclude oods as well
     sell_all: bool = True,
     timeout_ms: int = None,
     transfer_to_caller: bool = True,

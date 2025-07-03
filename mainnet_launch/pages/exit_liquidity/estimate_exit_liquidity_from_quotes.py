@@ -83,12 +83,12 @@ if __name__ == "__main__":
     st.set_page_config(page_title="Exit Liquidity Explorer", layout="wide")
     st.title("Exit Liquidity Explorer")
 
-    # single output folder
     quotes_dir = Path("mainnet_launch/data_fetching/quotes/local_quote_data/")
 
-    # timestamp for filenames
     now = int(datetime.now().timestamp())
 
     for pool in ALL_AUTOPOOLS:
         st.header(pool.name)
         fetch_and_render_exit_liquidity_from_quotes(pool, quotes_dir, now)
+
+# streamlit run mainnet_launch/pages/exit_liquidity/estimate_exit_liquidity_from_quotes.py

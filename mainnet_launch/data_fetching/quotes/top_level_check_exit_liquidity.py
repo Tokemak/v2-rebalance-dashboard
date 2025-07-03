@@ -10,9 +10,13 @@ from mainnet_launch.database.schema.postgres_operations import get_full_table_as
 from mainnet_launch.data_fetching.quotes.tokemak_quote_utils import fetch_swap_quote
 
 
-PORITONS = [round(0.05 * i, 1) for i in range(1, 21)]  # 5% chunks
-# PORITONS = [round(0.1 * i, 1) for i in range(1, 11)]  # 10% chunks
+# PORITONS = [round(0.05 * i, 2) for i in range(1, 21)]  # 5% chunks
+PORITONS = [round(0.1 * i, 1) for i in range(1, 11)]  # 10% chunks
 # PORITONS = [round(0.2 * i, 1) for i in range(1, 6)]  # 20% chunks
+# stick with percents at the moment
+
+PORTIONS = [0.1, 0.25, 0.5, 1]
+# reliablity
 
 
 async def fetch_quotes(
@@ -31,12 +35,53 @@ async def fetch_quotes(
     start = datetime.now()
     tokens_df = get_full_table_as_df(Tokens, where_clause=Tokens.chain_id == autopool.chain.chain_id)
 
-    token_to_decimals = tokens_df.set_index("token_address")["decimals"].to_dict()
+    # token_to_decimals = tokens_df.set_index("token_address")["decimals"].to_dict()
 
     async with aiohttp.ClientSession() as session:
         tasks = []
         for sell_token_address, raw_amount in current_raw_balances.items():
+
+            # should be able to add
+
+            # user can put in threshold -> answer all the token that are a problem
+
+            # include a doc explain the assumptions
+
+            # dynamic coloring, as well
+
+            # if slippage > X -> then make the cell yellow
+
+            # maybe also show it as a table as well
+            # don't over crowd it
+
+            # run it 3 or 5 times,
+            # show variableity
+
+            # maybe percents, and 10k, 50k, 100k
             amounts_to_check = [int(raw_amount * portion) for portion in PORITONS]
+
+            # make sure that the median value does not change that much
+
+            # amounts_to_check.append(10_000 * 1e18)
+
+            # if (autopool.base_asset in USDC):
+            #     amounts_to_check.append(10_000e6)  #
+            # else:
+            #     amounts_to_check.append(5e18)
+
+            #
+            # maybe 5 to 1k ETH
+            # 10k to 1M USDC
+
+            # once a day do a sanity check of liquidity
+            # median value
+
+            # 5 eth
+            # 10k USDC
+            # put this at the top somewhere
+            # amounts_to_check.append(5e18)
+
+            # maybe drop the 3?,
 
             # selling 1 unit of the token is the reference point for slippage
             # one_unit_of_sell_token = 10 ** token_to_decimals[sell_token_address]
@@ -83,6 +128,9 @@ async def fetch_quotes(
     return quote_df, slippage_df
 
 
+# Todo make names clearer
+
+
 def compute_excess_slippage_from_size(quote_df: pd.DataFrame) -> pd.DataFrame:
 
     # todo add min_buy_amount_ratio
@@ -96,6 +144,8 @@ def compute_excess_slippage_from_size(quote_df: pd.DataFrame) -> pd.DataFrame:
         .set_index("symbol")
         .to_dict()["ratio"]
     )
+
+    # rename ratio to price, in terms of base asset
 
     highest_sold_amount = slippage_df.groupby("symbol")["sell_amount_norm"].max().to_dict()
 
