@@ -47,7 +47,10 @@ async def fetch_swap_quote(
             "transferToCaller": transfer_to_caller,
         }
         if sell_token.lower() == buy_token.lower():
-            return {"same_token": True, **payload}
+
+            # todo in this case, add what you need to
+            # buyMinAmount minAmount ... others
+            return {"same_token": True, **payload, "buyAmount": int(sell_amount), "minBuyAmount": int(sell_amount)}
 
         else:
             async with session.post(url, json=payload) as resp:

@@ -13,30 +13,9 @@ from mainnet_launch.database.schema.postgres_operations import get_full_table_as
 
 PORITONS = [round(0.1 * i, 1) for i in range(1, 11)]
 
-# PORITONS= [.1, 1]
+
 # also aggrerate by all autopools
 # eg add all the autopools themselves
-
-
-def get_current_primary_tokens_amounts(autopool: AutopoolConstants) -> dict[str, int]:
-    # stub hit the subgraph to get the info of quantity of primary assets by asset type
-    # weth, rETH
-    wstETH = "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
-    rETH = "0xae78736Cd615f374D3085123A210448E74Fc6393"
-    # WETH(ETH_CHAIN): 1000e18,
-    return {rETH: 5000e18, wstETH: 10000e18}
-
-    # return {wstETH: 1000e18}
-
-
-def fetch_token_details_df(autopool: AutopoolConstants, current_raw_balances: dict[str, int]) -> pd.DataFrame:
-    token_addresses = [k for k in current_raw_balances.keys()]
-
-    tokens_df = get_full_table_as_df(
-        Tokens, where_clause=((Tokens.chain_id == autopool.chain.chain_id) & Tokens.token_address.in_(token_addresses))
-    )
-
-    return tokens_df
 
 
 async def fetch_quotes(
@@ -53,7 +32,9 @@ async def fetch_quotes(
     This should be thought of as an approximation not an exact answer
     """
 
-    tokens_df = fetch_token_details_df(autopool, current_raw_balances)
+    tokens_df = tokens_df = get_full_table_as_df(
+        Tokens, where_clause=((Tokens.chain_id == autopool.chain.chain_id))
+    )
     token_to_decimals = tokens_df.set_index("token_address")["decimals"].to_dict()
 
     async with aiohttp.ClientSession() as session:
@@ -102,12 +83,13 @@ async def fetch_quotes(
     return quote_df
 
 
-async def main():
-    autopool = AUTO_LRT
-    current_raw_balances = get_current_primary_tokens_amounts(autopool)
-    quote_df = await fetch_quotes(autopool, current_raw_balances)
-    return quote_df
+# async def main():
+
+#     chain = BASE_CHAIN
+
+#     quote_df = await fetch_quotes(autopool, current_raw_balances)
+#     return quote_df
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# if __name__ == "__main__":
+#     asyncio.run(main())
