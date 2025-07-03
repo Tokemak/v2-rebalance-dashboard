@@ -32,9 +32,7 @@ async def fetch_quotes(
     This should be thought of as an approximation not an exact answer
     """
 
-    tokens_df = tokens_df = get_full_table_as_df(
-        Tokens, where_clause=((Tokens.chain_id == autopool.chain.chain_id))
-    )
+    tokens_df = tokens_df = get_full_table_as_df(Tokens, where_clause=((Tokens.chain_id == autopool.chain.chain_id)))
     token_to_decimals = tokens_df.set_index("token_address")["decimals"].to_dict()
 
     async with aiohttp.ClientSession() as session:
