@@ -84,37 +84,14 @@ def fetch_and_render_exit_liquidity_from_quotes(autopool: AutopoolConstants) -> 
         help="Computed slippage (bps_excess_loss_vs_1) for each token/percent-sold",
     )
 
-    # --- expanders to inspect dataframes ---
-    with st.expander("Show Quotes DataFrame"):
-        st.dataframe(quote_df, use_container_width=True)
-
-    with st.expander("Show Slippage DataFrame"):
-        st.dataframe(slippage_df, use_container_width=True)
-
-
-# todo
-# instant fixes
-
-# add sDOLA to autoDOLA, why is it not quoting?
-# it's the destinations
-
-# add on chron, save this data soemwhere
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import ALL_AUTOPOOLS
+    from mainnet_launch.constants import ALL_AUTOPOOLS, AUTO_ETH, AUTO_LRT
 
     st.set_page_config(page_title="Exit Liquidity Explorer", layout="wide")
-    st.title("🛒 Exit Liquidity Explorer")
+    st.title("Exit Liquidity Explorer")
 
-    # build a list of pool names for the dropdown
-    autopool_names = [a.name for a in ALL_AUTOPOOLS]
-    selected_name = st.selectbox("Select Autopool", autopool_names)
 
-    # find the matching AutopoolConstants object
-    selected_pool = next(a for a in ALL_AUTOPOOLS if a.name == selected_name)
-
-    if st.button("Fetch & Render"):
-        with st.spinner(f"Fetching data for {selected_name}…"):
-            fetch_and_render_exit_liquidity_from_quotes(selected_pool)
-    else:
-        st.info("Choose an autopool above and click **Fetch & Render** to see its slippage curves.")
+    for autopool in ALL_AUTOPOOLS:
+        st.header(autopool.name + " Exit Liqudity Quotes")
+        fetch_and_render_exit_liquidity_from_quotes(autopool)

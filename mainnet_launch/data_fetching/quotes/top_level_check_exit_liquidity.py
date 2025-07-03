@@ -80,7 +80,7 @@ async def fetch_quotes(
 def compute_excess_slippage_from_size(quote_df: pd.DataFrame) -> pd.DataFrame:
 
     # todo add min_buy_amount_ratio
-    slippage_df = quote_df.groupby(["symbol", "sell_amount_norm"])["ratio"].first().reset_index()
+    slippage_df = quote_df.groupby(["symbol", "sell_amount_norm"])[["buy_amount_norm", "ratio"]].first().reset_index()
     buy_token_ratio_at_sell_1_token = (
         slippage_df[slippage_df["sell_amount_norm"] == 1][["symbol", "ratio"]].set_index("symbol").to_dict()["ratio"]
     )
