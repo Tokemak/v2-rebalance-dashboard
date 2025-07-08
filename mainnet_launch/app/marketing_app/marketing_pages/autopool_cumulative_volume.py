@@ -162,7 +162,7 @@ def fetch_and_render_cumulative_volume():
 
     latest_event_utc = raw_df["datetime"].max().strftime("%B %d, %Y at %I:%M %p %Z")
 
-    st.write(f"USD volume is current as of: **{latest_event_utc}**")
+    st.write(f"USD volume is current as of: **{latest_event_utc}** UTC")
 
     st.download_button(
         label="Download raw data as CSV",
