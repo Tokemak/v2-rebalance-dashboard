@@ -13,6 +13,9 @@ from mainnet_launch.constants import *
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, safe_normalize_6_with_bool_success
 
 
+# TODO consider putting USD prices in to the database, so that it doesn't refetch them each time
+
+
 autopool_address_to_name = {a.autopool_eth_addr: a.name for a in ALL_AUTOPOOLS}
 
 
@@ -123,7 +126,8 @@ def fetch_all_time_cumulative_usd_volume() -> pd.DataFrame:
         for future in as_completed(futures):
             dfs.append(future.result())
 
-    raw_df = pd.concat(dfs, axis=0).reset_index().drop_duplicates()
+    raw_df = pd.concat(dfs, axis=0).reset_index()
+
     raw_df.drop(columns=["base_chain_ETH_to_USDC_price", "mainnet_ETH_TO_USDC_price"], inplace=True)
 
     volume_by_pool = raw_df.groupby(["datetime", "autopool_name"])["computed_usd_volume"].sum().reset_index()
