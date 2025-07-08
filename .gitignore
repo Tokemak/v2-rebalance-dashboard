@@ -4,6 +4,7 @@ __pycache__/
 .vscode/
 .venv/
 .pytest_cache/
+.DS_Store
 
 
 mainnet_launch/data_fetching/rebalance_plans/
