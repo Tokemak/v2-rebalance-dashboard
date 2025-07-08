@@ -52,7 +52,6 @@ def get_underlying_reserves_by_block(lens_contract_df: pd.DataFrame, block: int,
     return acutal_reserves_state
 
 
-@time_decorator
 def fetch_raw_amounts_by_destination(block: int, chain: ChainData) -> pd.DataFrame:
     data = get_full_destination_pools_and_destinations_at_one_block(chain, block)
 

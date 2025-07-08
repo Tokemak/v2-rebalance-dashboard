@@ -10,12 +10,15 @@ from mainnet_launch.database.schema.postgres_operations import get_full_table_as
 from mainnet_launch.data_fetching.quotes.tokemak_quote_utils import fetch_swap_quote
 
 
-PORTIONS_TO_CHECK = [0.1, 0.25, 0.5, 1]
 # PORTIONS_TO_CHECK = [0.1, 1]
+
+PORTIONS_TO_CHECK = [0.025, 0.05, 0.1, 0.25]
 
 
 async def fetch_quotes(
-    autopool: AutopoolConstants,
+    chain: ChainData,
+    base_asset: str,
+    base_asset_decimals: int,
     current_raw_balances: dict[str, int],
 ) -> pd.DataFrame:
     """
@@ -27,9 +30,8 @@ async def fetch_quotes(
 
     This should be thought of as an approximation not an exact answer.
     """
-    # run 5 times, take the median value
-    # keep amounts the same
-    tokens_df = get_full_table_as_df(Tokens, where_clause=Tokens.chain_id == autopool.chain.chain_id)
+
+    tokens_df = get_full_table_as_df(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
 
     token_to_decimals = tokens_df.set_index("token_address")["decimals"].to_dict()
 
@@ -41,12 +43,11 @@ async def fetch_quotes(
             for sell_token_address, raw_amount in current_raw_balances.items():
 
                 amounts_to_check = [int(raw_amount * portion) for portion in PORTIONS_TO_CHECK]
-                if autopool.base_asset in WETH:
-                    # normalized to decimals
+                if base_asset in WETH:
                     sell_token_to_reference_quantity[sell_token_address] = 5
                     # 5 rETH, stETH etc
                     amounts_to_check.append(5e18)
-                if (autopool.base_asset in USDC) or (autopool.base_asset in DOLA):
+                if (base_asset in USDC) or (base_asset in DOLA):
                     sell_token_decimals = token_to_decimals[sell_token_address]
                     reference_quantity = 10_000 * (10**sell_token_decimals)
                     sell_token_to_reference_quantity[sell_token_address] = 10_000
@@ -55,17 +56,19 @@ async def fetch_quotes(
                 for scaled_sell_raw_amount in amounts_to_check:
                     task = fetch_swap_quote(
                         session=session,
-                        chain_id=autopool.chain.chain_id,
+                        chain_id=chain.chain_id,
                         sell_token=sell_token_address,
-                        buy_token=autopool.base_asset,
+                        buy_token=base_asset,
                         sell_amount=scaled_sell_raw_amount,
                     )
                     tasks.append(task)
 
             quotes = await asyncio.gather(*tasks)
-            time.sleep(4)  # be pretty sure we get a new block
+            # ETh block time is 12 seconds, so
+            # 12 seconds + solver plan latency makes sure we get a new block
+            time.sleep(12)
             print(
-                f"Fetched {attempt=} {len(quotes)} quotes for {autopool.name} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                f"Fetched {attempt=} {len(quotes)} quotes for {chain.name} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             )
 
         all_quotes.extend(quotes)
@@ -73,12 +76,12 @@ async def fetch_quotes(
     quote_df = pd.DataFrame.from_records(all_quotes)
     quote_df = pd.merge(quote_df, tokens_df, how="left", left_on="sellToken", right_on="token_address")
     quote_df["buy_amount_norm"] = quote_df.apply(
-        lambda row: int(row["buyAmount"]) / (10**autopool.base_asset_decimals) if pd.notna(row["buyAmount"]) else None,
+        lambda row: int(row["buyAmount"]) / (10**base_asset_decimals) if pd.notna(row["buyAmount"]) else None,
         axis=1,
     )
     quote_df["min_buy_amount_norm"] = quote_df.apply(
         lambda row: (
-            int(row["minBuyAmount"]) / (10**autopool.base_asset_decimals) if pd.notna(row["minBuyAmount"]) else None
+            int(row["minBuyAmount"]) / (10**base_asset_decimals) if pd.notna(row["minBuyAmount"]) else None
         ),
         axis=1,
     )

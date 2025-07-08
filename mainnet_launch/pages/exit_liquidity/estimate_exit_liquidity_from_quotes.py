@@ -21,7 +21,6 @@ from mainnet_launch.data_fetching.quotes.top_level_check_exit_liquidity import f
 
 
 def fetch_and_render_exit_liquidity_from_quotes(autopool: AutopoolConstants, output_dir: Path, timestamp: str) -> None:
-    # 1) fetch data
     block = autopool.chain.client.eth.block_number
     reserve_df = fetch_raw_amounts_by_destination(block, autopool.chain)
     balances = (
@@ -36,43 +35,15 @@ def fetch_and_render_exit_liquidity_from_quotes(autopool: AutopoolConstants, out
             x="percent_sold",
             y="bps_loss_excess_vs_reference_price",
             color="symbol",
-            hover_data=["sell_amount_norm"],
+            hover_data={"sell_amount_norm": ":.2f"},
             title="Excess slippage bps by % sold",
         )
     )
-    # # 2) ensure quotes/ exists
-    # output_dir.mkdir(parents=True, exist_ok=True)
-
-    # 3) build timestamped filenames
-    # quote_path = output_dir / f"{autopool.name}_quotes_{timestamp}.csv"
-    # slip_path = output_dir / f"{autopool.name}_slippage_{timestamp}.csv"
-
-    # # 4) save CSVs
-    # quote_df.to_csv(quote_path, index=False)
-    # slippage_df.to_csv(slip_path, index=False)
-
-    # 5) render charts & download buttons
-    # st.subheader(f"{autopool.name} — files in `{output_dir.name}`")
-
-    # st.download_button(
-    #     label="📥 Download Quotes CSV",
-    #     data=quote_path.read_bytes(),
-    #     file_name=quote_path.name,
-    #     mime="text/csv",
-    #     help="Raw quote data",
-    # )
-    # st.download_button(
-    #     label="📥 Download Slippage CSV",
-    #     data=slip_path.read_bytes(),
-    #     file_name=slip_path.name,
-    #     mime="text/csv",
-    #     help="Computed slippage",
-    # )
 
 
 if __name__ == "__main__":
 
-    from mainnet_launch.constants import AUTO_LRT
+    from mainnet_launch.constants import *
 
     # Streamlit setup
     st.set_page_config(page_title="Exit Liquidity Explorer", layout="wide")
@@ -82,8 +53,12 @@ if __name__ == "__main__":
     now = int(datetime.now().timestamp())
 
     # fetch_and_render_exit_liquidity_from_quotes(AUTO_LRT, quotes_dir, now)
+
+    groups = []
+
+    for base_asset in [WETH, DOLA, USDC]:
+        for CHAIN
     
-    for pool in ALL_AUTOPOOLS:
         st.header(pool.name)
         fetch_and_render_exit_liquidity_from_quotes(pool, quotes_dir, now)
 

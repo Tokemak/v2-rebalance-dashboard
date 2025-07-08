@@ -6,7 +6,7 @@ from mainnet_launch.constants import DEAD_ADDRESS
 
 nest_asyncio.apply()
 
-_rate_limit = asyncio.Semaphore(20)
+_rate_limit = asyncio.Semaphore(5)
 
 # maybe call 3 times and use median?
 
