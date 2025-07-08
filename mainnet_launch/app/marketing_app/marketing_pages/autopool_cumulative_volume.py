@@ -166,7 +166,7 @@ def fetch_and_render_cumulative_volume():
 
     latest_event_utc = raw_df["datetime"].max().strftime("%B %d, %Y at %I:%M %p %Z")
 
-    st.write(f"USD volume is current as of: **{latest_event_utc}** UTC")
+    st.write(f"USD volume is current as of: **{latest_event_utc}**")
 
     st.download_button(
         label="Download raw data as CSV",
@@ -180,8 +180,8 @@ def fetch_and_render_cumulative_volume():
     with st.expander("Details"):
         st.markdown(
             """
-            - Rebalance events and size fetched from AutopoolRebalances.tokenOutValueInEth in the subgraph
-            - The safe price from WETH -> USDC from our RootPriceOracle on that chain at that block
+            - Rebalance events and size fetched from AutopoolRebalances.tokenOutValueInEth in the subgraph.
+            - The safe price from WETH -> USDC from our RootPriceOracle on that chain at that block.
             - Data is cached for 1 hour.
             """
         )
