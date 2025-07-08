@@ -33,3 +33,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# streamlit run mainnet_launch/app/marketing_app/marketing_main.py

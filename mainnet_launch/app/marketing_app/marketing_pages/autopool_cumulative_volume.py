@@ -65,7 +65,7 @@ def get_sonic_rebalance_volumne_df():
     if np.any(df["autopool_name"] != "sonicUSD"):
         raise ValueError("Need custom logic to get the Sonic `S` price to USDC")
 
-    df["computed_usd_volumne"] = df["tokenOutValueBaseAsset"].apply(lambda x: int(x) / 1e6)
+    df["computed_usd_volume"] = df["tokenOutValueBaseAsset"].apply(lambda x: int(x) / 1e6)
 
     return df.set_index("datetime").sort_index()
 
@@ -85,7 +85,7 @@ def get_mainnet_rebalance_volumne_df():
     base_weth_price_df = get_raw_state_by_blocks(calls, blocks, ETH_CHAIN, include_block_number=True)
     full_df = pd.merge(df, base_weth_price_df, on="block")
 
-    full_df["computed_usd_volumne"] = full_df["tokenOutValueInEth_norm"] * full_df["mainnet_ETH_TO_USDC_price"]
+    full_df["computed_usd_volume"] = full_df["tokenOutValueInEth_norm"] * full_df["mainnet_ETH_TO_USDC_price"]
     return full_df.set_index("datetime").sort_index()
 
 
@@ -105,16 +105,15 @@ def get_base_rebalance_volume_df():
     base_weth_price_df = get_raw_state_by_blocks(calls, blocks, BASE_CHAIN, include_block_number=True)
     full_df = pd.merge(df, base_weth_price_df, on="block")
 
-    full_df["computed_usd_volumne"] = full_df["tokenOutValueInEth_norm"] * full_df["base_chain_ETH_to_USDC_price"]
+    full_df["computed_usd_volume"] = full_df["tokenOutValueInEth_norm"] * full_df["base_chain_ETH_to_USDC_price"]
     return full_df.set_index("datetime").sort_index()
 
 
-@st.cache_data(ttl=60 * 60, show_spinner=False)  # save data for an hour
+@st.cache_data(ttl=60 * 60, show_spinner=False)
 def fetch_all_time_cumulative_usd_volume() -> pd.DataFrame:
     dfs = []
 
     with ThreadPoolExecutor(max_workers=3) as executor:
-        # submit returns Future objects
         futures = [
             executor.submit(get_base_rebalance_volume_df),
             executor.submit(get_mainnet_rebalance_volumne_df),
@@ -124,22 +123,26 @@ def fetch_all_time_cumulative_usd_volume() -> pd.DataFrame:
         for future in as_completed(futures):
             dfs.append(future.result())
 
-    raw_df = pd.concat(dfs, axis=0).reset_index()
+    raw_df = pd.concat(dfs, axis=0).reset_index().drop_duplicates()
+    raw_df.drop(columns=["base_chain_ETH_to_USDC_price", "mainnet_ETH_TO_USDC_price"], inplace=True)
 
-    volume_by_pool = raw_df.groupby(["datetime", "autopool_name"])["computed_usd_volumne"].sum().reset_index()
-
-    pivoted = (
-        volume_by_pool.pivot(index="datetime", columns="autopool_name", values="computed_usd_volumne")
-        .fillna(0)
-        .resample("1d")
-        .sum()
+    volume_by_pool = raw_df.groupby(["datetime", "autopool_name"])["computed_usd_volume"].sum().reset_index()
+    cumulaitive_volume_by_autopool = (
+        (
+            volume_by_pool.pivot(index="datetime", columns="autopool_name", values="computed_usd_volume")
+            .fillna(0)
+            .resample("1d")
+            .sum()
+        )
+        .sort_index()
+        .cumsum()
     )
-    cumulaitive_volume_by_autopool = pivoted.sort_index().cumsum()
+
     return cumulaitive_volume_by_autopool, raw_df
 
 
 def fetch_and_render_cumulative_volume():
-    with st.spinner("Loading cumulative volume from rebalance events (takes ~30s)…"):
+    with st.spinner("Loading cumulative volume from rebalance events (takes ~30s)"):
         cumulative_volumne_by_autopool, raw_df = fetch_all_time_cumulative_usd_volume()
 
     fig = px.bar(
@@ -152,27 +155,31 @@ def fetch_and_render_cumulative_volume():
     latest_day = cumulative_volumne_by_autopool.tail(1).copy().round()
     latest_day["Total"] = latest_day.sum(axis=1)
     cols = ["Total"] + [col for col in latest_day.columns if col != "Total"]
-    latest_day = latest_day[cols]
+    latest_day = latest_day[cols].T
+
+    latest_day.columns = ["Cumulative USD Volume"]
     st.dataframe(latest_day)
 
-    latest_event_utc = raw_df["datetime"].max()
-    readable = latest_event_utc.strftime("%B %d, %Y at %I:%M %p %Z")
+    latest_event_utc = raw_df["datetime"].max().strftime("%B %d, %Y at %I:%M %p %Z")
 
-    st.write(f"USD volume is current as of: **{readable}**")
-    csv_bytes = raw_df.to_csv(index=False).encode("utf-8")
+    st.write(f"USD volume is current as of: **{latest_event_utc}**")
+
     st.download_button(
         label="Download raw data as CSV",
-        data=csv_bytes,
+        data=raw_df.to_csv(index=False).encode("utf-8"),
         file_name="all_autopool_rebalance_events_with_usd_volume.csv",
         mime="text/csv",
     )
 
+    st.metric(label="Count of All Time Rebalance Events", value=f"{int(raw_df.shape[0])}")
+
     with st.expander("Details"):
         st.markdown(
             """
-        Looks at rebalance events from AutopoolRebalances.tokenOutValueInEth in the subgraph and the safe price in ETH from our oracle at that block.
-        Not setup for autoS yet
-          """
+            - Rebalance events and size fetched from AutopoolRebalances.tokenOutValueInEth in the subgraph
+            - The safe price from WETH -> USDC from our RootPriceOracle on that chain at that block
+            - Data is cached for 1 hour.
+            """
         )
 
 
