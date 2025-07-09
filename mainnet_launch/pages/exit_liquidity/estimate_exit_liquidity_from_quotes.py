@@ -19,7 +19,7 @@ from mainnet_launch.data_fetching.quotes.top_level_check_exit_liquidity import f
 # don't over crowd it
 
 
-@st.chache_data(ttl=5 * 60)  # cache for 5 minutes
+@st.cache_data(ttl=5 * 60)  # cache for 5 minutes
 def _fetch_quote_and_slippage_data(valid_autopools: tuple[AutopoolConstants]):
     a_valid_autopool = valid_autopools[0]
 
