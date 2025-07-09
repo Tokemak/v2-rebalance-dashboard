@@ -19,6 +19,7 @@ from mainnet_launch.data_fetching.quotes.top_level_check_exit_liquidity import f
 # don't over crowd it
 
 
+@st.chache_data(ttl=5 * 60)  # cache for 5 minutes
 def _fetch_quote_and_slippage_data(valid_autopools: tuple[AutopoolConstants]):
     a_valid_autopool = valid_autopools[0]
 
@@ -38,7 +39,6 @@ def _fetch_quote_and_slippage_data(valid_autopools: tuple[AutopoolConstants]):
 
 
 def _render_slippage_plots(slippage_df: pd.DataFrame) -> None:
-
     slippage_df_not_reference_price = slippage_df[
         slippage_df["reference_quantity"] != slippage_df["Sold Quantity"].astype(int)
     ]
@@ -51,7 +51,7 @@ def _render_slippage_plots(slippage_df: pd.DataFrame) -> None:
         .dropna(how="any")
     )
 
-    st.subheader("Excess Slippage (bps) by percent Sold")
+    st.subheader("Excess Slippage (bps) by Percent Sold")
     st.dataframe(pivot_df, use_container_width=True)
 
     st.plotly_chart(
@@ -158,7 +158,8 @@ Compute the reference price
 - Because there is latency between the quote requests, the quotes are for different blocks so they are not 1:1 comparable with each other. Treat them as directionally correct rather than exact.
 
 4. Known Issues
-If we are a large share of the pool (e.g. most of pxETH:ETH liquidity), the large-sale quotes can look artificially better because in the real world we would be effectively trading against ourselves.
+
+- If we are a large share of the pool (e.g. most of pxETH:ETH liquidity), the large-sale quotes can look artificially better because in the real world we would be effectively trading against ourselves.
 """
         )
 
