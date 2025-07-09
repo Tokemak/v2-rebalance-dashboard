@@ -1,0 +1,85 @@
+
+
+
+import requests
+import pandas as pd
+import os
+import requests
+from mainnet_launch.constants import ChainData, ETH_CHAIN
+
+API_URL = "https://v2-config.tokemaklabs.com/api/systems"
+
+
+def fetch_systems() -> list[dict]:
+    """Fetch the raw systems JSON (raises on HTTP errors)."""
+    resp = requests.get(API_URL)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def build_deployers_df(systems: list[dict]) -> pd.DataFrame:
+    """One row per deployer (chainId, deployer)."""
+    rows = []
+    for sys in systems:
+        cid = sys["chainId"]  # KeyError if missing
+        for deployer in sys["deployers"]:  # KeyError if missing
+            rows.append({"chainId": cid, "deployer": deployer})
+    return pd.DataFrame(rows)
+
+
+def build_keepers_df(systems: list[dict]) -> pd.DataFrame:
+    """One row per Chainlink keeper (chainId + keeper fields)."""
+    rows = []
+    for sys in systems:
+        cid = sys["chainId"]
+        for keeper in sys["chainlinkKeepers"]:  # KeyError if missing
+            keeper_row = {
+                "chainId": cid,
+                "name": keeper["name"],
+                "id": keeper["id"],
+                "url": keeper["url"],
+                "deprecated": keeper["deprecated"],
+            }
+            rows.append(keeper_row)
+    return pd.DataFrame(rows)
+
+
+def build_service_accounts_df(systems: list[dict]) -> pd.DataFrame:
+    """One row per service account (chainId + account fields)."""
+    rows = []
+    for sys in systems:
+        cid = sys["chainId"]
+        for acct in sys["serviceAccounts"]:  # KeyError if missing
+            acct_row = {
+                "chainId": cid,
+                "name": acct["name"],
+                "address": acct["address"],
+                "type": acct["type"],
+            }
+            rows.append(acct_row)
+    return pd.DataFrame(rows)
+
+
+def fetch_systems_df():
+    systems = fetch_systems()
+    deployers_df = build_deployers_df(systems)
+    chainlink_keepers_df = build_keepers_df(systems)
+    service_accounts_df = build_service_accounts_df(systems)
+    return deployers_df, chainlink_keepers_df, service_accounts_df
+
+
+
+# method, 
+def stub(addresses:str):
+
+    # select from_address, max(block) from transactions, groupby from_address
+    # where chain_id == 1
+    # and from_address in list_of_my_addresses_to_check
+    # 
+
+    eoa_to_last_block_with_transaction: dict[str, int] = {'0x1234': 1234}
+
+    
+
+
+deployers_df, chainlink_keepers_df, service_accounts_df = fetch_systems_df()
