@@ -15,6 +15,9 @@ import streamlit as st
 PORTIONS_TO_CHECK = [0.025, 0.05, 0.1, 0.25, 1]
 ATTEMPTS = 3
 
+STABLE_COINS_REFERENCE_QUANTITY = 10_000
+ETH_REFERENCE_QUANTITY = 5
+
 
 async def fetch_quotes(
     chain: ChainData,
@@ -41,14 +44,22 @@ async def fetch_quotes(
 
     token_to_decimals = tokens_df.set_index("token_address")["decimals"].to_dict()
 
-    for sell_token_address, raw_amount in current_raw_balances.items():
-        symbol = token_to_symbol[sell_token_address]
-        amount = raw_amount / (10 ** token_to_decimals[sell_token_address])
-        st.write(symbol, amount)
+    quanties = pd.DataFrame(
+        [
+            {"symbol": token_to_symbol[address], "amount": raw_amount / (10 ** token_to_decimals[address])}
+            for address, raw_amount in current_raw_balances.items()
+        ]
+    )
 
-    total_needed_quotes = len(current_raw_balances.keys()) * (len(PORTIONS_TO_CHECK) + 1) * ATTEMPTS
+    st.write("Token Exposure in Quantity Terms")
+    st.dataframe(quanties.set_index("symbol"))
 
-    # for some unkdnown reason it is not selling the max amount at 100%
+    if base_asset in WETH:
+        total_needed_quotes = len(current_raw_balances.keys()) * (len(PORTIONS_TO_CHECK) + 1) * ATTEMPTS
+    elif (base_asset in USDC) or (base_asset in DOLA):
+        # + 3 is for the constant stable coin amounts
+        total_needed_quotes = len(current_raw_balances.keys()) * (len(PORTIONS_TO_CHECK) + 1 + 3) * ATTEMPTS
+
     all_quotes = []
     progress_bar = st.progress(0.0, text=f"Fetching {total_needed_quotes} quotes...")
     async with aiohttp.ClientSession() as session:
@@ -59,19 +70,28 @@ async def fetch_quotes(
 
                 amounts_to_check = [int(raw_amount * portion) for portion in PORTIONS_TO_CHECK]
                 if base_asset in WETH:
-                    sell_token_to_reference_quantity[sell_token_address] = 5
-                    # 5 rETH, stETH etc
+                    sell_token_to_reference_quantity[sell_token_address] = ETH_REFERENCE_QUANTITY
                     amounts_to_check.append(5e18)
-                if (base_asset in USDC) or (base_asset in DOLA):
-                    sell_token_decimals = token_to_decimals[sell_token_address]
-                    reference_quantity = 10_000 * (10**sell_token_decimals)
-                    sell_token_to_reference_quantity[sell_token_address] = 10_000
+                elif (base_asset in USDC) or (base_asset in DOLA):
+                    reference_quantity = STABLE_COINS_REFERENCE_QUANTITY * (10 ** token_to_decimals[sell_token_address])
+                    sell_token_to_reference_quantity[sell_token_address] = STABLE_COINS_REFERENCE_QUANTITY
                     amounts_to_check.append(reference_quantity)
+
+                    # for stable coins also add these checks for constants
+                    for constant_stable_coin_amounts in [50_000, 100_000, 200_000]:
+                        amounts_to_check.append(
+                            constant_stable_coin_amounts * (10 ** token_to_decimals[sell_token_address])
+                        )
+                else:
+                    raise ValueError(
+                        f"{base_asset=} is not a stable coin or ETH, "
+                        f"so we cannot use it to compute the reference quantity for {sell_token_address}"
+                    )
 
                 for scaled_sell_raw_amount in amounts_to_check:
 
                     def make_rate_limited_fetch(session, chain_id, sell_token, buy_token, sell_amount):
-                        # needed to avoid
+                        # this inner function is needed to avoid
                         # RuntimeError:
                         # <asyncio.locks.Semaphore object at 0x12d65c250 [locked]> is bound to a different event loop
 
@@ -105,8 +125,8 @@ async def fetch_quotes(
 
             # ETh block time is 12 seconds, so
             # 12 seconds + solver plan latency makes sure we get a new block
-            # time.sleep(12)
-            # may add later
+            st.write(f"sleeping for {12 * (attempt + 1)} seconds to avoid rate limits")
+            time.sleep(12 * (attempt + 1))
 
     quote_df = pd.DataFrame.from_records(all_quotes)
     quote_df = pd.merge(quote_df, tokens_df, how="left", left_on="sellToken", right_on="token_address")

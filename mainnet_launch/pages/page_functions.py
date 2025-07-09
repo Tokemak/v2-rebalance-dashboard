@@ -40,6 +40,9 @@ from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts impor
     fetch_and_render_asset_discounts,
 )
 
+from mainnet_launch.pages.exit_liquidity.estimate_exit_liquidity_from_quotes import (
+    fetch_and_render_exit_liquidity_from_quotes,
+)
 
 # consider moving this elsewhere
 # TODO rename these top level functions. they don't fetch data externally just read from the database
@@ -51,6 +54,7 @@ CONTENT_FUNCTIONS = {
     "Rebalance Events": fetch_and_render_rebalance_events_data,
     "Asset Discounts": fetch_and_render_asset_discounts,
     "Solver Diagnostics": fetch_and_render_solver_diagnostics_data,
+    "Exit Liquidity Quotes": fetch_and_render_exit_liquidity_from_quotes,
     # "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
     # "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
     # "Expected and Actual Returns": fetch_and_render_actual_and_gross_and_projected_returns,
@@ -60,6 +64,5 @@ CONTENT_FUNCTIONS = {
     # "Asset Discounts": fetch_and_render_asset_oracle_and_backing,
 }
 
-PAGES_WITHOUT_AUTOPOOL = (
-    []
-)  # ["Gas Costs", "Incentive Token Prices", "Protocol Level Profit and Loss", "Asset Discounts"]
+PAGES_WITHOUT_AUTOPOOL = ["Exit Liquidity Quotes"]
+# ["Gas Costs", "Incentive Token Prices", "Protocol Level Profit and Loss", "Asset Discounts"]
