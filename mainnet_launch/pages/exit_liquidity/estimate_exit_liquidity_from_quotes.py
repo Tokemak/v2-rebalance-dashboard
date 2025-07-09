@@ -43,9 +43,13 @@ def _render_slippage_plots(slippage_df: pd.DataFrame) -> None:
         slippage_df["reference_quantity"] != slippage_df["Sold Quantity"].astype(int)
     ]
 
-    pivot_df = slippage_df_not_reference_price.pivot(
-        index="percent_sold", columns="symbol", values="bps_loss_excess_vs_reference_price"
-    ).sort_index().dropna(how='any')
+    pivot_df = (
+        slippage_df_not_reference_price.pivot(
+            index="percent_sold", columns="symbol", values="bps_loss_excess_vs_reference_price"
+        )
+        .sort_index()
+        .dropna(how="any")
+    )
 
     st.subheader("Excess Slippage (bps) by percent Sold")
     st.dataframe(pivot_df, use_container_width=True)
@@ -151,8 +155,10 @@ Compute the reference price
 
 - No data is saved: all data is fetched live each run.
 
+- Because there is latency between the quote requests, the quotes are for different blocks so they are not 1:1 comparable with each other. Treat them as directionally correct rather than exact.
+
 4. Known Issues
-If we are a large share of the pool (e.g. most of pxETH:ETH liquidity), the large-sale quote can look artificially better because in the real world we would be effectively trading against ourselves.
+If we are a large share of the pool (e.g. most of pxETH:ETH liquidity), the large-sale quotes can look artificially better because in the real world we would be effectively trading against ourselves.
 """
         )
 
