@@ -10,8 +10,6 @@ from mainnet_launch.database.schema.postgres_operations import get_full_table_as
 from mainnet_launch.data_fetching.quotes.tokemak_quote_utils import fetch_swap_quote
 import streamlit as st
 
-# PORTIONS_TO_CHECK = [0.1, 1]
-
 PORTIONS_TO_CHECK = [0.025, 0.05, 0.1, 0.25, 1]
 ATTEMPTS = 3
 
@@ -66,6 +64,9 @@ async def fetch_quotes(
         for attempt in range(ATTEMPTS):
             tasks = []
             sell_token_to_reference_quantity = {}
+            if attempt > 0:
+                st.write(f"sleeping for {12 * (attempt)} seconds to avoid rate limits")
+                time.sleep(12 * (attempt))
             for sell_token_address, raw_amount in current_raw_balances.items():
 
                 amounts_to_check = [int(raw_amount * portion) for portion in PORTIONS_TO_CHECK]
@@ -122,11 +123,6 @@ async def fetch_quotes(
                 portion_done = len(all_quotes) / total_needed_quotes
                 portion_done = 1 if portion_done > 1 else portion_done
                 progress_bar.progress(portion_done, text=f"Fetched quotes: {len(all_quotes)}/{total_needed_quotes}")
-
-            # ETh block time is 12 seconds, so
-            # 12 seconds + solver plan latency makes sure we get a new block
-            st.write(f"sleeping for {12 * (attempt + 1)} seconds to avoid rate limits")
-            time.sleep(12 * (attempt + 1))
 
     quote_df = pd.DataFrame.from_records(all_quotes)
     quote_df = pd.merge(quote_df, tokens_df, how="left", left_on="sellToken", right_on="token_address")

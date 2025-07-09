@@ -45,7 +45,9 @@ def _render_slippage_plots(slippage_df: pd.DataFrame) -> None:
 
     pivot_df = slippage_df_not_reference_price.pivot(
         index="percent_sold", columns="symbol", values="bps_loss_excess_vs_reference_price"
-    ).sort_index()
+    ).sort_index().dropna(how='any')
+
+    st.subheader("Excess Slippage (bps) by percent Sold")
     st.dataframe(pivot_df, use_container_width=True)
 
     st.plotly_chart(
@@ -61,7 +63,6 @@ def _render_slippage_plots(slippage_df: pd.DataFrame) -> None:
 
 
 def fetch_and_render_exit_liquidity_from_quotes() -> None:
-
     st.title("Exit Liquidity Quote Explorer")
     _render_methodology()
 
@@ -76,7 +77,7 @@ def fetch_and_render_exit_liquidity_from_quotes() -> None:
 
     options = list(chain_base_asset_groups.keys())
     selected_key = st.selectbox(
-        "Pick a chain & Base Asset:", options, format_func=lambda k: f"{k[0].name} chain → {k[1]}"
+        "Pick a Chain & Base Asset:", options, format_func=lambda k: f"{k[0].name} chain → {k[1]}"
     )
     if st.button("Fetch exit-liquidity quotes"):
         quote_df, slippage_df = _fetch_quote_and_slippage_data(chain_base_asset_groups[selected_key])
@@ -146,7 +147,7 @@ Compute the reference price
 
 - Deliberately slow: Because of various DEX-aggregator rate limits we need to be slower to avoid spurious 50-90 % “losses” on large sales.
 
-- Outlier mitigation: for each size, perform three quotes (with 12 s, 24 s, and 36 s delays) and report the median.
+- Outlier mitigation: for each size, perform three quotes (with 12s then and 24s delays) and report the median.
 
 - No data is saved: all data is fetched live each run.
 
