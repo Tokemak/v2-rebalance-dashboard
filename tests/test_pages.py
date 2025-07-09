@@ -121,7 +121,11 @@ def run_task_no_logging(page_name, func, autopool):
         pass
 
     try:
-        func(autopool)
+        if page_name in PAGES_WITHOUT_AUTOPOOL:
+            func()
+        else:
+            func(autopool)
+
     except Exception as e:
         open_log_in_vscode(TEST_LOG_FILE_NAME)
         log_and_time_function(page_name, func, autopool)

@@ -88,7 +88,7 @@ def _build_get_spot_price_in_eth_calls(chain: ChainData, destination_address_inf
     ]
 
 
-def _build_underlying_reserves_calls(destination_address_info_df: list[str]) -> list[Call]:
+def _build_underlying_reserves_calls(destination_address_info_df: pd.DataFrame) -> list[Call]:
     unique_destinations = destination_address_info_df["destination_vault_address"].unique()
     return [
         Call(
