@@ -72,7 +72,7 @@ class Transactions(Base):
 
     from_address: Mapped[str] = mapped_column(String(42), nullable=False)
     to_address: Mapped[str] = mapped_column(String(42), nullable=False)
-    effective_gas_price: Mapped[int] = mapped_column(BigInteger, nullable=False) # pretty sure this is just gas price
+    effective_gas_price: Mapped[int] = mapped_column(BigInteger, nullable=False)  # pretty sure this is just gas price
     gas_used: Mapped[int] = mapped_column(BigInteger, nullable=False)
     gas_cost_in_eth: Mapped[float] = mapped_column(nullable=False)  # gas_used * effective_gas_price
 

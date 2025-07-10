@@ -17,7 +17,7 @@ from mainnet_launch.database.schema.full import Transactions
 ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 
 
-def _get_outgoing_transactions(
+def _get_normal_transactions_from_etherscan(
     chain: ChainData,
     address: str,
     from_block: int,
@@ -60,12 +60,14 @@ def get_all_transactions_sent_by_eoa_address(
     from_block: int,
     to_block: int,
 ) -> pd.DataFrame:
-    """Use pagination to get *all* internal txns sent by `EOA_address`"""
+    """Use pagination to get *all* internal txns sent by `EOA_address` from Etherscan,
+    note, no concurrency, or rate limiting. Make sure to add it later"""
+
     all_txs: list[dict] = []
     page = 1
 
     while True:
-        txs, has_more = _get_outgoing_transactions(
+        txs, has_more = _get_normal_transactions_from_etherscan(
             chain=chain,
             address=EOA_address,
             from_block=from_block,
@@ -82,8 +84,10 @@ def get_all_transactions_sent_by_eoa_address(
 
         page += 1
 
-    # convert list of dicts into DataFrame
-    return pd.DataFrame(all_txs)
+    df = pd.DataFrame.from_records(all_txs)
+    # we only care about transactions sent by the EOA address
+    # the etherscan endpoint returns all normal transactions where the EOA is in the `to` or `from` field
+    return df[df["from"] == EOA_address].copy()
 
 
 if __name__ == "__main__":
