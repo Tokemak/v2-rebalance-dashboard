@@ -15,43 +15,56 @@ from mainnet_launch.database.schema.full import Transactions
 # the old API silently misbehaves
 
 ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
+ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
 
 
-def _get_normal_transactions_from_etherscan(
-    chain: ChainData,
-    address: str,
-    from_block: int,
-    to_block: int,
-    page: int,
-    offset: int = 1000,
-) -> tuple[list[dict], bool]:
+def _fetch_pages(chain: ChainData, address: str, start: int, end: int, offset: int = 1000):
     """
-    # I think this is to or from, not just from
-    Fetches up to `offset` internal txns sent *from* `address` between
-    `from_block` and `to_block` on chain via Etherscan.
-    Returns (tx_list, has_more) where `has_more` is True if we got a full page.
+    Fetch pages 1–10 for [start…end]. Returns (tx_list, hit_limit).
+    hit_limit==True if page 10 returned a full batch (i.e. you may have more).
     """
-    params = {
-        "module": "account",
-        "action": "txlist",
-        "chainid": chain.chain_id,
-        "address": address,
-        "startblock": from_block,
-        "endblock": to_block,
-        "page": page,
-        "offset": offset,
-        "sort": "asc",
-        "apikey": os.getenv("ETHERSCAN_API_KEY"),
-    }
+    txs = []
+    for page in range(1, 11):
+        params = {
+            "module": "account",
+            "action": "txlist",
+            "chainid": chain.chain_id,
+            "address": address,
+            "startblock": start,
+            "endblock": end,
+            "page": page,
+            "offset": offset,
+            "sort": "asc",
+            "apikey": ETHERSCAN_API_KEY,
+        }
+        resp = requests.get(ETHERSCAN_API_URL, params=params)
+        resp.raise_for_status()
+        batch = resp.json().get("result", [])
+        if not batch:
+            return txs, False
+        txs.extend(batch)
+        # if we got fewer than `offset`, we know there's no more in this window
+        if len(batch) < offset:
+            return txs, False
+    # if we made it through 10 full pages, we hit the 10 000 record cap
+    return txs, True
 
-    resp = requests.get(ETHERSCAN_API_URL, params=params)
-    resp.raise_for_status()
-    payload = resp.json()
 
-    txs = payload.get("result", [])
-    # if we received exactly `offset` entries, there *may* be more on next page
-    has_more = len(txs) == offset
-    return txs, has_more
+def _get_normal_transactions_from_etherscan_recursive(
+    chain: ChainData, address: str, start: int, end: int
+) -> list[dict]:
+    """
+    Recursively page through [start…end]. If you hit the 10 000‐-ecord cap,
+    advance start to the highest block seen +1 and recurse.
+    """
+    all_txs, hit_limit = _fetch_pages(chain, address, start, end)
+    if not hit_limit:
+        return all_txs
+
+    # We fetched 10 full pages => there are more transactions in [start…end]
+    max_block = max(int(tx["blockNumber"]) for tx in all_txs)
+    # Recurse from just past the highest block
+    return all_txs + _get_normal_transactions_from_etherscan_recursive(chain, address, max_block + 1, end)
 
 
 def get_all_transactions_sent_by_eoa_address(
@@ -63,31 +76,13 @@ def get_all_transactions_sent_by_eoa_address(
     """Use pagination to get *all* internal txns sent by `EOA_address` from Etherscan,
     note, no concurrency, or rate limiting. Make sure to add it later"""
 
-    all_txs: list[dict] = []
-    page = 1
-
-    while True:
-        txs, has_more = _get_normal_transactions_from_etherscan(
-            chain=chain,
-            address=EOA_address,
-            from_block=from_block,
-            to_block=to_block,
-            page=page,
-            offset=1000,
-        )
-        if not txs:
-            break
-
-        all_txs.extend(txs)
-        if not has_more:
-            break
-
-        page += 1
-
+    all_txs = _get_normal_transactions_from_etherscan_recursive(chain, EOA_address, from_block, to_block)
     df = pd.DataFrame.from_records(all_txs)
     # we only care about transactions sent by the EOA address
     # the etherscan endpoint returns all normal transactions where the EOA is in the `to` or `from` field
-    return df[df["from"] == EOA_address].copy()
+    df["from"] = df["from"].apply(lambda x: chain.client.toChecksumAddress(x))
+    df = df[df["from"] == chain.client.toChecksumAddress(EOA_address)].copy()
+    return df
 
 
 if __name__ == "__main__":

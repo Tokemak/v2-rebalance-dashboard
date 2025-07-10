@@ -2,20 +2,27 @@ import requests
 import pandas as pd
 import requests
 from mainnet_launch.constants import ChainData, ETH_CHAIN
+from mainnet_launch.database.schema.postgres_operations import simple_agg_by_one_table
+from mainnet_launch.database.schema.full import Transactions
+from mainnet_launch.data_fetching.get_transactions_etherscan import get_all_transactions_sent_by_eoa_address
+from web3 import Web3
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions import (
+    ensure_all_transactions_are_saved_in_db,
+)
 
 TOKEMAK_ADDRESSES_CONFIG_API_URL = "https://v2-config.tokemaklabs.com/api/systems"
 
 
-def build_deployers_df(systems: list[dict]) -> pd.DataFrame:
+def _extract_deployers_df(systems: list[dict]) -> pd.DataFrame:
     """One row per deployer (chainId, deployer)."""
     rows = []
     for sys in systems:
         for deployer in sys["deployers"]:
-            rows.append({"chain_id": int(sys["chainId"]), "deployer": deployer})
+            rows.append({"chain_id": int(sys["chainId"]), "deployer": Web3.toChecksumAddress(deployer)})
     return pd.DataFrame(rows)
 
 
-def build_keepers_df(systems: list[dict]) -> pd.DataFrame:
+def _extract_keepers_df(systems: list[dict]) -> pd.DataFrame:
     """One row per Chainlink keeper (chainId + keeper fields)."""
     rows = []
     for sys in systems:
@@ -31,7 +38,7 @@ def build_keepers_df(systems: list[dict]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def build_service_accounts_df(systems: list[dict]) -> pd.DataFrame:
+def _extract_service_accounts_df(systems: list[dict]) -> pd.DataFrame:
     """One row per service account (chainId + account fields)."""
     rows = []
     for sys in systems:
@@ -39,7 +46,7 @@ def build_service_accounts_df(systems: list[dict]) -> pd.DataFrame:
             acct_row = {
                 "chain_id": int(sys["chainId"]),
                 "name": acct["name"],
-                "address": acct["address"],
+                "address": Web3.toChecksumAddress(acct["address"]),
                 "type": acct["type"],
             }
             rows.append(acct_row)
@@ -50,21 +57,74 @@ def fetch_systems_df():
     resp = requests.get(TOKEMAK_ADDRESSES_CONFIG_API_URL)
     resp.raise_for_status()
     systems = resp.json()
-    deployers_df = build_deployers_df(systems)
-    chainlink_keepers_df = build_keepers_df(systems)
-    service_accounts_df = build_service_accounts_df(systems)
+    deployers_df = _extract_deployers_df(systems)
+    chainlink_keepers_df = _extract_keepers_df(systems)
+    service_accounts_df = _extract_service_accounts_df(systems)
     return deployers_df, chainlink_keepers_df, service_accounts_df
 
 
-# method,
-def stub(addresses: str):
-
-    # select from_address, max(block) from transactions, groupby from_address
-    # where chain_id == 1
-    # and from_address in list_of_my_addresses_to_check
-    #
-
-    eoa_to_last_block_with_transaction: dict[str, int] = {"0x1234": 1234}
+from time import sleep
 
 
-# deployers_df, chainlink_keepers_df, service_accounts_df = fetch_systems_df()
+def _get_highest_block_seen_from_from_address():
+    # I don't think that I do do this
+    # it can silently miss transactions iff we add a transaction to this later
+
+    highest_already_seen = (
+        simple_agg_by_one_table(
+            table=Transactions,
+            target_column=Transactions.block,
+            target_column_alias="max_block",
+            group_by_column=Transactions.from_address,
+            aggregation_function="MAX",
+            where_clause=Transactions.chain_id == ETH_CHAIN.chain_id,
+        )
+        .set_index("from_address")["max_block"]
+        .to_dict()
+    )
+    return highest_already_seen
+
+
+def _get_highest_block_seen_from_from_address():
+    from_address_to_hashes_already_saved = (
+        simple_agg_by_one_table(
+            table=Transactions,
+            target_column=Transactions.tx_hash,
+            target_column_alias="unique_tx_hashes",
+            group_by_column=Transactions.from_address,
+            aggregation_function="array_agg",
+            where_clause=Transactions.chain_id == ETH_CHAIN.chain_id,
+        )
+        .set_index("from_address")["unique_tx_hashes"]
+        .to_dict()
+    )
+
+    return from_address_to_hashes_already_saved
+
+
+def update_tokemake_EOA_gas_costs():
+    deployers_df, chainlink_keepers_df, service_accounts_df = fetch_systems_df()
+
+    for chain in [ETH_CHAIN]:
+        EOAs_we_want_to_track = set(
+            deployers_df[deployers_df["chain_id"] == chain.chain_id]["deployer"].tolist()
+            + service_accounts_df[service_accounts_df["chain_id"] == chain.chain_id]["address"].tolist()
+        )
+        data = {}
+
+        to_block = chain.client.eth.block_number
+        for EOA_address in EOAs_we_want_to_track:
+            # this should have a rate limiter of no more than 4/ second
+            etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
+                chain, EOA_address, from_block=0, to_block=to_block
+            )
+            data[EOA_address] = etherscan_tx_df
+            print(etherscan_tx_df.columns)
+            print(EOA_address, etherscan_tx_df.shape)
+
+            ensure_all_transactions_are_saved_in_db(etherscan_tx_df["hash"].tolist(), chain)
+            sleep(0.5)
+
+
+if __name__ == "__main__":
+    update_tokemake_EOA_gas_costs()

@@ -88,11 +88,14 @@ def merge_tables_as_df(
         return _exec_sql_and_cache(sql)
 
 
-@st.cache_data(ttl=60 * 60)
-def _exec_sql_and_cache(sql: str) -> pd.DataFrame:
+# @st.cache_data(ttl=60 * 60)
+def _exec_sql_and_cache(sql_plain_text: str) -> pd.DataFrame:
     """cached on just the SQL text"""
+    if not isinstance(sql_plain_text, str):
+        raise TypeError("sql_plain_text must be a string")
+
     with Session.begin() as session:
-        return pd.read_sql(text(sql), con=session.get_bind())
+        return pd.read_sql(text(sql_plain_text), con=session.get_bind())
 
 
 def insert_avoid_conflicts(
@@ -421,6 +424,34 @@ def set_some_cells_to_null(
         # this begin() opens a transaction and will commit on exit
         with conn.begin():
             conn.exec_driver_sql(sql_stmt, (tuple(pk_tuples),))
+
+
+def simple_agg_by_one_table(
+    table: Base,
+    target_column: InstrumentedAttribute,
+    target_column_alias: str,
+    group_by_column: InstrumentedAttribute,
+    aggregation_function: str,
+    where_clause: BooleanClauseList | None = None,
+) -> pd.DataFrame:
+    """
+    Run the “max block per from_address” query with an arbitrary WHERE clause.
+
+    :param where_clause: a SQL fragment, e.g. "chain_id = 1"
+    :returns: DataFrame(columns=['from_address', 'max_block'])
+    """
+
+    with Session.begin() as session:
+        where_sql = _where_clause_to_string(where_clause, session)
+        sql = f"""
+            SELECT
+            {group_by_column.key},
+            {aggregation_function}({target_column.key}) as {target_column_alias}
+            FROM {table.__tablename__}
+            {where_sql}
+            GROUP BY {group_by_column.key}
+        """
+        return _exec_sql_and_cache(sql)
 
 
 if __name__ == "__main__":
