@@ -1,3 +1,6 @@
+# DEPRECATED: This file is not referenced by any other file in the codebase
+# It contains unused functions and can be safely removed
+
 import requests
 import json
 import numpy as np

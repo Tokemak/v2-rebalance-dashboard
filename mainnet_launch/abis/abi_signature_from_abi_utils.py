@@ -1,3 +1,6 @@
+# DEPRECATED: This file is not referenced by any other file in the codebase
+# It contains unused utility functions and can be safely removed
+
 def parse_type(param):
     """Recursively parse types, handling nested structs and arrays."""
     if param["type"] == "tuple":
