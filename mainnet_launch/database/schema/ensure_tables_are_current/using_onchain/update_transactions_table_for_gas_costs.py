@@ -1,20 +1,9 @@
-
-
-
 import requests
 import pandas as pd
-import os
 import requests
 from mainnet_launch.constants import ChainData, ETH_CHAIN
 
-API_URL = "https://v2-config.tokemaklabs.com/api/systems"
-
-
-def fetch_systems() -> list[dict]:
-    """Fetch the raw systems JSON (raises on HTTP errors)."""
-    resp = requests.get(API_URL)
-    resp.raise_for_status()
-    return resp.json()
+TOKEMAK_ADDRESSES_CONFIG_API_URL = "https://v2-config.tokemaklabs.com/api/systems"
 
 
 def build_deployers_df(systems: list[dict]) -> pd.DataFrame:
@@ -61,25 +50,24 @@ def build_service_accounts_df(systems: list[dict]) -> pd.DataFrame:
 
 
 def fetch_systems_df():
-    systems = fetch_systems()
+    resp = requests.get(TOKEMAK_ADDRESSES_CONFIG_API_URL)
+    resp.raise_for_status()
+    systems = resp.json()
     deployers_df = build_deployers_df(systems)
     chainlink_keepers_df = build_keepers_df(systems)
     service_accounts_df = build_service_accounts_df(systems)
     return deployers_df, chainlink_keepers_df, service_accounts_df
 
 
-
-# method, 
-def stub(addresses:str):
+# method,
+def stub(addresses: str):
 
     # select from_address, max(block) from transactions, groupby from_address
     # where chain_id == 1
     # and from_address in list_of_my_addresses_to_check
-    # 
+    #
 
-    eoa_to_last_block_with_transaction: dict[str, int] = {'0x1234': 1234}
-
-    
+    eoa_to_last_block_with_transaction: dict[str, int] = {"0x1234": 1234}
 
 
 deployers_df, chainlink_keepers_df, service_accounts_df = fetch_systems_df()

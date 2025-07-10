@@ -4,14 +4,15 @@ import os
 import requests
 import pandas as pd
 from mainnet_launch.constants import ChainData
+from mainnet_launch.database.schema.full import Transactions
 
-# note for etherscan you need to use the v2 endpoint
+# note for Etherscan you need to use the v2 endpoint
 # ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 
 # not
+
 # ETHERSCAN_API_URL = "https://api.etherscan.io/api"
 # the old API silently misbehaves
-
 
 ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
@@ -46,7 +47,6 @@ def get_outgoing_transactions(
     resp = requests.get(ETHERSCAN_API_URL, params=params)
     resp.raise_for_status()
     payload = resp.json()
-
 
     txs = payload.get("result", [])
     # if we received exactly `offset` entries, there *may* be more on next page
@@ -86,12 +86,28 @@ def get_all_transactions_sent_by_eoa_address(
     # convert list of dicts into DataFrame
     return pd.DataFrame(all_txs)
 
+def convert_etherscan_normal_transactions_to_transactions_orm(chain:ChainData, transactions_df:pd.DataFrame) -> list[Transactions]:
 
-# — example usage —
-mainnet_deployer = "0x123cC4AFA59160C6328C0152cf333343F510e5A3"
+    def _row_to_transction_object(row:pd.Series) -> Transactions:
+        return Transactions(
+            tx_hash=row['hash'
+        )
+    pass
 
-from mainnet_launch.constants import ETH_CHAIN
 
-tx_df = get_all_transactions_sent_by_eoa_address(
-    ETH_CHAIN, mainnet_deployer, from_block=20638356 - 100, to_block=22884434
-)
+
+
+if __name__ == '__main__':
+
+
+    # — example usage —
+    mainnet_deployer = "0x123cC4AFA59160C6328C0152cf333343F510e5A3"
+
+    from mainnet_launch.constants import ETH_CHAIN
+
+    tx_df = get_all_transactions_sent_by_eoa_address(
+        ETH_CHAIN, mainnet_deployer, from_block=20638356 - 100, to_block=22884434
+    )
+    print(tx_df.columns)
+
+    print(tx_df.head())
