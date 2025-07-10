@@ -4,7 +4,7 @@ import numpy as np
 from web3 import Web3
 from mainnet_launch.constants import ChainData
 
-
+# not used
 def batch_get_to_address_by_transaction_hash(tx_hashes: list[str], chain: ChainData) -> dict[str, str]:
     # returns a diction of txHash:toAddress
     # there can be no more than 1000 batch request per call

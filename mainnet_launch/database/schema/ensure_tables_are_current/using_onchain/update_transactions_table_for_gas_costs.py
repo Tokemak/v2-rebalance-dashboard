@@ -10,9 +10,8 @@ def build_deployers_df(systems: list[dict]) -> pd.DataFrame:
     """One row per deployer (chainId, deployer)."""
     rows = []
     for sys in systems:
-        cid = sys["chainId"]  # KeyError if missing
-        for deployer in sys["deployers"]:  # KeyError if missing
-            rows.append({"chainId": cid, "deployer": deployer})
+        for deployer in sys["deployers"]:
+            rows.append({"chain_id": int(sys["chainId"]), "deployer": deployer})
     return pd.DataFrame(rows)
 
 
@@ -20,10 +19,9 @@ def build_keepers_df(systems: list[dict]) -> pd.DataFrame:
     """One row per Chainlink keeper (chainId + keeper fields)."""
     rows = []
     for sys in systems:
-        cid = sys["chainId"]
-        for keeper in sys["chainlinkKeepers"]:  # KeyError if missing
+        for keeper in sys["chainlinkKeepers"]:
             keeper_row = {
-                "chainId": cid,
+                "chain_id": int(sys["chainId"]),
                 "name": keeper["name"],
                 "id": keeper["id"],
                 "url": keeper["url"],
@@ -37,10 +35,9 @@ def build_service_accounts_df(systems: list[dict]) -> pd.DataFrame:
     """One row per service account (chainId + account fields)."""
     rows = []
     for sys in systems:
-        cid = sys["chainId"]
-        for acct in sys["serviceAccounts"]:  # KeyError if missing
+        for acct in sys["serviceAccounts"]:
             acct_row = {
-                "chainId": cid,
+                "chain_id": int(sys["chainId"]),
                 "name": acct["name"],
                 "address": acct["address"],
                 "type": acct["type"],
@@ -70,4 +67,4 @@ def stub(addresses: str):
     eoa_to_last_block_with_transaction: dict[str, int] = {"0x1234": 1234}
 
 
-deployers_df, chainlink_keepers_df, service_accounts_df = fetch_systems_df()
+# deployers_df, chainlink_keepers_df, service_accounts_df = fetch_systems_df()

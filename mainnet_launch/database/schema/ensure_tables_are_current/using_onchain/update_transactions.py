@@ -26,7 +26,7 @@ def _fetch_new_transaction_row(tx_hash: str, chain: ChainData) -> Transactions:
         gas_cost_in_eth=(tx_receipt["gasUsed"] * tx_receipt["effectiveGasPrice"]) / 1e18,
     )
 
-
+# way to slow
 def _fetch_all_new_transaction_records(tx_hashes: list[str], chain: ChainData) -> list[Transactions]:
     new_transactions_records: list[Transactions] = []
     hashes_to_fetch = get_subset_not_already_in_column(
