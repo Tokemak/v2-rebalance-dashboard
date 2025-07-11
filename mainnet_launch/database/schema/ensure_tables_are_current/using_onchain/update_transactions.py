@@ -66,13 +66,22 @@ def fetch_transaction_rows_bulk_from_alchemy(tx_hashes: list[str], chain: ChainD
             gas_used = hex_to_int(tx["gasUsed"])
             effective_gas_price = hex_to_int(tx["effectiveGasPrice"])
 
+            to_address = tx["to"]
+            if to_address is None:
+                # here a dead address means a contract creation transaction
+                # alchemy returns None for contract creation transactions
+                # for the 'to field
+                to_address = DEAD_ADDRESS
+            else:
+                to_address = chain.client.toChecksumAddress(to_address)
+
+            from_address = chain.client.toChecksumAddress(tx["from"])
             return Transactions(
                 tx_hash=tx["transactionHash"],
                 block=hex_to_int(tx["blockNumber"]),
                 chain_id=chain.chain_id,
-                from_address=chain.client.toChecksumAddress(tx["from"]),
-                # here a dead address means a contract creation transaction
-                to_address=chain.client.toChecksumAddress(tx["to"], DEAD_ADDRESS),
+                from_address=from_address,
+                to_address=to_address,
                 effective_gas_price=effective_gas_price,
                 gas_used=gas_used,
                 gas_cost_in_eth=(gas_used * effective_gas_price) / 10**18,

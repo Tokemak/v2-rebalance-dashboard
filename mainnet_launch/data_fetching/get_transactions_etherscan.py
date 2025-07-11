@@ -78,6 +78,8 @@ def get_all_transactions_sent_by_eoa_address(
 
     all_txs = _get_normal_transactions_from_etherscan_recursive(chain, EOA_address, from_block, to_block)
     df = pd.DataFrame.from_records(all_txs)
+    if df.empty:
+        return df
     # we only care about transactions sent by the EOA address
     # the etherscan endpoint returns all normal transactions where the EOA is in the `to` or `from` field
     df["from"] = df["from"].apply(lambda x: chain.client.toChecksumAddress(x))
