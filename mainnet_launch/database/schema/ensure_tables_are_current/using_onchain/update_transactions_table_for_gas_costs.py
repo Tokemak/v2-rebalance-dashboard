@@ -135,7 +135,7 @@ def update_tokemake_EOA_gas_costs_based_on_highest_block_already_fetcheds():
 
 
 @time_decorator
-def update_tokemake_EOA_gas_costs_from_0():
+def update_tokemak_EOA_gas_costs_from_0():
     """Be certain to get all transactions from 0 to the current block for all deployers and service accounts.
 
 
