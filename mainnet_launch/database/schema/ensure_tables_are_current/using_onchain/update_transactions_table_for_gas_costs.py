@@ -65,7 +65,7 @@ def fetch_systems_df():
     return deployers_df, chainlink_keepers_df, service_accounts_df
 
 
-def _get_highest_block_seen_from_from_address():
+def _get_all_tx_hashes_by_from_address():
     from_address_to_hashes_already_saved = (
         simple_agg_by_one_table(
             table=Transactions,
