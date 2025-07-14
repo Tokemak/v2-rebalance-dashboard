@@ -9,6 +9,9 @@ from mainnet_launch.database.schema.postgres_operations import TableSelector, me
 from mainnet_launch.database.schema.full import Transactions, Blocks
 
 
+# TOOD add in the chainlink keepers as well
+
+
 def _fetch_gas_costs_df() -> pd.DataFrame:
     deployers_df, chainlink_keepers_df, service_accounts_df = fetch_systems_df()
     del chainlink_keepers_df
