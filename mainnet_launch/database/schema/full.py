@@ -581,13 +581,11 @@ class DebtReporting(Base):
     )
 
 
-# extra
 class ChainlinkGasCosts(Base):
     __tablename__ = "chainlink_gas_costs"
 
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
-    chainlink_topic_id: Mapped[int] = mapped_column(nullable=False)
-    gas_cost_in_eth_with_chainlink_premium: Mapped[float] = mapped_column(nullable=False)
+    chainlink_topic_id: Mapped[str] = mapped_column(nullable=False)
 
 
 # extra

@@ -55,6 +55,10 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
     update_tokemak_EOA_gas_costs_from_0,
 )
 
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_chainlink_keeper_gas_costs_table import (
+    ensure_chainlink_gas_costs_table_is_updated
+)
+
 
 @time_decorator
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
@@ -77,6 +81,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
         ensure_rebalance_plans_table_are_current,
         ensure_rebalance_events_are_current,
         update_tokemak_EOA_gas_costs_from_0,
+        ensure_chainlink_gas_costs_table_is_updated
     ]:
         start = datetime.now()
         func()
