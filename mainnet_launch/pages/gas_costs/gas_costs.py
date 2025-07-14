@@ -94,6 +94,16 @@ def fetch_and_render_gas_costs() -> None:
 
     # todos?
     # add notes on methodology
+    # add gas price to it as well
+    # what if gas prices were always X?
+
+    # we want to seperate out the impact of gas prices from this
+
+    # we can save money
+
+    # weekly distribtuion of gas prices
+    # daily gas prices
+
 
 
 if __name__ == "__main__":
