@@ -19,8 +19,8 @@ from mainnet_launch.pages.solver_diagnostics.solver_diagnostics import (
 )
 
 from mainnet_launch.pages.key_metrics.key_metrics import fetch_and_render_key_metrics_data
-from mainnet_launch.pages.gas_costs.keeper_network_gas_costs import (
-    fetch_and_render_keeper_network_gas_costs,
+from mainnet_launch.pages.gas_costs.gas_costs import (
+    fetch_and_render_gas_costs,
 )
 
 from mainnet_launch.pages.incentive_token_prices.incentive_token_liqudiation_prices import (
@@ -55,6 +55,7 @@ CONTENT_FUNCTIONS = {
     "Asset Discounts": fetch_and_render_asset_discounts,
     "Solver Diagnostics": fetch_and_render_solver_diagnostics_data,
     "Exit Liquidity Quotes": fetch_and_render_exit_liquidity_from_quotes,
+    "Gas Costs": fetch_and_render_gas_costs,
     # "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
     # "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
     # "Expected and Actual Returns": fetch_and_render_actual_and_gross_and_projected_returns,
@@ -64,5 +65,5 @@ CONTENT_FUNCTIONS = {
     # "Asset Discounts": fetch_and_render_asset_oracle_and_backing,
 }
 
-PAGES_WITHOUT_AUTOPOOL = ["Exit Liquidity Quotes"]
+PAGES_WITHOUT_AUTOPOOL = ["Exit Liquidity Quotes", "Gas Costs"]
 # ["Gas Costs", "Incentive Token Prices", "Protocol Level Profit and Loss", "Asset Discounts"]
