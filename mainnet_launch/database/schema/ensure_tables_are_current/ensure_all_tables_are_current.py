@@ -107,12 +107,10 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     # self contained parts add later
 
 
-def main():
-    ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=False)
+# def main():
+#     ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=False)
 
 
-if __name__ == "__main__":
-    main()
 
 #
 # ensure_database_is_current took 4802.3633 seconds.
@@ -135,3 +133,51 @@ if __name__ == "__main__":
 # tx_hash, aave aWETH, 20, bob
 
 # has it at least an hour
+
+import os
+import cProfile
+import pstats
+from datetime import datetime
+
+def profile_database_update(
+    full_reset_and_refetch: bool = False,
+    echo_sql_to_console: bool = False,
+    output_dir: str = "profiles",
+):
+    """
+    Profiles the entire ensure_database_is_current run (including member functions),
+    writes a text‐based cumulative‐time report to a timestamped file under `output_dir`.
+    """
+    # 1. Ensure the output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+    # 2. Build a timestamped filename so we never clobber previous runs
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_path = os.path.join(output_dir, f"db_update_profile_{stamp}.txt")
+
+    # 3. Run under the profiler
+    profiler = cProfile.Profile()
+    profiler.enable()
+    ensure_database_is_current(
+        full_reset_and_refetch=full_reset_and_refetch,
+        echo_sql_to_console=echo_sql_to_console,
+    )
+    profiler.disable()
+
+    # 4. Dump a sorted (by cumulative time) text report
+    with open(report_path, "w") as report_file:
+        stats = pstats.Stats(profiler, stream=report_file)
+        stats.strip_dirs()\
+             .sort_stats("cumtime")\
+             .print_stats(20)
+
+    print(f"📝 Profile report written to {report_path}")
+
+def main():
+    # if you want to profile, swap these two lines:
+    # ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=False)
+    profile_database_update(full_reset_and_refetch=False, echo_sql_to_console=False)
+
+if __name__ == "__main__":
+    main()
+
+
