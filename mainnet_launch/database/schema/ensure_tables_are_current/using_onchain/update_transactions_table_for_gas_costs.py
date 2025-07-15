@@ -55,7 +55,7 @@ def _extract_service_accounts_df(systems: list[dict]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def fetch_systems_df():
+def fetch_tokemak_address_constants_dfs():
     resp = requests.get(TOKEMAK_ADDRESSES_CONFIG_API_URL)
     resp.raise_for_status()
     systems = resp.json()
@@ -105,7 +105,7 @@ def update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched():
     """
     # is slow and redundant gettinge extra data from etherscan
     # only run if you need to
-    deployers_df, chainlink_keepers_df, service_accounts_df = fetch_systems_df()
+    deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
 
     for chain in [ETH_CHAIN]:
 
@@ -143,7 +143,7 @@ def update_tokemak_EOA_gas_costs_from_0():
 
     # is slow and redundant gettinge extra data from etherscan
     # only run if you need to
-    deployers_df, chainlink_keepers_df, service_accounts_df = fetch_systems_df()
+    deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
 
     for chain in [ETH_CHAIN]:
         EOAs_we_want_to_track = set(

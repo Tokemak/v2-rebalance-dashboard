@@ -4,7 +4,7 @@ from mainnet_launch.abis import CHAINLINK_KEEPER_REGISTRY_ABI
 from mainnet_launch.constants import ALL_AUTOPOOLS, ETH_CHAIN, ChainData
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions_table_for_gas_costs import (
-    fetch_systems_df,
+    fetch_tokemak_address_constants_dfs,
 )
 from mainnet_launch.database.schema.postgres_operations import TableSelector, merge_tables_as_df, insert_avoid_conflicts
 from mainnet_launch.data_fetching.get_events import fetch_events
@@ -90,7 +90,7 @@ def _ensure_one_chain_chainlink_gas_costs_is_updated(
 
 
 def ensure_chainlink_gas_costs_table_is_updated() -> None:
-    deployers_df, chainlink_keepers_df, service_accounts_df = fetch_systems_df()
+    deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
     for chain in [ETH_CHAIN]:
         _ensure_one_chain_chainlink_gas_costs_is_updated(chain, chainlink_keepers_df)
 
