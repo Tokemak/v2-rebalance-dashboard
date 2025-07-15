@@ -1,10 +1,7 @@
-"""Returns information about transactions sent from an address"""
-
 import os
 import requests
 import pandas as pd
-from mainnet_launch.constants import ChainData
-from mainnet_launch.database.schema.full import Transactions
+from mainnet_launch.constants import ChainData, ETHERSCAN_API_KEY, ETHERSCAN_API_URL
 
 # For Etherscan you need to use the v2 endpoint
 # use
@@ -14,13 +11,10 @@ from mainnet_launch.database.schema.full import Transactions
 # ETHERSCAN_API_URL = "https://api.etherscan.io/api"
 # the old API silently misbehaves
 
-ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
-ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
-
 
 def _fetch_pages(chain: ChainData, address: str, start: int, end: int, offset: int = 1000):
     """
-    Fetch pages 1–10 for [start…end]. Returns (tx_list, hit_limit).
+    Fetch pages 1-10 for [start…end]. Returns (tx_list, hit_limit).
     hit_limit==True if page 10 returned a full batch (i.e. you may have more).
     """
     txs = []
