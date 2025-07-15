@@ -1,3 +1,9 @@
+"""
+Display gas costs for Tokemak's EOA addresses and Chainlink keeper network transactions
+
+Only looks at mainnet
+"""
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -64,7 +70,6 @@ def _fetch_eoa_transactions(
 
 
 def fetch_our_gas_costs_df() -> pd.DataFrame:
-
     dfs = []
     deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
     for chain in [ETH_CHAIN]:
@@ -74,7 +79,7 @@ def fetch_our_gas_costs_df() -> pd.DataFrame:
         full_tx_df = pd.concat([chainlink_gas_costs_df, eoa_tx_df], ignore_index=True)
         dfs.append(full_tx_df)
 
-    df = pd.concat([chainlink_gas_costs_df, eoa_tx_df], ignore_index=True)
+    df = pd.concat([chainlink_gas_costs_df, eoa_tx_df], ignore_index=True).drop_duplicates()
 
     df["label"] = df["label"] + " (" + df["category"] + ")"
 
@@ -90,8 +95,9 @@ def fetch_our_gas_costs_df() -> pd.DataFrame:
         # the dict‐keys become the row‐index automatically
         .rename_axis("address").reset_index()
     )
-    label_to_all_time_gas_costs = df.groupby("label")["gas_cost_in_eth"].sum()
+    label_to_all_time_gas_costs = df.groupby("label")["gas_cost_in_eth"].sum().to_dict()
     address_constants["all_time_total"] = address_constants["label"].map(label_to_all_time_gas_costs)
+
     return df, address_constants
 
 
@@ -118,15 +124,30 @@ def _render_gas_costs_charts(df: pd.DataFrame, address_constants: pd.DataFrame) 
                 fig.update_yaxes(title_text=value_col)
                 st.plotly_chart(fig, use_container_width=True)
 
-        with st.expander("EOA addresses and all time costs"):
-            st.dataframe(address_constants.sort_values("all_time_total", ascending=False))
+    with st.expander("EOA addresses and all time costs"):
+        st.dataframe(address_constants.sort_values("all_time_total", ascending=False))
 
-        st.download_button(
-            label="📥 Download gas costs as csv",
-            data=df.to_csv(index=False),
-            file_name="tokemak_eoa_gas_costs.csv",
-            mime="text/csv",
-        )
+    st.download_button(
+        label="📥 Download gas costs as csv",
+        data=df.to_csv(index=False),
+        file_name="tokemak_eoa_gas_costs.csv",
+        mime="text/csv",
+    )
+
+
+# todo
+
+# add Etherscan,
+
+# live gas used by day,
+
+# avg daily gas price
+
+# overlay this as a blue dashed line
+
+# important, we are using a lot more gas than we were before
+# the lower total gas prices comes from teh fact that hte network is less busy.
+# and out timings
 
 
 def fetch_and_render_gas_costs() -> None:
