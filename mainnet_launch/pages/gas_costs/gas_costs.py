@@ -47,17 +47,22 @@ def _fetch_chainlink_keeper_network_transactions(chain: ChainData, chainlink_kee
 def _fetch_eoa_transactions(
     chain: ChainData, deployers_df: pd.DataFrame, service_accounts_df: pd.DataFrame
 ) -> pd.DataFrame:
+
+    deployers_df = deployers_df[deployers_df["chain_id"] == chain.chain_id]
+    service_accounts_df = service_accounts_df[service_accounts_df["chain_id"] == chain.chain_id]
+
     address_to_name = service_accounts_df.set_index("address")["name"].to_dict()
     address_to_name[deployers_df["deployer"].values[0]] = "deployer"
 
     address_to_category = service_accounts_df.set_index("address")["type"].to_dict()
     address_to_category[deployers_df["deployer"].values[0]] = "deployer"
 
+    our_eoa_addresses = list(address_to_name.keys())
     eoa_tx_df = merge_tables_as_df(
         [
             TableSelector(
                 Transactions,
-                row_filter=Transactions.from_address.in_(list(address_to_name.keys())),
+                row_filter=Transactions.from_address.in_(our_eoa_addresses),
             ),
             TableSelector(Blocks, select_fields=Blocks.datetime, join_on=Transactions.block == Blocks.block),
         ],
@@ -69,6 +74,7 @@ def _fetch_eoa_transactions(
     return eoa_tx_df[["datetime", "tx_hash", "label", "category", "effective_gas_price", "gas_used", "gas_cost_in_eth"]]
 
 
+@st.cache_data(ttl=60 * 5)  # 5 minutes
 def fetch_our_gas_costs_df() -> pd.DataFrame:
     dfs = []
     deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
@@ -95,40 +101,87 @@ def fetch_our_gas_costs_df() -> pd.DataFrame:
         # the dict‐keys become the row‐index automatically
         .rename_axis("address").reset_index()
     )
+    address_constants["label"] = address_constants["label"] + " (" + address_constants["category"] + ")"
     label_to_all_time_gas_costs = df.groupby("label")["gas_cost_in_eth"].sum().to_dict()
     address_constants["all_time_total"] = address_constants["label"].map(label_to_all_time_gas_costs)
 
-    return df, address_constants
+    # readablity
+    address_constants = address_constants.sort_values("category", ascending=False)
+    return df, address_constants[["label", "all_time_total", "address"]]
 
 
-def _render_gas_costs_charts(df: pd.DataFrame, address_constants: pd.DataFrame) -> None:
-    for col in ["category", "label"]:
-        st.subheader(f"Gas Costs in ETH and Gas Used by Expense {col}")
-        for value_col in ["gas_cost_in_eth", "gas_used"]:
-            daily_sum_df = (
-                df.groupby([col, "datetime"])[value_col]
-                .sum()
-                .reset_index()
-                .pivot(index="datetime", columns=col, values=value_col)
-                .fillna(0)
-                .resample("1D")
-                .sum()
-            )
+def _pick_and_render_gas_used_and_gas_costs_charts(df: pd.DataFrame):
+    # lay out the inputs in two columns
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
+        breakdown = st.selectbox("Group by", ["category", "label"])
+    with col2:
+        metric = st.selectbox("Metric", ["gas_cost_in_eth", "gas_used"])
+    with col3:
+        generate = st.button("Generate charts")
 
-            st.subheader(f"{value_col} by {col}")
-            for n_days in [1, 7, 30]:
-                fig = px.bar(
-                    daily_sum_df.rolling(window=n_days).sum(),
-                    title=f"{n_days}-day rolling sum {value_col}",
-                )
-                fig.update_yaxes(title_text=value_col)
-                st.plotly_chart(fig, use_container_width=True)
+    if not generate:
+        return  # don’t do anything until the button is pressed
+
+    # once button is pressed, do the work
+    st.header(f"{metric.replace('_',' ').title()} grouped by {breakdown}")
+
+    daily = (
+        df.groupby([breakdown, "datetime"])[metric]
+        .sum()
+        .reset_index()
+        .pivot(index="datetime", columns=breakdown, values=metric)
+        .fillna(0)
+        .resample("1D")
+        .sum()
+    )
+
+    for window in (1, 7, 30):
+        st.subheader(f"{window}-day rolling sum")
+        fig = px.bar(
+            daily.rolling(window=window).sum(),
+            labels={"value": metric, "datetime": "Date"},
+            title=f"{window}-day rolling sum of {metric}",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+
+# def _render(df: pd.DataFrame, address_constants: pd.DataFrame) -> None:
+
+#         df, address_constants = fetch_our_gas_costs_df()
+
+#     for col in ["category", "label"]:
+#         st.subheader(f"Gas Costs in ETH and Gas Used by Expense {col}")
+#         for value_col in ["gas_cost_in_eth", "gas_used"]:
+#             daily_sum_df = (
+#                 df.groupby([col, "datetime"])[value_col]
+#                 .sum()
+#                 .reset_index()
+#                 .pivot(index="datetime", columns=col, values=value_col)
+#                 .fillna(0)
+#                 .resample("1D")
+#                 .sum()
+#             )
+
+#             st.subheader(f"{value_col} by {col}")
+#             for n_days in [1, 7, 30]:
+#                 fig = px.bar(
+#                     daily_sum_df.rolling(window=n_days).sum(),
+#                     title=f"{n_days}-day rolling sum {value_col}",
+#                 )
+#                 fig.update_yaxes(title_text=value_col)
+#                 st.plotly_chart(fig, use_container_width=True)
+
+
+def fetch_and_render_gas_costs() -> None:
+    df, address_constants = fetch_our_gas_costs_df()
+    _pick_and_render_gas_used_and_gas_costs_charts(df)
 
     with st.expander("EOA addresses and all time costs"):
         st.dataframe(address_constants.sort_values("all_time_total", ascending=False))
 
     st.download_button(
-        label="📥 Download gas costs as csv",
+        label="📥 Download transactions gas costs as csv",
         data=df.to_csv(index=False),
         file_name="tokemak_eoa_gas_costs.csv",
         mime="text/csv",
@@ -150,41 +203,37 @@ def _render_gas_costs_charts(df: pd.DataFrame, address_constants: pd.DataFrame) 
 # and out timings
 
 
-def fetch_and_render_gas_costs() -> None:
-    df, address_constants = fetch_our_gas_costs_df()
-    _render_gas_costs_charts(df, address_constants)
+# we should have an effective gas price chart
+# eg by day, how the weighted averge gas price we used
 
-    # we should have an effective gas price chart
-    # eg by day, how the weighted averge gas price we used
+# px.scatter(full_tx_df.set_index("datetime").resample("1d")["effective_gas_price"].agg(["median", "mean"]))
 
-    # px.scatter(full_tx_df.set_index("datetime").resample("1d")["effective_gas_price"].agg(["median", "mean"]))
+# Liquidator_df["effective_gas_price_gwei"] = Liquidator_df["effective_gas_price"] / 1e9
 
-    # Liquidator_df["effective_gas_price_gwei"] = Liquidator_df["effective_gas_price"] / 1e9
+# fig = px.box(
+#     Liquidator_df,
+#     x="hour",
+#     y="effective_gas_price_gwei",
+#     # points='all',            # show all underlying points
+#     title="Distribution of Effective Gas Price by Hour",
+#     labels={"hour": "Hour of Day", "effective_gas_price_gwei": "Effective Gas Price (Gwei)"},
+# )
+# fig.update_layout(
+#     yaxis_title="Effective Gas Price (Gwei)",
+#     xaxis_title="Hour of Day",
+#     boxmode="group",  # ensures boxes don’t overlap if you add more traces
+# )
+# todos?
+# add notes on methodology
+# add gas price to it as well
+# what if gas prices were always X?
 
-    # fig = px.box(
-    #     Liquidator_df,
-    #     x="hour",
-    #     y="effective_gas_price_gwei",
-    #     # points='all',            # show all underlying points
-    #     title="Distribution of Effective Gas Price by Hour",
-    #     labels={"hour": "Hour of Day", "effective_gas_price_gwei": "Effective Gas Price (Gwei)"},
-    # )
-    # fig.update_layout(
-    #     yaxis_title="Effective Gas Price (Gwei)",
-    #     xaxis_title="Hour of Day",
-    #     boxmode="group",  # ensures boxes don’t overlap if you add more traces
-    # )
-    # todos?
-    # add notes on methodology
-    # add gas price to it as well
-    # what if gas prices were always X?
+# we want to seperate out the impact of gas prices from this
 
-    # we want to seperate out the impact of gas prices from this
+# we can save money
 
-    # we can save money
-
-    # weekly distribtuion of gas prices
-    # daily gas prices
+# weekly distribtuion of gas prices
+# daily gas prices
 
 
 if __name__ == "__main__":

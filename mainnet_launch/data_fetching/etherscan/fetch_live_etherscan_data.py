@@ -31,9 +31,10 @@ def fetch_daily_gas_prices(start_date: date) -> pd.DataFrame:
 
     from https://etherscan.io/chart/gasprice
     """
+    raise ValueError("need pro etherscan to use this endpoint")
     params = {
         "module": "stats",
-        "action": "dailyavggasprice",
+        "action": "dailygasused",  # dailyavggasprice is pro
         "startdate": start_date.strftime("%Y-%m-%d"),
         "enddate": date.today().strftime("%Y-%m-%d"),
         "sort": "asc",
@@ -43,7 +44,8 @@ def fetch_daily_gas_prices(start_date: date) -> pd.DataFrame:
     res = requests.get(ETHERSCAN_API_URL, params=params)
     res.raise_for_status()
     data = res.json()
-    pass
+
+    print(data)
 
     # Parse into DataFrame
     df = pd.DataFrame(data["result"])
