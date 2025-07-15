@@ -49,7 +49,7 @@ def _extract_service_accounts_df(systems: list[dict]) -> pd.DataFrame:
                 "chain_id": int(sys["chainId"]),
                 "name": acct["name"],
                 "address": Web3.toChecksumAddress(acct["address"]),
-                "type": acct["type"],
+                "type": str(acct["type"]) + " " + str(sys["chainId"]),
             }
             rows.append(acct_row)
     return pd.DataFrame(rows)

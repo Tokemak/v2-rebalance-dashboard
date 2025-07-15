@@ -47,17 +47,18 @@ def _fetch_chainlink_keeper_network_transactions(chain: ChainData, chainlink_kee
 def _fetch_eoa_transactions(
     chain: ChainData, deployers_df: pd.DataFrame, service_accounts_df: pd.DataFrame
 ) -> pd.DataFrame:
-
-    deployers_df = deployers_df[deployers_df["chain_id"] == chain.chain_id]
-    service_accounts_df = service_accounts_df[service_accounts_df["chain_id"] == chain.chain_id]
+    if len(deployers_df) != 1:
+        print(deployers_df)
+        raise ValueError("Expected exactly one deployer address, found: {}".format(len(deployers_df)))
 
     address_to_name = service_accounts_df.set_index("address")["name"].to_dict()
-    address_to_name[deployers_df["deployer"].values[0]] = "deployer"
+    address_to_name[deployers_df["deployer"].values[0]] = "deployer" + " " + str(chain.chain_id)
 
     address_to_category = service_accounts_df.set_index("address")["type"].to_dict()
-    address_to_category[deployers_df["deployer"].values[0]] = "deployer"
+    address_to_category[deployers_df["deployer"].values[0]] = "deployer" + " " + str(chain.chain_id)
 
     our_eoa_addresses = list(address_to_name.keys())
+
     eoa_tx_df = merge_tables_as_df(
         [
             TableSelector(
@@ -79,8 +80,14 @@ def fetch_our_gas_costs_df() -> pd.DataFrame:
     dfs = []
     deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
     for chain in [ETH_CHAIN]:
-        chainlink_gas_costs_df = _fetch_chainlink_keeper_network_transactions(chain, chainlink_keepers_df)
-        eoa_tx_df = _fetch_eoa_transactions(chain, deployers_df, service_accounts_df)
+        chainlink_gas_costs_df = _fetch_chainlink_keeper_network_transactions(
+            chain, chainlink_keepers_df[chainlink_keepers_df["chain_id"] == chain.chain_id]
+        )
+        eoa_tx_df = _fetch_eoa_transactions(
+            chain,
+            deployers_df[deployers_df["chain_id"] == chain.chain_id],
+            service_accounts_df[service_accounts_df["chain_id"] == chain.chain_id],
+        )
 
         full_tx_df = pd.concat([chainlink_gas_costs_df, eoa_tx_df], ignore_index=True)
         dfs.append(full_tx_df)
@@ -89,32 +96,15 @@ def fetch_our_gas_costs_df() -> pd.DataFrame:
 
     df["label"] = df["label"] + " (" + df["category"] + ")"
 
-    address_to_name = service_accounts_df.set_index("address")["name"].to_dict()
-    address_to_name[deployers_df["deployer"].values[0]] = "deployer"
-
-    address_to_category = service_accounts_df.set_index("address")["type"].to_dict()
-    address_to_category[deployers_df["deployer"].values[0]] = "deployer"
-
-    # might be broken
-    address_constants = (
-        pd.DataFrame({"label": address_to_name, "category": address_to_category})
-        # the dict‐keys become the row‐index automatically
-        .rename_axis("address").reset_index()
-    )
-    address_constants["label"] = address_constants["label"] + " (" + address_constants["category"] + ")"
-    label_to_all_time_gas_costs = df.groupby("label")["gas_cost_in_eth"].sum().to_dict()
-    address_constants["all_time_total"] = address_constants["label"].map(label_to_all_time_gas_costs)
-
-    # readablity
-    address_constants = address_constants.sort_values("category", ascending=False)
-    return df, address_constants[["label", "all_time_total", "address"]]
+    all_time_totals = df.groupby("label")["gas_cost_in_eth"].sum()
+    return df, all_time_totals, deployers_df, chainlink_keepers_df, service_accounts_df
 
 
 def _pick_and_render_gas_used_and_gas_costs_charts(df: pd.DataFrame):
     # lay out the inputs in two columns
     col1, col2, col3 = st.columns([1, 1, 1])
     with col1:
-        breakdown = st.selectbox("Group by", ["category", "label"])
+        breakdown = st.selectbox("Group by Expense", ["category", "label"])
     with col2:
         metric = st.selectbox("Metric", ["gas_cost_in_eth", "gas_used"])
     with col3:
@@ -123,7 +113,6 @@ def _pick_and_render_gas_used_and_gas_costs_charts(df: pd.DataFrame):
     if not generate:
         return  # don’t do anything until the button is pressed
 
-    # once button is pressed, do the work
     st.header(f"{metric.replace('_',' ').title()} grouped by {breakdown}")
 
     daily = (
@@ -146,46 +135,54 @@ def _pick_and_render_gas_used_and_gas_costs_charts(df: pd.DataFrame):
         st.plotly_chart(fig, use_container_width=True)
 
 
-# def _render(df: pd.DataFrame, address_constants: pd.DataFrame) -> None:
+def _render_daily_gas_price_df(df: pd.DataFrame) -> None:
+    daily_gas_prices_df = df.set_index("datetime").resample("1D")["effective_gas_price"].mean().reset_index()
+    daily_gas_prices_df["effective_gas_price"] = daily_gas_prices_df["effective_gas_price"] / 1e9  # convert to Gwei
 
-#         df, address_constants = fetch_our_gas_costs_df()
+    fig = px.line(
+        daily_gas_prices_df,
+        x="datetime",
+        y="effective_gas_price",
+        title="(all our transactions) Average Daily Effective Gas Price (Gwei)",
+        labels={"week": "Week", "effective_gas_price": "Effective Gas Price (Gwei)"},
+    )
 
-#     for col in ["category", "label"]:
-#         st.subheader(f"Gas Costs in ETH and Gas Used by Expense {col}")
-#         for value_col in ["gas_cost_in_eth", "gas_used"]:
-#             daily_sum_df = (
-#                 df.groupby([col, "datetime"])[value_col]
-#                 .sum()
-#                 .reset_index()
-#                 .pivot(index="datetime", columns=col, values=value_col)
-#                 .fillna(0)
-#                 .resample("1D")
-#                 .sum()
-#             )
-
-#             st.subheader(f"{value_col} by {col}")
-#             for n_days in [1, 7, 30]:
-#                 fig = px.bar(
-#                     daily_sum_df.rolling(window=n_days).sum(),
-#                     title=f"{n_days}-day rolling sum {value_col}",
-#                 )
-#                 fig.update_yaxes(title_text=value_col)
-#                 st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def fetch_and_render_gas_costs() -> None:
-    df, address_constants = fetch_our_gas_costs_df()
-    _pick_and_render_gas_used_and_gas_costs_charts(df)
+    st.subheader("Tokemak Mainnet Gas Costs")
 
-    with st.expander("EOA addresses and all time costs"):
-        st.dataframe(address_constants.sort_values("all_time_total", ascending=False))
+    df, all_time_totals, deployers_df, chainlink_keepers_df, service_accounts_df = fetch_our_gas_costs_df()
+    _pick_and_render_gas_used_and_gas_costs_charts(df)
+    _render_daily_gas_price_df(df)
+
+    with st.expander("See All Time Gas Costs in ETH"):
+        st.dataframe(all_time_totals.sort_values(ascending=False))
+
+    with st.expander("See Addresses"):
+        st.markdown("**Deployer Addresses**")
+        st.dataframe(deployers_df)
+
+        st.markdown("**Chainlink Keepers**")
+        st.dataframe(chainlink_keepers_df)
+
+        st.markdown("**Tokemak's Service Accounts**")
+        st.dataframe(service_accounts_df)
 
     st.download_button(
         label="📥 Download transactions gas costs as csv",
         data=df.to_csv(index=False),
-        file_name="tokemak_eoa_gas_costs.csv",
+        file_name="tokemak_gas_costs.csv",
         mime="text/csv",
     )
+
+    with st.expander("Details"):
+        st.markdown("so far only mainnet, can add other chains later")
+
+
+if __name__ == "__main__":
+    fetch_and_render_gas_costs()
 
 
 # todo
@@ -234,7 +231,3 @@ def fetch_and_render_gas_costs() -> None:
 
 # weekly distribtuion of gas prices
 # daily gas prices
-
-
-if __name__ == "__main__":
-    fetch_and_render_gas_costs()
