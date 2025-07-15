@@ -56,7 +56,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
 )
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_chainlink_keeper_gas_costs_table import (
-    ensure_chainlink_gas_costs_table_is_updated
+    ensure_chainlink_gas_costs_table_is_updated,
 )
 
 
@@ -81,7 +81,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
         ensure_rebalance_plans_table_are_current,
         ensure_rebalance_events_are_current,
         update_tokemak_EOA_gas_costs_from_0,
-        ensure_chainlink_gas_costs_table_is_updated
+        ensure_chainlink_gas_costs_table_is_updated,
     ]:
         start = datetime.now()
         func()
@@ -111,7 +111,6 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
 #     ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=False)
 
 
-
 #
 # ensure_database_is_current took 4802.3633 seconds.
 # 80 minutes from 0
@@ -138,6 +137,7 @@ import os
 import cProfile
 import pstats
 from datetime import datetime
+
 
 def profile_database_update(
     full_reset_and_refetch: bool = False,
@@ -166,18 +166,16 @@ def profile_database_update(
     # 4. Dump a sorted (by cumulative time) text report
     with open(report_path, "w") as report_file:
         stats = pstats.Stats(profiler, stream=report_file)
-        stats.strip_dirs()\
-             .sort_stats("cumtime")\
-             .print_stats(20)
+        stats.strip_dirs().sort_stats("cumtime").print_stats(20)
 
     print(f"📝 Profile report written to {report_path}")
+
 
 def main():
     # if you want to profile, swap these two lines:
     # ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=False)
     profile_database_update(full_reset_and_refetch=False, echo_sql_to_console=False)
 
+
 if __name__ == "__main__":
     main()
-
-
