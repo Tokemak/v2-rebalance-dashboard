@@ -1,0 +1,28 @@
+         562531144 function calls (551328207 primitive calls) in 531.264 seconds
+
+   Ordered by: cumulative time
+   List reduced from 4943 to 20 due to restriction <20>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      3/1    0.003    0.001  531.536  531.536 constants.py:265(wrapper)
+        1    0.001    0.001  531.536  531.536 ensure_all_tables_are_current.py:63(ensure_database_is_current)
+        1    0.026    0.026  239.665  239.665 update_destination_token_values_tables.py:370(ensure_destination_token_values_are_current)
+        9    0.023    0.003  239.616   26.624 update_destination_token_values_tables.py:355(_fetch_and_insert_destination_token_values)
+       81    0.000    0.000  214.081    2.643 nest_asyncio.py:25(run)
+       81    0.043    0.001  214.078    2.643 nest_asyncio.py:86(run_until_complete)
+    60660    0.803    0.000  214.026    0.004 nest_asyncio.py:100(_run_once)
+       68    0.000    0.000  210.794    3.100 get_state_by_block.py:73(get_raw_state_by_blocks)
+      814  138.743    0.170  138.759    0.170 {method 'execute' of 'psycopg2.extensions.cursor' objects}
+        9    0.000    0.000  128.386   14.265 update_destination_token_values_tables.py:297(_fetch_destination_token_values_not_idle)
+        9    0.000    0.000  119.827   13.314 update_destination_token_values_tables.py:106(_fetch_destination_token_value_data_from_external_source)
+   814971    0.246    0.000  106.999    0.000 events.py:78(_run)
+   814971    0.186    0.000  106.753    0.000 {method 'run' of '_contextvars.Context' objects}
+    60660    0.182    0.000  105.764    0.002 selectors.py:554(select)
+   102080  105.587    0.001  105.587    0.001 {method 'control' of 'select.kqueue' objects}
+   370979    0.556    0.000   97.402    0.000 tasks.py:215(__step)
+   369556    0.099    0.000   95.979    0.000 {method 'send' of 'coroutine' objects}
+      283    0.002    0.000   89.914    0.318 base.py:1788(_execute_context)
+      283    0.004    0.000   89.892    0.318 base.py:1847(_exec_single_context)
+      283    0.000    0.000   89.826    0.317 default.py:944(do_execute)
+
+
