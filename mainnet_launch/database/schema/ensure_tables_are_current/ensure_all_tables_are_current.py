@@ -166,7 +166,7 @@ def profile_database_update(
     # 4. Dump a sorted (by cumulative time) text report
     with open(report_path, "w") as report_file:
         stats = pstats.Stats(profiler, stream=report_file)
-        stats.strip_dirs().sort_stats("cumtime").print_stats(20)
+        stats.strip_dirs().sort_stats("cumtime").print_stats(500)
 
     print(f"📝 Profile report written to {report_path}")
 
