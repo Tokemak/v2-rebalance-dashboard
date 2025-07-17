@@ -13,6 +13,7 @@ load_dotenv()
 ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
 ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 
+COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
 
 ROOT_DIR = Path(__file__).parent  # consider moving these to a setup file with the db initalization
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "data_fetching/rebalance_plans"
