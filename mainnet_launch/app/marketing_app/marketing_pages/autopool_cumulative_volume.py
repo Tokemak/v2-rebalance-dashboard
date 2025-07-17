@@ -40,15 +40,8 @@ def get_rebalance_volumne_raw_data(chain: ChainData):
     }
     """
 
-    if chain == ETH_CHAIN:
-        api_url = os.environ["TOKEMAK_ETHEREUM_SUBGRAPH_URL"]
-    elif chain == BASE_CHAIN:
-        api_url = os.environ["TOKEMAK_BASE_SUBGRAPH_URL"]
-    elif chain == SONIC_CHAIN:
-        api_url = os.environ["TOKEMAK_SONIC_SUBGRAPH_URL"]
-
     variables = {}
-    df = run_query_with_paginate(api_url, query, variables, "autopoolRebalances")
+    df = run_query_with_paginate(chain.tokemak_subgraph_url, query, variables, "autopoolRebalances")
     df["chain_id"] = chain.chain_id
     df["autopool_name"] = df["autopool"].apply(
         lambda x: autopool_address_to_name[ETH_CHAIN.client.toChecksumAddress(x)]
@@ -129,6 +122,7 @@ def fetch_all_time_cumulative_usd_volume() -> pd.DataFrame:
     raw_df = pd.concat(dfs, axis=0).reset_index()
 
     raw_df.drop(columns=["base_chain_ETH_to_USDC_price", "mainnet_ETH_TO_USDC_price"], inplace=True)
+    raw_df = raw_df.drop_duplicates()
 
     volume_by_pool = raw_df.groupby(["datetime", "autopool_name"])["computed_usd_volume"].sum().reset_index()
     cumulaitive_volume_by_autopool = (
@@ -146,7 +140,7 @@ def fetch_all_time_cumulative_usd_volume() -> pd.DataFrame:
 
 
 def fetch_and_render_cumulative_volume():
-    with st.spinner("Loading cumulative volume from rebalance events (takes ~30s)"):
+    with st.spinner("Loading cumulative volume from rebalance events (~30 seconds)"):
         cumulative_volumne_by_autopool, raw_df = fetch_all_time_cumulative_usd_volume()
 
     fig = px.bar(

@@ -1,114 +1,189 @@
 """See script for dan"""
 
 import pandas as pd
-from mainnet_launch.constants import *
+import streamlit as st
+import plotly.express as px
+
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.data_fetching.tokemak_subgraph import run_query_with_paginate
-
-import requests
-import os
-
-
-def response_to_dataframe(autopool: AutopoolConstants, response_json):
-    records = response_json.get("data", {}).get("autopoolDayDatas", [])
-
-    df = pd.DataFrame(records)
+from mainnet_launch.database.schema.views import fetch_autopool_destination_state_df
+from mainnet_launch.pages.key_metrics.key_metrics import fetch_key_metrics_data
 
 
-    return df
-
-
-def fetch_apr_data_from_subgraph(autopool: AutopoolConstants):
+def _fetch_apr_data_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
     query = """
-    query GetAutopoolDayData($address: String!) {
+    query GetAutopoolDayData($address: String!, $first: Int!, $skip: Int!) {
         autopoolDayDatas(
         where: { id_contains_nocase: $address }
         orderBy: timestamp
         orderDirection: asc
-        first: 1000
-        ) {
-        autopoolDay30MAApy
-        autopoolDay7MAApy
-
-        autopoolDay1MAApy
-        autopoolApy 
-
-        rewarderDay30MAApy
-        rewarderDay7MAApy
-        rewarderApy
+        first: $first
+        skip: $skip
+       ) {
         date
+        autopoolDay30MAApy
+        autopoolApy
+        rewarderApy
+
         }
     }
     """
-    if autopool.chain == ETH_CHAIN:
-        api_url = os.environ["TOKEMAK_ETHEREUM_SUBGRAPH_URL"]
-    elif autopool.chain == BASE_CHAIN:
-        api_url = os.environ["TOKEMAK_BASE_SUBGRAPH_URL"]
-    elif autopool.chain == SONIC_CHAIN:
-        api_url = os.environ["TOKEMAK_SONIC_SUBGRAPH_URL"]
 
     variables = {"address": autopool.autopool_eth_addr.lower()}
-
-    # response = requests.post(api_url, json={"query": query, "variables": variables})
-    # data = response.json()
-    df = run_query_with_paginate(api_url, query, data)
-
-
+    df = run_query_with_paginate(autopool.chain.tokemak_subgraph_url, query, variables, "autopoolDayDatas")
 
     df["date"] = pd.to_datetime(df["date"], utc=True)
-    df.set_index("date  ", inplace=True)
+    df.set_index("date", inplace=True)
 
-    for col in ["rewarderDay30MAApy" "rewarderDay7MAApy" "rewarderApy"]:
-        df[col] = 100 * df[col].apply(lambda x: int(x) / 1e18 if x is not None else None)
+    # for col in ["rewarderApy"]:
+    #     df[col] = 100 * df[col].apply(lambda x: int(x) / 1e18 if x is not None else None)
 
-    for col in ["autopoolDay30MAApy", "autopoolDay7MAApy", "autopoolDay1MAApy", "autopoolApy"]:
-        df[col] = 100 * df[col].apply(
-            lambda x: int(x) / 10 ** (autopool.base_asset_decimals) if x is not None else None
-        )
+    # for col in [
+    #     "autopoolDay30MAApy",
+    #     "autopoolApy",
+    # ]:
+    #     df[col] = 100 * df[col].apply(
+    #         lambda x: int(x) / 10 ** (autopool.base_asset_decimals) if x is not None else None
+    #     )
+
+    df["rewarderApy"] = pd.to_numeric(df["rewarderApy"], errors="coerce") / 1e18 * 100
+    df["autopoolDay30MAApy"] = (
+        pd.to_numeric(df["autopoolDay30MAApy"], errors="coerce") / (10**autopool.base_asset_decimals) * 100
+    )
+    df["autopoolApy"] = pd.to_numeric(df["autopoolApy"], errors="coerce") / (10**autopool.base_asset_decimals) * 100
 
     return df
 
 
-# from mainnet_launch.pages.autopool_exposure.allocation_over_time import _fetch_tvl_by_asset_and_destination
+def _fetch_percent_allocation_at_the_end_of_each_day(autopool) -> pd.DataFrame:
+    # copied from mainnet_launch/pages/autopool_exposure/allocation_over_time.py
+    df = fetch_autopool_destination_state_df(autopool)
 
-
-def fetch_percent_allocation_at_the_end_of_each_day(autopool):
-    safe_value_by_destination, safe_value_by_asset, backing_value_by_destination = _fetch_tvl_by_asset_and_destination(
-        autopool
+    end_of_day_safe_value_by_destination = (
+        (
+            df.groupby(["datetime", "readable_name"])["autopool_implied_safe_value"]
+            .sum()
+            .reset_index()
+            .pivot(columns=["readable_name"], index=["datetime"], values="autopool_implied_safe_value")
+        )
+        .resample("1D")
+        .last()
     )
-    percent_tvl_by_destination = 100 * safe_value_by_destination.div(
-        safe_value_by_destination.sum(axis=1).replace(0, None), axis=0
+
+    percent_tvl_by_destination = 100 * end_of_day_safe_value_by_destination.div(
+        end_of_day_safe_value_by_destination.sum(axis=1).replace(0, None), axis=0
     )
     return percent_tvl_by_destination
 
 
-def main():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+def _fetch_APY_and_allocation_data(autopool: AutopoolConstants):
+    """Fetches APY and allocation data for the given autopool."""
+    apr_df = _fetch_apr_data_from_subgraph(autopool)
 
-    for autopool in ALL_AUTOPOOLS:
-        if autopool.chain.chain_id == 146:
-            # as of June 25 sonic is broken, the API URL is wrong
-            continue
-        apr_df = fetch_apr_data_from_subgraph(autopool)
-        percent_allocation_df = fetch_percent_allocation_at_the_end_of_each_day(autopool)
-        df = pd.merge(percent_allocation_df, apr_df, left_index=True, right_index=True, how="left").round(2)
-        filename = f"{autopool.name}_percent_allocation_at_the_end_of_each_day.csv"
-        output_path = os.path.join(script_dir, filename)
-        df.to_csv(output_path)
-        print(df.tail())
-        print(f"Wrote {df.shape=} for {autopool.name}")
+    (
+        nav_per_share_df,
+        total_nav_series,
+        expected_return_series,
+        portion_allocation_by_destination_df,
+        highest_block_and_datetime,
+        price_return_series,
+    ) = fetch_key_metrics_data(autopool)
 
-    # apr_df = fetch_apr_data_from_subgraph(AUTO_ETH)
-    # percent_allocation_df = fetch_percent_allocation_at_the_end_of_each_day(AUTO_ETH)
-    # autoETH_df = pd.merge(percent_allocation_df, apr_df, left_index=True, right_index=True, how='left').round(2)
-    # autoETH_df.to_csv('./autoETH_percent_allocation_at_the_end_of_each_day.csv')
+    expected_return_series.name = "expected_return"
+    # in theory, we only need key metrics for this, but keeping it as is for now
 
-    # apr_df = fetch_apr_data_from_subgraph(AUTO_USD)
-    # percent_allocation_df = fetch_percent_allocation_at_the_end_of_each_day(AUTO_USD)
-    # autoUSD_df = pd.merge(percent_allocation_df, apr_df, left_index=True, right_index=True, how='left').round(2)
-    # autoUSD_df.to_csv('./autoUSD_percent_allocation_at_the_end_of_each_day.csv')
+    percent_tvl_by_destination = _fetch_percent_allocation_at_the_end_of_each_day(autopool)
+
+    df = pd.merge(percent_tvl_by_destination, apr_df, left_index=True, right_index=True, how="left")
+    df = pd.merge(df, expected_return_series, left_index=True, right_index=True, how="left")
+
+    # baseUSD, sonicUSD and autoDOLA do not have autopoolAPY fields, so instead we use the 30 day moving average of autopoolDay30MAApy
+    # this is because (to validate) they don't back out price return
+
+    df["display_apy_first_expected_return_then_UI_APY"] = df["expected_return"].where(
+        df["autopoolApy"].isna(), df["autopoolApy"]
+    )
+    df["total_display_apy"] = df["display_apy_first_expected_return_then_UI_APY"] + df["rewarderApy"]
+
+    columns_to_keep = ["total_display_apy", *percent_tvl_by_destination.columns]
+    return percent_tvl_by_destination, df[columns_to_keep]
+
+
+def _render_plots(autopool: AutopoolConstants, percent_tvl_by_destination: pd.DataFrame, df: pd.DataFrame):
+    st.plotly_chart(
+        px.bar(
+            percent_tvl_by_destination,
+            x=percent_tvl_by_destination.index,
+            y=percent_tvl_by_destination.columns,
+            title=f"{autopool.name} % Allocation Over Time",
+        ).update_layout(xaxis_title="Date", yaxis_title="% Allocation"),
+        use_container_width=True,
+    )
+
+    st.plotly_chart(
+        px.line(
+            df[
+                [
+                    "total_display_apy",
+                ]
+            ],
+            title=f"{autopool.name} APY",
+        ),
+        use_container_width=True,
+    )
+
+
+def _fetch_and_render_autopool_apy_and_allocation_over_time(autopool: AutopoolConstants) -> None:
+    if st.button("Fetch and Render APY & Allocation Data (~15 seconds)"):
+        percent_tvl_by_destination, df = _fetch_APY_and_allocation_data(autopool)
+        _render_plots(autopool, percent_tvl_by_destination, df)
+
+        st.download_button(
+            label=f"Download {autopool.name} APY and Allocation Data",
+            data=df.to_csv(index=True).encode("utf-8"),
+            file_name=f"{autopool.name}_apy_and_allocation_over_time.csv",
+            mime="text/csv",
+        )
+
+    with st.expander("Readme"):
+        st.markdown(
+            """
+                **Purpose**  
+                Fetch & visualize an autopool's historical % allocation (by destination) and yield.
+
+                **How to use**
+                1. Pick an autopool.
+                2. Click **Fetch & Render** (~15s).
+                3. Review charts + table.
+                4. Download CSV.
+                5. Make a cool gif for Twitter.
+
+                **`total_display_apy`**
+                - First 30 days **expected_return**. (eg sum(expected return of a destination * percent of TVL in that destination))
+                - Day 31+: 30-day realized **autopoolApy** from the subgraph.
+                - If `autopoolApy` missing (baseUSD, sonicUSD, autoDOLA), fall back to **autopoolDay30MAApy** (same metric shown in the UI).
+                - Add **rewarderApy**
+                - Values shown in %.
+            """
+        )
+
+
+def fetch_and_render_autopool_apy_and_allocation_over_time():
+    """Fetches and renders APY and allocation data for the given autopool."""
+
+    selected_name = st.selectbox(
+        "Pick an Autopool",
+        [a.name for a in ALL_AUTOPOOLS],
+        index=0,
+        key="autopool_choice",
+    )
+    autopool = next(a for a in ALL_AUTOPOOLS if a.name == selected_name)
+    _fetch_and_render_autopool_apy_and_allocation_over_time(autopool)
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import AUTO_ETH
+    from mainnet_launch.constants import ALL_AUTOPOOLS
 
-    df = fetch_apr_data_from_subgraph(AUTO_ETH)
+    for a in ALL_AUTOPOOLS:
+        print(f"Fetching data for {a.name}")
+        _fetch_and_render_autopool_apy_and_allocation_over_time(a)

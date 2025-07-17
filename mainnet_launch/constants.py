@@ -84,6 +84,7 @@ class ChainData:
     approx_seconds_per_block: float
     chain_id: int
     start_unix_timestamp: int
+    tokemak_subgraph_url: str
 
     def __hash__(self):
         return self.chain_id
@@ -128,6 +129,7 @@ ETH_CHAIN: ChainData = ChainData(
     approx_seconds_per_block=12.0,
     chain_id=1,
     start_unix_timestamp=1726365887,
+    tokemak_subgraph_url=os.environ["TOKEMAK_ETHEREUM_SUBGRAPH_URL"],
 )
 
 
@@ -137,6 +139,7 @@ BASE_CHAIN: ChainData = ChainData(
     approx_seconds_per_block=2.0,
     chain_id=8453,
     start_unix_timestamp=1730591553,
+    tokemak_subgraph_url=os.environ["TOKEMAK_BASE_SUBGRAPH_URL"],
 )
 
 
@@ -146,6 +149,7 @@ SONIC_CHAIN: ChainData = ChainData(
     approx_seconds_per_block=0.5,  # TODO remove this arg
     chain_id=146,
     start_unix_timestamp=1748961926,
+    tokemak_subgraph_url=os.environ["TOKEMAK_SONIC_SUBGRAPH_URL"],
 )
 
 ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN]
