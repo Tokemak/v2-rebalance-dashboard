@@ -1,6 +1,7 @@
 """Holds internal functions to make marketing data"""
 
 import streamlit as st
+import time
 from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit, STREAMLIT_MARKDOWN_HTML
 
 config_plotly_and_streamlit()
@@ -31,7 +32,9 @@ def main():
     body = st.empty()
     # clear any previous content, then render selected page
     # gets rid of ghost content when switching pages
+    # small delay to ensure the empty call is processed
     body.empty()
+    time.sleep(0.3)
     with body.container():
         MARKETING_CONTENT_FUNCTIONS[page]()
 

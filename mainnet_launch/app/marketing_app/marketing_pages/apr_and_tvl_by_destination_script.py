@@ -134,16 +134,6 @@ def _render_plots(autopool: AutopoolConstants, percent_tvl_by_destination: pd.Da
 
 
 def _fetch_and_render_autopool_apy_and_allocation_over_time(autopool: AutopoolConstants) -> None:
-    if st.button("Fetch and Render APY & Allocation Data (~15 seconds)"):
-        percent_tvl_by_destination, df = _fetch_APY_and_allocation_data(autopool)
-        _render_plots(autopool, percent_tvl_by_destination, df)
-
-        st.download_button(
-            label=f"Download {autopool.name} APY and Allocation Data",
-            data=df.to_csv(index=True).encode("utf-8"),
-            file_name=f"{autopool.name}_apy_and_allocation_over_time.csv",
-            mime="text/csv",
-        )
 
     with st.expander("Readme"):
         st.markdown(
@@ -165,6 +155,17 @@ def _fetch_and_render_autopool_apy_and_allocation_over_time(autopool: AutopoolCo
                 - Add **rewarderApy**
                 - Values shown in %.
             """
+        )
+
+    if st.button("Fetch and Render APY & Allocation Data (~15 seconds)"):
+        percent_tvl_by_destination, df = _fetch_APY_and_allocation_data(autopool)
+        _render_plots(autopool, percent_tvl_by_destination, df)
+
+        st.download_button(
+            label=f"Download {autopool.name} APY and Allocation Data",
+            data=df.to_csv(index=True).encode("utf-8"),
+            file_name=f"{autopool.name}_apy_and_allocation_over_time.csv",
+            mime="text/csv",
         )
 
 
