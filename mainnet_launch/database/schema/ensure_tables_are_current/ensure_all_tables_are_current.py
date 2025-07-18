@@ -53,6 +53,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions_table_for_gas_costs import (
     update_tokemak_EOA_gas_costs_from_0,
+    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched,
 )
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_chainlink_keeper_gas_costs_table import (
@@ -80,7 +81,7 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
         ensure_token_values_are_current,
         ensure_rebalance_plans_table_are_current,
         ensure_rebalance_events_are_current,
-        update_tokemak_EOA_gas_costs_from_0,
+        update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched,
         ensure_chainlink_gas_costs_table_is_updated,
     ]:
         start = datetime.now()

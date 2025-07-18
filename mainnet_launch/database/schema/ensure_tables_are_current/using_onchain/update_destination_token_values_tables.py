@@ -367,6 +367,7 @@ def _fetch_and_insert_destination_token_values(autopool: AutopoolConstants):
     )
 
 
+# very slow about half the total time cost of ensure_all_tables_are_current.py
 def ensure_destination_token_values_are_current():
     for autopool in ALL_AUTOPOOLS:
         _fetch_and_insert_destination_token_values(autopool)
