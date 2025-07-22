@@ -24,7 +24,6 @@ def _fetch_apr_data_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
         autopoolDay30MAApy
         autopoolApy
         rewarderApy
-
         }
     }
     """
@@ -34,17 +33,6 @@ def _fetch_apr_data_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
 
     df["date"] = pd.to_datetime(df["date"], utc=True)
     df.set_index("date", inplace=True)
-
-    # for col in ["rewarderApy"]:
-    #     df[col] = 100 * df[col].apply(lambda x: int(x) / 1e18 if x is not None else None)
-
-    # for col in [
-    #     "autopoolDay30MAApy",
-    #     "autopoolApy",
-    # ]:
-    #     df[col] = 100 * df[col].apply(
-    #         lambda x: int(x) / 10 ** (autopool.base_asset_decimals) if x is not None else None
-    #     )
 
     df["rewarderApy"] = pd.to_numeric(df["rewarderApy"], errors="coerce") / 1e18 * 100
     df["autopoolDay30MAApy"] = (
@@ -100,12 +88,10 @@ def _fetch_APY_and_allocation_data(autopool: AutopoolConstants):
     # baseUSD, sonicUSD and autoDOLA do not have autopoolAPY fields, so instead we use the 30 day moving average of autopoolDay30MAApy
     # this is because (to validate) they don't back out price return
 
-    df["display_apy_first_expected_return_then_UI_APY"] = df["expected_return"].where(
-        df["autopoolApy"].isna(), df["autopoolApy"]
-    )
-    df["total_display_apy"] = df["display_apy_first_expected_return_then_UI_APY"] + df["rewarderApy"]
+    df["baseApy"] = df["expected_return"].where(df["autopoolApy"].isna(), df["autopoolApy"])
+    df["total_display_apy"] = df["baseApy"] + df["rewarderApy"]
 
-    columns_to_keep = ["total_display_apy", *percent_tvl_by_destination.columns]
+    columns_to_keep = ["total_display_apy", "baseApy", "rewarderApy", *percent_tvl_by_destination.columns]
     return percent_tvl_by_destination, df[columns_to_keep]
 
 
@@ -139,7 +125,6 @@ def _fetch_and_render_autopool_apy_and_allocation_over_time(autopool: AutopoolCo
         st.markdown(
             """
                 **Purpose**  
-                Fetch & visualize an autopool's historical % allocation (by destination) and yield.
 
                 **How to use**
                 1. Pick an autopool.
@@ -149,11 +134,17 @@ def _fetch_and_render_autopool_apy_and_allocation_over_time(autopool: AutopoolCo
                 5. Make a cool gif for Twitter.
 
                 **`total_display_apy`**
+                - Method:
                 - First 30 days **expected_return**. (eg sum(expected return of a destination * percent of TVL in that destination))
                 - Day 31+: 30-day realized **autopoolApy** from the subgraph.
                 - If `autopoolApy` missing (baseUSD, sonicUSD, autoDOLA), fall back to **autopoolDay30MAApy** (same metric shown in the UI).
                 - Add **rewarderApy**
-                - Values shown in %.
+
+                **Downloaded CSV**
+                - Contains `total_display_apy`, `baseApy`, `rewarderApy`, and % allocation by destination.
+                - `total_display_apy` is the APY shown by the Tokemak UI.
+                - `baseApy` is the expected return for the first 30 days, and the 30-day actual APY after that.
+                - `rewarderApy` is the APY from TOKE incentives according to the subgraph.
             """
         )
 
