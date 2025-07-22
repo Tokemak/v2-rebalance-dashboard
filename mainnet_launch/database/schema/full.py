@@ -673,6 +673,65 @@ class AutopoolFees(Base):
     )
 
 
+class DexScreenerPoolLiquidity(Base):
+    __tablename__ = "dex_screener_pool_liquidity"
+
+    pool_address: Mapped[str] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+
+    pool_name: Mapped[str] = mapped_column(nullable=False)
+    pool_symbol: Mapped[str] = mapped_column(nullable=False)
+    dex: Mapped[str] = mapped_column(nullable=False)  # curve, balancer, uniswap, etc
+
+    # sorted, order of tokens in the pool
+    pool_tokens: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
+
+
+class PoolLiquiditySnapshot(Base):
+    __tablename__ = "po0ol_liquidity_snapshot"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    pool_address: Mapped[str] = mapped_column(nullable=False)
+
+    token_address: Mapped[str] = mapped_column(nullable=False)
+    usd_liqudity: Mapped[float] = mapped_column(nullable=False)
+
+    datetime_requested: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True))
+    datetime_received: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["pool_address", "chain_id"],
+            ["dex_screener_pool_liquidity.pool_address", "dex_screener_pool_liquidity.chain_id"],
+        ),
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+    )
+
+
+class SwapQuote(Base):
+    __tablename__ = "swap_quote"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chain_id: Mapped[int] = mapped_column(nullable=False)
+
+    sell_token_address: Mapped[str] = mapped_column(nullable=False)
+    buy_token_address: Mapped[str] = mapped_column(nullable=False)
+
+    sell_token_amount: Mapped[float] = mapped_column(nullable=False)
+    buy_token_amount: Mapped[float] = mapped_column(nullable=False)
+    min_buy_token_amount: Mapped[float] = mapped_column(nullable=False)
+
+    datetime_requested: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True))
+    datetime_received: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    # sell and buy token must point to tokens
+    __table_args__ = (
+        ForeignKeyConstraint(["sell_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["buy_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+    )
+
+
 def drop_and_full_rebuild_db():
     meta = MetaData()
     meta.reflect(bind=ENGINE)
@@ -691,5 +750,6 @@ def reflect_and_create():
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
+    # reflect_and_create()
     pass
     # drop_and_full_rebuild_db()
