@@ -688,14 +688,14 @@ class DexScreenerPoolLiquidity(Base):
 
 
 class PoolLiquiditySnapshot(Base):
-    __tablename__ = "po0ol_liquidity_snapshot"
+    __tablename__ = "pool_liquidity_snapshot"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-
+    chain_id: Mapped[int] = mapped_column(nullable=False)
     pool_address: Mapped[str] = mapped_column(nullable=False)
 
     token_address: Mapped[str] = mapped_column(nullable=False)
-    usd_liqudity: Mapped[float] = mapped_column(nullable=False)
+    usd_liquidity: Mapped[float] = mapped_column(nullable=False)
 
     datetime_requested: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True))
     datetime_received: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -750,6 +750,6 @@ def reflect_and_create():
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    # reflect_and_create()
+    reflect_and_create()
     pass
     # drop_and_full_rebuild_db()

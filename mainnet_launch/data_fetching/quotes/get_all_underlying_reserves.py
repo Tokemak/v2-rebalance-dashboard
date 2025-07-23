@@ -53,6 +53,7 @@ def get_underlying_reserves_by_block(lens_contract_df: pd.DataFrame, block: int,
 
 
 def fetch_raw_amounts_by_destination(block: int, chain: ChainData) -> pd.DataFrame:
+    """Read onchain the raw quantites of each asset we hold in each autopool at this block."""
     data = get_full_destination_pools_and_destinations_at_one_block(chain, block)
 
     lens_contract_df = get_eth_value_by_destination_by_autopool(data)
