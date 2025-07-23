@@ -675,6 +675,7 @@ class AutopoolFees(Base):
 
 class DexScreenerPoolLiquidity(Base):
     __tablename__ = "dex_screener_pool_liquidity"
+    # the pool it self, stateless
 
     pool_address: Mapped[str] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
@@ -689,15 +690,15 @@ class DexScreenerPoolLiquidity(Base):
 
 class PoolLiquiditySnapshot(Base):
     __tablename__ = "pool_liquidity_snapshot"
+    # according to dex screener how but USD tvl is in
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     chain_id: Mapped[int] = mapped_column(nullable=False)
     pool_address: Mapped[str] = mapped_column(nullable=False)
-
     token_address: Mapped[str] = mapped_column(nullable=False)
     usd_liquidity: Mapped[float] = mapped_column(nullable=False)
 
-    datetime_requested: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True))
+    datetime_requested: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
     datetime_received: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
@@ -729,6 +730,23 @@ class SwapQuote(Base):
     __table_args__ = (
         ForeignKeyConstraint(["sell_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
         ForeignKeyConstraint(["buy_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+    )
+
+
+class AssetExposure(Base):
+    __tablename__ = "asset_exposure"
+
+    block: Mapped[int] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    reference_asset: Mapped[str] = mapped_column(primary_key=True)  # eg WETH, USDC, DOLA
+    token_address: Mapped[str] = mapped_column(primary_key=True)
+
+    quantity: Mapped[float] = mapped_column(nullable=False)  # in scaled terms, (eg 1 for ETH instead of 1e18)
+
+    __table_args__ = (
+        ForeignKeyConstraint(["reference_asset", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
     )
 
 

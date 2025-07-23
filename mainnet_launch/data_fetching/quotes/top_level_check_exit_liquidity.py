@@ -10,14 +10,74 @@ from mainnet_launch.database.schema.postgres_operations import get_full_table_as
 from mainnet_launch.data_fetching.quotes.tokemak_quote_utils import fetch_swap_quote
 import streamlit as st
 
-PORTIONS_TO_CHECK = [0.025, 0.05, 0.1, 0.25, 1]
-ATTEMPTS = 3
+#
+# ATTEMPTS = 3
 
-STABLE_COINS_REFERENCE_QUANTITY = 10_000
-ETH_REFERENCE_QUANTITY = 5
+# STABLE_COINS_REFERENCE_QUANTITY = 10_000
+# ETH_REFERENCE_QUANTITY = 5
+
+
+# all normalized to decimals
 
 
 async def fetch_quotes(
+    chain: ChainData, base_asset: str, base_asset_decimals: int, current_raw_balances: dict[str, float]
+) -> pd.DataFrame:
+    pass
+
+    tokemak_swap_quote_api_rate_limit = asyncio.Semaphore(5)
+
+
+def _post_process_quote_df(
+    all_quotes: list[dict],
+    tokens_df: pd.DataFrame,
+    base_asset_decimals: int,
+    sell_token_to_reference_quantity: dict[str, float],
+) -> pd.DataFrame:
+
+    quote_df = pd.DataFrame.from_records(all_quotes)
+    quote_df = pd.merge(quote_df, tokens_df, how="left", left_on="sellToken", right_on="token_address")
+    quote_df["buy_amount_norm"] = quote_df.apply(
+        lambda row: int(row["buyAmount"]) / (10**base_asset_decimals) if pd.notna(row["buyAmount"]) else None,
+        axis=1,
+    )
+    quote_df["min_buy_amount_norm"] = quote_df.apply(
+        lambda row: (int(row["minBuyAmount"]) / (10**base_asset_decimals) if pd.notna(row["minBuyAmount"]) else None),
+        axis=1,
+    )
+    quote_df["Sold Quantity"] = quote_df.apply(
+        lambda row: int(row["sellAmount"]) / (10 ** row["decimals"]) if pd.notna(row["sellAmount"]) else None, axis=1
+    )
+    quote_df["token_price"] = quote_df["buy_amount_norm"] / quote_df["Sold Quantity"]
+    quote_df["min_token_price"] = quote_df["min_buy_amount_norm"] / quote_df["Sold Quantity"]
+    quote_df["reference_quantity"] = quote_df["sellToken"].map(sell_token_to_reference_quantity)
+
+    return quote_df
+
+
+def _build_sell_token_sell_amount_tuples(
+    reference_quantity: float,
+    asset_exposure: dict[str, int],
+    portion_to_check: list[float],
+) -> list[tuple[str, float]]:
+
+    quotes_to_fetch = []
+    for sell_token_address, exposure in asset_exposure.items():
+        for portion in portion_to_check:
+            scaled_down_exposure = exposure * portion
+            quotes_to_fetch.append(
+                {
+                    "sell_token_address": sell_token_address,
+                    "sell_amount": scaled_down_exposure,
+                }
+            )
+
+    # this is not right with decimals,
+    for sell_token_address, _ in asset_exposure.items():
+        quotes_to_fetch.append({"sell_token_address": sell_token_address, "sell_amount": reference_quantity})
+
+
+async def fetch_quotes_OLD(
     chain: ChainData,
     base_asset: str,
     base_asset_decimals: int,
@@ -42,16 +102,6 @@ async def fetch_quotes(
 
     token_to_decimals = tokens_df.set_index("token_address")["decimals"].to_dict()
 
-    quanties = pd.DataFrame(
-        [
-            {"symbol": token_to_symbol[address], "amount": raw_amount / (10 ** token_to_decimals[address])}
-            for address, raw_amount in current_raw_balances.items()
-        ]
-    )
-
-    st.write("Token Exposure in Quantity Terms")
-    st.dataframe(quanties.set_index("symbol"))
-
     if base_asset in WETH:
         total_needed_quotes = len(current_raw_balances.keys()) * (len(PORTIONS_TO_CHECK) + 1) * ATTEMPTS
     elif (base_asset in USDC) or (base_asset in DOLA):
@@ -59,7 +109,6 @@ async def fetch_quotes(
         total_needed_quotes = len(current_raw_balances.keys()) * (len(PORTIONS_TO_CHECK) + 1 + 3) * ATTEMPTS
 
     all_quotes = []
-    progress_bar = st.progress(0.0, text=f"Fetching {total_needed_quotes} quotes...")
     async with aiohttp.ClientSession() as session:
         for attempt in range(ATTEMPTS):
             tasks = []
@@ -124,29 +173,14 @@ async def fetch_quotes(
                 portion_done = 1 if portion_done > 1 else portion_done
                 progress_bar.progress(portion_done, text=f"Fetched quotes: {len(all_quotes)}/{total_needed_quotes}")
 
-    quote_df = pd.DataFrame.from_records(all_quotes)
-    quote_df = pd.merge(quote_df, tokens_df, how="left", left_on="sellToken", right_on="token_address")
-    quote_df["buy_amount_norm"] = quote_df.apply(
-        lambda row: int(row["buyAmount"]) / (10**base_asset_decimals) if pd.notna(row["buyAmount"]) else None,
-        axis=1,
-    )
-    quote_df["min_buy_amount_norm"] = quote_df.apply(
-        lambda row: (int(row["minBuyAmount"]) / (10**base_asset_decimals) if pd.notna(row["minBuyAmount"]) else None),
-        axis=1,
-    )
-    quote_df["Sold Quantity"] = quote_df.apply(
-        lambda row: int(row["sellAmount"]) / (10 ** row["decimals"]) if pd.notna(row["sellAmount"]) else None, axis=1
-    )
-    quote_df["token_price"] = quote_df["buy_amount_norm"] / quote_df["Sold Quantity"]
-    quote_df["min_token_price"] = quote_df["min_buy_amount_norm"] / quote_df["Sold Quantity"]
-    quote_df["reference_quantity"] = quote_df["sellToken"].map(sell_token_to_reference_quantity)
-
+    quote_df = _post_process_quote_df(all_quotes, tokens_df, base_asset_decimals, sell_token_to_reference_quantity)
     slippage_df = compute_excess_slippage_from_size(quote_df)
 
     return quote_df, slippage_df
 
 
 def compute_excess_slippage_from_size(quote_df: pd.DataFrame) -> pd.DataFrame:
+    # note, this is in
     # todo add min_buy_amount_ratio
     slippage_df = (
         quote_df.groupby(["symbol", "Sold Quantity"])[["buy_amount_norm", "token_price", "reference_quantity"]]
