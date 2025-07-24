@@ -27,6 +27,7 @@ sqlalchemy-schemadisplay = "^2.0"
 graphviz = "^0.20.3"
 statsmodels = "^0.14.4"
 tdqm = "^0.0.1"
+aiolimiter = "^1.2.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"

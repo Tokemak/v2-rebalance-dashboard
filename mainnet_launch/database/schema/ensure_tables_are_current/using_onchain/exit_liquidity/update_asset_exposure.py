@@ -32,6 +32,8 @@ from mainnet_launch.database.schema.postgres_operations import (
 )
 from mainnet_launch.database.schema.full import AssetExposure, SwapQuote, Tokens
 
+# TODO getting the safe and spot prices here as well,
+# then you can compare the swaper with our oracles
 
 USD_REFERENCE_QUANTITY = 10_000
 ETH_REFERENCE_QUANTITY = 5
@@ -99,25 +101,28 @@ def _write_asset_exposure_to_database(asset_exposure_records: list[AssetExposure
 
 
 def ensure_asset_exposure_is_current():
-    all_asset_exposure_records = []
+
     for chain in ALL_CHAINS:
+        block = chain.client.eth.block_number
+        all_asset_exposure_records = []
         for base_asset in [DOLA, USDC, WETH]:
             asset_exposure_records = _fetch_asset_exposure(
-                block=chain.client.eth.block_number,
+                block=block,
                 chain=chain,
                 base_asset=base_asset(chain),
             )
             if not asset_exposure_records:
                 continue
-            all_asset_exposure_records.append(asset_exposure_records)
 
-    _write_asset_exposure_to_database(all_asset_exposure_records, chain)
+            all_asset_exposure_records.extend(asset_exposure_records)
+
+        _write_asset_exposure_to_database(all_asset_exposure_records, chain)
 
 
 def fetch_latest_asset_exposure() -> pd.DataFrame:
     # not totally certain on this apparoach, it is in plain sql,
     # so it is brittle to changes in the schema
-    # but is is easy to read, keeping as is, as an expirements
+    # but is is easy to read, keeping as is, as an expirement
 
     query = """
 WITH latest_blocks AS (
