@@ -124,7 +124,7 @@ def fetch_n_hops_from_tokens_with_coingecko(
     return dex_liqudity_df.drop_duplicates()
 
 
-def _fetch_many_pairs_from_coingecko(tokens_to_check: list[str], chain: ChainData) -> pd.DataFrame:
+def fetch_many_pairs_from_coingecko(tokens_to_check: list[str], chain: ChainData) -> pd.DataFrame:
     """
     Fetch pools for each token on Coingecko and flatten the 'attributes' and
     'relationships' JSON columns into top‑-evel DataFrame columns.
@@ -132,12 +132,7 @@ def _fetch_many_pairs_from_coingecko(tokens_to_check: list[str], chain: ChainDat
     dfs = []
     failed = []
     for token in set(tokens_to_check):
-        try:
-            df = _fetch_pool_by_token_from_coingecko(token, chain)
-        except requests.exceptions.HTTPError as e:
-            print(f"Failed to fetch pools for token {token}: {e}")
-            failed.append(token)
-            continue
+        df = _fetch_pool_by_token_from_coingecko(token, chain)
 
         # 1) Normalize 'attributes' dict into its own DataFrame
         attrs = pd.json_normalize(df["attributes"]).add_prefix("attr_")
@@ -179,7 +174,7 @@ if __name__ == "__main__":
         "0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E",
     }
 
-    dex_df = _fetch_many_pairs_from_coingecko(tokens_to_check, ETH_CHAIN)
+    dex_df = fetch_many_pairs_from_coingecko(tokens_to_check, ETH_CHAIN)
     pass
 
     # price_df = fetch_token_prices_from_coingecko(ETH_CHAIN, tokens[:2])

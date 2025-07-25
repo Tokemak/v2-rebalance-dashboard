@@ -117,11 +117,11 @@ def _chain_to_dex_screener_slug(chain: ChainData) -> str:
 
 if __name__ == "__main__":
     # Example usage
-    chain = "ethereum"
-
+    chain = ETH_CHAIN
     token_addresses = ["0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f"]
     df = get_many_pairs_from_dex_screener(chain, token_addresses)
 
-    few_pools = ["0x6951bDC4734b9f7F3E1B74afeBC670c736A0EDB6", "0x88794C65550DeB6b4087B7552eCf295113794410"]
+    # few_pools = ["0x6951bDC4734b9f7F3E1B74afeBC670c736A0EDB6", "0x88794C65550DeB6b4087B7552eCf295113794410"]
 
-    dex_df = asyncio.run(get_dex_sided_liquidity(chain, few_pools))
+    # dex_df = get_liquidity_quantities_of_many_pools(chain, few_pools)
+    # pass
