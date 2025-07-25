@@ -1,8 +1,5 @@
 """Using dex screener and coingecko, fetch the USD liquidty (in the other side)"""
 
-
-
-
 import asyncio
 import aiohttp
 
@@ -17,18 +14,23 @@ from mainnet_launch.data_fetching.dex_screener.get_pool_usd_liqudity import (
 
 from mainnet_launch.data_fetching.coingecko.get_pools_by_token import (
     fetch_token_prices_from_coingecko,
-    fetch_n_hops_from_tokens_with_coingecko,
     fetch_many_pairs_from_coingecko,
 )
+
+from mainnet_launch.data_fetching.quotes.get_all_underlying_reserves import (
+    fetch_raw_amounts_by_destination,
+    get_pools_underlying_and_total_supply,
+)
+
+
 from mainnet_launch.constants import (
     ALL_CHAINS,
+    ETH_CHAIN,
     WETH,
     DOLA,
     USDC,
-    TokemakAddress,
     ChainData,
 )
-
 
 ALL_BASE_ASSETS = [
     WETH,
@@ -63,8 +65,7 @@ def _fetch_possible_pairs_from_dex_screener_and_coingecko(
     return valid_pool_addresses
 
 
-
-def _fetch_pairs_with_prices(tokens_to_check_exit_liqudity_for:list[str], chain: ChainData) -> pd.DataFrame:
+def _fetch_pairs_with_prices(tokens_to_check_exit_liqudity_for: list[str], chain: ChainData) -> pd.DataFrame:
     valid_pool_addresses = _fetch_possible_pairs_from_dex_screener_and_coingecko(
         tokens_to_check_exit_liqudity_for, chain
     )
@@ -79,9 +80,7 @@ def _fetch_pairs_with_prices(tokens_to_check_exit_liqudity_for:list[str], chain:
     valid_dex_df["quote_token_address"] = valid_dex_df["quote_token_address"].replace(ETH_to_weth)
     valid_dex_df["base_token_address"] = valid_dex_df["base_token_address"].replace(ETH_to_weth)
 
-    prices_to_fetch = set(
-        valid_dex_df["quote_token_address"].tolist() + valid_dex_df["base_token_address"].tolist()
-    )
+    prices_to_fetch = set(valid_dex_df["quote_token_address"].tolist() + valid_dex_df["base_token_address"].tolist())
 
     coingecko_prices = fetch_token_prices_from_coingecko(chain, list(prices_to_fetch))
     coingecko_prices = coingecko_prices.set_index("token_address")["usd_price"].to_dict()
@@ -96,11 +95,9 @@ def _fetch_pairs_with_prices(tokens_to_check_exit_liqudity_for:list[str], chain:
         valid_dex_df["liquidity_quote"] * valid_dex_df["quote_token_price_usd"]
     ).round()
 
-    valid_dex_df = valid_dex_df.drop_duplicates(
-        subset=["pairAddress", "base_token_address", "quote_token_address"]
-    )
+    valid_dex_df = valid_dex_df.drop_duplicates(subset=["pairAddress", "base_token_address", "quote_token_address"])
 
-    return valid_dex_df
+    return valid_dex_df, coingecko_prices
 
 
 def build_our_token_to_total_other_token_liquidity(
@@ -140,21 +137,51 @@ def build_our_token_to_total_other_token_liquidity(
     return our_token_to_total_other_token_liquidity, token_symbol_to_dfs
 
 
+def get_portion_ownership_by_pool(block: int, chain: ChainData) -> pd.DataFrame:
+    df = fetch_raw_amounts_by_destination(
+        block=block,
+        chain=chain,
+    )
 
-def get_exit_liqudity_tvl():
-    ensure_asset_exposure_is_current() # 12 seconds
-    all_chain_asset_exposure_df = fetch_latest_asset_exposure()  # reads from database
+    states = get_pools_underlying_and_total_supply(
+        destination_vaults=df["vault_address"].unique(),
+        block=block,
+        chain=chain,
+    )
 
+    records = {}
+    for (vault_address, key), value in states.items():
+        if vault_address not in records:
+            records[vault_address] = {}
+        records[vault_address][key] = str(value)
+
+    portion_ownership_by_destination_df = pd.DataFrame.from_dict(records, orient="index").reset_index()
+
+    portion_ownership_by_destination_df["portion_ownership"] = portion_ownership_by_destination_df.apply(
+        lambda row: int(row["totalSupply"]) / int(row["underlyingTotalSupply"]), axis=1
+    )
+
+    return portion_ownership_by_destination_df
+
+
+def fetch_exit_liqudity_tvl():
+    # ensure_asset_exposure_is_current() # 12 seconds
+    all_chain_asset_exposure_df = fetch_latest_asset_exposure()
+
+    portion_ownership_by_destinations = []
     valid_dex_dfs = []
-    for chain in ALL_CHAINS:
+
+    all_coingecko_prices = {}
+    for chain in [ETH_CHAIN]:
         this_chain_asset_exposure_df = all_chain_asset_exposure_df[
             all_chain_asset_exposure_df["chain_id"] == chain.chain_id
         ]
+        block = chain.client.eth.block_number
 
-        for base_asset in ALL_BASE_ASSETS:
+        for base_asset in [USDC]:
 
             only_reference_base_asset_df = this_chain_asset_exposure_df[
-                this_chain_asset_exposure_df["reference_asset"] == base_asset(chain)
+          https://chatgpt.com/c/6882a125-bf84-8332-b850-01eb70f6d414      this_chain_asset_exposure_df["reference_asset"] == base_asset(chain)
             ]
 
             tokens_to_check_exit_liqudity_for = [
@@ -165,18 +192,34 @@ def get_exit_liqudity_tvl():
                 # skip if we only have the base asset (or nothing) for this (chain, base asset) combination
                 continue
 
-            valid_dex_df = _fetch_pairs_with_prices(tokens_to_check_exit_liqudity_for, chain)
-            valid_dex_df['chain_id'] = chain.chain_id
-            valid_dex_df['reference_asset'] = base_asset(chain)
+            valid_dex_df, coingecko_prices = _fetch_pairs_with_prices(tokens_to_check_exit_liqudity_for, chain)
+            valid_dex_df["chain_id"] = chain.chain_id
+            valid_dex_df["reference_asset"] = base_asset(chain)
+
+            all_coingecko_prices.update(coingecko_prices)
+
+            portion_ownership_by_destination_df = get_portion_ownership_by_pool(block, chain)
+            portion_ownership_by_destinations.append(portion_ownership_by_destination_df)
 
             valid_dex_dfs.append(valid_dex_df)
 
-    our_token_to_total_other_token_liquidity, token_symbol_to_dfs = build_our_token_to_total_other_token_liquidity(valid_dex_df, tokens_to_check_exit_liqudity_for)
     all_valid_dex_dfs = pd.concat(valid_dex_dfs, ignore_index=True)
 
-    return all_valid_dex_dfs, all_chain_asset_exposure_df, our_token_to_total_other_token_liquidity, token_symbol_to_dfs 
+    our_token_to_total_other_token_liquidity, token_symbol_to_dfs = build_our_token_to_total_other_token_liquidity(
+        all_valid_dex_dfs, tokens_to_check_exit_liqudity_for
+    )
 
+    all_portion_ownership_by_destinations = pd.concat(portion_ownership_by_destinations, ignore_index=True)
+
+    return (
+        all_valid_dex_dfs,
+        all_chain_asset_exposure_df,
+        our_token_to_total_other_token_liquidity,
+        token_symbol_to_dfs,
+        all_portion_ownership_by_destinations,
+        all_coingecko_prices,
+    )
 
 
 if __name__ == "__main__":
-    get_exit_liqudity_tvl()
+    fetch_exit_liqudity_tvl()

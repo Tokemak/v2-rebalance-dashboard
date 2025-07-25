@@ -10,8 +10,6 @@ from mainnet_launch.database.schema.postgres_operations import get_full_table_as
 
 
 def _fetch_autopool_exposure_quantities(autopool: AutopoolConstants) -> dict:
-    """Fetches the percent ownership by pool for the given autopool."""
-
     block = autopool.chain.client.eth.block_number
     reserve_df = fetch_raw_amounts_by_destination(block, autopool.chain)
     reserve_df["reserve_amount"] = reserve_df["reserve_amount"].map(int)

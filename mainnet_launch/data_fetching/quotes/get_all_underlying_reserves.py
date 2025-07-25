@@ -7,7 +7,11 @@ from multicall import Call
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
     get_full_destination_pools_and_destinations_at_one_block,
 )
-from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block, identity_with_bool_success
+from mainnet_launch.data_fetching.get_state_by_block import (
+    get_state_by_one_block,
+    identity_with_bool_success,
+    safe_normalize_with_bool_success,
+)
 from mainnet_launch.database.schema.full import Destinations, Tokens
 from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
 from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, AutopoolConstants, time_decorator
@@ -50,6 +54,38 @@ def get_underlying_reserves_by_block(lens_contract_df: pd.DataFrame, block: int,
 
     acutal_reserves_state = get_state_by_one_block(calls, block, chain)
     return acutal_reserves_state
+
+
+def get_pools_underlying_and_total_supply(destination_vaults: list[str], block: int, chain: ChainData) -> dict:
+    underlyingTotalSupply_calls = [
+        Call(
+            destination_vault_address,
+            "underlyingTotalSupply()(uint256)",
+            [((destination_vault_address, "underlyingTotalSupply"), identity_with_bool_success)],
+        )
+        for destination_vault_address in destination_vaults
+    ]
+
+    totalSupply_calls = [
+        Call(
+            destination_vault_address,
+            "totalSupply()(uint256)",
+            [((destination_vault_address, "totalSupply"), identity_with_bool_success)],
+        )
+        for destination_vault_address in destination_vaults
+    ]
+
+    getPool_calls = [
+        Call(
+            destination_vault_address,
+            "getPool()(address)",
+            [((destination_vault_address, "getPool"), identity_with_bool_success)],
+        )
+        for destination_vault_address in destination_vaults
+    ]
+
+    state = get_state_by_one_block([*underlyingTotalSupply_calls, *totalSupply_calls, *getPool_calls], block, chain)
+    return state
 
 
 def fetch_raw_amounts_by_destination(block: int, chain: ChainData) -> pd.DataFrame:

@@ -13,27 +13,48 @@ nest_asyncio.apply()
 RATE_LIMITER = AsyncLimiter(max_rate=250, time_period=60)
 
 
-async def fetch_dex_pair(session, chain: ChainData, pool_address: str):
-    """This gets the USD liqudity on each side"""
-    async with RATE_LIMITER:
-        datetime_requested = datetime.now(timezone.utc)
-        chain_slug = _chain_to_dex_screener_slug(chain)
+async def _get_json_with_retry(session: aiohttp.ClientSession, url: str):
+    """Fetch JSON from `url`, retrying after 60 s if we hit 429."""
+    while True:
+        async with RATE_LIMITER:
+            async with session.get(url, timeout=30) as resp:
+                if resp.status == 429:
+                    # Too many requests: wait and retry
+                    await asyncio.sleep(60)
+                    continue
+                resp.raise_for_status()
+                return await resp.json()
 
-        async with session.get(
-            f"https://api.dexscreener.com/latest/dex/pairs/{chain_slug}/{pool_address.lower()}", timeout=30
-        ) as resp:
-            resp.raise_for_status()
-            data = await resp.json()
-            pair = data.get("pair", {})
-            if pair is None:
-                pair = {}
-            datetime_received = datetime.now(timezone.utc)
-            return {
-                **pair,
-                "pairAddress": pool_address,
-                "datetime_requested": datetime_requested,
-                "datetime_received": datetime_received,
-            }
+
+async def fetch_dex_pair(session: aiohttp.ClientSession, chain: ChainData, pool_address: str):
+    """This gets the USD liquidity on each side, with 429‐retry logic."""
+    datetime_requested = datetime.now(timezone.utc)
+    chain_slug = _chain_to_dex_screener_slug(chain)
+    url = f"https://api.dexscreener.com/latest/dex/pairs/{chain_slug}/{pool_address.lower()}"
+    data = await _get_json_with_retry(session, url)
+
+    pair = data.get("pair") or {}
+    datetime_received = datetime.now(timezone.utc)
+    return {
+        **pair,
+        "pairAddress": pool_address,
+        "datetime_requested": datetime_requested,
+        "datetime_received": datetime_received,
+    }
+
+
+async def fetch_token_pairs(session: aiohttp.ClientSession, chain: ChainData, token_address: str):
+    """Get the pools found that contain token_address on chain, with 429‐retry logic."""
+    datetime_requested = datetime.now(timezone.utc)
+    chain_slug = _chain_to_dex_screener_slug(chain)
+    url = f"https://api.dexscreener.com/token-pairs/v1/{chain_slug}/{token_address.lower()}"
+    data = await _get_json_with_retry(session, url)
+
+    datetime_received = datetime.now(timezone.utc)
+    for pool in data:
+        pool["datetime_requested"] = datetime_requested
+        pool["datetime_received"] = datetime_received
+    return data
 
 
 async def _get_dex_sided_liquidity(chain: ChainData, pool_addresses: list[str]):
@@ -45,65 +66,48 @@ async def _get_dex_sided_liquidity(chain: ChainData, pool_addresses: list[str]):
     base_token = pd.json_normalize(dex_df["baseToken"]).add_prefix("base_token_")
     quote_token = pd.json_normalize(dex_df["quoteToken"]).add_prefix("quote_token_")
     dex_df = pd.concat(
-        [dex_df.drop(columns=["baseToken", "quoteToken", "liquidity"]), base_token, quote_token, liq], axis=1
+        [dex_df.drop(columns=["baseToken", "quoteToken", "liquidity"]), base_token, quote_token, liq],
+        axis=1,
     )
     return dex_df
 
 
+async def _get_token_pair_pools(chain: ChainData, token_addresses: list[str]) -> pd.DataFrame:
+    async with aiohttp.ClientSession() as session:
+        tasks = [fetch_token_pairs(session, chain, addr) for addr in token_addresses]
+        results = await asyncio.gather(*tasks)
+    # flatten the list of lists
+    results = [item for sublist in results for item in sublist]
+
+    pairs_df = pd.DataFrame(results)
+    liq = pd.json_normalize(pairs_df["liquidity"]).add_prefix("liquidity_")
+    base_token = pd.json_normalize(pairs_df["baseToken"]).add_prefix("base_token_")
+    quote_token = pd.json_normalize(pairs_df["quoteToken"]).add_prefix("quote_token_")
+    flat_pair_df = pd.concat(
+        [pairs_df[["pairAddress", "dexId"]], base_token, quote_token, liq],
+        axis=1,
+    )
+    return flat_pair_df
+
+
 def get_liquidity_quantities_of_many_pools(chain: ChainData, pool_addresses: list[str]) -> pd.DataFrame:
-    # we need this for quantities
     """
     Fetches the USD liquidity on each side of the pool.
-    :param chain: The blockchain network (e.g., 'ethereum').
+    :param chain: The blockchain network.
     :param pool_addresses: List of pool addresses to fetch liquidity for.
     :return: DataFrame containing the liquidity information for each pool.
     """
     return asyncio.run(_get_dex_sided_liquidity(chain, pool_addresses))
 
 
-def get_many_pairs_from_dex_screener(chain: str, token_addresses: list[str]) -> pd.DataFrame:
+def get_many_pairs_from_dex_screener(chain: ChainData, token_addresses: list[str]) -> pd.DataFrame:
     """
     Fetches pairs from DexScreener for a list of token addresses.
-    :param chain: The blockchain network (e.g., 'ethereum').
+    :param chain: The blockchain network.
     :param token_addresses: List of token addresses to fetch pairs for.
     :return: DataFrame containing the pairs information.
     """
     return asyncio.run(_get_token_pair_pools(chain, token_addresses))
-
-
-async def _get_token_pair_pools(
-    chain: ChainData,
-    token_addresses: list[str],
-) -> pd.DataFrame:
-    async with aiohttp.ClientSession() as session:
-        tasks = [fetch_token_pairs(session, chain, addr) for addr in token_addresses]
-        results = await asyncio.gather(*tasks)
-        # flatten the list of lists
-        results = [item for sublist in results for item in sublist]
-
-    pairs_df = pd.DataFrame(results)
-    liq = pd.json_normalize(pairs_df["liquidity"]).add_prefix("liquidity_")
-    base_token = pd.json_normalize(pairs_df["baseToken"]).add_prefix("base_token_")
-    quote_token = pd.json_normalize(pairs_df["quoteToken"]).add_prefix("quote_token_")
-    flat_pair_df = pd.concat([pairs_df[["pairAddress", "dexId"]], base_token, quote_token, liq], axis=1)
-    return flat_pair_df
-
-
-async def fetch_token_pairs(session, chain: ChainData, token_address: str):
-    """Get the pools found that cointain token_address on chain"""
-    chain_slug = _chain_to_dex_screener_slug(chain)
-    url = f"https://api.dexscreener.com/token-pairs/v1/{chain_slug}/{token_address.lower()}"
-    async with RATE_LIMITER:
-        datetime_requested = datetime.now(timezone.utc)
-        async with session.get(url, timeout=30) as resp:
-            resp.raise_for_status()
-            data = await resp.json()
-            datetime_received = datetime.now(timezone.utc)
-
-            for pool in data:
-                pool["datetime_requested"] = datetime_requested
-                pool["datetime_received"] = datetime_received
-            return data
 
 
 def _chain_to_dex_screener_slug(chain: ChainData) -> str:
@@ -113,6 +117,7 @@ def _chain_to_dex_screener_slug(chain: ChainData) -> str:
         return "base"  # not tested
     elif chain == SONIC_CHAIN:
         return "sonic"  # not tested
+    raise ValueError(f"Unsupported chain: {chain}")
 
 
 if __name__ == "__main__":
@@ -120,8 +125,4 @@ if __name__ == "__main__":
     chain = ETH_CHAIN
     token_addresses = ["0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f"]
     df = get_many_pairs_from_dex_screener(chain, token_addresses)
-
-    # few_pools = ["0x6951bDC4734b9f7F3E1B74afeBC670c736A0EDB6", "0x88794C65550DeB6b4087B7552eCf295113794410"]
-
-    # dex_df = get_liquidity_quantities_of_many_pools(chain, few_pools)
-    # pass
+    print(df.head())
