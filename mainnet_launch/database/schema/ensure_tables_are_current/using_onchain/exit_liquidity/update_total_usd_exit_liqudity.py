@@ -181,7 +181,7 @@ def fetch_exit_liqudity_tvl():
         for base_asset in [USDC]:
 
             only_reference_base_asset_df = this_chain_asset_exposure_df[
-          https://chatgpt.com/c/6882a125-bf84-8332-b850-01eb70f6d414      this_chain_asset_exposure_df["reference_asset"] == base_asset(chain)
+                this_chain_asset_exposure_df["reference_asset"] == base_asset(chain)
             ]
 
             tokens_to_check_exit_liqudity_for = [
