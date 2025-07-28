@@ -435,3 +435,10 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
 
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
 ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [AUTO_USD, BASE_USD, AUTO_DOLA, SONIC_USD]
+
+
+ALL_BASE_ASSETS: list[TokemakAddress] = [
+    WETH,
+    USDC,
+    DOLA,
+]
