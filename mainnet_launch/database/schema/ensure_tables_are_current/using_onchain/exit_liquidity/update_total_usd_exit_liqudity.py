@@ -6,7 +6,10 @@ import aiohttp
 from web3 import Web3
 import pandas as pd
 
-from update_asset_exposure import fetch_latest_asset_exposure, ensure_asset_exposure_is_current
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.exit_liquidity.update_asset_exposure import (
+    fetch_latest_asset_exposure,
+    ensure_asset_exposure_is_current,
+)
 from mainnet_launch.data_fetching.dex_screener.get_pool_usd_liqudity import (
     get_many_pairs_from_dex_screener,
     get_liquidity_quantities_of_many_pools,
@@ -160,6 +163,9 @@ def get_portion_ownership_by_pool(block: int, chain: ChainData) -> pd.DataFrame:
     portion_ownership_by_destination_df["portion_ownership"] = portion_ownership_by_destination_df.apply(
         lambda row: int(row["totalSupply"]) / int(row["underlyingTotalSupply"]), axis=1
     )
+    portion_ownership_by_destination_df["percent_ownership"] = (
+        portion_ownership_by_destination_df["portion_ownership"] * 100
+    ).round(2)
 
     return portion_ownership_by_destination_df
 
@@ -179,7 +185,6 @@ def fetch_exit_liqudity_tvl():
         block = chain.client.eth.block_number
 
         for base_asset in [USDC]:
-
             only_reference_base_asset_df = this_chain_asset_exposure_df[
                 this_chain_asset_exposure_df["reference_asset"] == base_asset(chain)
             ]

@@ -1,25 +1,11 @@
-import pandas as pd
-import plotly.express as px
-import streamlit as st
-
-from mainnet_launch.constants import *
-
-from mainnet_launch.data_fetching.quotes.get_all_underlying_reserves import fetch_raw_amounts_by_destination
-from mainnet_launch.database.schema.full import Tokens
-from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
+from mainnet_launch.pages.risk_metrics.estimate_exit_liquidity_from_quotes import (
+    fetch_and_render_exit_liquidity_from_quotes,
+)
+from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (
+    fetch_and_render_our_percent_ownership_of_each_destination,
+)
 
 
-def _fetch_autopool_exposure_quantities(autopool: AutopoolConstants) -> dict:
-    block = autopool.chain.client.eth.block_number
-    reserve_df = fetch_raw_amounts_by_destination(block, autopool.chain)
-    reserve_df["reserve_amount"] = reserve_df["reserve_amount"].map(int)
-    balances = reserve_df.groupby("token_address")["reserve_amount"].sum().reset_index()
-    tokens_table = get_full_table_as_df(Tokens, where_clause=Tokens.token_address.in_(balances["token_address"]))
-    balances["token_symbol"] = balances["token_address"].map(tokens_table.set_index("token_address")["symbol"])
-    balances["decimals"] = balances["token_address"].map(tokens_table.set_index("token_address")["decimals"])
-    balances["norm_reserve_amount"] = balances["reserve_amount"] / (10 ** balances["decimals"])
-    return balances
-
-
-if __name__ == "__main__":
-    print(_fetch_autopool_exposure_quantities(AUTO_ETH))
+def fetch_and_render_risk_metrics():
+    fetch_and_render_exit_liquidity_from_quotes()
+    fetch_and_render_our_percent_ownership_of_each_destination()
