@@ -255,6 +255,7 @@ def _fetch_and_insert_destination_token_values(
 
     new_destination_token_values_rows = []
 
+    # this is really show, unsure why 90 seconds
     def _extract_destination_token_values(row: dict) -> None:
         token_spot_price_column = (row["pool"], row["token_address"], "spot_price")
         quantity_column = (row["destination_vault_address"], "underlyingReserves_amounts")
