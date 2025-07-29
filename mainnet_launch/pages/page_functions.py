@@ -44,20 +44,8 @@ from mainnet_launch.pages.risk_metrics.risk_metrics import fetch_and_render_risk
 #     fetch_and_render_actual_and_gross_and_projected_returns,
 # )
 
+# to add
 
-# # consider moving this elsewhere
-# # TODO rename these top level functions. they don't fetch data externally just read from the database
-# CONTENT_FUNCTIONS = {
-#     # "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
-#     # "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
-#     # "Expected and Actual Returns": fetch_and_render_actual_and_gross_and_projected_returns,
-#     # "Gas Costs": fetch_and_render_keeper_network_gas_costs,
-#     # "Incentive Token Prices": fetch_and_render_reward_token_achieved_vs_incentive_token_price,
-#     # "Protocol Level Profit and Loss": fetch_and_render_protocol_level_profit_and_loss_data,
-#     # "Asset Discounts": fetch_and_render_asset_oracle_and_backing,
-# }
-
-# PAGES_WITHOUT_AUTOPOOL = ["Exit Liquidity Quotes", "Gas Costs"]
 # ["Gas Costs", "Incentive Token Prices", "Protocol Level Profit and Loss", "Asset Discounts"]
 
 
@@ -80,6 +68,3 @@ PROTOCOL_CONTENT_FUNCTIONS = {
 CHAIN_SPECIFIC_FUNCTIONS = {
     "Risk Metrics": fetch_and_render_risk_metrics,
 }
-
-
-CONTENT_FUNCTIONS = {**AUTOPOOL_CONTENT_FUNCTIONS, **PROTOCOL_CONTENT_FUNCTIONS, **CHAIN_SPECIFIC_FUNCTIONS}
