@@ -224,8 +224,9 @@ def _pure_function_group_destinations(
     )
 
 
-def fetch_exit_liqudity_tvl(chain: ChainData, base_asset: TokemakAddress, refresh: bool = False):
 
+
+def fetch_exit_liqudity_tvl(chain: ChainData, base_asset: TokemakAddress, refresh: bool = False):
     if refresh:
         ensure_asset_exposure_is_current()  # 12 seconds
 

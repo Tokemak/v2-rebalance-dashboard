@@ -19,33 +19,33 @@ def select_chain_and_base_asset() -> tuple[ChainData, TokemakAddress]:
     Returns:
       (selected_chain, selected_asset_symbol)
     """
-    # Chain dropdown
-    # selected_chain = st.selectbox(
-    #     "Select Chain",
-    #     ALL_CHAINS,
-    #     format_func=lambda c: c.name
-    # )
+    selected_chain = st.selectbox(
+        "Select Chain",
+        ALL_CHAINS,
+    )
 
-    # BASE_ASSET_MAP = {
-    #     "WETH": WETH,
-    #     "USDC": USDC,
-    #     "DOLA": DOLA,
-    # }
+    BASE_ASSET_MAP = {
+        "WETH": WETH,
+        "USDC": USDC,
+        "DOLA": DOLA,
+    }
 
-    # # Base‑asset dropdown
-    # selected_asset_symbol = st.selectbox(
-    #     "Select Base Asset",
-    #     list(BASE_ASSET_MAP.keys())
-    # )
-    # refresh = st.checkbox("Use Latest Block?", value=False)
-    return ETH_CHAIN, WETH, False
+    # Base‑asset dropdown
+    selected_asset_symbol = st.selectbox("Select Base Asset", ALL_BASE_ASSETS)
+    refresh = st.checkbox("Use Latest Block?", value=False)
+    # return ETH_CHAIN, WETH, False
     return selected_chain, selected_asset_symbol, refresh
 
 
 def fetch_and_render_exit_liqudity_pools():
 
-    chain, base_asset, refresh = select_chain_and_base_asset()
+    # chain, base_asset, refresh = select_chain_and_base_asset()
 
+    st.write("Ethereum", "WETH base asset")
+    chain = ETH_CHAIN
+    base_asset = WETH
+    refresh = False
+    # if st.button("Fetch Exit Liquidity Pools"):
     (
         valid_dex_df,
         all_chain_asset_exposure_df,
@@ -62,22 +62,19 @@ def fetch_and_render_exit_liqudity_pools():
         base_asset,
     )
 
-    st.subheader("Tokemak USD exposure and exit liquidity")
-    st.dataframe(this_combination_exposure_df)
-
     exit_liquidity_and_exposure_df = combine_our_exposure_with_exit_liquidity(
         this_combination_exposure_df,
         total_usd_exit_liqudity_df,
         coingecko_prices,
     )
 
-    st.markdown("Other Tokens by exit liquidity")
+    st.markdown("Our Exposure and Found Exit Liquidity by Token")
     st.dataframe(exit_liquidity_and_exposure_df.round(2))
 
-    st.markdown("Totals")
-    st.write(our_token_to_total_other_token_liquidity)
+    st.markdown("What token is the exit liquidity in?")
+    st.dataframe(wide_exit_liquidity_df.round(2))
 
-    st.markdown("Found Exit Liquidity Pools:")
+    st.markdown("Found Exit Liquidity Pools by token")
     render_exit_liquidity_pools(token_symbol_to_dfs)
 
 

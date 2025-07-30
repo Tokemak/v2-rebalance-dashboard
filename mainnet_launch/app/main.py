@@ -39,10 +39,6 @@ def render_see_options():
     for name in AUTOPOOL_CONTENT_FUNCTIONS.keys():
         st.write(f"- {name}")
 
-    st.write("### Autopools")
-    for pool in ALL_AUTOPOOLS:
-        st.write(f"- {pool.name}")
-
 
 def main():
     st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
@@ -51,7 +47,7 @@ def main():
     # 1) Choose category
     category = st.sidebar.radio("Page type", ("See Options", "Protocol-wide", "Chain-wide", "Autopool"), index=0)
 
-    if category == "See Options":
+    if category == "Pages":
         render_see_options()
         return
 
