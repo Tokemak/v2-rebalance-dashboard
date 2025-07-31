@@ -21,6 +21,7 @@ from mainnet_launch.data_fetching.quotes.top_level_check_exit_liquidity import f
 
 @st.cache_data(ttl=5 * 60)  # cache for 5 minutes
 def _fetch_quote_and_slippage_data(valid_autopools: tuple[AutopoolConstants]):
+
     a_valid_autopool = valid_autopools[0]
 
     block = a_valid_autopool.chain.client.eth.block_number
@@ -67,26 +68,27 @@ def _render_slippage_plots(slippage_df: pd.DataFrame) -> None:
 
 
 def fetch_and_render_exit_liquidity_from_quotes() -> None:
-    st.title("Exit Liquidity Quote Explorer")
-    _render_methodology()
-
+    st.subheader("Exit Liquidity Quote Explorer")
     chain_base_asset_groups = {
-        (ETH_CHAIN, "WETH"): (AUTO_ETH, AUTO_LRT, BAL_ETH, DINERO_ETH),
-        (ETH_CHAIN, "USDC"): (AUTO_USD,),
-        (ETH_CHAIN, "DOLA"): (AUTO_DOLA,),
-        (SONIC_CHAIN, "USD"): (SONIC_USD,),
-        (BASE_CHAIN, "WETH"): (BASE_ETH,),
-        (BASE_CHAIN, "USD"): (BASE_USD,),
+        (ETH_CHAIN, WETH): (AUTO_ETH, AUTO_LRT, BAL_ETH, DINERO_ETH),
+        (ETH_CHAIN, USDC): (AUTO_USD,),
+        (ETH_CHAIN, DOLA): (AUTO_DOLA,),
+        (SONIC_CHAIN, USDC): (SONIC_USD,),
+        (BASE_CHAIN, WETH): (BASE_ETH,),
+        (BASE_CHAIN, USDC): (BASE_USD,),
     }
 
     options = list(chain_base_asset_groups.keys())
-    selected_key = st.selectbox(
-        "Pick a Chain & Base Asset:", options, format_func=lambda k: f"{k[0].name} chain → {k[1]}"
+    chain, base_asset = st.selectbox(
+        "Pick a Chain & Base Asset:", options, format_func=lambda k: f"{k[0].name} chain and {k[1].name}"
     )
-    if st.button("Fetch exit-liquidity quotes"):
-        quote_df, slippage_df = _fetch_quote_and_slippage_data(chain_base_asset_groups[selected_key])
-        _render_slippage_plots(slippage_df)
-        _render_download_raw_quote_data_buttons(quote_df, slippage_df)
+    autopools = chain_base_asset_groups[(chain, base_asset)]
+
+    _render_methodology()
+
+    quote_df, slippage_df = _fetch_quote_and_slippage_data(autopools)
+    _render_slippage_plots(slippage_df)
+    _render_download_raw_quote_data_buttons(quote_df, slippage_df)
 
 
 def _render_download_raw_quote_data_buttons(quote_df: pd.DataFrame, slippage_df: pd.DataFrame) -> None:

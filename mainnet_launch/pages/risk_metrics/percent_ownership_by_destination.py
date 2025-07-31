@@ -9,7 +9,7 @@ from web3 import Web3
 from multicall import Call
 
 
-from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, AutopoolConstants
+from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, AutopoolConstants, AUTO_USD
 from mainnet_launch.database.schema.full import Destinations, AutopoolDestinations
 from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
 from mainnet_launch.data_fetching.get_state_by_block import identity_with_bool_success, get_state_by_one_block
@@ -149,35 +149,33 @@ def _render_methodology():
 
 
 def fetch_and_render_our_percent_ownership_of_each_destination():
+    st.subheader("Percent Ownership by Destination")
 
     autopool: AutopoolConstants = st.selectbox("Select Autopool", ALL_AUTOPOOLS, index=0, format_func=lambda x: x.name)
-    _render_methodology()
-    # autopool = ALL_AUTOPOOLS[0]
 
-    if st.button("Fetch current % ownership by destination"):
-        st.subheader("Percent Ownership by Destination")
+    with st.spinner(f"Fetching {autopool.name} Percent Ownership By Destination..."):
         block = autopool.chain.client.eth.block_number
         our_tvl_by_destination_df = _fetch_readable_our_tvl_by_destination(autopool.chain, block)
         our_tvl_by_destination_df = limit_to_this_autopool_destinations(our_tvl_by_destination_df, autopool, block)
         this_autopool_destinations_df = _add_this_autopool_balance_of(autopool, our_tvl_by_destination_df, block)
 
-        _render_autopool_portion_ownership_as_pie_charts(this_autopool_destinations_df, autopool)
+    _render_autopool_portion_ownership_as_pie_charts(this_autopool_destinations_df, autopool)
 
-        with st.expander("Table of Percent Ownership by Destination"):
-            st.dataframe(
-                this_autopool_destinations_df[
-                    [
-                        "underlying_name",
-                        "exchange_name",
-                        "destination_vault_address",
-                        "pool_address",
-                        f"{autopool.name} Percent Ownership",
-                        "Tokemak Other Autopool Percent Ownership",
-                        "Not Tokemak Percent Ownership",
-                    ]
-                ],
-                use_container_width=True,
-            )
+    with st.expander("Table of Percent Ownership by Destination"):
+        st.dataframe(
+            this_autopool_destinations_df[
+                [
+                    "underlying_name",
+                    "exchange_name",
+                    f"{autopool.name} Percent Ownership",
+                    "Tokemak Other Autopool Percent Ownership",
+                    "Not Tokemak Percent Ownership",
+                    "destination_vault_address",
+                    "pool_address",
+                ]
+            ],
+            use_container_width=True,
+        )
 
 
 def _render_autopool_portion_ownership_as_pie_charts(
@@ -201,7 +199,7 @@ def _render_autopool_portion_ownership_as_pie_charts(
     other_col = "Tokemak Other Autopool Percent Ownership"
     not_col = "Not Tokemak Percent Ownership"
 
-    cols = 4
+    cols = 3
     rows = math.ceil(len(df) / cols)
 
     fig = make_subplots(
@@ -232,6 +230,5 @@ def _render_autopool_portion_ownership_as_pie_charts(
 
 
 if __name__ == "__main__":
-    st.set_page_config(page_title="Risk Metrics", layout="wide")
-    st.title("Risk Metrics Dashboard")
+
     fetch_and_render_our_percent_ownership_of_each_destination()

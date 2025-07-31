@@ -23,30 +23,18 @@ from mainnet_launch.pages.gas_costs.gas_costs import (
     fetch_and_render_gas_costs,
 )
 
-
 from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import (
     fetch_and_render_asset_discounts,
 )
 
-from mainnet_launch.pages.risk_metrics.risk_metrics import fetch_and_render_risk_metrics
+from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (
+    fetch_and_render_our_percent_ownership_of_each_destination,
+)
+from mainnet_launch.pages.risk_metrics.estimate_exit_liquidity_from_pool_tvl import fetch_and_render_exit_liqudity_pools
 
-
-# to add
-# from mainnet_launch.pages.incentive_token_prices.incentive_token_liqudiation_prices import (
-#     fetch_and_render_reward_token_achieved_vs_incentive_token_price,
-# )
-
-# from mainnet_launch.pages.protocol_level_profit_and_loss.protocol_level_profit import (
-#     fetch_and_render_protocol_level_profit_and_loss_data,
-# )
-
-# from mainnet_launch.pages.expected_vs_actual_returns.expected_vs_actual_returns import (
-#     fetch_and_render_actual_and_gross_and_projected_returns,
-# )
-
-# to add
-
-# ["Gas Costs", "Incentive Token Prices", "Protocol Level Profit and Loss", "Asset Discounts"]
+from mainnet_launch.pages.risk_metrics.estimate_exit_liquidity_from_quotes import (
+    fetch_and_render_exit_liquidity_from_quotes,
+)
 
 
 AUTOPOOL_CONTENT_FUNCTIONS = {
@@ -65,6 +53,8 @@ PROTOCOL_CONTENT_FUNCTIONS = {
     # proift and loss
 }
 
-CHAIN_SPECIFIC_FUNCTIONS = {
-    "Risk Metrics": fetch_and_render_risk_metrics,
+RISK_METRICS_FUNCTIONS = {
+    "Tokemak Percent Ownership": fetch_and_render_our_percent_ownership_of_each_destination,
+    "Exit Liquidity Pools": fetch_and_render_exit_liqudity_pools,
+    "Exit Liquidity Quotes": fetch_and_render_exit_liquidity_from_quotes,
 }

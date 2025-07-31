@@ -9,43 +9,10 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.exit
     fetch_exit_liqudity_tvl,
 )
 
-
-def select_chain_and_base_asset() -> tuple[ChainData, TokemakAddress]:
-    """
-    Renders two dropdowns in Streamlit:
-      1. Chain (eth, base, sonic)
-      2. Base asset (WETH, USDC, DOLA)
-
-    Returns:
-      (selected_chain, selected_asset_symbol)
-    """
-    selected_chain = st.selectbox(
-        "Select Chain",
-        ALL_CHAINS,
-    )
-
-    BASE_ASSET_MAP = {
-        "WETH": WETH,
-        "USDC": USDC,
-        "DOLA": DOLA,
-    }
-
-    # Base‑asset dropdown
-    selected_asset_symbol = st.selectbox("Select Base Asset", ALL_BASE_ASSETS)
-    refresh = st.checkbox("Use Latest Block?", value=False)
-    # return ETH_CHAIN, WETH, False
-    return selected_chain, selected_asset_symbol, refresh
+st.cache_data(ttl=5 * 60, show_spinner=False)
 
 
-def fetch_and_render_exit_liqudity_pools():
-
-    # chain, base_asset, refresh = select_chain_and_base_asset()
-
-    st.write("Ethereum", "WETH base asset")
-    chain = ETH_CHAIN
-    base_asset = WETH
-    refresh = False
-    # if st.button("Fetch Exit Liquidity Pools"):
+def _fetch_data(chain: ChainData, base_asset: TokemakAddress):
     (
         valid_dex_df,
         all_chain_asset_exposure_df,
@@ -53,7 +20,7 @@ def fetch_and_render_exit_liqudity_pools():
         token_symbol_to_dfs,
         portion_ownership_by_destination_df,
         coingecko_prices,
-    ) = fetch_exit_liqudity_tvl(chain, base_asset, refresh)
+    ) = fetch_exit_liqudity_tvl(chain, base_asset)
 
     wide_exit_liquidity_df, total_usd_exit_liqudity_df, this_combination_exposure_df = _compute_readable_exit_liquidity(
         all_chain_asset_exposure_df,
@@ -67,15 +34,7 @@ def fetch_and_render_exit_liqudity_pools():
         total_usd_exit_liqudity_df,
         coingecko_prices,
     )
-
-    st.markdown("Our Exposure and Found Exit Liquidity by Token")
-    st.dataframe(exit_liquidity_and_exposure_df.round(2))
-
-    st.markdown("What token is the exit liquidity in?")
-    st.dataframe(wide_exit_liquidity_df.round(2))
-
-    st.markdown("Found Exit Liquidity Pools by token")
-    render_exit_liquidity_pools(token_symbol_to_dfs)
+    return exit_liquidity_and_exposure_df, wide_exit_liquidity_df, token_symbol_to_dfs
 
 
 def _compute_readable_exit_liquidity(
@@ -187,12 +146,54 @@ def combine_our_exposure_with_exit_liquidity(
     return exit_liquidity_and_exposure_df
 
 
+def _render_other_tables(exit_liquidity_and_exposure_df: pd.DataFrame, wide_exit_liquidity_df: pd.DataFrame):
+    st.markdown("Our Exposure and Found Exit Liquidity by Token")
+    st.dataframe(exit_liquidity_and_exposure_df.round(2))
+
+    st.markdown("What Other Token is the exit liquidity in?")
+    st.dataframe(wide_exit_liquidity_df.round(2))
+
+
+def fetch_and_render_exit_liqudity_pools() -> None:
+    chain_base_asset_groups = {
+        (ETH_CHAIN, WETH): (AUTO_ETH, AUTO_LRT, BAL_ETH, DINERO_ETH),
+        (ETH_CHAIN, USDC): (AUTO_USD,),
+        (ETH_CHAIN, DOLA): (AUTO_DOLA,),
+        (SONIC_CHAIN, USDC): (SONIC_USD,),
+        (BASE_CHAIN, WETH): (BASE_ETH,),
+        (BASE_CHAIN, USDC): (BASE_USD,),
+    }
+
+    options = list(chain_base_asset_groups.keys())
+    chain, base_asset = st.selectbox(
+        "Pick a Chain & Base Asset:", options, format_func=lambda k: f"{k[0].name} chain and {k[1].name}"
+    )
+
+    exit_liquidity_and_exposure_df, wide_exit_liquidity_df, token_symbol_to_dfs = _fetch_data(chain, base_asset)
+    _render_other_tables(exit_liquidity_and_exposure_df, wide_exit_liquidity_df)
+
+    st.markdown("Found Exit Liquidity Pools by Token")
+    render_exit_liquidity_pools(token_symbol_to_dfs)
+
+
 def render_exit_liquidity_pools(token_symbol_to_dfs: dict):
+    if "selected_token" not in st.session_state:
+        st.session_state.selected_token = list(token_symbol_to_dfs.keys())[0] if token_symbol_to_dfs else None
+
     token_symbol = st.selectbox(
         "Select Token Symbol",
         list(token_symbol_to_dfs.keys()),
+        index=(
+            list(token_symbol_to_dfs.keys()).index(st.session_state.selected_token)
+            if st.session_state.selected_token in token_symbol_to_dfs
+            else 0
+        ),
+        key="token_selector",
+        on_change=lambda: setattr(st.session_state, "selected_token", st.session_state.token_selector),
         format_func=lambda x: x,
     )
+    st.session_state.selected_token = token_symbol  # persist
+
     st.subheader(f"Exit Liquidity Pools for {token_symbol}")
 
     cols = [

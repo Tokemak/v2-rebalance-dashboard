@@ -25,6 +25,7 @@ MULTICALL_V3 = TokemakAddress(
     eth="0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696",
     base="0xcA11bde05977b3631167028862bE2a173976CA11",
     sonic="0xcA11bde05977b3631167028862bE2a173976CA11",
+    name="multicall_v3",
 )
 
 

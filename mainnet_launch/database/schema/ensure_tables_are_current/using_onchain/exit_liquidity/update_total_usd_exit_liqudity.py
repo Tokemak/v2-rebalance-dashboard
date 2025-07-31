@@ -1,10 +1,13 @@
-"""Using dex screener and coingecko, fetch the USD liquidty (in the other side)"""
-
-import asyncio
-import aiohttp
+"""Using dex screener and coingecko, fetch the USD liquidty (in the other side) of found liquidity pools"""
 
 from web3 import Web3
 import pandas as pd
+import streamlit as st
+
+from mainnet_launch.constants import (
+    TokemakAddress,
+    ChainData,
+)
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.exit_liquidity.update_asset_exposure import (
     fetch_latest_asset_exposure,
@@ -23,18 +26,6 @@ from mainnet_launch.data_fetching.coingecko.get_pools_by_token import (
 from mainnet_launch.data_fetching.quotes.get_all_underlying_reserves import (
     fetch_raw_amounts_by_destination,
     get_pools_underlying_and_total_supply,
-)
-
-
-from mainnet_launch.constants import (
-    ALL_CHAINS,
-    ALL_BASE_ASSETS,
-    TokemakAddress,
-    ETH_CHAIN,
-    WETH,
-    DOLA,
-    USDC,
-    ChainData,
 )
 
 
@@ -190,10 +181,6 @@ def get_portion_ownership_by_pool(block: int, chain: ChainData) -> pd.DataFrame:
 def _pure_function_group_destinations(
     all_chain_asset_exposure_df: pd.DataFrame, chain: ChainData, base_asset: TokemakAddress
 ):
-    block = chain.client.eth.block_number
-
-    portion_ownership_by_destinations = []
-
     this_chain_and_base_asset_exposure_df = all_chain_asset_exposure_df[
         (all_chain_asset_exposure_df["chain_id"] == chain.chain_id)
         & (all_chain_asset_exposure_df["reference_asset"] == base_asset(chain))
@@ -203,7 +190,7 @@ def _pure_function_group_destinations(
         t for t in this_chain_and_base_asset_exposure_df["token_address"].unique().tolist() if t != base_asset(chain)
     ]
 
-    portion_ownership_by_destination_df = get_portion_ownership_by_pool(block, chain)
+    portion_ownership_by_destination_df = get_portion_ownership_by_pool(chain.client.eth.block_number, chain)
     pool_to_portion_ownership = portion_ownership_by_destination_df.set_index("getPool")["portion_ownership"].to_dict()
 
     valid_dex_df, coingecko_prices = _fetch_pairs_with_prices(
@@ -224,20 +211,30 @@ def _pure_function_group_destinations(
     )
 
 
-
-
-def fetch_exit_liqudity_tvl(chain: ChainData, base_asset: TokemakAddress, refresh: bool = False):
-    if refresh:
-        ensure_asset_exposure_is_current()  # 12 seconds
+def fetch_exit_liqudity_tvl(chain: ChainData, base_asset: TokemakAddress):
+    ensure_asset_exposure_is_current()  # 12 seconds
 
     all_chain_asset_exposure_df = fetch_latest_asset_exposure()
-    return _pure_function_group_destinations(
+
+    (
+        valid_dex_df,
+        all_chain_asset_exposure_df,
+        our_token_to_total_other_token_liquidity,
+        token_symbol_to_dfs,
+        portion_ownership_by_destination_df,
+        coingecko_prices,
+    ) = _pure_function_group_destinations(
         all_chain_asset_exposure_df=all_chain_asset_exposure_df, chain=chain, base_asset=base_asset
     )
 
-
-if __name__ == "__main__":
-    fetch_exit_liqudity_tvl()
+    return (
+        valid_dex_df,
+        all_chain_asset_exposure_df,
+        our_token_to_total_other_token_liquidity,
+        token_symbol_to_dfs,
+        portion_ownership_by_destination_df,
+        coingecko_prices,
+    )
 
 
 # def _pure_function_group_destinations_old(
