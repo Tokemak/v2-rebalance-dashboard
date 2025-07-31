@@ -2,7 +2,6 @@ import asyncio
 import aiohttp
 
 import pandas as pd
-from datetime import datetime
 
 from mainnet_launch.constants import *
 from mainnet_launch.database.schema.full import Tokens
@@ -10,22 +9,35 @@ from mainnet_launch.database.schema.postgres_operations import get_full_table_as
 from mainnet_launch.data_fetching.quotes.tokemak_quote_utils import fetch_swap_quote
 import streamlit as st
 
-#
-# ATTEMPTS = 3
 
-# STABLE_COINS_REFERENCE_QUANTITY = 10_000
-# ETH_REFERENCE_QUANTITY = 5
+import asyncio
+import concurrent.futures
+
+ATTEMPTS = 3
+STABLE_COINS_REFERENCE_QUANTITY = 10_000
+ETH_REFERENCE_QUANTITY = 5
+PORTIONS_TO_CHECK = [0.01, 0.05, 0.1, 0.25]
 
 
-# all normalized to decimals
+def run_async_safely(coro):
+    """
+    Sync wrapper around any coroutine. Works whether or not an event loop is already running.
+    If there's no running loop: uses asyncio.run.
+    If there is one: runs the coroutine in a separate thread's new loop and blocks for the result.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # no running loop
+        return asyncio.run(coro)
 
+    # if we get here, there is a running loop; run in separate thread to avoid reentrancy issues
+    def _runner(c):
+        return asyncio.run(c)  # safe: new loop inside thread
 
-async def fetch_quotes(
-    chain: ChainData, base_asset: str, base_asset_decimals: int, current_raw_balances: dict[str, float]
-) -> pd.DataFrame:
-    pass
-
-    tokemak_swap_quote_api_rate_limit = asyncio.Semaphore(5)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as exe:
+        future = exe.submit(_runner, coro)
+        return future.result()
 
 
 def _post_process_quote_df(
@@ -77,6 +89,26 @@ def _build_sell_token_sell_amount_tuples(
         quotes_to_fetch.append({"sell_token_address": sell_token_address, "sell_amount": reference_quantity})
 
 
+def fetch_quotes(
+    chain: ChainData,
+    base_asset: str,
+    base_asset_decimals: int,
+    current_raw_balances: dict[str, int],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Fetch quotes for the given balances and chain.
+    Returns a DataFrame with quotes and a DataFrame with slippage data.
+    """
+    progress_bar = st.progress(0, text="Fetching quotes...")
+
+    quote_df, slippage_df = run_async_safely(
+        fetch_quotes_OLD(chain, base_asset, base_asset_decimals, current_raw_balances)
+    )
+
+    progress_bar.empty()
+    return quote_df, slippage_df
+
+
 async def fetch_quotes_OLD(
     chain: ChainData,
     base_asset: str,
@@ -98,8 +130,7 @@ async def fetch_quotes_OLD(
 
     tokens_df = get_full_table_as_df(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
 
-    token_to_symbol = tokens_df.set_index("token_address")["symbol"].to_dict()
-
+    progress_bar = st.progress(0, text="Fetching quotes...")
     token_to_decimals = tokens_df.set_index("token_address")["decimals"].to_dict()
 
     if base_asset in WETH:

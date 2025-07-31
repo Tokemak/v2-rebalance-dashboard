@@ -211,8 +211,9 @@ def _pure_function_group_destinations(
     )
 
 
-def fetch_exit_liqudity_tvl(chain: ChainData, base_asset: TokemakAddress):
-    ensure_asset_exposure_is_current()  # 12 seconds
+def fetch_exit_liqudity_tvl(chain: ChainData, base_asset: TokemakAddress, refresh: bool):
+    if refresh:
+        ensure_asset_exposure_is_current()  # 12 seconds
 
     all_chain_asset_exposure_df = fetch_latest_asset_exposure()
 
@@ -235,74 +236,3 @@ def fetch_exit_liqudity_tvl(chain: ChainData, base_asset: TokemakAddress):
         portion_ownership_by_destination_df,
         coingecko_prices,
     )
-
-
-# def _pure_function_group_destinations_old(
-#     all_chain_asset_exposure_df: pd.DataFrame, chain: ChainData, base_asset: TokemakAddress
-# ):
-#     portion_ownership_by_destinations = []
-#     valid_dex_dfs = []
-
-#     all_coingecko_prices = {}
-#     this_chain_asset_exposure_df = all_chain_asset_exposure_df[
-#         all_chain_asset_exposure_df["chain_id"] == chain.chain_id
-#     ]
-#     block = chain.client.eth.block_number
-
-#     only_reference_base_asset_df = this_chain_asset_exposure_df[
-#         this_chain_asset_exposure_df["reference_asset"] == base_asset(chain)
-#     ]
-
-#     tokens_to_check_exit_liqudity_for = [
-#         t for t in only_reference_base_asset_df["token_address"].unique().tolist() if t != base_asset(chain)
-#     ]
-
-#     # if not tokens_to_check_exit_liqudity_for:
-#     #     # skip if we only have the base asset (or nothing) for this (chain, base asset) combination
-#     #     continue
-
-#     valid_dex_df, coingecko_prices = _fetch_pairs_with_prices(tokens_to_check_exit_liqudity_for, chain)
-#     valid_dex_df["chain_id"] = chain.chain_id
-#     valid_dex_df["reference_asset"] = base_asset(chain)
-
-#     all_coingecko_prices.update(coingecko_prices)
-
-#     portion_ownership_by_destination_df = get_portion_ownership_by_pool(block, chain)
-#     portion_ownership_by_destinations.append(portion_ownership_by_destination_df)
-
-#     valid_dex_dfs.append(valid_dex_df)
-
-#     all_valid_dex_dfs = pd.concat(valid_dex_dfs, ignore_index=True)
-
-#     all_valid_dex_dfs["tokemak_portion_ownership"] = (
-#         all_valid_dex_dfs["pairAddress"].str.lower().map(pool_to_portion_ownership).fillna(0.0)
-#     )
-#     all_valid_dex_dfs['tokemak_percent_ownership'] = (
-#         all_valid_dex_dfs["tokemak_portion_ownership"] * 100
-#     ).round(2)
-
-#     all_valid_dex_dfs["scaled_quote_usd_liquidity"] = all_valid_dex_dfs["quote_token_usd_liquidity"] * (
-#         1 - all_valid_dex_dfs["tokemak_portion_ownership"]
-#     )
-#     all_valid_dex_dfs["scaled_base_usd_liquidity"] = all_valid_dex_dfs["base_token_usd_liquidity"] * (
-#         1 - all_valid_dex_dfs["tokemak_portion_ownership"]
-#     )
-
-#     our_token_to_total_other_token_liquidity, token_symbol_to_dfs = build_our_token_to_total_other_token_liquidity(
-#         all_valid_dex_dfs, tokens_to_check_exit_liqudity_for
-#     )
-
-#     all_portion_ownership_by_destinations = pd.concat(portion_ownership_by_destinations, ignore_index=True)
-#     pool_to_portion_ownership = all_portion_ownership_by_destinations.set_index("getPool")[
-#         "portion_ownership"
-#     ].to_dict()
-
-
-#     return (
-#         all_valid_dex_dfs,
-#         all_chain_asset_exposure_df,
-#         our_token_to_total_other_token_liquidity,
-#         token_symbol_to_dfs,
-#         all_portion_ownership_by_destinations,
-#         all_coingecko_prices,
-#     )

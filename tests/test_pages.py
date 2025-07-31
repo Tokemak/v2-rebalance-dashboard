@@ -16,7 +16,7 @@ from mainnet_launch.constants import ALL_AUTOPOOLS, TEST_LOG_FILE_NAME, Autopool
 from mainnet_launch.pages.page_functions import (
     AUTOPOOL_CONTENT_FUNCTIONS,
     PROTOCOL_CONTENT_FUNCTIONS,
-    CHAIN_SPECIFIC_FUNCTIONS,
+    RISK_METRICS_FUNCTIONS,
 )
 
 

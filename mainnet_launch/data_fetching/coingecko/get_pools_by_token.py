@@ -3,6 +3,8 @@ import aiohttp
 import nest_asyncio
 from datetime import datetime, timezone
 
+import concurrent.futures
+
 import pandas as pd
 from aiolimiter import AsyncLimiter
 from web3 import Web3
@@ -15,10 +17,31 @@ from mainnet_launch.constants import (
     SONIC_CHAIN,
 )
 
-nest_asyncio.apply()
+# nest_asyncio.apply()
 
 # no idea here on limit
 RATE_LIMITER = AsyncLimiter(max_rate=100, time_period=60)
+
+
+def run_async_safely(coro):
+    """
+    Sync wrapper around any coroutine. Works whether or not an event loop is already running.
+    If there's no running loop: uses asyncio.run.
+    If there is one: runs the coroutine in a separate thread's new loop and blocks for the result.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # no running loop
+        return asyncio.run(coro)
+
+    # if we get here, there is a running loop; run in separate thread to avoid reentrancy issues
+    def _runner(c):
+        return asyncio.run(c)  # safe: new loop inside thread
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as exe:
+        future = exe.submit(_runner, coro)
+        return future.result()
 
 
 async def _get_json_with_retry(session: aiohttp.ClientSession, url: str, params=None, headers=None):
@@ -90,10 +113,7 @@ def fetch_token_prices_from_coingecko(
     token_addresses: list[str],
     vs_currencies: str = "usd",
 ) -> pd.DataFrame:
-    """
-    Sync wrapper around the async fetch.
-    """
-    return asyncio.run(_fetch_token_prices_from_coingecko_async(chain, token_addresses, vs_currencies))
+    return run_async_safely(_fetch_token_prices_from_coingecko_async(chain, token_addresses, vs_currencies))
 
 
 async def _fetch_pool_by_token_from_coingecko_async(
@@ -109,55 +129,6 @@ async def _fetch_pool_by_token_from_coingecko_async(
     data = await _get_json_with_retry(session, url, params=params, headers=headers)
     pools = data.get("data", [])
     return pd.DataFrame(pools)
-
-
-# async def _fetch_n_hops_from_coingecko_async(
-#     tokens_to_check: set[str],
-#     chain: ChainData,
-#     min_USD_reserves: int = 1,
-#     n_hops: int = 1,
-# ) -> pd.DataFrame:
-#     tokens_to_check = {t.lower() for t in tokens_to_check}
-#     checked: set[str] = set()
-#     all_pools = pd.DataFrame()
-
-#     async with aiohttp.ClientSession() as session:
-#         for hop in range(n_hops):
-#             to_do = [t for t in tokens_to_check if t not in checked]
-#             if not to_do:
-#                 break
-
-#             # fetch all this hop in parallel
-#             tasks = [
-#                 _fetch_pool_by_token_from_coingecko_async(session, tok, chain)
-#                 for tok in to_do
-#             ]
-#             results = await asyncio.gather(*tasks)
-#             hop_df = pd.concat(results, ignore_index=True)
-
-#             # optional filter by min_USD_reserves if that field exists
-#             if "liquidity" in hop_df.columns:
-#                 hop_df = hop_df[hop_df["liquidity"].apply(lambda L: L.get("usd", 0) >= min_USD_reserves)]
-
-#             all_pools = pd.concat([all_pools, hop_df], ignore_index=True)
-#             checked.update(to_do)
-
-#             # prepare next hop
-#             next_tokens = set(hop_df["quote_token_id"].tolist() + hop_df["base_token_id"].tolist())
-#             tokens_to_check = {t.lower() for t in next_tokens}
-
-#     return all_pools.drop_duplicates()
-
-
-# def fetch_n_hops_from_tokens_with_coingecko(
-#     tokens_to_check: set[str],
-#     chain: ChainData,
-#     min_USD_reserves: int = 1,
-#     n_hops: int = 1,
-# ) -> pd.DataFrame:
-#     return asyncio.run(
-#         _fetch_n_hops_from_coingecko_async(tokens_to_check, chain, min_USD_reserves, n_hops)
-#     )
 
 
 async def _fetch_many_pairs_from_coingecko_async(
@@ -189,7 +160,7 @@ def fetch_many_pairs_from_coingecko(tokens_to_check: list[str], chain: ChainData
     """
     Sync wrapper around the async “many at once” pool fetch.
     """
-    return asyncio.run(_fetch_many_pairs_from_coingecko_async(tokens_to_check, chain))
+    return run_async_safely(_fetch_many_pairs_from_coingecko_async(tokens_to_check, chain))
 
 
 if __name__ == "__main__":

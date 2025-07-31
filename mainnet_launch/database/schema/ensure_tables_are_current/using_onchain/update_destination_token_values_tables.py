@@ -55,6 +55,7 @@ SOLVER_ROOT_ORACLE = TokemakAddress(
     eth="0xdB8747a396D75D576Dc7a10bb6c8F02F4a3C20f1",
     base="0x67D29b2d1b422922406d6d5fb7846aE99c282de1",
     sonic="0x4137b35266A4f42ad8B4ae21F14D0289861cc970",
+    name="SolverRootOracle",
 )
 
 

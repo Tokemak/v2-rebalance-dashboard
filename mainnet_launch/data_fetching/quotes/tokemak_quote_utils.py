@@ -3,8 +3,7 @@ import nest_asyncio
 
 from mainnet_launch.constants import DEAD_ADDRESS
 
-nest_asyncio.apply()
-
+# nest_asyncio.apply()
 # maybe call 3 times and use median?
 
 

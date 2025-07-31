@@ -5,10 +5,33 @@ from datetime import datetime, timezone
 import pandas as pd
 from aiolimiter import AsyncLimiter
 import nest_asyncio
+import concurrent.futures
 
 from mainnet_launch.constants import ChainData, ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN
 
-nest_asyncio.apply()
+# nest_asyncio.apply()
+
+
+def run_async_safely(coro):
+    """
+    Sync wrapper around any coroutine. Works whether or not an event loop is already running.
+    If there's no running loop: uses asyncio.run.
+    If there is one: runs the coroutine in a separate thread's new loop and blocks for the result.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # no running loop
+        return asyncio.run(coro)
+
+    # if we get here, there is a running loop; run in separate thread to avoid reentrancy issues
+    def _runner(c):
+        return asyncio.run(c)  # safe: new loop inside thread
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as exe:
+        future = exe.submit(_runner, coro)
+        return future.result()
+
 
 RATE_LIMITER = AsyncLimiter(max_rate=250, time_period=60)
 
@@ -97,7 +120,7 @@ def get_liquidity_quantities_of_many_pools(chain: ChainData, pool_addresses: lis
     :param pool_addresses: List of pool addresses to fetch liquidity for.
     :return: DataFrame containing the liquidity information for each pool.
     """
-    return asyncio.run(_get_dex_sided_liquidity(chain, pool_addresses))
+    return run_async_safely(_get_dex_sided_liquidity(chain, pool_addresses))
 
 
 def get_many_pairs_from_dex_screener(chain: ChainData, token_addresses: list[str]) -> pd.DataFrame:
@@ -107,7 +130,7 @@ def get_many_pairs_from_dex_screener(chain: ChainData, token_addresses: list[str
     :param token_addresses: List of token addresses to fetch pairs for.
     :return: DataFrame containing the pairs information.
     """
-    return asyncio.run(_get_token_pair_pools(chain, token_addresses))
+    return run_async_safely(_get_token_pair_pools(chain, token_addresses))
 
 
 def _chain_to_dex_screener_slug(chain: ChainData) -> str:
