@@ -55,6 +55,6 @@ PROTOCOL_CONTENT_FUNCTIONS = {
 
 RISK_METRICS_FUNCTIONS = {
     "Tokemak Percent Ownership": fetch_and_render_our_percent_ownership_of_each_destination,
-    "Exit Liquidity Pools": fetch_and_render_exit_liqudity_pools,
-    "Exit Liquidity Quotes": fetch_and_render_exit_liquidity_from_quotes,
+    # "Exit Liquidity Pools": fetch_and_render_exit_liqudity_pools,
+    # "Exit Liquidity Quotes": fetch_and_render_exit_liquidity_from_quotes,
 }
