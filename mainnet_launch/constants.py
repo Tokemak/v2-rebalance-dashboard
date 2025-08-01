@@ -13,6 +13,7 @@ load_dotenv()
 ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
 ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 
+COINGECKO_API_KEY = os.getenv("COINGECKO_API_KEY")
 
 ROOT_DIR = Path(__file__).parent  # consider moving these to a setup file with the db initalization
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "data_fetching/rebalance_plans"
@@ -163,6 +164,8 @@ class TokemakAddress:
     base: str
     sonic: str
 
+    name: str
+
     def __post_init__(self):
 
         for addr in [self.eth, self.base, self.sonic]:
@@ -187,6 +190,13 @@ class TokemakAddress:
             return False
         return check_sum_address in [self.eth, self.base, self.sonic]
 
+    def __hash__(self):
+        """
+        Hashes the address based on the Ethereum address.
+        This is useful for caching and ensuring uniqueness.
+        """
+        return hash(self.eth + self.base + self.sonic)
+
 
 DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD"
 
@@ -195,73 +205,82 @@ SYSTEM_REGISTRY = TokemakAddress(
     eth="0x2218F90A98b0C070676f249EF44834686dAa4285",
     base="0x18Dc926095A7A007C01Ef836683Fdef4c4371b4e",
     sonic="0x1a912EB51D3cF8364eBAEE5A982cA37f25aD8848",
+    name="system_registry",
 )
 
 AUTOPOOL_REGISTRY = TokemakAddress(
     eth="0x7E5828a3A6Ae75426d739E798140513A2E2964E4",
     base="0x4fE7916A10B15DADEFc59D06AC81757112b1feCE",
     sonic="0x63E8e5aeBcC8C77BD4411aba375FcBDd9ce8C253",
+    name="autopool_registry",
 )
 
 ROOT_PRICE_ORACLE = TokemakAddress(
     eth="0x61F8BE7FD721e80C0249829eaE6f0DAf21bc2CaC",
     base="0xBCf67d1d643C53E9C2f84aCBd830A5EDC2661795",
     sonic="0x356d6e38efd2f33B162eC63534B449B96846751F",
+    name="root_price_oracle",
 )
 
 LENS_CONTRACT = TokemakAddress(
     eth="0x146b5564dd061D648275e4Bd3569b8c285783882",
     base="0xaF05c205444c5884F53492500Bed22A8f617Aa9C",
     sonic="0xCB7E450c32D21Eb0168466c8022Ae32EF785a163",
+    name="lens_contract",
 )
 
 DESTINATION_VAULT_REGISTRY = TokemakAddress(
     eth="0x3AaC1CE01127593CA0c7f87b1Aedb1E153e152aE",
     base="0xBBBB6E844EEd5952B44C2063670093E27E21735f",
     sonic="0x005B5DD2182F4ADf9fCA299e762029337FF79fA8",
+    name="destination_vault_registry",
 )
 
 INCENTIVE_PRICING_STATS = TokemakAddress(
     eth="0x8607bA6540AF378cbA64F4E3497FBb2d1385f862",
     base="0xF28213d5cbc9f4cfB371599D25E232978848090d",
     sonic=DEAD_ADDRESS,
+    name="incentive_pricing_stats",
 )
 
 LIQUIDATION_ROW = TokemakAddress(
     eth="0xBf58810BB1946429830C1f12205331608c470ff5",
     base="0xE2F00bbC3E5ddeCfBD95e618CE36b49F38881d4f",
     sonic="0xf3b137219325466004AEb91CAa0A0Bdd2A8afc8e",
+    name="liquidation_row",
 )
 
 # only autoLRT on mainnet uses points
 POINTS_HOOK = TokemakAddress(
-    eth="0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3",
-    base=DEAD_ADDRESS,
-    sonic=DEAD_ADDRESS,
+    eth="0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3", base=DEAD_ADDRESS, sonic=DEAD_ADDRESS, name="points_hook"
 )
 
 STATS_CALCULATOR_REGISTRY = TokemakAddress(
     eth="0xaE6b250841fA7520AF843c776aA58E23060E2124",
     base="0x22dd2189728B40409476F4F80CA8f2f6BdB217D2",
     sonic=DEAD_ADDRESS,
+    name="stats_calculator_registry",
 )
 
 WETH = TokemakAddress(
     eth="0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
     base="0x4200000000000000000000000000000000000006",
     sonic="0x50c42dEAcD8Fc9773493ED674b675bE577f2634b",
+    name="WETH",
 )
 
 USDC = TokemakAddress(
     eth="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
     base="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     sonic="0x29219dd400f2Bf60E5a23d13Be72B486D4038894",
+    name="USDC",
 )
 
 DOLA = TokemakAddress(
     eth="0x865377367054516e17014CcdED1e7d814EDC9ce4",
     base="0x4621b7A9c75199271F773Ebd9A499dbd165c3191",
     sonic=DEAD_ADDRESS,
+    name="DOLA",
 )
 
 
@@ -434,3 +453,10 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
 
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
 ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [AUTO_USD, BASE_USD, AUTO_DOLA, SONIC_USD]
+
+
+ALL_BASE_ASSETS: list[TokemakAddress] = [
+    WETH,
+    USDC,
+    DOLA,
+]

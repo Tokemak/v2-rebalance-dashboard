@@ -65,17 +65,27 @@ def _fetch_autopool_deposit_and_withdraw_events_from_external_source(
         contract.events.Deposit,
         autopool.chain,
         start_block=start_block,
+        end_block=autopool.chain.client.eth.block_number - 1000,
     )
-    withdraw_df = fetch_events(contract.events.Withdraw, autopool.chain, start_block=start_block)
+    withdraw_df = fetch_events(
+        contract.events.Withdraw,
+        autopool.chain,
+        start_block=start_block,
+        end_block=autopool.chain.client.eth.block_number - 1000,
+    )
+    # deposit_df["normalized_assets"] = deposit_df["assets"].apply(lambda x: int(x) / 1e18)
+    # withdraw_df["normalized_assets"] = withdraw_df["assets"].apply(lambda x: int(x) / 1e18)
 
-    deposit_df["normalized_assets"] = deposit_df["assets"].apply(lambda x: int(x) / 1e18)
-    withdraw_df["normalized_assets"] = withdraw_df["assets"].apply(lambda x: int(x) / 1e18)
+    # cols = ["hash", "log_index", "block", "event", "normalized_assets", 'assets',]
+    deposit_df["assets"] = deposit_df["assets"].astype(str)
+    withdraw_df["assets"] = withdraw_df["assets"].astype(str)
 
-    cols = ["hash", "log_index", "block", "event", "normalized_assets"]
-
-    df = pd.concat([deposit_df[cols], withdraw_df[cols]], axis=0)
+    # df = pd.concat([deposit_df[cols], withdraw_df[cols]], axis=0)
+    df = pd.concat([deposit_df, withdraw_df], axis=0, ignore_index=True)
     df = add_timestamp_to_df_with_block_column(df, autopool.chain).reset_index()
     df["autopool"] = autopool.name
+    df["normalized_assets"] = df.apply(lambda x: int(x["assets"]) / 10**autopool.base_asset_decimals, axis=1)
+
     return df
 
 
@@ -143,3 +153,41 @@ def _make_scatter_plot_figure(
     )
 
     return fig
+
+
+def fetch_autopool_transfer_events(autopool: AutopoolConstants) -> pd.DataFrame:
+    """
+    Returns a DataFrame of every Transfer(from→to, value) on this autopool,
+    with a timestamp and normalized token amount.
+    """
+
+    contract = autopool.chain.client.eth.contract(address=autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+    raw_df = fetch_events(
+        contract.events.Transfer,
+        autopool.chain,
+        start_block=autopool.block_deployed,
+        end_block=autopool.chain.client.eth.block_number - 1000,
+    )
+
+    df = add_timestamp_to_df_with_block_column(raw_df, autopool.chain).reset_index(drop=True)
+    df["autopool"] = autopool.name
+    # autopool is always in 1e18
+    df["normalized_value"] = df["value"].apply(lambda x: int(x) / 10**autopool.base_asset_decimals)
+    return df
+
+
+if __name__ == "__main__":
+    dfs = []
+    for autopool in ALL_AUTOPOOLS:
+        try:
+            deposit_and_withdraw_events_df = _fetch_autopool_deposit_and_withdraw_events_from_external_source(
+                autopool, autopool.block_deployed
+            )
+            transfer_df = fetch_autopool_transfer_events(autopool)
+            dfs.append(deposit_and_withdraw_events_df)
+            dfs.append(transfer_df)
+        except Exception as e:
+            print(f"Error fetching data for autopool {autopool.name}: {e}")
+
+    df = pd.concat(dfs, ignore_index=True)
+    df.to_csv("mainnet_launch/pages/autopool_diagnostics/autopool_deposits_withdrawals_and_transfers.csv")
