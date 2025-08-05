@@ -31,6 +31,9 @@ def _fetch_quote_and_slippage_data(valid_autopools: tuple[AutopoolConstants]):
     reserve_df["reserve_amount"] = reserve_df["reserve_amount"].map(int)
 
     balances = reserve_df.groupby("token_address")["reserve_amount"].sum().to_dict()
+    st.write("Balances")
+    st.write(balances, use_container_width=True)
+
     quote_df, slippage_df = fetch_quotes(
         a_valid_autopool.chain, a_valid_autopool.base_asset, a_valid_autopool.base_asset_decimals, balances
     )

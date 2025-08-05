@@ -5,6 +5,16 @@ from typing import Optional, Sequence, Iterable
 import pandas as pd
 import concurrent.futures
 
+
+# add a configurable parameter for what level of exposrue to exclude
+
+# eg we can still trade witha pool where we ahve 5% of it
+
+
+# start with a 10% threshold
+# do this later
+
+
 ODOS_BASE_URL = "https://api.odos.xyz"
 
 

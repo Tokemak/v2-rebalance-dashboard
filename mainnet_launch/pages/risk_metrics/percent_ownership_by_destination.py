@@ -38,7 +38,6 @@ def _fetch_readable_our_tvl_by_destination(chain: ChainData, block: int) -> pd.D
         ]
     ].copy()
 
-    # TODO: consider adding our USD size of position here
     full_destinations_df["destination_vault_address"] = full_destinations_df["destination_vault_address"].apply(
         lambda x: Web3.toChecksumAddress(x)
     )
@@ -211,24 +210,36 @@ def _render_autopool_portion_ownership_as_pie_charts(
 
     # Add pie charts
     for idx, row in df.iterrows():
+        # compute full lists
+        raw_labels = [autopool_col, other_col, not_col]
+        raw_vals = [row[autopool_col], row[other_col], row[not_col]]
+
+        # drop any zero-value slices
+        labels = []
+        vals = []
+        for lbl, val in zip(raw_labels, raw_vals):
+            if val and val > 0:
+                labels.append(lbl)
+                vals.append(val)
+
         r = idx // cols + 1
         c = idx % cols + 1
 
         fig.add_trace(
             go.Pie(
-                labels=[autopool_col, other_col, not_col],
-                values=[row[autopool_col], row[other_col], row[not_col]],
+                labels=labels,
+                values=vals,
+                # you can still customise marker/textinfo as before
                 marker=dict(colors=["#636EFA", "#EF553B", "#00CC96"]),
+                textinfo="percent",
                 showlegend=False,
             ),
             row=r,
             col=c,
         )
-
     fig.update_layout(height=300 * rows, width=300 * cols, margin=dict(t=50, b=20, l=20, r=20))
     st.plotly_chart(fig, use_container_width=True)
 
 
 if __name__ == "__main__":
-
     fetch_and_render_our_percent_ownership_of_each_destination()
