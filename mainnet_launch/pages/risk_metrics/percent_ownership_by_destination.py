@@ -213,7 +213,6 @@ def fetch_and_render_our_percent_ownership_of_each_destination():
 
     chain, base_asset, valid_autopools = render_pick_chain_and_base_asset_dropdown()
 
-
     with st.spinner(f"Fetching {chain.name} {base_asset.name} Percent Ownership By Destination..."):
         block = chain.client.eth.block_number
         our_tvl_by_destination_df = _fetch_readable_our_tvl_by_destination(chain, block)
@@ -229,7 +228,6 @@ def fetch_and_render_our_percent_ownership_of_each_destination():
     )
     _render_methodology()
 
-
     _render_percent_ownership_by_destination(this_autopool_destinations_df, percent_cols)
 
 
@@ -238,9 +236,10 @@ def _render_methodology():
         st.markdown(
             """
             Percent Ownership is calculated by:
-            This Autopool's Percent Ownership = `100 * (destination_vault_address.balanceOf(autopool) / destination_vault_address.underlyingTotalSupply()`
-            Not Tokemak Percent Ownership = `100 - (100 * (destination_vault_address.totalSupply() / destination_vault_address.underlyingTotalSupply()))`
-            At the latest block on the chain.
+
+            - This Autopool's Percent Ownership = `100 * (destination_vault_address.balanceOf(autopool) / destination_vault_address.underlyingTotalSupply()`
+            - Not Tokemak Percent Ownership = `100 - (100 * (destination_vault_address.totalSupply() / destination_vault_address.underlyingTotalSupply()))`
+            - At the latest block on the chain.
             """
         )
 
