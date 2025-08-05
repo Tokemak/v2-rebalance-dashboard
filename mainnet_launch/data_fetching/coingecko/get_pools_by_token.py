@@ -1,12 +1,4 @@
-import asyncio
-import aiohttp
-import nest_asyncio
-from datetime import datetime, timezone
-
-import concurrent.futures
-
 import pandas as pd
-from aiolimiter import AsyncLimiter
 from web3 import Web3
 
 from mainnet_launch.constants import (
@@ -17,71 +9,26 @@ from mainnet_launch.constants import (
     SONIC_CHAIN,
 )
 
-# nest_asyncio.apply()
 
-# no idea here on limit
-RATE_LIMITER = AsyncLimiter(max_rate=100, time_period=60)
-
-
-def run_async_safely(coro):
-    """
-    Sync wrapper around any coroutine. Works whether or not an event loop is already running.
-    If there's no running loop: uses asyncio.run.
-    If there is one: runs the coroutine in a separate thread's new loop and blocks for the result.
-    """
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        # no running loop
-        return asyncio.run(coro)
-
-    # if we get here, there is a running loop; run in separate thread to avoid reentrancy issues
-    def _runner(c):
-        return asyncio.run(c)  # safe: new loop inside thread
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as exe:
-        future = exe.submit(_runner, coro)
-        return future.result()
+from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
+    make_many_get_requests_to_3rd_party,
+    make_single_get_request_to_3rd_party,
+)
 
 
-async def _get_json_with_retry(session: aiohttp.ClientSession, url: str, params=None, headers=None):
-    """Rate-limit + on‑429 sleep 60 s then retry."""
-    while True:
-        async with RATE_LIMITER:
-            async with session.get(url, params=params, headers=headers, timeout=30) as resp:
-                if resp.status == 429:
-                    await asyncio.sleep(60)
-                    continue
-                resp.raise_for_status()
-                return await resp.json()
+_CHAIN_TO_COINGECKO_SLUGS = {
+    ETH_CHAIN: {"token_prices": "ethereum", "network_id": "eth"},
+    BASE_CHAIN: {"token_prices": "base", "network_id": "base"},
+    SONIC_CHAIN: {"token_prices": "sonic", "network_id": "sonic"},
+}
 
 
-def _chain_to_coingecko_slug_token_prices(chain: ChainData) -> str:
-    if chain == ETH_CHAIN:
-        return "ethereum"
-    elif chain == BASE_CHAIN:
-        return "base"
-    elif chain == SONIC_CHAIN:
-        return "sonic"
-    raise ValueError(f"Unsupported chain: {chain}")
-
-
-def _chain_to_coingecko_slug_network_id(chain: ChainData) -> str:
-    if chain == ETH_CHAIN:
-        return "eth"
-    elif chain == BASE_CHAIN:
-        return "base"
-    elif chain == SONIC_CHAIN:
-        return "sonic"
-    raise ValueError(f"Unsupported chain: {chain}")
-
-
-async def _fetch_token_prices_from_coingecko_async(
+def fetch_token_prices_from_coingecko(
     chain: ChainData,
     token_addresses: list[str],
     vs_currencies: str = "usd",
 ) -> pd.DataFrame:
-    slug = _chain_to_coingecko_slug_token_prices(chain)
+    slug = _CHAIN_TO_COINGECKO_SLUGS[chain]["token_prices"]
     url = f"https://pro-api.coingecko.com/api/v3/simple/token_price/{slug}"
     params = {
         "contract_addresses": ",".join(addr.lower() for addr in token_addresses),
@@ -94,10 +41,12 @@ async def _fetch_token_prices_from_coingecko_async(
     }
     headers = {"x-cg-pro-api-key": COINGECKO_API_KEY}
 
-    async with aiohttp.ClientSession() as session:
-        data = await _get_json_with_retry(session, url, params=params, headers=headers)
+    data = make_single_get_request_to_3rd_party(
+        url,
+        params=params,
+        headers=headers,
+    )
 
-    # build DataFrame
     df = (
         pd.DataFrame.from_dict(data, orient="index")
         .reset_index()
@@ -108,75 +57,64 @@ async def _fetch_token_prices_from_coingecko_async(
     return df
 
 
-def fetch_token_prices_from_coingecko(
+def fetch_many_pairs_from_coingecko(
     chain: ChainData,
-    token_addresses: list[str],
-    vs_currencies: str = "usd",
-) -> pd.DataFrame:
-    return run_async_safely(_fetch_token_prices_from_coingecko_async(chain, token_addresses, vs_currencies))
-
-
-async def _fetch_pool_by_token_from_coingecko_async(
-    session: aiohttp.ClientSession,
-    start_token: str,
-    chain: ChainData,
-) -> pd.DataFrame:
-    slug = _chain_to_coingecko_slug_network_id(chain)
-    url = f"https://pro-api.coingecko.com/api/v3/onchain/networks/" f"{slug}/tokens/{start_token}/pools"
-    headers = {"x-cg-pro-api-key": COINGECKO_API_KEY}
-    params = {"sort": "h24_volume_usd_liquidity_desc", "include": ["base_token", "quote_token"]}
-
-    data = await _get_json_with_retry(session, url, params=params, headers=headers)
-    pools = data.get("data", [])
-    return pd.DataFrame(pools)
-
-
-async def _fetch_many_pairs_from_coingecko_async(
     tokens_to_check: list[str],
-    chain: ChainData,
 ) -> pd.DataFrame:
-    unique = {t.lower() for t in tokens_to_check}
-    async with aiohttp.ClientSession() as session:
-        tasks = [_fetch_pool_by_token_from_coingecko_async(session, tok, chain) for tok in unique]
-        dfs = await asyncio.gather(*tasks)
 
-    # flatten attributes & relationships
-    out = []
-    for df in dfs:
-        if df.empty:
-            continue
-        attrs = pd.json_normalize(df["attributes"]).add_prefix("attr_")
-        rels = pd.json_normalize(df["relationships"]).add_prefix("rel_")
-        flat = pd.concat(
-            [df.drop(columns=["attributes", "relationships"]), attrs, rels],
-            axis=1,
-        )
-        out.append(flat)
+    slug = _CHAIN_TO_COINGECKO_SLUGS[chain]["network_id"]
 
-    return pd.concat(out, ignore_index=True)
+    urls, params_list, headers_list = [], [], []
+    for token_address in tokens_to_check:
+        # 10 pages is the max for the coingecko API
+        for page in range(1, 11):
+            urls.append(f"https://pro-api.coingecko.com/api/v3/onchain/networks/{slug}/tokens/{token_address}/pools")
+            params_list.append(
+                {"sort": "h24_volume_usd_liquidity_desc", "include": ["base_token", "quote_token", "dex"], "page": page}
+            )
+            headers_list.append({"x-cg-pro-api-key": COINGECKO_API_KEY})
 
+    datas = make_many_get_requests_to_3rd_party(
+        rate_limit_max_rate=100,
+        rate_limit_time_period=60,
+        urls=urls,
+        params_list=params_list,
+        headers_list=headers_list,
+    )
 
-def fetch_many_pairs_from_coingecko(tokens_to_check: list[str], chain: ChainData) -> pd.DataFrame:
-    """
-    Sync wrapper around the async “many at once” pool fetch.
-    """
-    return run_async_safely(_fetch_many_pairs_from_coingecko_async(tokens_to_check, chain))
+    # included_pools = []
+    found_pools = []
+    for data in datas:
+        pools = data["data"]
+        found_pools.extend(pools)
+        # included_pools.extend(data["included"])
+
+    df = pd.DataFrame(found_pools)
+    attrs = pd.json_normalize(df["attributes"]).add_prefix("attr_")
+    rels = pd.json_normalize(df["relationships"]).add_prefix("rel_")
+    flat_df = pd.concat(
+        [df.drop(columns=["attributes", "relationships"]), attrs, rels],
+        axis=1,
+    )
+
+    return flat_df
 
 
 if __name__ == "__main__":
-    # example usage
-    chain = ETH_CHAIN
-    tokens = [
-        "0x04C154b66CB340F3Ae24111CC767e0184Ed00Cc6",
-        "0x0655977FEb2f289A4aB78af67BAB0d17aAb84367",
-        # ...
-    ]
 
-    price_df = fetch_token_prices_from_coingecko(chain, tokens[:3])
-    print(price_df.head())
+    from mainnet_launch.constants import ALL_CHAINS, USDC, WETH
 
-    pools_df = fetch_many_pairs_from_coingecko(tokens, chain)
-    print(pools_df.head())
+    print("Prices")
+    for chain in ALL_CHAINS:
+        token_addresses = [USDC(chain), WETH(chain)]
+        price_df = fetch_token_prices_from_coingecko(chain, token_addresses)
+        print(chain.name)
+        print(price_df.shape)
 
-    # hops_df = fetch_n_hops_from_tokens_with_coingecko(set(tokens), chain, min_USD_reserves=10, n_hops=2)
-    # print(hops_df.shape)
+    print("Found Pools")
+    for chain in ALL_CHAINS:
+        token_addresses = [USDC(chain), WETH(chain)]
+        pool_df = fetch_many_pairs_from_coingecko(chain, token_addresses)
+        print(chain.name)
+        print(pool_df.shape)
+        pass

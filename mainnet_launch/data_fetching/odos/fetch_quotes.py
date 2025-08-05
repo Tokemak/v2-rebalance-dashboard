@@ -3,52 +3,16 @@ import asyncio
 import aiohttp
 from typing import Optional, Sequence, Iterable
 import pandas as pd
-import concurrent.futures
+
+
+from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import make_many_get_requests_to_3rd_party
 
 
 # add a configurable parameter for what level of exposrue to exclude
-
 # eg we can still trade witha pool where we ahve 5% of it
-
-
 # start with a 10% threshold
 # do this later
 
-
-ODOS_BASE_URL = "https://api.odos.xyz"
-
-
-@dataclass(frozen=True)
-class QuoteNeeded:
-    chain_id: int
-    start_token: str  # input token address
-    end_token: str  # output token address
-    start_amount_fixed: str  # raw amount in base units (string)
-    excluded_pool_ids: Sequence[str] = ()  # pools to blacklist for this quote
-
-
-def run_async_safely(coro):
-    """
-    Sync wrapper around any coroutine. Works whether or not an event loop is already running.
-    If there's no running loop: uses asyncio.run.
-    If there is one: runs the coroutine in a separate thread's new loop and blocks for the result.
-    """
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        # no running loop
-        return asyncio.run(coro)
-
-    # if we get here, there is a running loop; run in separate thread to avoid reentrancy issues
-    def _runner(c):
-        return asyncio.run(c)  # safe: new loop inside thread
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as exe:
-        future = exe.submit(_runner, coro)
-        return future.result()
-
-
-# assumes run_async_safely is in scope from your existing code
 ODOS_BASE_URL = "https://api.odos.xyz"
 
 
@@ -67,7 +31,7 @@ async def _get_odos_quote_raw_async(
     token_out: str,
     amount_in_fixed: str,
     excluded_pool_ids: Sequence[str],
-    slippage_limit_percent: float = 0.3,
+    slippage_limit_percent: float = 0.5,
     user_addr: Optional[str] = None,
     gas_price: Optional[float] = None,
     simple: bool = False,
