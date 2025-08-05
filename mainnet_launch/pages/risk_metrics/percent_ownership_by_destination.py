@@ -13,13 +13,13 @@ from mainnet_launch.database.schema.full import Destinations, AutopoolDestinatio
 from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
 from mainnet_launch.data_fetching.get_state_by_block import identity_with_bool_success, get_state_by_one_block
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.exit_liquidity.update_total_usd_exit_liqudity import (
-    get_portion_ownership_by_pool,
+    fetch_percent_ownership_by_destination_from_destination_vaults,
 )
 
 
 def _fetch_readable_our_tvl_by_destination(chain: ChainData, block: int) -> pd.DataFrame:
     portion_ownership_df = (
-        get_portion_ownership_by_pool(block, chain)
+        fetch_percent_ownership_by_destination_from_destination_vaults(block, chain)
         .rename(columns={"index": "destination_vault_address", "getPool": "pool_address"})
         .copy()
     )
@@ -122,7 +122,7 @@ def _fetch_autopool_percent_ownership_of_each_destination(
     return our_tvl_by_destination_df, percent_cols
 
 
-# todo this can be moved to a common file
+# TODO this can be moved to a common file
 def render_pick_chain_and_base_asset_dropdown() -> tuple[ChainData, TokemakAddress, list[AutopoolConstants]]:
     chain_base_asset_groups = {
         (ETH_CHAIN, WETH): (AUTO_ETH, AUTO_LRT, BAL_ETH, DINERO_ETH),
@@ -202,7 +202,8 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
     fig.update_layout(height=300 * rows, width=300 * cols, margin=dict(t=50, b=20, l=20, r=20))
 
     for ann in fig.layout.annotations:
-        # ann.y is in normalized (0→1) coords; we’ll use a fixed pixel shift instead
+        # shift up the title of each pie chart
+        # so that they don't overlap with the small numbers < 5%
         ann.yshift = 18
     st.plotly_chart(fig, use_container_width=True)
 
@@ -212,6 +213,7 @@ def fetch_and_render_our_percent_ownership_of_each_destination():
 
     chain, base_asset, valid_autopools = render_pick_chain_and_base_asset_dropdown()
 
+
     with st.spinner(f"Fetching {chain.name} {base_asset.name} Percent Ownership By Destination..."):
         block = chain.client.eth.block_number
         our_tvl_by_destination_df = _fetch_readable_our_tvl_by_destination(chain, block)
@@ -219,9 +221,6 @@ def fetch_and_render_our_percent_ownership_of_each_destination():
             valid_autopools, our_tvl_by_destination_df, block
         )
 
-    _render_percent_ownership_by_destination(this_autopool_destinations_df, percent_cols)
-
-    # add a download button in one line
     st.download_button(
         label="Download Percent Ownership Data",
         data=this_autopool_destinations_df.to_csv(index=False),
@@ -229,6 +228,9 @@ def fetch_and_render_our_percent_ownership_of_each_destination():
         mime="text/csv",
     )
     _render_methodology()
+
+
+    _render_percent_ownership_by_destination(this_autopool_destinations_df, percent_cols)
 
 
 def _render_methodology():
@@ -245,7 +247,3 @@ def _render_methodology():
 
 if __name__ == "__main__":
     fetch_and_render_our_percent_ownership_of_each_destination()
-
-# remove 0 markers
-# remove redundent info in pie charts
-# switch to autopool -> color method

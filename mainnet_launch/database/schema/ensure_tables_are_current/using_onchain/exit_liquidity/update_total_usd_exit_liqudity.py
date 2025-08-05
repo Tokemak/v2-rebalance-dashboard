@@ -136,7 +136,7 @@ def build_our_token_to_total_other_token_liquidity(
     return our_token_to_total_other_token_liquidity, token_symbol_to_dfs
 
 
-def get_portion_ownership_by_pool(block: int, chain: ChainData) -> pd.DataFrame:
+def fetch_percent_ownership_by_destination_from_destination_vaults(block: int, chain: ChainData) -> pd.DataFrame:
     df = fetch_raw_amounts_by_destination(
         block=block,
         chain=chain,
@@ -196,7 +196,9 @@ def _pure_function_group_destinations(
         t for t in this_chain_and_base_asset_exposure_df["token_address"].unique().tolist() if t != base_asset(chain)
     ]
 
-    portion_ownership_by_destination_df = get_portion_ownership_by_pool(chain.client.eth.block_number, chain)
+    portion_ownership_by_destination_df = fetch_percent_ownership_by_destination_from_destination_vaults(
+        chain.client.eth.block_number, chain
+    )
     pool_to_portion_ownership = portion_ownership_by_destination_df.set_index("getPool")["portion_ownership"].to_dict()
 
     valid_dex_df, coingecko_prices = _fetch_pairs_with_prices(tokens_to_check_exit_liqudity_for, chain, base_asset)
