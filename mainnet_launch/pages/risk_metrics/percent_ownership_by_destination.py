@@ -180,8 +180,7 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
         for label, value in zip(percent_cols, [row[percent_col] for percent_col in percent_cols]):
             if value > 0:
                 labels.append(label)
-                vals.append(round(value,1))
-        
+                vals.append(round(value, 1))
 
         r = (idx // cols) + 1
         c = (idx % cols) + 1
