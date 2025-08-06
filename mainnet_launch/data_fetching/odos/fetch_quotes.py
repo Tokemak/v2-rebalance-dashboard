@@ -78,6 +78,7 @@ def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> dict:
             "json": json_payload,
         }
         request_kwargs.append(request_kwargs)
+
     # slightly under the 600 / 5 minute
     raw_odos_responses = make_many_requests_to_3rd_party(
         rate_limit_max_rate=100, rate_limit_time_period=60, request_kwargs=request_kwargs
