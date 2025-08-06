@@ -4,6 +4,9 @@ import concurrent.futures
 from aiolimiter import AsyncLimiter
 
 
+THIRD_PARTY_SUCCESS_KEY = "3rd_party_response_success"
+
+
 def _run_async_safely(coro):
     """
     Sync wrapper around any coroutine. Works whether or not an event loop is already running.
@@ -25,14 +28,13 @@ def _run_async_safely(coro):
         return future.result()
 
 
-async def _get_json_with_retry(
-    session: aiohttp.ClientSession, rate_limiter: AsyncLimiter, url: str, params: dict, headers: dict
-):
+async def _get_json_with_retry(session: aiohttp.ClientSession, rate_limiter: AsyncLimiter, request_kwargs: dict):
     while True:
         async with rate_limiter:
-            async with session.get(url, params=params, headers=headers, timeout=30) as resp:
+            async with session.request(**request_kwargs, timeout=30) as resp:
                 pass
                 if resp.status == 429:
+                    print("Rate limit exceeded, retrying...")
                     await asyncio.sleep(60)
                     continue
 
@@ -40,7 +42,7 @@ async def _get_json_with_retry(
                     resp.raise_for_status()
                     # happy path
                     data = await resp.json()
-                    data["failed"] = False
+                    data[THIRD_PARTY_SUCCESS_KEY] = True
                     return data
 
                 except aiohttp.ClientResponseError:
@@ -56,41 +58,30 @@ async def _get_json_with_retry(
                         "status": resp.status,
                         "headers": dict(resp.headers),
                         "body": body,
-                        "failed": True,
+                        THIRD_PARTY_SUCCESS_KEY: False,
                     }
 
 
-async def _make_many_requests_async(
-    rate_limiter: AsyncLimiter, urls: str, params_list: list[dict], headers_list=list[dict]
-):
+async def _make_many_requests_async(rate_limiter: AsyncLimiter, requests_kwargs: list[dict]):
     async with aiohttp.ClientSession() as session:
         tasks = [
-            _get_json_with_retry(session, rate_limiter, url, params=params, headers=headers)
-            for url, params, headers in zip(urls, params_list, headers_list)
+            _get_json_with_retry(session, rate_limiter, request_kwargs=request_kwargs)
+            for request_kwargs in requests_kwargs
         ]
         return await asyncio.gather(*tasks)
 
 
-def make_many_get_requests_to_3rd_party(
-    rate_limit_max_rate: int, rate_limit_time_period, urls: list[str], params_list: list[dict], headers_list=list[dict]
+def make_many_requests_to_3rd_party(
+    rate_limit_max_rate: int, rate_limit_time_period, requests_kwargs: list[dict]
 ) -> list[dict]:
     rate_limiter = AsyncLimiter(max_rate=rate_limit_max_rate, time_period=rate_limit_time_period)
-    return _run_async_safely(_make_many_requests_async(rate_limiter, urls, params_list, headers_list))
+    return _run_async_safely(_make_many_requests_async(rate_limiter, requests_kwargs))
 
 
-async def _make_single_request_async(
-    url: str,
-    params: dict,
-    headers: dict,
-) -> dict:
-    """Fire one GET with retry under the limiter."""
-    rate_limiter = AsyncLimiter(max_rate=1, time_period=1)
-    async with aiohttp.ClientSession() as session:
-        return await _get_json_with_retry(session, rate_limiter, url, params, headers)
-
-
-def make_single_get_request_to_3rd_party(url: str, params: dict, headers: dict) -> dict:
+def make_single_request_to_3rd_party(request_kwargs: dict) -> dict:
     """
-    Sync helper to fetch a single JSON response.
+    Sync helper to fetch a single  response.
     """
-    return _run_async_safely(_make_single_request_async(url, params, headers))
+    return make_many_requests_to_3rd_party(
+        rate_limit_max_rate=1, rate_limit_time_period=1, requests_kwargs=[request_kwargs]
+    )[0]
