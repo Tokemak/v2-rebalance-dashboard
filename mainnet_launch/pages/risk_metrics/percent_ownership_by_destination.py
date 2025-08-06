@@ -180,7 +180,8 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
         for label, value in zip(percent_cols, [row[percent_col] for percent_col in percent_cols]):
             if value > 0:
                 labels.append(label)
-                vals.append(value)
+                vals.append(round(value,1))
+        
 
         r = (idx // cols) + 1
         c = (idx % cols) + 1
@@ -239,7 +240,8 @@ def _render_methodology():
 
             - This Autopool's Percent Ownership = `100 * (destination_vault_address.balanceOf(autopool) / destination_vault_address.underlyingTotalSupply()`
             - Not Tokemak Percent Ownership = `100 - (100 * (destination_vault_address.totalSupply() / destination_vault_address.underlyingTotalSupply()))`
-            - At the latest block on the chain.
+            - At the latest block on the chain
+            - Percent values are rounded to 1 decimal place
             """
         )
 
