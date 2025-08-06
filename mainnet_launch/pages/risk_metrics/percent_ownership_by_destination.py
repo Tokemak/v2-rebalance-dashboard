@@ -18,7 +18,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.exit
 from mainnet_launch.pages.risk_metrics.drop_down import render_pick_chain_and_base_asset_dropdown
 
 
-def _fetch_readable_our_tvl_by_destination(chain: ChainData, block: int) -> pd.DataFrame:
+def fetch_readable_our_tvl_by_destination(chain: ChainData, block: int) -> pd.DataFrame:
     portion_ownership_df = (
         fetch_percent_ownership_by_destination_from_destination_vaults(block, chain)
         .rename(columns={"index": "destination_vault_address", "getPool": "pool_address"})
@@ -205,7 +205,7 @@ def fetch_and_render_our_percent_ownership_of_each_destination():
 
     with st.spinner(f"Fetching {chain.name} {base_asset.name} Percent Ownership By Destination..."):
         block = chain.client.eth.block_number
-        our_tvl_by_destination_df = _fetch_readable_our_tvl_by_destination(chain, block)
+        our_tvl_by_destination_df = fetch_readable_our_tvl_by_destination(chain, block)
         this_autopool_destinations_df, percent_cols = _fetch_autopool_percent_ownership_of_each_destination(
             valid_autopools, our_tvl_by_destination_df, block
         )

@@ -6,17 +6,110 @@ import pandas as pd
 
 from mainnet_launch.constants import *
 from mainnet_launch.data_fetching.quotes.get_all_underlying_reserves import fetch_raw_amounts_by_destination
+
+from mainnet_launch.pages.risk_metrics.drop_down import render_pick_chain_and_base_asset_dropdown
+from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (
+    fetch_readable_our_tvl_by_destination,
+)
+
+from mainnet_launch.database.schema.full import Destinations, AutopoolDestinations, Tokens
+from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
+
 from mainnet_launch.data_fetching.internal.fetch_quotes import (
     fetch_many_swap_quotes_from_internal_api,
     TokemakQuoteRequest,
 )
 from mainnet_launch.data_fetching.odos.fetch_quotes import fetch_many_odos_raw_quotes, OdosQuoteRequest
 
+ATTEMPTS = 3
+STABLE_COINS_REFERENCE_QUANTITY = 10_000
+ETH_REFERENCE_QUANTITY = 5
+PERCENT_OWNERSHIP_THRESHOLD = 10  # percent ownership threshold for excluding pools
 
-from mainnet_launch.pages.risk_metrics.drop_down import render_pick_chain_and_base_asset_dropdown
-from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (
-    fetch_readable_our_tvl_by_destination,
-)
+
+def _fetch_current_asset_exposure(
+    chain: ChainData, valid_autopools: list[AutopoolConstants], block: int
+) -> dict[str, int]:
+    """Fetches the exposure and pools to exclude for the given chain and base asset."""
+    reserve_df = fetch_raw_amounts_by_destination(block, chain)
+    valid_autopool_symbols = [autopool.symbol for autopool in valid_autopools]
+
+    reserve_df = reserve_df[reserve_df["autopool_symbol"].isin(valid_autopool_symbols)].copy()
+    reserve_df["reserve_amount"] = reserve_df["reserve_amount"].map(int)
+    unscaled_asset_exposure = reserve_df.groupby("token_address")["reserve_amount"].sum().to_dict()
+    return unscaled_asset_exposure
+
+
+def _fetch_needed_context(chain: ChainData, valid_autopools: list[AutopoolConstants]):
+
+    block = chain.client.eth.block_number
+    # TODO this duplicates work
+    unscaled_asset_exposure = _fetch_current_asset_exposure(chain, valid_autopools, block)
+    percent_ownership_by_destination_df = fetch_readable_our_tvl_by_destination(chain, block)
+
+    autopool_destinations = get_full_table_as_df(
+        AutopoolDestinations,
+        where_clause=AutopoolDestinations.autopool_vault_address.in_(a.autopool_eth_addr for a in valid_autopools),
+    )
+    these_autopools_destinations = autopool_destinations["destination_vault_address"].unique().tolist()
+    percent_ownership_by_destination_df = percent_ownership_by_destination_df[
+        percent_ownership_by_destination_df["destination_vault_address"].isin(these_autopools_destinations)
+    ].copy()
+
+    token_to_decimal = (
+        get_full_table_as_df(
+            Tokens,
+            where_clause=Tokens.chain_id == chain.chain_id,
+        )
+        .set_index("token_address")[["decimals"]]
+        .to_dict()
+    )
+
+    return unscaled_asset_exposure, percent_ownership_by_destination_df, token_to_decimal
+
+
+def build_tokemak_quote_requests(
+    chain: ChainData,
+    base_asset: TokemakAddress,
+    unscaled_asset_exposure: dict[str, int],
+    percent_ownership_by_destination_df: pd.DataFrame,
+    token_to_decimal: dict[str, int],
+) -> tuple[list[TokemakQuoteRequest], list[OdosQuoteRequest]]:
+    """Builds a list of TokemakQuoteRequest objects for the given chain and base asset."""
+
+    tokemak_quote_requests = []
+    for token_address, amount in unscaled_asset_exposure.items():
+        decimals = token_to_decimal[token_address]
+        scaled_amount = int(amount) / (10**decimals)
+
+        request = TokemakQuoteRequest(
+            chain=chain,
+            token_in=token_address,
+            token_out=base_asset(chain),
+            scaled_amount_in=scaled_amount,
+        )
+        tokemak_quote_requests.append(request)
+
+    pools_to_exclude = (
+        percent_ownership_by_destination_df[
+            percent_ownership_by_destination_df["percent_ownership"] > PERCENT_OWNERSHIP_THRESHOLD
+        ]["pool_address"]
+        .unique()
+        .tolist()
+    )
+
+    odos_quote_requests = []
+    for token_address, amount in unscaled_asset_exposure.items():
+        request = OdosQuoteRequest(
+            chain=chain,
+            token_in=token_address,
+            token_out=base_asset(chain),
+            unscaled_amount_in=amount,
+            pools_to_exclude=pools_to_exclude,
+        )
+        odos_quote_requests.append(request)
+
+    return tokemak_quote_requests, odos_quote_requests
 
 
 def fetch_odos_and_tokemak_quotes(
@@ -25,31 +118,18 @@ def fetch_odos_and_tokemak_quotes(
     valid_autopools: list[AutopoolConstants],
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
 
-    block = chain.client.eth.block_number
-    asset_exposure = _fetch_current_asset_exposure(chain, base_asset, valid_autopools, block)
+    unscaled_asset_exposure, percent_ownership_by_destination_df, token_to_decimal = _fetch_needed_context(
+        chain, valid_autopools
+    )
 
-    st.table(asset_exposure)
+    tokemak_quote_requests, odos_quote_requests = build_tokemak_quote_requests(
+        chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_to_decimal
+    )
 
-    percent_ownership_by_destination_df = fetch_readable_our_tvl_by_destination(chain, block)
-    st.table(percent_ownership_by_destination_df)
+    tokemak_quote_requests_df = pd.DataFrame(tokemak_quote_requests)
+    odos_quote_requests_df = pd.DataFrame(odos_quote_requests)
 
-    odos_quotes_df = pd.DataFrame()
-    tokemak_quotes_df = pd.DataFrame()
-
-    return odos_quotes_df, tokemak_quotes_df
-
-
-def _fetch_current_asset_exposure(
-    chain: ChainData, base_asset: TokemakAddress, valid_autopools: list[AutopoolConstants], block: int
-) -> dict:
-    """Fetches the exposure and pools to exclude for the given chain and base asset."""
-    reserve_df = fetch_raw_amounts_by_destination(block, chain)
-    valid_autopool_symbols = [pool.symbol for pool in valid_autopools]
-    reserve_df = reserve_df[reserve_df["autopool_symbol"].isin(valid_autopool_symbols)].copy()
-    reserve_df["reserve_amount"] = reserve_df["reserve_amount"].map(int)
-    asset_exposure = reserve_df.groupby("token_address")["reserve_amount"].sum().to_dict()
-    # not certain if this is scaled or not
-    return asset_exposure
+    return tokemak_quote_requests_df, odos_quote_requests_df
 
 
 def fetch_and_render_exit_liquidity_from_quotes() -> None:
@@ -58,7 +138,16 @@ def fetch_and_render_exit_liquidity_from_quotes() -> None:
 
     # _render_methodology()
 
-    odos_quotes_df, tokemak_quotes_df = fetch_odos_and_tokemak_quotes(chain, base_asset, valid_autopools)
+    tokemak_quote_requests_df, odos_quote_requests_df = fetch_odos_and_tokemak_quotes(
+        chain, base_asset, valid_autopools
+    )
+
+    st.dataframe(
+        tokemak_quote_requests_df,
+    )
+    st.dataframe(
+        odos_quote_requests_df,
+    )
 
     # _render_quotes(odos_quotes_df, tokemak_quotes_df)
     # _render_download_raw_quote_data_buttons(odos_quotes_df, tokemak_quotes_df)
