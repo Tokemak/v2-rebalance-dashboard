@@ -120,8 +120,6 @@ def _fetch_autopool_percent_ownership_of_each_destination(
     )
     percent_cols.append("Not Tokemak Percent Ownership")
 
-    our_tvl_by_destination_df[percent_cols] = our_tvl_by_destination_df[percent_cols].round(2)
-
     return our_tvl_by_destination_df, percent_cols
 
 
@@ -162,7 +160,6 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
     df = this_autopool_destinations_df.reset_index(drop=True)
     # only show destinations where we have some ownership
     df = df[df[percent_cols[:-1]].gt(0).any(axis=1)].copy().reset_index(drop=True)
-    pass
 
     cols = 3
     rows = math.ceil(len(df) / cols)
@@ -185,18 +182,26 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
             if value > 0:
                 labels.append(label)
                 vals.append(value)
+
         r = (idx // cols) + 1
         c = (idx % cols) + 1
 
         slice_colors = [pie_chart_palette[label] for label in labels]
+
+        if all([val > 2 for val in vals]):
+            text_template = "%{percent:.1~%}"
+        elif all([val > 0.99 for val in vals]):
+            text_template = "%{percent:.2~%}"
+        else:
+            text_template = "%{percent:.3~%}"
 
         fig.add_trace(
             go.Pie(
                 labels=labels,
                 values=vals,
                 marker=dict(colors=slice_colors),
-                textinfo="percent",
-                texttemplate="%{percent:.2%}",
+                textinfo="none",
+                texttemplate=text_template,
                 hoverinfo="label",
                 showlegend=False,
             ),
@@ -244,7 +249,7 @@ def _render_methodology():
             - This Autopool's Percent Ownership = `100 * (destination_vault_address.balanceOf(autopool) / destination_vault_address.underlyingTotalSupply()`
             - Not Tokemak Percent Ownership = `100 - (100 * (destination_vault_address.totalSupply() / destination_vault_address.underlyingTotalSupply()))`
             - At the latest block on the chain
-            - Percent values are rounded to 1 decimal place
+            - Ignores Sestinations where the Autopool's percent owndership is < .001%
             """
         )
 
