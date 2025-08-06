@@ -31,12 +31,33 @@ async def _get_json_with_retry(
     while True:
         async with rate_limiter:
             async with session.get(url, params=params, headers=headers, timeout=30) as resp:
+                pass
                 if resp.status == 429:
                     await asyncio.sleep(60)
-                    continue  # try again in 60 seconds
-                resp.raise_for_status()
-                data = await resp.json()
-                return data
+                    continue
+
+                try:
+                    resp.raise_for_status()
+                    # happy path
+                    data = await resp.json()
+                    data["failed"] = False
+                    return data
+
+                except aiohttp.ClientResponseError:
+                    # extract as much as we can from the error response
+                    content_type = resp.headers.get("Content-Type", "")
+                    if "application/json" in content_type:
+                        body = await resp.json()
+                    else:
+                        body = await resp.text()
+
+                    return {
+                        "url": str(resp.url),
+                        "status": resp.status,
+                        "headers": dict(resp.headers),
+                        "body": body,
+                        "failed": True,
+                    }
 
 
 async def _make_many_requests_async(

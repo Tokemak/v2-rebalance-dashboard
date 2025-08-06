@@ -46,6 +46,10 @@ def fetch_token_prices_from_coingecko(
         params=params,
         headers=headers,
     )
+    if not data["failed"]:
+        data.pop("failed")
+    else:
+        raise ValueError(f"Failed to fetch data from Coingecko: {data}")
 
     df = (
         pd.DataFrame.from_dict(data, orient="index")
@@ -61,6 +65,7 @@ def fetch_many_pairs_from_coingecko(
     chain: ChainData,
     tokens_to_check: list[str],
 ) -> pd.DataFrame:
+    """Note this includes coingecko's price of each token in the 'quote' and 'base' section"""
 
     slug = _CHAIN_TO_COINGECKO_SLUGS[chain]["network_id"]
 
@@ -85,9 +90,9 @@ def fetch_many_pairs_from_coingecko(
     # included_pools = []
     found_pools = []
     for data in datas:
-        pools = data["data"]
-        found_pools.extend(pools)
-        # included_pools.extend(data["included"])
+        if not data["failed"]:
+            pools = data["data"]
+            found_pools.extend(pools)
 
     df = pd.DataFrame(found_pools)
     attrs = pd.json_normalize(df["attributes"]).add_prefix("attr_")
@@ -102,19 +107,26 @@ def fetch_many_pairs_from_coingecko(
 
 if __name__ == "__main__":
 
-    from mainnet_launch.constants import ALL_CHAINS, USDC, WETH
+    from mainnet_launch.constants import ALL_CHAINS, DOLA, USDC, WETH
 
     print("Prices")
     for chain in ALL_CHAINS:
-        token_addresses = [USDC(chain), WETH(chain)]
+        token_addresses = [USDC(chain), WETH(chain), DOLA(chain)]
         price_df = fetch_token_prices_from_coingecko(chain, token_addresses)
         print(chain.name)
         print(price_df.shape)
 
     print("Found Pools")
     for chain in ALL_CHAINS:
-        token_addresses = [USDC(chain), WETH(chain)]
+        token_addresses = [USDC(chain), WETH(chain), DOLA(chain)]
         pool_df = fetch_many_pairs_from_coingecko(chain, token_addresses)
         print(chain.name)
         print(pool_df.shape)
         pass
+
+        #  eth
+        # (433, 58)
+        # base
+        # (462, 58)
+        # sonic
+        # (392, 58)
