@@ -109,6 +109,7 @@ def _fetch_autopool_percent_ownership_of_each_destination(
         our_tvl_by_destination_df[f"{autopool_name} Percent Ownership"] = our_tvl_by_destination_df.apply(
             lambda row: 100 * (int(row[f"{autopool_name} Balance Of"]) / int(row["underlyingTotalSupply"])), axis=1
         )
+
         percent_cols.append(f"{autopool_name} Percent Ownership")
 
     our_tvl_by_destination_df["Not Tokemak Percent Ownership"] = our_tvl_by_destination_df.apply(
@@ -118,6 +119,8 @@ def _fetch_autopool_percent_ownership_of_each_destination(
         axis=1,
     )
     percent_cols.append("Not Tokemak Percent Ownership")
+
+    our_tvl_by_destination_df[percent_cols] = our_tvl_by_destination_df[percent_cols].round(2)
 
     return our_tvl_by_destination_df, percent_cols
 
@@ -159,6 +162,7 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
     df = this_autopool_destinations_df.reset_index(drop=True)
     # only show destinations where we have some ownership
     df = df[df[percent_cols[:-1]].gt(0).any(axis=1)].copy().reset_index(drop=True)
+    pass
 
     cols = 3
     rows = math.ceil(len(df) / cols)
@@ -180,8 +184,7 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
         for label, value in zip(percent_cols, [row[percent_col] for percent_col in percent_cols]):
             if value > 0:
                 labels.append(label)
-                vals.append(round(value, 1))
-
+                vals.append(value)
         r = (idx // cols) + 1
         c = (idx % cols) + 1
 
@@ -193,6 +196,7 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
                 values=vals,
                 marker=dict(colors=slice_colors),
                 textinfo="percent",
+                texttemplate="%{percent:.2%}",
                 hoverinfo="label",
                 showlegend=False,
             ),
