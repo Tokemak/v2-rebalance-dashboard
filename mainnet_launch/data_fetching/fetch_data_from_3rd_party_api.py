@@ -4,7 +4,7 @@ import concurrent.futures
 
 from aiolimiter import AsyncLimiter
 from tqdm import tqdm  # pip install tqdm
-
+import pandas as pd
 
 THIRD_PARTY_SUCCESS_KEY = "3rd_party_response_success"
 
@@ -45,6 +45,7 @@ async def _get_json_with_retry(session: aiohttp.ClientSession, rate_limiter: Asy
                     # happy path
                     data = await resp.json()
                     data[THIRD_PARTY_SUCCESS_KEY] = True
+                    data["request_kwargs"] = request_kwargs
                     return data
 
                 except aiohttp.ClientResponseError:
@@ -61,31 +62,27 @@ async def _get_json_with_retry(session: aiohttp.ClientSession, rate_limiter: Asy
                         "headers": dict(resp.headers),
                         "body": body,
                         THIRD_PARTY_SUCCESS_KEY: False,
+                        "request_kwargs": request_kwargs,
                     }
 
 
 async def _make_many_requests_async(rate_limiter: AsyncLimiter, requests_kwargs: list[dict]):
-    print(requests_kwargs[0]["url"])
     async with aiohttp.ClientSession() as session:
         tasks = [
             _get_json_with_retry(session, rate_limiter, request_kwargs=request_kwargs)
             for request_kwargs in requests_kwargs
         ]
+
         results = []
-        # wrap tasks in tqdm so we see progress as each completes
-        for future in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Fetching 3rd-party data"):
-            res = await future
+        for future in tqdm(
+            asyncio.as_completed(tasks),
+            total=len(tasks),
+            desc=f"Fetching 3rd-party data from {requests_kwargs[0]['url']}",
+        ):
+            res: dict = await future
+            res["datetime_received"] = pd.Timestamp.now(tz="UTC")
             results.append(res)
         return results
-
-
-# async def _make_many_requests_async(rate_limiter: AsyncLimiter, requests_kwargs: list[dict]):
-#     async with aiohttp.ClientSession() as session:
-#         tasks = [
-#             _get_json_with_retry(session, rate_limiter, request_kwargs=request_kwargs)
-#             for request_kwargs in requests_kwargs
-#         ]
-#         return await asyncio.gather(*tasks)
 
 
 def make_many_requests_to_3rd_party(

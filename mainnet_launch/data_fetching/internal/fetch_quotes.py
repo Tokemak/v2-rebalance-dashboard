@@ -19,22 +19,27 @@ PORTIONS_TO_CHECK = [0.01, 0.05, 0.1, 0.25]
 
 @dataclass
 class TokemakQuoteRequest:
-    chain: ChainData
+    chain_id: int
     token_in: str
     token_out: str
-    scaled_amount_in: str
+    unscaled_amount_in: str
 
 
 def _process_quote_response(response: dict) -> dict:
     if response[THIRD_PARTY_SUCCESS_KEY]:
-        fields_to_keep = ["buyAmount", "aggregatorName"]
-        return {a: response[a] for a in fields_to_keep}
+        fields_to_keep = ["buyAmount", "aggregatorName", "datetime_received"]
+        cleaned_data = {a: response[a] for a in fields_to_keep}
+        request_kwargs = response["request_kwargs"]
+        json_payload = request_kwargs.pop("json")
+        cleaned_data.update(json_payload)
+        cleaned_data.update(request_kwargs)
+        return cleaned_data
     else:
         return response
 
 
 def fetch_single_swap_quote_from_internal_api(
-    chain: ChainData,
+    chain_id: int,
     sell_token: str,
     buy_token: str,
     unscaled_amount_in: int,
@@ -49,13 +54,13 @@ def fetch_single_swap_quote_from_internal_api(
     url = "https://swaps-pricing.tokemaklabs.com/swap-quote-v2"
 
     payload = {
-        "chainId": chain.chain_id,
+        "chainId": chain_id,
         "systemName": system_name,
         "slippageBps": slippage_bps,
         "taker": DEAD_ADDRESS,
         "sellToken": sell_token,
         "buyToken": buy_token,
-        "sellAmount": str(int(unscaled_amount_in)),
+        "sellAmount": str(unscaled_amount_in),
         "includeSources": include_sources,
         "excludeSources": exclude_sources,
         "sellAll": sell_all,
@@ -83,13 +88,13 @@ def fetch_many_swap_quotes_from_internal_api(
     requests_kwargs = []
     for quote_request in quote_requests:
         json_payload = {
-            "chainId": quote_request.chain.chain_id,
+            "chainId": quote_request.chain_id,
             "systemName": "gen3",
             "slippageBps": 50,
             "taker": DEAD_ADDRESS,
             "sellToken": quote_request.token_in,
             "buyToken": quote_request.token_out,
-            "sellAmount": str(int(quote_request.scaled_amount_in)),
+            "sellAmount": str(quote_request.unscaled_amount_in),
             "includeSources": "",
             "excludeSources": "Bebop",
             "sellAll": True,
@@ -142,7 +147,7 @@ if __name__ == "__main__":
     from mainnet_launch.constants import *
 
     tokemak_response = fetch_single_swap_quote_from_internal_api(
-        chain=ETH_CHAIN,
+        chain_id=ETH_CHAIN.chain_id,
         sell_token=WETH(ETH_CHAIN),
         buy_token="0x04C154b66CB340F3Ae24111CC767e0184Ed00Cc6",
         unscaled_amount_in=str(int(1e18)),

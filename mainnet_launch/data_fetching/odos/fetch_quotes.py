@@ -24,7 +24,7 @@ ODOS_BASE_URL = "https://api.odos.xyz"
 
 @dataclass
 class OdosQuoteRequest:
-    chain: ChainData
+    chain_id: int
     token_in: str
     token_out: str
     unscaled_amount_in: str
@@ -32,12 +32,12 @@ class OdosQuoteRequest:
 
 
 def fetch_odos_single_token_raw_quote(
-    chain: ChainData, token_in: str, token_out: str, unscaled_amount_in: str, poolBlacklist: tuple[str] = None
+    chain_id: int, token_in: str, token_out: str, unscaled_amount_in: str, poolBlacklist: tuple[str] = None
 ) -> dict:
     # https://docs.odos.xyz/build/api-docs
 
     json_payload = {
-        "chainId": chain.chain_id,
+        "chainId": chain_id,
         "inputTokens": [{"tokenAddress": token_in, "amount": unscaled_amount_in}],
         "outputTokens": [{"tokenAddress": token_out, "proportion": 1.0}],
         "compact": False,
@@ -63,8 +63,8 @@ def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> dict:
     for quote_request in quote_requests:
 
         json_payload = {
-            "chainId": quote_request.chain.chain_id,
-            "inputTokens": [{"tokenAddress": quote_request.token_in, "amount": quote_request.unscaled_amount_in}],
+            "chainId": quote_request.chain_id,
+            "inputTokens": [{"tokenAddress": quote_request.token_in, "amount": str(quote_request.unscaled_amount_in)}],
             "outputTokens": [{"tokenAddress": quote_request.token_out, "proportion": 1.0}],
             "compact": False,
             "simple": False,
@@ -72,13 +72,16 @@ def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> dict:
         if quote_request.poolBlacklist:
             json_payload["poolBlacklist"] = quote_request.poolBlacklist
 
-        requests_kwargs.append({
-            "method": "POST",
-            "url": f"{ODOS_BASE_URL}/sor/quote/v2",
-            "json": json_payload,
-        })
+        requests_kwargs.append(
+            {
+                "method": "POST",
+                "url": f"{ODOS_BASE_URL}/sor/quote/v2",
+                "json": json_payload,
+            }
+        )
 
     # slightly under the 600 / 5 minute
+    # interestingly this does not preserve order
     raw_odos_responses = make_many_requests_to_3rd_party(
         rate_limit_max_rate=100, rate_limit_time_period=60, requests_kwargs=requests_kwargs
     )
@@ -95,13 +98,17 @@ def _flatten_odos_response(raw_odos_response: dict):
             flat_odos_data[k] = v[0]
         else:
             flat_odos_data[k] = v
+
+    request_kwargs = raw_odos_response.pop("request_kwargs")
+    flat_odos_data.update(request_kwargs.pop("json"))
+    flat_odos_data.update(request_kwargs)
     return flat_odos_data
 
 
 if __name__ == "__main__":
 
     quote_response = fetch_odos_single_token_raw_quote(
-        chain=ETH_CHAIN,
+        chain_id=ETH_CHAIN.chain_id,
         token_in=WETH(ETH_CHAIN),
         token_out="0x04C154b66CB340F3Ae24111CC767e0184Ed00Cc6",
         unscaled_amount_in=str(int(1e18)),
@@ -110,7 +117,7 @@ if __name__ == "__main__":
     pprint(quote_response)
 
     quote_response = fetch_odos_single_token_raw_quote(
-        chain=ETH_CHAIN,
+        chain_id=ETH_CHAIN.chain_id,
         token_in=DEAD_ADDRESS,
         token_out="0x04C154b66CB340F3Ae24111CC767e0184Ed00Cc6",
         unscaled_amount_in=str(int(1e18)),
