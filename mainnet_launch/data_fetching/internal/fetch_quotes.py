@@ -26,8 +26,11 @@ class TokemakQuoteRequest:
 
 
 def _process_quote_response(response: dict) -> dict:
-    fields_to_keep = ["buyAmount", "aggregatorName"]
-    return {a: response[a] for a in fields_to_keep}
+    if response[THIRD_PARTY_SUCCESS_KEY]:
+        fields_to_keep = ["buyAmount", "aggregatorName"]
+        return {a: response[a] for a in fields_to_keep}
+    else:
+        return response
 
 
 def fetch_single_swap_quote_from_internal_api(
@@ -77,7 +80,7 @@ def fetch_single_swap_quote_from_internal_api(
 def fetch_many_swap_quotes_from_internal_api(
     quote_requests: list[TokemakQuoteRequest],
 ) -> pd.DataFrame:
-    request_kwargs = []
+    requests_kwargs = []
     for quote_request in quote_requests:
         json_payload = {
             "chainId": quote_request.chain.chain_id,
@@ -86,13 +89,13 @@ def fetch_many_swap_quotes_from_internal_api(
             "taker": DEAD_ADDRESS,
             "sellToken": quote_request.token_in,
             "buyToken": quote_request.token_out,
-            "sellAmount": str(int(quote_request.unscaled_amount_in)),
+            "sellAmount": str(int(quote_request.scaled_amount_in)),
             "includeSources": "",
             "excludeSources": "Bebop",
             "sellAll": True,
         }
 
-        request_kwargs.append(
+        requests_kwargs.append(
             {
                 "method": "POST",
                 "url": "https://swaps-pricing.tokemaklabs.com/swap-quote-v2",
@@ -100,7 +103,9 @@ def fetch_many_swap_quotes_from_internal_api(
             }
         )
 
-    raw_responses = make_many_requests_to_3rd_party(50, 30, request_kwargs=request_kwargs)
+    raw_responses = make_many_requests_to_3rd_party(
+        rate_limit_max_rate=80, rate_limit_time_period=30, requests_kwargs=requests_kwargs
+    )
     flat_responses = [_process_quote_response(r) for r in raw_responses]
     return pd.DataFrame.from_records(flat_responses)
 

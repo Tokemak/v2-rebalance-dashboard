@@ -59,7 +59,7 @@ def fetch_odos_single_token_raw_quote(
 
 
 def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> dict:
-    request_kwargs = []
+    requests_kwargs = []
     for quote_request in quote_requests:
 
         json_payload = {
@@ -72,16 +72,15 @@ def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> dict:
         if quote_request.poolBlacklist:
             json_payload["poolBlacklist"] = quote_request.poolBlacklist
 
-        request_kwargs = {
+        requests_kwargs.append({
             "method": "POST",
             "url": f"{ODOS_BASE_URL}/sor/quote/v2",
             "json": json_payload,
-        }
-        request_kwargs.append(request_kwargs)
+        })
 
     # slightly under the 600 / 5 minute
     raw_odos_responses = make_many_requests_to_3rd_party(
-        rate_limit_max_rate=100, rate_limit_time_period=60, request_kwargs=request_kwargs
+        rate_limit_max_rate=100, rate_limit_time_period=60, requests_kwargs=requests_kwargs
     )
 
     flat_odos_responses = [_flatten_odos_response(r) for r in raw_odos_responses]

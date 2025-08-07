@@ -1,7 +1,9 @@
 import asyncio
 import aiohttp
 import concurrent.futures
+
 from aiolimiter import AsyncLimiter
+from tqdm import tqdm  # pip install tqdm
 
 
 THIRD_PARTY_SUCCESS_KEY = "3rd_party_response_success"
@@ -63,12 +65,27 @@ async def _get_json_with_retry(session: aiohttp.ClientSession, rate_limiter: Asy
 
 
 async def _make_many_requests_async(rate_limiter: AsyncLimiter, requests_kwargs: list[dict]):
+    print(requests_kwargs[0]["url"])
     async with aiohttp.ClientSession() as session:
         tasks = [
             _get_json_with_retry(session, rate_limiter, request_kwargs=request_kwargs)
             for request_kwargs in requests_kwargs
         ]
-        return await asyncio.gather(*tasks)
+        results = []
+        # wrap tasks in tqdm so we see progress as each completes
+        for future in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Fetching 3rd-party data"):
+            res = await future
+            results.append(res)
+        return results
+
+
+# async def _make_many_requests_async(rate_limiter: AsyncLimiter, requests_kwargs: list[dict]):
+#     async with aiohttp.ClientSession() as session:
+#         tasks = [
+#             _get_json_with_retry(session, rate_limiter, request_kwargs=request_kwargs)
+#             for request_kwargs in requests_kwargs
+#         ]
+#         return await asyncio.gather(*tasks)
 
 
 def make_many_requests_to_3rd_party(

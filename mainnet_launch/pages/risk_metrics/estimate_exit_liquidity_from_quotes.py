@@ -24,7 +24,12 @@ from mainnet_launch.data_fetching.odos.fetch_quotes import fetch_many_odos_raw_q
 ATTEMPTS = 3
 STABLE_COINS_REFERENCE_QUANTITY = 10_000
 ETH_REFERENCE_QUANTITY = 5
-PERCENT_OWNERSHIP_THRESHOLD = 10  # percent ownership threshold for excluding pools
+PERCENT_OWNERSHIP_THRESHOLD = 10  # how much of a pool do we own before we exclude it from odos quotes
+
+USD_SCALED_SIZES = [20_000, 50_000, 100_000, 200_000]
+ETH_SCALED_SIZES = [20, 50, 100, 200]
+
+PORTIONS = [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0]
 
 
 def _fetch_current_asset_exposure(
@@ -43,7 +48,7 @@ def _fetch_current_asset_exposure(
 def _fetch_needed_context(chain: ChainData, valid_autopools: list[AutopoolConstants]):
 
     block = chain.client.eth.block_number
-    # TODO this duplicates work
+    # TODO I suspect this duplicates work
     unscaled_asset_exposure = _fetch_current_asset_exposure(chain, valid_autopools, block)
     percent_ownership_by_destination_df = fetch_readable_our_tvl_by_destination(chain, block)
 
@@ -61,14 +66,14 @@ def _fetch_needed_context(chain: ChainData, valid_autopools: list[AutopoolConsta
             Tokens,
             where_clause=Tokens.chain_id == chain.chain_id,
         )
-        .set_index("token_address")[["decimals"]]
+        .set_index("token_address")["decimals"]
         .to_dict()
     )
 
     return unscaled_asset_exposure, percent_ownership_by_destination_df, token_to_decimal
 
 
-def build_tokemak_quote_requests(
+def _build_tokemak_quote_requests_from_portions(
     chain: ChainData,
     base_asset: TokemakAddress,
     unscaled_asset_exposure: dict[str, int],
@@ -78,19 +83,8 @@ def build_tokemak_quote_requests(
     """Builds a list of TokemakQuoteRequest objects for the given chain and base asset."""
 
     tokemak_quote_requests = []
-    for token_address, amount in unscaled_asset_exposure.items():
-        decimals = token_to_decimal[token_address]
-        scaled_amount = int(amount) / (10**decimals)
 
-        request = TokemakQuoteRequest(
-            chain=chain,
-            token_in=token_address,
-            token_out=base_asset(chain),
-            scaled_amount_in=scaled_amount,
-        )
-        tokemak_quote_requests.append(request)
-
-    pools_to_exclude = (
+    poolBlacklist = (
         percent_ownership_by_destination_df[
             percent_ownership_by_destination_df["percent_ownership"] > PERCENT_OWNERSHIP_THRESHOLD
         ]["pool_address"]
@@ -99,17 +93,34 @@ def build_tokemak_quote_requests(
     )
 
     odos_quote_requests = []
-    for token_address, amount in unscaled_asset_exposure.items():
-        request = OdosQuoteRequest(
-            chain=chain,
-            token_in=token_address,
-            token_out=base_asset(chain),
-            unscaled_amount_in=amount,
-            pools_to_exclude=pools_to_exclude,
-        )
-        odos_quote_requests.append(request)
+
+    for portion in PORTIONS:
+
+        for token_address, amount in unscaled_asset_exposure.items():
+            decimals = token_to_decimal[token_address]
+            scaled_amount = (int(amount) / (10**decimals)) * portion
+
+            request = TokemakQuoteRequest(
+                chain=chain,
+                token_in=token_address,
+                token_out=base_asset(chain),
+                scaled_amount_in=scaled_amount,
+            )
+            tokemak_quote_requests.append(request)
+
+        for token_address, amount in unscaled_asset_exposure.items():
+            request = OdosQuoteRequest(
+                chain=chain,
+                token_in=token_address,
+                token_out=base_asset(chain),
+                unscaled_amount_in=str(int(int(amount) * portion)),
+                poolBlacklist=poolBlacklist,
+            )
+            odos_quote_requests.append(request)
 
     return tokemak_quote_requests, odos_quote_requests
+
+
 
 
 def fetch_odos_and_tokemak_quotes(
@@ -122,35 +133,39 @@ def fetch_odos_and_tokemak_quotes(
         chain, valid_autopools
     )
 
-    tokemak_quote_requests, odos_quote_requests = build_tokemak_quote_requests(
+    tokemak_quote_requests, odos_quote_requests = _build_tokemak_quote_requests_from_portions(
         chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_to_decimal
     )
 
     tokemak_quote_requests_df = pd.DataFrame(tokemak_quote_requests)
     odos_quote_requests_df = pd.DataFrame(odos_quote_requests)
 
-    return tokemak_quote_requests_df, odos_quote_requests_df
+    tokemak_response_df = fetch_many_swap_quotes_from_internal_api(
+        tokemak_quote_requests,  # need to do this 3 times
+    )
+
+    odos_response_df = fetch_many_odos_raw_quotes(
+        odos_quote_requests,
+    )
+
+    return tokemak_quote_requests_df, odos_quote_requests_df, tokemak_response_df, odos_response_df
 
 
 def fetch_and_render_exit_liquidity_from_quotes() -> None:
     st.subheader("Exit Liquidity Quote Explorer")
     chain, base_asset, valid_autopools = render_pick_chain_and_base_asset_dropdown()
-
-    # _render_methodology()
-
-    tokemak_quote_requests_df, odos_quote_requests_df = fetch_odos_and_tokemak_quotes(
-        chain, base_asset, valid_autopools
+    tokemak_quote_requests_df, odos_quote_requests_df, tokemak_response_df, odos_response_df = (
+        fetch_odos_and_tokemak_quotes(chain, base_asset, valid_autopools)
     )
+    st.write("Tokemak Quote Requests")
+    st.dataframe(tokemak_quote_requests_df.astype(str))
+    st.write("ODOS Quote Requests")
+    st.dataframe(odos_quote_requests_df.astype(str))
 
-    st.dataframe(
-        tokemak_quote_requests_df,
-    )
-    st.dataframe(
-        odos_quote_requests_df,
-    )
-
-    # _render_quotes(odos_quotes_df, tokemak_quotes_df)
-    # _render_download_raw_quote_data_buttons(odos_quotes_df, tokemak_quotes_df)
+    st.write("Tokemak Responses")
+    st.dataframe(tokemak_response_df.astype(str))
+    st.write("ODOS Responses")
+    st.dataframe(odos_response_df.astype(str))
 
 
 if __name__ == "__main__":
