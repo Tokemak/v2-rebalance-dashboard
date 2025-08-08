@@ -728,7 +728,7 @@ class SwapQuote(Base):
     scaled_amount_out: Mapped[float] = mapped_column(nullable=False)
 
     pools_blacklist: Mapped[str] = mapped_column(nullable=True)  # pools to not use in the swap
-    aggregator_name: str = mapped_column(nullable=False)  # the aggregator name used for this swap
+    aggregator_name: Mapped[str] = mapped_column(nullable=False)  # the aggregator name used for this swap
     datetime_received: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
 
     quote_batch: Mapped[int] = mapped_column(nullable=False)  # eg what run this quote used to group quotes
