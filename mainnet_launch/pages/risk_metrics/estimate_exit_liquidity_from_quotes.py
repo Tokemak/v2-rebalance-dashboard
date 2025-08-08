@@ -403,6 +403,10 @@ def save_full_round():
         print(f"Finished fetching quotes for {chain.name} and {base_asset.name}.")
 
 
+def fetch_and_render_exit_liquidity_from_quotes():
+    st.write('stub')
+    pass
+
 if __name__ == "__main__":
     save_full_round()
 
