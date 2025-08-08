@@ -12,6 +12,9 @@ from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_co
 from sqlalchemy import DateTime, ForeignKey, ARRAY, String, ForeignKeyConstraint, BigInteger, Integer
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
+import uuid
+
 
 load_dotenv()
 
@@ -714,9 +717,6 @@ class PoolLiquiditySnapshot(Base):
 class SwapQuote(Base):
     __tablename__ = "swap_quote"
 
-    id: Mapped[Optional[int]] = mapped_column(
-        Integer, primary_key=True, autoincrement=True, init=False
-    )
     chain_id: Mapped[int] = mapped_column(nullable=False)
     base_asset: Mapped[str] = mapped_column(nullable=False)  # eg WETH, USDC, DOLA
     api_name: Mapped[str] = mapped_column(nullable=False)  # eg 1inch, paraswap, etc
@@ -727,17 +727,23 @@ class SwapQuote(Base):
     scaled_amount_in: Mapped[float] = mapped_column(nullable=False)
     scaled_amount_out: Mapped[float] = mapped_column(nullable=False)
 
-    pools_blacklist: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=True)  # pools to not use in the swap
+    pools_blacklist: Mapped[str] = mapped_column(nullable=True)  # pools to not use in the swap
     aggregator_name: str = mapped_column(nullable=False)  # the aggregator name used for this swap
     datetime_received: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    quote_batch: Mapped[int] = mapped_column(nullable=False) # eg what run this quote used to group quotes
+    quote_batch: Mapped[int] = mapped_column(nullable=False)  # eg what run this quote used to group quotes
     size_factor: Mapped[str] = mapped_column(nullable=False)  # eg PORTION, or abosolute
 
     __table_args__ = (
-
         ForeignKeyConstraint(["sell_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
         ForeignKeyConstraint(["buy_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+    )
+
+    # Client-generated PK; never pass it in manually
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default_factory=uuid.uuid4,  # <-- ensures Python value exists before to_tuple()
     )
 
 
@@ -777,4 +783,3 @@ Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
     reflect_and_create()
-

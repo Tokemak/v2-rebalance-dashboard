@@ -107,6 +107,7 @@ def insert_avoid_conflicts(
         else:
             return
     # tod remove index_elements
+    a_tup = new_rows[0].to_tuple()
 
     rows_as_tuples = list(set([r.to_tuple() for r in new_rows]))
     bulk_copy_skip_duplicates(rows_as_tuples, table)
