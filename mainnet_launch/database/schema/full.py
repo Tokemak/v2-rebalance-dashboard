@@ -728,6 +728,10 @@ class SwapQuote(Base):
     scaled_amount_out: Mapped[float] = mapped_column(nullable=False)
 
     pools_blacklist: Mapped[str] = mapped_column(nullable=True)  # pools to not use in the swap
+    percent_exclude_threshold: Mapped[float] = mapped_column(
+        nullable=False
+    )  # how big a pool needs to be before it is excluded
+
     aggregator_name: Mapped[str] = mapped_column(nullable=False)  # the aggregator name used for this swap
     datetime_received: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
 

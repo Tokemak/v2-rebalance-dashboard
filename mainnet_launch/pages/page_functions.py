@@ -32,7 +32,7 @@ from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (
 )
 from mainnet_launch.pages.risk_metrics.estimate_exit_liquidity_from_pool_tvl import fetch_and_render_exit_liqudity_pools
 
-from mainnet_launch.pages.risk_metrics.estimate_exit_liquidity_from_quotes import (
+from mainnet_launch.pages.risk_metrics.exit_liqudity_quotes import (
     fetch_and_render_exit_liquidity_from_quotes,
 )
 
@@ -56,5 +56,5 @@ PROTOCOL_CONTENT_FUNCTIONS = {
 RISK_METRICS_FUNCTIONS = {
     "Tokemak Percent Ownership": fetch_and_render_our_percent_ownership_of_each_destination,
     # "Exit Liquidity Pools": fetch_and_render_exit_liqudity_pools,
-    # "Exit Liquidity Quotes": fetch_and_render_exit_liquidity_from_quotes,
+    "Exit Liquidity Quotes": fetch_and_render_exit_liquidity_from_quotes,
 }
