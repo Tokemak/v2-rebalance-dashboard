@@ -330,7 +330,7 @@ def fetch_and_save_odos_and_tokemak_quotes(
     chain: ChainData,
     base_asset: TokemakAddress,
     valid_autopools: list[AutopoolConstants],
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> None:
 
     unscaled_asset_exposure, percent_ownership_by_destination_df, token_df = fetch_needed_context(
         chain, valid_autopools
@@ -339,6 +339,10 @@ def fetch_and_save_odos_and_tokemak_quotes(
     portion_tokemak_quote_requests, portion_odos_quote_requests = _build_quote_requests_from_portions(
         chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_df
     )
+    if (len(portion_tokemak_quote_requests) == 0) and len(portion_odos_quote_requests) == 0:
+        # eg if we only hold the base asset on that chain, we don't need to check liquidity
+        # early exit
+        return
 
     portion_raw_tokemak_quote_response_df, portion_raw_odos_quote_response_df = _fetch_several_rounds_of_quotes(
         tokemak_quote_requests=portion_tokemak_quote_requests,
@@ -385,9 +389,9 @@ def fetch_and_save_odos_and_tokemak_quotes(
 @time_decorator
 def save_full_round():
     chain_base_asset_groups = {
-        (ETH_CHAIN, WETH): (AUTO_ETH, AUTO_LRT, BAL_ETH, DINERO_ETH),
-        (ETH_CHAIN, USDC): (AUTO_USD,),
-        (ETH_CHAIN, DOLA): (AUTO_DOLA,),
+        # (ETH_CHAIN, WETH): (AUTO_ETH, AUTO_LRT, BAL_ETH, DINERO_ETH),
+        # (ETH_CHAIN, USDC): (AUTO_USD,),
+        # (ETH_CHAIN, DOLA): (AUTO_DOLA,),
         (SONIC_CHAIN, USDC): (SONIC_USD,),
         (BASE_CHAIN, WETH): (BASE_ETH,),
         (BASE_CHAIN, USDC): (BASE_USD,),
@@ -404,8 +408,9 @@ def save_full_round():
 
 
 def fetch_and_render_exit_liquidity_from_quotes():
-    st.write('stub')
+    st.write("stub")
     pass
+
 
 if __name__ == "__main__":
     save_full_round()
