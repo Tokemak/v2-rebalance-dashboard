@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import pydot
 
+from typing import Optional
 
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_column
@@ -713,21 +714,28 @@ class PoolLiquiditySnapshot(Base):
 class SwapQuote(Base):
     __tablename__ = "swap_quote"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[Optional[int]] = mapped_column(
+        Integer, primary_key=True, autoincrement=True, init=False
+    )
     chain_id: Mapped[int] = mapped_column(nullable=False)
+    base_asset: Mapped[str] = mapped_column(nullable=False)  # eg WETH, USDC, DOLA
+    api_name: Mapped[str] = mapped_column(nullable=False)  # eg 1inch, paraswap, etc
 
     sell_token_address: Mapped[str] = mapped_column(nullable=False)
     buy_token_address: Mapped[str] = mapped_column(nullable=False)
 
-    sell_token_amount: Mapped[float] = mapped_column(nullable=False)
-    buy_token_amount: Mapped[float] = mapped_column(nullable=False)
-    min_buy_token_amount: Mapped[float] = mapped_column(nullable=False)
+    scaled_amount_in: Mapped[float] = mapped_column(nullable=False)
+    scaled_amount_out: Mapped[float] = mapped_column(nullable=False)
 
-    datetime_requested: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True))
+    pools_blacklist: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=True)  # pools to not use in the swap
+    aggregator_name: str = mapped_column(nullable=False)  # the aggregator name used for this swap
     datetime_received: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    # sell and buy token must point to tokens
+    quote_batch: Mapped[int] = mapped_column(nullable=False) # eg what run this quote used to group quotes
+    size_factor: Mapped[str] = mapped_column(nullable=False)  # eg PORTION, or abosolute
+
     __table_args__ = (
+
         ForeignKeyConstraint(["sell_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
         ForeignKeyConstraint(["buy_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
     )
@@ -769,5 +777,4 @@ Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
     reflect_and_create()
-    pass
-    # drop_and_full_rebuild_db()
+

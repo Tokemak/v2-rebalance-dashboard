@@ -12,8 +12,12 @@ from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (
     fetch_readable_our_tvl_by_destination,
 )
 
-from mainnet_launch.database.schema.full import Destinations, AutopoolDestinations, Tokens
-from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
+from mainnet_launch.database.schema.full import Destinations, AutopoolDestinations, Tokens, SwapQuote
+from mainnet_launch.database.schema.postgres_operations import (
+    get_full_table_as_df,
+    insert_avoid_conflicts,
+    get_highest_value_in_field_where,
+)
 
 from mainnet_launch.data_fetching.internal.fetch_quotes import (
     fetch_many_swap_quotes_from_internal_api,
@@ -21,15 +25,23 @@ from mainnet_launch.data_fetching.internal.fetch_quotes import (
 )
 from mainnet_launch.data_fetching.odos.fetch_quotes import fetch_many_odos_raw_quotes, OdosQuoteRequest
 
-ATTEMPTS = 3
+ATTEMPTS = 1
 STABLE_COINS_REFERENCE_QUANTITY = 10_000
 ETH_REFERENCE_QUANTITY = 5
 PERCENT_OWNERSHIP_THRESHOLD = 10  # how much of a pool do we own before we exclude it from odos quotes
 
-USD_SCALED_SIZES = [20_000, 50_000, 100_000, 200_000]
-ETH_SCALED_SIZES = [20, 50, 100, 200]
+USD_SCALED_SIZES = [10_000, 20_000, 50_000, 100_000, 200_000]
+ETH_SCALED_SIZES = [5, 20, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
 
 PORTIONS = [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0]
+
+
+USD_SCALED_SIZES = [10_000, 200_000]
+ETH_SCALED_SIZES = [5,   500, ]
+
+PORTIONS = [0.01, 0.1,  1.0]
+
+ALLOWED_SIZE_FACTORS = ["portion", "absolute"]
 
 
 def _fetch_current_asset_exposure(
@@ -178,8 +190,125 @@ def _build_quote_requests_from_portions(
     return tokemak_quote_requests, odos_quote_requests
 
 
-@time_decorator
-def fetch_odos_and_tokemak_quotes(
+def _fetch_several_rounds_of_quotes(tokemak_quote_requests, odos_quote_requests) -> list[SwapQuote]:
+    """Fetches several rounds of quotes using the provided fetch function."""
+    tokemak_quotes: list[SwapQuote] = []
+    odos_quotes: list[SwapQuote] = []
+
+    for i in range(ATTEMPTS):
+        some_tokemak_quote_df:pd.DataFrame = fetch_many_swap_quotes_from_internal_api(tokemak_quote_requests)
+        tokemak_quotes.append(some_tokemak_quote_df)
+
+        some_odos_quotes_df:pd.DataFrame = fetch_many_odos_raw_quotes(odos_quote_requests)
+        odos_quotes.append(some_odos_quotes_df)
+
+        # 3) wait a minute before the next iteration (but not after the last)
+        if i < 2:
+            print("sleeping 2 minutes")
+            time.sleep(60 * 2)
+
+    # concatenate all the quotes
+    raw_tokemak_quote_response_df = pd.concat(tokemak_quotes, ignore_index=True)
+    raw_odos_quote_response_df = pd.concat(odos_quotes, ignore_index=True)
+
+    return raw_tokemak_quote_response_df, raw_odos_quote_response_df
+
+
+def _post_process_raw_tokemak_quote_response_df(
+    raw_tokemak_quote_response_df: pd.DataFrame, token_df: pd.DataFrame, highest_swap_quote_batch_id:int, size_factor:str, base_asset: str
+) -> list[SwapQuote]:
+    token_to_decimal = token_df.set_index("token_address")["decimals"].to_dict()
+
+    quotes: list[SwapQuote] = []
+    for _, row in raw_tokemak_quote_response_df.iterrows():
+        sell_addr = row["sellToken"]
+        buy_addr = row["buyToken"]
+        chain_id = int(row["chainId"])
+
+        # scale raw integer amounts by the token decimals
+        scaled_in = int(row["sellAmount"]) / 10 ** token_to_decimal[sell_addr]
+        scaled_out = int(row["buyAmount"]) / 10 ** token_to_decimal[buy_addr]
+
+        quote = SwapQuote(
+            chain_id=chain_id,
+            api_name="tokemak",
+            sell_token_address=sell_addr,
+            buy_token_address=buy_addr,
+            scaled_amount_in=scaled_in,
+            scaled_amount_out=scaled_out,
+            pools_blacklist=[],  # tokemak has no blacklist support
+            aggregator_name=row["aggregatorName"],
+            datetime_received=row["datetime_received"],
+            quote_batch=highest_swap_quote_batch_id,   
+            size_factor=size_factor,
+            base_asset=base_asset
+        )
+        quotes.append(quote)
+
+    return quotes
+
+
+def _post_process_raw_odos_quote_response_df(
+    raw_odos_quote_response_df: pd.DataFrame, token_df: pd.DataFrame, highest_swap_quote_batch_id: int, size_factor: str, base_asset: str
+) -> list[SwapQuote]:
+    # lookup tables for decimals
+    token_to_decimal = token_df.set_index("token_address")["decimals"].to_dict()
+
+    quotes: list[SwapQuote] = []
+    for _, row in raw_odos_quote_response_df.iterrows():
+        # normalize addresses
+        sell_addr = Web3.toChecksumAddress(row["inTokens"])
+        buy_addr = Web3.toChecksumAddress(row["outTokens"])
+        chain_id = int(row["chainId"])
+
+        # raw amounts
+        unscaled_in = int(row["inAmounts"])
+        unscaled_out = int(row["outAmounts"])
+
+        # apply decimals
+        scaled_in = unscaled_in / 10 ** token_to_decimal[sell_addr]
+        scaled_out = unscaled_out / 10 ** token_to_decimal[buy_addr]
+
+        quote = SwapQuote(
+            chain_id=chain_id,
+            api_name="odos",
+            sell_token_address=sell_addr,
+            buy_token_address=buy_addr,
+            scaled_amount_in=scaled_in,
+            scaled_amount_out=scaled_out,
+            pools_blacklist=list(row["poolBlacklist"]),
+            aggregator_name="Odos",
+            datetime_received=row["datetime_received"],
+            quote_batch=highest_swap_quote_batch_id,
+            size_factor=size_factor,
+            base_asset=base_asset
+        )
+        quotes.append(quote)
+
+    return quotes
+
+
+def _add_new_swap_quotes_to_db(
+    raw_odos_quote_response_df: pd.DataFrame, raw_tokemak_quote_response_df: pd.DataFrame, token_df: pd.DataFrame, size_factor: str, base_asset: str
+) -> None:
+
+    highest_swap_quote_batch_id = get_highest_value_in_field_where(SwapQuote, SwapQuote.quote_batch, where_clause=None)
+    if highest_swap_quote_batch_id is None:
+        highest_swap_quote_batch_id = 0
+    else:
+        highest_swap_quote_batch_id += 1
+
+    cleaned_odos_responses = _post_process_raw_odos_quote_response_df(raw_odos_quote_response_df, token_df, highest_swap_quote_batch_id,size_factor, base_asset)
+    cleaned_tokemak_responses = _post_process_raw_tokemak_quote_response_df(raw_tokemak_quote_response_df, token_df, highest_swap_quote_batch_id, size_factor, base_asset)
+
+    # some kind of batch id,
+    insert_avoid_conflicts(
+        SwapQuote,
+        cleaned_odos_responses + cleaned_tokemak_responses,
+    )
+
+
+def fetch_and_save_odos_and_tokemak_quotes(
     chain: ChainData,
     base_asset: TokemakAddress,
     valid_autopools: list[AutopoolConstants],
@@ -189,161 +318,86 @@ def fetch_odos_and_tokemak_quotes(
         chain, valid_autopools
     )
 
-    # tokemak_quote_requests, odos_quote_requests = _build_quote_requests_from_portions(
-    #     chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_df
-    # )
-
-    tokemak_quote_requests, odos_quote_requests = _build_quote_requests_from_absolute_sizes(
+    portion_tokemak_quote_requests, portion_odos_quote_requests = _build_quote_requests_from_portions(
         chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_df
     )
 
-    tokemak_quote_requests, odos_quote_requests = (
-        tokemak_quote_requests[::7],
-        odos_quote_requests[::7],
-    )  # reduce the number of requests for testing
-    tokemak_quote_requests_df = pd.DataFrame(tokemak_quote_requests)
-    odos_quote_requests_df = pd.DataFrame(odos_quote_requests)
+    portion_raw_tokemak_quote_response_df, portion_raw_odos_quote_response_df = _fetch_several_rounds_of_quotes(
+        tokemak_quote_requests=portion_tokemak_quote_requests,
+        odos_quote_requests=portion_odos_quote_requests,
 
-    # Lists to collect your individual runs
-    tokemak_runs: list[pd.DataFrame] = []
-    odos_runs: list[pd.DataFrame] = []
+    )
+    time.sleep(60 * 2)
 
-    for i in range(3):
-        # 1) fetch Tokemak quotes
-        tokemak_df = fetch_many_swap_quotes_from_internal_api(tokemak_quote_requests)
-        tokemak_runs.append(tokemak_df)
+    absolute_tokemak_quote_requests, absolute_odos_quote_requests = _build_quote_requests_from_absolute_sizes(
+        chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_df
+    )
 
-        # 2) fetch Odos quotes
-        odos_df = fetch_many_odos_raw_quotes(odos_quote_requests)
-        odos_runs.append(odos_df)
+    absolute_raw_tokemak_quote_response_df, absolute_raw_odos_quote_response_df = _fetch_several_rounds_of_quotes(
+        tokemak_quote_requests=absolute_tokemak_quote_requests,
+        odos_quote_requests=absolute_odos_quote_requests,
+    )
 
-        # 3) wait a minute before the next iteration (but not after the last)
-        if i < 2:
-            time.sleep(60 * 2)
-
-    # 4) concatenate all runs into two big DataFrames
-    tokemak_response_df = pd.concat(tokemak_runs, ignore_index=True)
-    odos_response_df = pd.concat(odos_runs, ignore_index=True)
-
-    df = _post_process_quotes(
-        raw_odos_quote_response_df=odos_response_df,
-        raw_tokemak_quote_response_df=tokemak_response_df,
+    _add_new_swap_quotes_to_db(
+        raw_odos_quote_response_df=portion_raw_odos_quote_response_df,
+        raw_tokemak_quote_response_df=portion_raw_tokemak_quote_response_df,
         token_df=token_df,
+        size_factor="portion",
+        base_asset=base_asset(chain)
     )
-    return tokemak_quote_requests_df, odos_quote_requests_df, tokemak_response_df, odos_response_df, df
 
-
-@dataclass
-class QuoteResponse:
-    # I think this should be the table in the database
-    api: str
-    chain_id: int
-
-    token_in: str
-    token_out: str
-    token_in_symbol: str
-    token_out_symbol: str  # technically redundent, but useful for display
-    scaled_amount_in: float
-    scaled_amount_out: float
-
-    datetime_received: pd.Timestamp
-
-    pools_blacklist: tuple[str]  # empty for tokemak,
-    aggregator_name: str  # odos for odos, else aggregator name for tokemak
-
-
-def _post_process_raw_tokemak_quote_response_df(
-    raw_tokemak_quote_response_df: pd.DataFrame, token_df: pd.DataFrame
-) -> list[QuoteResponse]:
-    token_to_decimal = token_df.set_index("token_address")["decimals"].to_dict()
-    token_to_symbols = token_df.set_index("token_address")["symbol"].to_dict()
-
-    tokemak_quote_responses = [
-        QuoteResponse(
-            api="tokemak",
-            chain_id=int(row["chainId"]),
-            token_in=row["sellToken"],
-            token_out=row["buyToken"],
-            token_in_symbol=token_to_symbols[row["sellToken"]],
-            token_out_symbol=token_to_symbols[row["buyToken"]],
-            scaled_amount_in=int(row["sellAmount"]) / 10 ** token_to_decimal[row["sellToken"]],
-            scaled_amount_out=int(row["buyAmount"]) / 10 ** token_to_decimal[row["buyToken"]],
-            datetime_received=row["datetime_received"],
-            pools_blacklist=(),  # tokemak can't blacklist pools, so we use an empty tuple
-            aggregator_name=row["aggregatorName"],
-        )
-        for _, row in raw_tokemak_quote_response_df.iterrows()
-    ]
-
-    return tokemak_quote_responses
-
-
-def _post_process_raw_odos_quote_response_df(
-    raw_odos_quote_response_df: pd.DataFrame, token_df: pd.DataFrame
-) -> list[QuoteResponse]:
-    token_to_decimal = token_df.set_index("token_address")["decimals"].to_dict()
-    token_to_symbols = token_df.set_index("token_address")["symbol"].to_dict()
-
-    odos_quote_responses: list[QuoteResponse] = []
-    for _, row in raw_odos_quote_response_df.iterrows():
-
-        token_in = Web3.toChecksumAddress(row["inTokens"])
-        token_out = Web3.toChecksumAddress(row["outTokens"])
-
-        unscaled_amount_in = int(row["inAmounts"])
-        unscaled_amount_out = int(row["outAmounts"])
-
-        decimals_token_in = token_to_decimal[token_in]
-        decimals_token_out = token_to_decimal[token_out]
-
-        quote_response = QuoteResponse(
-            api="odos",
-            chain_id=int(row["chainId"]),
-            token_in=token_in,
-            token_out=token_out,
-            token_in_symbol=token_to_symbols[token_in],
-            token_out_symbol=token_to_symbols[token_out],
-            scaled_amount_in=unscaled_amount_in / 10**decimals_token_in,
-            scaled_amount_out=unscaled_amount_out / 10**decimals_token_out,
-            datetime_received=row["datetime_received"],
-            pools_blacklist=tuple(row["poolBlacklist"]),
-            aggregator_name="Odos",
-        )
-        odos_quote_responses.append(quote_response)
-
-    return odos_quote_responses
-
-
-def _post_process_quotes(
-    raw_odos_quote_response_df: pd.DataFrame, raw_tokemak_quote_response_df: pd.DataFrame, token_df: pd.DataFrame
-) -> pd.DataFrame:
-
-    cleaned_odos_responses = _post_process_raw_odos_quote_response_df(raw_odos_quote_response_df, token_df)
-    clean_odos_response_df = pd.DataFrame(cleaned_odos_responses)
-    cleaned_tokemak_responses = _post_process_raw_tokemak_quote_response_df(raw_tokemak_quote_response_df, token_df)
-    clean_tokemak_response_df = pd.DataFrame(cleaned_tokemak_responses)
-
-    df = pd.concat([clean_odos_response_df, clean_tokemak_response_df], ignore_index=True)
-
-    df["effective_price"] = df["scaled_amount_out"] / df["scaled_amount_in"]
-
-    return df
-
-
-def fetch_and_render_exit_liquidity_from_quotes() -> None:
-    st.subheader("Exit Liquidity Quote Explorer")
-    chain, base_asset, valid_autopools = render_pick_chain_and_base_asset_dropdown()
-    tokemak_quote_requests_df, odos_quote_requests_df, tokemak_response_df, odos_response_df, df = (
-        fetch_odos_and_tokemak_quotes(chain, base_asset, valid_autopools)
+    _add_new_swap_quotes_to_db(
+        raw_odos_quote_response_df=absolute_raw_odos_quote_response_df,
+        raw_tokemak_quote_response_df=absolute_raw_tokemak_quote_response_df,
+        token_df=token_df,
+        size_factor="absolute",
+        base_asset=base_asset(chain)
     )
-    # this drops failures when I don't think it should
 
-    st.dataframe(df)
-    pass
+
+
+
 
 
 if __name__ == "__main__":
-    fetch_and_render_exit_liquidity_from_quotes()
+
+    chain, base_asset, valid_autopools = render_pick_chain_and_base_asset_dropdown()
+    fetch_and_save_odos_and_tokemak_quotes(chain, base_asset, valid_autopools)
+
+    a = get_highest_value_in_field_where(SwapQuote, SwapQuote.quote_batch, where_clause=None)
+    print(a)
+    # fetch_and_render_exit_liquidity_from_quotes()
+
+
+
+
+
+# def _post_process_quotes(
+#     raw_odos_quote_response_df: pd.DataFrame, raw_tokemak_quote_response_df: pd.DataFrame, token_df: pd.DataFrame
+# ) -> pd.DataFrame:
+
+#     cleaned_odos_responses = _post_process_raw_odos_quote_response_df(raw_odos_quote_response_df, token_df)
+#     clean_odos_response_df = pd.DataFrame(cleaned_odos_responses)
+#     cleaned_tokemak_responses = _post_process_raw_tokemak_quote_response_df(raw_tokemak_quote_response_df, token_df)
+#     clean_tokemak_response_df = pd.DataFrame(cleaned_tokemak_responses)
+
+#     df = pd.concat([clean_odos_response_df, clean_tokemak_response_df], ignore_index=True)
+
+#     df["effective_price"] = df["scaled_amount_out"] / df["scaled_amount_in"]
+#     df["label"] = df["token_in_symbol"] + " - " + df["api"]
+#     return df
+
+
+# def fetch_and_render_exit_liquidity_from_quotes() -> None:
+#     st.subheader("Exit Liquidity Quote Explorer")
+#     chain, base_asset, valid_autopools = render_pick_chain_and_base_asset_dropdown()
+#     tokemak_quote_requests_df, odos_quote_requests_df, tokemak_response_df, odos_response_df, df = (
+#         fetch_odos_and_tokemak_quotes(chain, base_asset, valid_autopools)
+#     )
+
+#     st.dataframe(df)
+#     pass
+
 
 # def _fetch_quote_and_slippage_data(valid_autopools: tuple[AutopoolConstants]):
 #     a_valid_autopool = valid_autopools[0]
