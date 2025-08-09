@@ -25,7 +25,7 @@ from mainnet_launch.data_fetching.internal.fetch_quotes import (
     TokemakQuoteRequest,
 )
 from mainnet_launch.data_fetching.odos.fetch_quotes import fetch_many_odos_raw_quotes, OdosQuoteRequest
-
+from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import THIRD_PARTY_SUCCESS_KEY
 
 # move to update database
 # make a seperate update file
@@ -229,30 +229,32 @@ def _post_process_raw_tokemak_quote_response_df(
 
     quotes: list[SwapQuote] = []
     for _, row in raw_tokemak_quote_response_df.iterrows():
-        sell_addr = row["sellToken"]
-        buy_addr = row["buyToken"]
-        chain_id = int(row["chainId"])
+        if THIRD_PARTY_SUCCESS_KEY not in row:
+            sell_addr = row["sellToken"]
+            buy_addr = row["buyToken"]
+            chain_id = int(row["chainId"])
 
-        # scale raw integer amounts by the token decimals
-        scaled_in = int(row["sellAmount"]) / 10 ** token_to_decimal[sell_addr]
-        scaled_out = int(row["buyAmount"]) / 10 ** token_to_decimal[buy_addr]
+            # scale raw integer amounts by the token decimals
+            scaled_in = int(row["sellAmount"]) / 10 ** token_to_decimal[sell_addr]
+            scaled_out = int(row["buyAmount"]) / 10 ** token_to_decimal[buy_addr]
 
-        quote = SwapQuote(
-            chain_id=chain_id,
-            api_name="tokemak",
-            sell_token_address=sell_addr,
-            buy_token_address=buy_addr,
-            scaled_amount_in=scaled_in,
-            scaled_amount_out=scaled_out,
-            pools_blacklist=None,  # tokemak has no blacklist support
-            aggregator_name=row["aggregatorName"],
-            datetime_received=row["datetime_received"],
-            quote_batch=batch_id,
-            size_factor=size_factor,
-            base_asset=base_asset,
-            percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
-        )
-        quotes.append(quote)
+            quote = SwapQuote(
+                chain_id=chain_id,
+                api_name="tokemak",
+                sell_token_address=sell_addr,
+                buy_token_address=buy_addr,
+                scaled_amount_in=scaled_in,
+                scaled_amount_out=scaled_out,
+                pools_blacklist=None,  # tokemak has no blacklist support
+                aggregator_name=row["aggregatorName"],
+                datetime_received=row["datetime_received"],
+                quote_batch=batch_id,
+                size_factor=size_factor,
+                base_asset=base_asset,
+                percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
+            )
+            quotes.append(quote)
+            # silently skip quotes that failed
 
     return quotes
 
@@ -269,35 +271,36 @@ def _post_process_raw_odos_quote_response_df(
 
     quotes: list[SwapQuote] = []
     for _, row in raw_odos_quote_response_df.iterrows():
-        # normalize addresses
-        sell_addr = Web3.toChecksumAddress(row["inTokens"])
-        buy_addr = Web3.toChecksumAddress(row["outTokens"])
-        chain_id = int(row["chainId"])
+        if THIRD_PARTY_SUCCESS_KEY not in row:
+            # normalize addresses
+            sell_addr = Web3.toChecksumAddress(row["inTokens"])
+            buy_addr = Web3.toChecksumAddress(row["outTokens"])
+            chain_id = int(row["chainId"])
 
-        # raw amounts
-        unscaled_in = int(row["inAmounts"])
-        unscaled_out = int(row["outAmounts"])
+            # raw amounts
+            unscaled_in = int(row["inAmounts"])
+            unscaled_out = int(row["outAmounts"])
 
-        # apply decimals
-        scaled_in = unscaled_in / 10 ** token_to_decimal[sell_addr]
-        scaled_out = unscaled_out / 10 ** token_to_decimal[buy_addr]
+            # apply decimals
+            scaled_in = unscaled_in / 10 ** token_to_decimal[sell_addr]
+            scaled_out = unscaled_out / 10 ** token_to_decimal[buy_addr]
 
-        quote = SwapQuote(
-            chain_id=chain_id,
-            api_name="odos",
-            sell_token_address=sell_addr,
-            buy_token_address=buy_addr,
-            scaled_amount_in=scaled_in,
-            scaled_amount_out=scaled_out,
-            pools_blacklist=str(tuple(row["poolBlacklist"])),
-            aggregator_name="Odos",
-            datetime_received=row["datetime_received"],
-            quote_batch=batch_id,
-            size_factor=size_factor,
-            base_asset=base_asset,
-            percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
-        )
-        quotes.append(quote)
+            quote = SwapQuote(
+                chain_id=chain_id,
+                api_name="odos",
+                sell_token_address=sell_addr,
+                buy_token_address=buy_addr,
+                scaled_amount_in=scaled_in,
+                scaled_amount_out=scaled_out,
+                pools_blacklist=str(tuple(row["poolBlacklist"])),
+                aggregator_name="Odos",
+                datetime_received=row["datetime_received"],
+                quote_batch=batch_id,
+                size_factor=size_factor,
+                base_asset=base_asset,
+                percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
+            )
+            quotes.append(quote)
 
     return quotes
 
@@ -387,11 +390,11 @@ def fetch_and_save_odos_and_tokemak_quotes(
 
 def save_full_round():
     chain_base_asset_groups = {
-        # (ETH_CHAIN, WETH): (AUTO_ETH, AUTO_LRT, BAL_ETH, DINERO_ETH),
-        # (ETH_CHAIN, USDC): (AUTO_USD,),
-        # (ETH_CHAIN, DOLA): (AUTO_DOLA,),
-        # (SONIC_CHAIN, USDC): (SONIC_USD,),
-        # (BASE_CHAIN, WETH): (BASE_ETH,),
+        (ETH_CHAIN, WETH): (AUTO_ETH, AUTO_LRT, BAL_ETH, DINERO_ETH),
+        (ETH_CHAIN, USDC): (AUTO_USD,),
+        (ETH_CHAIN, DOLA): (AUTO_DOLA,),
+        (SONIC_CHAIN, USDC): (SONIC_USD,),
+        (BASE_CHAIN, WETH): (BASE_ETH,),
         (BASE_CHAIN, USDC): (BASE_USD,),
     }
 
@@ -405,3 +408,9 @@ def save_full_round():
 
 if __name__ == "__main__":
     save_full_round()
+
+
+# options for faster, 
+# group together all the requsts into one
+# use less appempts
+# use less sizes, portions etc
