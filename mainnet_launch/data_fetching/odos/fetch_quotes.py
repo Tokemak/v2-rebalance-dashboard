@@ -58,7 +58,7 @@ def fetch_odos_single_token_raw_quote(
     return flat_odos_response
 
 
-def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> dict:
+def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> pd.DataFrame:
     requests_kwargs = []
     for quote_request in quote_requests:
 
@@ -83,7 +83,7 @@ def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> dict:
     # slightly under the 600 / 5 minute
     # interestingly this does not preserve order
     raw_odos_responses = make_many_requests_to_3rd_party(
-        rate_limit_max_rate=100, rate_limit_time_period=60, requests_kwargs=requests_kwargs
+        rate_limit_max_rate=12, rate_limit_time_period=10, requests_kwargs=requests_kwargs
     )
 
     flat_odos_responses = [_flatten_odos_response(r) for r in raw_odos_responses]

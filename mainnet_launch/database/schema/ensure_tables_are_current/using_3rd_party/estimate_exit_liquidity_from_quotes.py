@@ -4,7 +4,6 @@ import plotly.express as px
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 
-
 from mainnet_launch.constants import *
 from mainnet_launch.data_fetching.quotes.get_all_underlying_reserves import fetch_raw_amounts_by_destination
 
@@ -27,6 +26,18 @@ from mainnet_launch.data_fetching.internal.fetch_quotes import (
 from mainnet_launch.data_fetching.odos.fetch_quotes import fetch_many_odos_raw_quotes, OdosQuoteRequest
 from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import THIRD_PARTY_SUCCESS_KEY
 
+
+# need to think more deeply about a fast way to do this.
+
+# how about we make all the requests first,
+# then x3 the requests
+
+# then, send them to the APIs, with the proper rate limiters
+# I think that is the way
+
+# don't fail on timeout, just send it back to the queue
+
+
 # move to update database
 # make a seperate update file
 # TODO add enums instead of strings
@@ -42,7 +53,7 @@ ETH_SCALED_SIZES = [5, 20, 50, 100, 200]
 PORTIONS = [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0]
 
 ALLOWED_SIZE_FACTORS = ["portion", "absolute"]
-TIME_TO_SLEEP_BETWEEN_QUOTE_ROUNDS = 2 * 60  # 2 minutes got 1440 on 2 min sleep, checking 1 min sleeping, 1 min failed
+TIME_TO_SLEEP_BETWEEN_QUOTE_ROUNDS = 5 * 60  # 2 minutes got 1440 on 2 min sleep, checking 1 min sleeping, 1 min failed
 
 
 def _fetch_current_asset_exposure(
@@ -328,67 +339,7 @@ def _add_new_swap_quotes_to_db(
     )
 
 
-def fetch_and_save_odos_and_tokemak_quotes(
-    chain: ChainData,
-    base_asset: TokemakAddress,
-    valid_autopools: list[AutopoolConstants],
-) -> None:
-
-    unscaled_asset_exposure, percent_ownership_by_destination_df, token_df = fetch_needed_context(
-        chain, valid_autopools
-    )
-
-    portion_tokemak_quote_requests, portion_odos_quote_requests = _build_quote_requests_from_portions(
-        chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_df
-    )
-    if (len(portion_tokemak_quote_requests) == 0) and len(portion_odos_quote_requests) == 0:
-        # eg if we only hold the base asset on that chain, we don't need to check liquidity
-        # early exit
-        return
-
-    portion_raw_tokemak_quote_response_df, portion_raw_odos_quote_response_df = _fetch_several_rounds_of_quotes(
-        tokemak_quote_requests=portion_tokemak_quote_requests,
-        odos_quote_requests=portion_odos_quote_requests,
-    )
-
-    highest_swap_quote_batch_id = get_highest_value_in_field_where(SwapQuote, SwapQuote.quote_batch, where_clause=None)
-    if highest_swap_quote_batch_id is None:
-        highest_swap_quote_batch_id = 0
-    else:
-        highest_swap_quote_batch_id += 1
-
-    _add_new_swap_quotes_to_db(
-        raw_odos_quote_response_df=portion_raw_odos_quote_response_df,
-        raw_tokemak_quote_response_df=portion_raw_tokemak_quote_response_df,
-        token_df=token_df,
-        size_factor="portion",
-        base_asset=base_asset(chain),
-        batch_id=highest_swap_quote_batch_id,
-    )
-
-    print("sleeping 2 minutes before absolute quotes")
-    time.sleep(TIME_TO_SLEEP_BETWEEN_QUOTE_ROUNDS)
-
-    absolute_tokemak_quote_requests, absolute_odos_quote_requests = _build_quote_requests_from_absolute_sizes(
-        chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_df
-    )
-
-    absolute_raw_tokemak_quote_response_df, absolute_raw_odos_quote_response_df = _fetch_several_rounds_of_quotes(
-        tokemak_quote_requests=absolute_tokemak_quote_requests,
-        odos_quote_requests=absolute_odos_quote_requests,
-    )
-
-    _add_new_swap_quotes_to_db(
-        raw_odos_quote_response_df=absolute_raw_odos_quote_response_df,
-        raw_tokemak_quote_response_df=absolute_raw_tokemak_quote_response_df,
-        token_df=token_df,
-        size_factor="absolute",
-        base_asset=base_asset(chain),
-        batch_id=highest_swap_quote_batch_id,
-    )
-
-
-def save_full_round():
+def fetch_and_save_all_at_once():
     chain_base_asset_groups = {
         (ETH_CHAIN, WETH): (AUTO_ETH, AUTO_LRT, BAL_ETH, DINERO_ETH),
         (ETH_CHAIN, USDC): (AUTO_USD,),
@@ -398,19 +349,154 @@ def save_full_round():
         (BASE_CHAIN, USDC): (BASE_USD,),
     }
 
-    for k, valid_autopools in chain_base_asset_groups.items():
-        chain, base_asset = k
-        print(f"Fetching quotes for {chain.name} and {base_asset.name}.")
-        fetch_and_save_odos_and_tokemak_quotes(chain, base_asset, valid_autopools)
-        time.sleep(TIME_TO_SLEEP_BETWEEN_QUOTE_ROUNDS)
-        print(f"Finished fetching quotes for {chain.name} and {base_asset.name}.")
+    highest_swap_quote_batch_id = get_highest_value_in_field_where(SwapQuote, SwapQuote.quote_batch, where_clause=None)
+    if highest_swap_quote_batch_id is None:
+        highest_swap_quote_batch_id = 0
+    else:
+        highest_swap_quote_batch_id += 1
+
+    for size_factor, quote_bulding_function in zip(
+        ["absolute", "portion"],
+        [
+            _build_quote_requests_from_absolute_sizes,
+            _build_quote_requests_from_portions,
+        ],
+    ):
+        print(f"Using {quote_bulding_function.__name__} to build quote requests.")
+
+        all_tokemak_requests = []
+        all_odos_requests = []
+        for k, valid_autopools in chain_base_asset_groups.items():
+            chain, base_asset = k
+
+            unscaled_asset_exposure, percent_ownership_by_destination_df, token_df = fetch_needed_context(
+                chain, valid_autopools
+            )
+
+            portion_tokemak_quote_requests, portion_odos_quote_requests = quote_bulding_function(
+                chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_df
+            )
+
+            all_tokemak_requests.extend(portion_tokemak_quote_requests)
+            all_odos_requests.extend(portion_odos_quote_requests)
+
+        # # we want 3 of each request to get the median
+
+        all_tokemak_requests = all_tokemak_requests * 3
+        all_odos_requests = all_odos_requests * 3
+
+        print(f'Fetching {len(all_odos_requests)} Odos quotes and {len(all_tokemak_requests)} Tokemak quotes.')
+
+        odos_quote_response_df = fetch_many_odos_raw_quotes(all_odos_requests)
+        tokemak_quote_response_df = fetch_many_swap_quotes_from_internal_api(all_tokemak_requests)
+
+        for k, valid_autopools in chain_base_asset_groups.items():
+            chain, base_asset = k
+
+            sub_odos_df = odos_quote_response_df[
+                (odos_quote_response_df["chainId"] == chain.chain_id)
+                & (odos_quote_response_df["outTokens"].apply(lambda x: x[0]) == base_asset(chain))
+            ].reset_index(drop=True)
+            sub_tokemak_df = tokemak_quote_response_df[
+                (tokemak_quote_response_df["chainId"] == chain.chain_id)
+                & (tokemak_quote_response_df["buyToken"] == base_asset(chain))
+            ].reset_index(drop=True)
+
+            _add_new_swap_quotes_to_db(
+                raw_odos_quote_response_df=sub_odos_df,
+                raw_tokemak_quote_response_df=sub_tokemak_df,
+                token_df=token_df,
+                size_factor=size_factor,
+                base_asset=base_asset(chain),
+                batch_id=highest_swap_quote_batch_id,
+            )
+        else:
+            print(f"No quotes found for {chain.name} and {base_asset.name} in odos and tokemak.")
+
+
+# def fetch_and_save_odos_and_tokemak_quotes(
+#     chain: ChainData,
+#     base_asset: TokemakAddress,
+#     valid_autopools: list[AutopoolConstants],
+# ) -> None:
+
+#     unscaled_asset_exposure, percent_ownership_by_destination_df, token_df = fetch_needed_context(
+#         chain, valid_autopools
+#     )
+
+#     portion_tokemak_quote_requests, portion_odos_quote_requests = _build_quote_requests_from_portions(
+#         chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_df
+#     )
+#     if (len(portion_tokemak_quote_requests) == 0) and len(portion_odos_quote_requests) == 0:
+#         # eg if we only hold the base asset on that chain, we don't need to check liquidity
+#         # early exit
+#         return
+
+#     portion_raw_tokemak_quote_response_df, portion_raw_odos_quote_response_df = _fetch_several_rounds_of_quotes(
+#         tokemak_quote_requests=portion_tokemak_quote_requests,
+#         odos_quote_requests=portion_odos_quote_requests,
+#     )
+
+#     highest_swap_quote_batch_id = get_highest_value_in_field_where(SwapQuote, SwapQuote.quote_batch, where_clause=None)
+#     if highest_swap_quote_batch_id is None:
+#         highest_swap_quote_batch_id = 0
+#     else:
+#         highest_swap_quote_batch_id += 1
+
+#     _add_new_swap_quotes_to_db(
+#         raw_odos_quote_response_df=portion_raw_odos_quote_response_df,
+#         raw_tokemak_quote_response_df=portion_raw_tokemak_quote_response_df,
+#         token_df=token_df,
+#         size_factor="portion",
+#         base_asset=base_asset(chain),
+#         batch_id=highest_swap_quote_batch_id,
+#     )
+
+#     print("sleeping 2 minutes before absolute quotes")
+#     time.sleep(TIME_TO_SLEEP_BETWEEN_QUOTE_ROUNDS)
+
+#     absolute_tokemak_quote_requests, absolute_odos_quote_requests = _build_quote_requests_from_absolute_sizes(
+#         chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_df
+#     )
+
+#     absolute_raw_tokemak_quote_response_df, absolute_raw_odos_quote_response_df = _fetch_several_rounds_of_quotes(
+#         tokemak_quote_requests=absolute_tokemak_quote_requests,
+#         odos_quote_requests=absolute_odos_quote_requests,
+#     )
+
+#     _add_new_swap_quotes_to_db(
+#         raw_odos_quote_response_df=absolute_raw_odos_quote_response_df,
+#         raw_tokemak_quote_response_df=absolute_raw_tokemak_quote_response_df,
+#         token_df=token_df,
+#         size_factor="absolute",
+#         base_asset=base_asset(chain),
+#         batch_id=highest_swap_quote_batch_id,
+#     )
+
+
+# def save_full_round():
+#     chain_base_asset_groups = {
+#         (ETH_CHAIN, WETH): (AUTO_ETH, AUTO_LRT, BAL_ETH, DINERO_ETH),
+#         (ETH_CHAIN, USDC): (AUTO_USD,),
+#         (ETH_CHAIN, DOLA): (AUTO_DOLA,),
+#         (SONIC_CHAIN, USDC): (SONIC_USD,),
+#         (BASE_CHAIN, WETH): (BASE_ETH,),
+#         (BASE_CHAIN, USDC): (BASE_USD,),
+#     }
+
+#     for k, valid_autopools in chain_base_asset_groups.items():
+#         chain, base_asset = k
+#         # print(f"Fetching quotes for {chain.name} and {base_asset.name}.")
+#         fetch_and_save_odos_and_tokemak_quotes(chain, base_asset, valid_autopools)
+#         # time.sleep(TIME_TO_SLEEP_BETWEEN_QUOTE_ROUNDS)
+#         # print(f"Finished fetching quotes for {chain.name} and {base_asset.name}.")
 
 
 if __name__ == "__main__":
-    save_full_round()
+    fetch_and_save_all_at_once()
 
 
-# options for faster, 
+# options for faster,
 # group together all the requsts into one
 # use less appempts
 # use less sizes, portions etc

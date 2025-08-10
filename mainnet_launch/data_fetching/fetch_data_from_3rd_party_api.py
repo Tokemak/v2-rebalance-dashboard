@@ -33,7 +33,7 @@ def _run_async_safely(coro):
 async def _get_json_with_retry(session: aiohttp.ClientSession, rate_limiter: AsyncLimiter, request_kwargs: dict):
     while True:
         async with rate_limiter:
-            async with session.request(**request_kwargs, timeout=30) as resp:
+            async with session.request(**request_kwargs, timeout=60 * 2) as resp:
                 pass
                 if resp.status == 429:
                     print("Rate limit exceeded, retrying...")
