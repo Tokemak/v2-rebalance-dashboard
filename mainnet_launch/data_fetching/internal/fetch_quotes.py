@@ -111,7 +111,7 @@ def fetch_many_swap_quotes_from_internal_api(
     # no real idea here
     # 1 /2  per second
     raw_responses = make_many_requests_to_3rd_party(
-        rate_limit_max_rate=10, rate_limit_time_period=10, requests_kwargs=requests_kwargs
+        rate_limit_max_rate=8, rate_limit_time_period=10, requests_kwargs=requests_kwargs
     )
 
     flat_responses = [_process_quote_response(r) for r in raw_responses]

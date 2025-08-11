@@ -59,7 +59,6 @@ PORTIONS = [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0]
 # PORTIONS = [0.01,  1.0]
 
 
-
 ALLOWED_SIZE_FACTORS = ["portion", "absolute"]
 
 
@@ -215,32 +214,32 @@ def _post_process_raw_tokemak_quote_response_df(
 
     quotes: list[SwapQuote] = []
     for _, row in raw_tokemak_quote_response_df.iterrows():
-        if THIRD_PARTY_SUCCESS_KEY not in row:
-            sell_addr = Web3.toChecksumAddress(row["sellToken"])
-            buy_addr = Web3.toChecksumAddress(row["buyToken"])
-            chain_id = int(row["chainId"])
 
-            # scale raw integer amounts by the token decimals
-            scaled_in = int(row["sellAmount"]) / 10 ** token_to_decimal[sell_addr]
-            scaled_out = int(row["buyAmount"]) / 10 ** token_to_decimal[buy_addr]
+        sell_addr = Web3.toChecksumAddress(row["sellToken"])
+        buy_addr = Web3.toChecksumAddress(row["buyToken"])
+        chain_id = int(row["chainId"])
 
-            quote = SwapQuote(
-                chain_id=chain_id,
-                api_name="tokemak",
-                sell_token_address=sell_addr,
-                buy_token_address=buy_addr,
-                scaled_amount_in=scaled_in,
-                scaled_amount_out=scaled_out,
-                pools_blacklist=None,  # tokemak has no blacklist support
-                aggregator_name=row["aggregatorName"],
-                datetime_received=row["datetime_received"],
-                quote_batch=batch_id,
-                size_factor=size_factor,
-                base_asset=base_asset,
-                percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
-            )
-            quotes.append(quote)
-            # silently skip quotes that failed
+        # scale raw integer amounts by the token decimals
+        scaled_in = int(row["sellAmount"]) / 10 ** token_to_decimal[sell_addr]
+        scaled_out = int(row["buyAmount"]) / 10 ** token_to_decimal[buy_addr]
+
+        quote = SwapQuote(
+            chain_id=chain_id,
+            api_name="tokemak",
+            sell_token_address=sell_addr,
+            buy_token_address=buy_addr,
+            scaled_amount_in=scaled_in,
+            scaled_amount_out=scaled_out,
+            pools_blacklist=None,  # tokemak has no blacklist support
+            aggregator_name=row["aggregatorName"],
+            datetime_received=row["datetime_received"],
+            quote_batch=batch_id,
+            size_factor=size_factor,
+            base_asset=base_asset,
+            percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
+        )
+        quotes.append(quote)
+        # silently skip quotes that failed
 
     return quotes
 
@@ -255,38 +254,40 @@ def _post_process_raw_odos_quote_response_df(
     # lookup tables for decimals
     token_to_decimal = token_df.set_index("token_address")["decimals"].to_dict()
 
+    # this part is broken returns 0 instead of some values
+
     quotes: list[SwapQuote] = []
     for _, row in raw_odos_quote_response_df.iterrows():
-        if THIRD_PARTY_SUCCESS_KEY not in row:
-            # normalize addresses
-            sell_addr = Web3.toChecksumAddress(row["inTokens"])
-            buy_addr = Web3.toChecksumAddress(row["outTokens"])
-            chain_id = int(row["chainId"])
+        # BROKEN todo fix this
+        # normalize addresses
+        sell_addr = Web3.toChecksumAddress(row["inTokens"])
+        buy_addr = Web3.toChecksumAddress(row["outTokens"])
+        chain_id = int(row["chainId"])
 
-            # raw amounts
-            unscaled_in = int(row["inAmounts"])
-            unscaled_out = int(row["outAmounts"])
+        # raw amounts
+        unscaled_in = int(row["inAmounts"])
+        unscaled_out = int(row["outAmounts"])
 
-            # apply decimals
-            scaled_in = unscaled_in / 10 ** token_to_decimal[sell_addr]
-            scaled_out = unscaled_out / 10 ** token_to_decimal[buy_addr]
+        # apply decimals
+        scaled_in = unscaled_in / 10 ** token_to_decimal[sell_addr]
+        scaled_out = unscaled_out / 10 ** token_to_decimal[buy_addr]
 
-            quote = SwapQuote(
-                chain_id=chain_id,
-                api_name="odos",
-                sell_token_address=sell_addr,
-                buy_token_address=buy_addr,
-                scaled_amount_in=scaled_in,
-                scaled_amount_out=scaled_out,
-                pools_blacklist=str(tuple(row["poolBlacklist"])),
-                aggregator_name="Odos",
-                datetime_received=row["datetime_received"],
-                quote_batch=batch_id,
-                size_factor=size_factor,
-                base_asset=base_asset,
-                percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
-            )
-            quotes.append(quote)
+        quote = SwapQuote(
+            chain_id=chain_id,
+            api_name="odos",
+            sell_token_address=sell_addr,
+            buy_token_address=buy_addr,
+            scaled_amount_in=scaled_in,
+            scaled_amount_out=scaled_out,
+            pools_blacklist=str(tuple(row["poolBlacklist"])),
+            aggregator_name="Odos",
+            datetime_received=row["datetime_received"],
+            quote_batch=batch_id,
+            size_factor=size_factor,
+            base_asset=base_asset,
+            percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
+        )
+        quotes.append(quote)
 
     return quotes
 
@@ -307,7 +308,9 @@ def _add_new_swap_quotes_to_db(
         raw_tokemak_quote_response_df, token_df, batch_id, size_factor, base_asset
     )
 
-    time.sleep(2)  # helps with printing readablity
+    print(
+        f"adding {len(cleaned_odos_responses)} Odos quotes and {len(cleaned_tokemak_responses)} Tokemak quotes to the database for {batch_id=}"
+    )
     insert_avoid_conflicts(
         cleaned_odos_responses + cleaned_tokemak_responses,
         SwapQuote,
@@ -382,11 +385,10 @@ def fetch_and_save_all_at_once():
 
             tokemak_quote_response_df = future_tokemak.result()
             odos_quote_response_df = future_odos.result()
-        
+
         print(f"Fetched {len(tokemak_quote_response_df)} Tokemak quotes and {len(odos_quote_response_df)} Odos quotes.")
 
-        print(highest_swap_quote_batch_id)
-
+        print(f"{highest_swap_quote_batch_id=}")
 
         for k, valid_autopools in chain_base_asset_groups.items():
             chain, base_asset = k
@@ -395,12 +397,16 @@ def fetch_and_save_all_at_once():
                 (odos_quote_response_df["chainId"] == chain.chain_id)
                 & (odos_quote_response_df["outTokens"].apply(lambda x: Web3.toChecksumAddress(x)) == base_asset(chain))
             ].reset_index(drop=True)
-            
+
             sub_tokemak_df = tokemak_quote_response_df[
                 (tokemak_quote_response_df["chainId"] == chain.chain_id)
                 & (tokemak_quote_response_df["buyToken"] == base_asset(chain))
             ].reset_index(drop=True)
 
+            before_adding_quotes_df = get_full_table_as_df(
+                SwapQuote,
+                where_clause=SwapQuote.quote_batch == highest_swap_quote_batch_id,
+            )
             _add_new_swap_quotes_to_db(
                 raw_odos_quote_response_df=sub_odos_df,
                 raw_tokemak_quote_response_df=sub_tokemak_df,
@@ -409,9 +415,22 @@ def fetch_and_save_all_at_once():
                 base_asset=base_asset(chain),
                 batch_id=highest_swap_quote_batch_id,
             )
-            print(
-                f"{sub_odos_df.shape[0]} Odos quotes and {sub_tokemak_df.shape[0]} Tokemak quotes added for {chain.name} and {base_asset.name}."
+            after_adding_quotes_df = get_full_table_as_df(
+                SwapQuote,
+                where_clause=SwapQuote.quote_batch == highest_swap_quote_batch_id,
             )
+            print(
+                f"{after_adding_quotes_df.shape[0] - before_adding_quotes_df.shape[0]} new quotes added for {chain.name} and {base_asset.name}."
+            )
+            print(
+                f"expected to add {len(sub_odos_df) + len(sub_tokemak_df)} quotes for {chain.name} and {base_asset.name}."
+            )
+
+            # 40 new quotes added for eth and WETH.
+            # exected to add 80 quotes for eth and WETH.
+
+            pass
+
         pass
 
 

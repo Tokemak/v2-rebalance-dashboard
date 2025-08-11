@@ -39,7 +39,7 @@ def _load_quote_batch_options_from_db() -> list[dict]:
     df = df.drop(columns=["unique_size_factors"])
     options = df.to_dict("records")
 
-    options = [o for o in options if o["quote_batch"] >= 18]
+    # options = [o for o in options if o["quote_batch"] >= 18]
     return options
 
 
