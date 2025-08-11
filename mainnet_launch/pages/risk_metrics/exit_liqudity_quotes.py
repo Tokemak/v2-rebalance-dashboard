@@ -2,6 +2,8 @@ import plotly.express as px
 import streamlit as st
 import plotly.io as pio
 import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 
 from mainnet_launch.constants import *
@@ -10,9 +12,45 @@ from mainnet_launch.database.schema.full import Destinations, AutopoolDestinatio
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_df,
     get_highest_value_in_field_where,
+    _exec_sql_and_cache,
 )
 
 from mainnet_launch.pages.risk_metrics.drop_down import render_pick_chain_and_base_asset_dropdown
+
+
+@st.cache_data(ttl=60 * 10)
+def _load_quote_batch_options_from_db() -> list[dict]:
+    df = _exec_sql_and_cache(
+        """
+        SELECT 
+            quote_batch, 
+            ARRAY_AGG(DISTINCT size_factor) AS unique_size_factors,
+            MIN(datetime_received) AS first_datetime_received,
+            MIN(percent_exclude_threshold) AS percent_exclude_threshold
+        FROM swap_quote
+        GROUP BY quote_batch
+        HAVING 
+            bool_and(size_factor IN ('portion', 'absolute'))
+            AND COUNT(DISTINCT size_factor) = 2
+        ORDER BY first_datetime_received DESC;
+        """
+    )
+
+    df = df.drop(columns=["unique_size_factors"])
+    options = df.to_dict("records")
+    return options
+
+
+def _pick_a_quote_batch() -> int:
+    options = _load_quote_batch_options_from_db()
+
+    selected = st.selectbox(
+        "Pick a quote batch",
+        options,
+        format_func=lambda r: f"Batch {r['quote_batch']} — {r['first_datetime_received']:%Y-%m-%d %H:%M:%S} Percent Exclude Threshold {r['percent_exclude_threshold']}%",
+    )
+
+    return selected["quote_batch"]
 
 
 def fetch_and_render_exit_liquidity_from_quotes() -> pd.DataFrame:
@@ -20,33 +58,45 @@ def fetch_and_render_exit_liquidity_from_quotes() -> pd.DataFrame:
     st.subheader("Exit Liquidity Quotes")
 
     chain, base_asset, _ = render_pick_chain_and_base_asset_dropdown()
-    swap_quotes_df = _load_latest_exit_liquidity_quotes(chain, base_asset)
+    quote_batch_number = _pick_a_quote_batch()
+    full_quote_batch_df = _load_full_quote_batch_df(quote_batch_number)
+
+    swap_quotes_df = full_quote_batch_df[
+        (full_quote_batch_df["chain_id"] == chain.chain_id) & (full_quote_batch_df["base_asset"] == base_asset(chain))
+    ].reset_index(drop=True)
+
+    _augment_swap_quotes_df(swap_quotes_df)
+
+    if swap_quotes_df.empty:
+        st.warning("No exit liquidity quotes found for the selected chain and base asset.")
+        return pd.DataFrame()
 
     display_swap_quotes_batch_meta_data(swap_quotes_df)
     display_slippage_scatter(swap_quotes_df)
 
-
-# inclined to put this in a separate file
-# might want to cache for 5 mintues?
-@st.cache_data(ttl=60 * 5)
-def _load_latest_exit_liquidity_quotes(chain: ChainData, base_asset: TokemakAddress) -> pd.DataFrame:
-    """
-    Load the latest exit liquidity quotes from the database.
-    """
-
-    latest_quote_batch = get_highest_value_in_field_where(
-        SwapQuote,
-        SwapQuote.quote_batch,
-        where_clause=(SwapQuote.base_asset == base_asset(chain)) & (SwapQuote.chain_id == chain.chain_id),
+    st.download_button(
+        label="Exit Liquidity Quotes Full Data",
+        data=full_quote_batch_df.to_csv(index=False).encode("utf-8"),
+        file_name=f"exit_liquidity_quotes_{quote_batch_number}.csv",
+        mime="text/csv",
     )
 
-    swap_quotes_df = get_full_table_as_df(SwapQuote, where_clause=SwapQuote.quote_batch == latest_quote_batch)
-    swap_quotes_df = _augment_swap_quotes_df(swap_quotes_df)
 
-    with st.expander("Exit Liquidity Quotes Full Data", expanded=False):
-        st.dataframe(swap_quotes_df, use_container_width=True)
-
-    return swap_quotes_df
+# cache the data for speed reasons
+@st.cache_data(ttl=60 * 10)
+def _load_full_quote_batch_df(quote_batch_number: int) -> pd.DataFrame:
+    """
+    Load the full quote batch DataFrame for the given quote batch number, chain, and base asset.
+    """
+    full_df = get_full_table_as_df(
+        SwapQuote,
+        where_clause=(SwapQuote.quote_batch == quote_batch_number),
+    )
+    tokens_df = get_full_table_as_df(Tokens, where_clause=Tokens.chain_id == full_df["chain_id"].iloc[0])
+    token_address_to_symbol = dict(zip(tokens_df["token_address"], tokens_df["symbol"]))
+    full_df["buy_token_symbol"] = full_df["buy_token_address"].map(token_address_to_symbol)
+    full_df["sell_token_symbol"] = full_df["sell_token_address"].map(token_address_to_symbol)
+    return full_df
 
 
 def _add_reference_price_column(swap_quotes_df: pd.DataFrame) -> None:
@@ -74,18 +124,10 @@ def _add_reference_price_column(swap_quotes_df: pd.DataFrame) -> None:
     return sell_token_to_reference_price
 
 
-def _add_token_symbols_columns(swap_quotes_df: pd.DataFrame) -> None:
-    tokens_df = get_full_table_as_df(Tokens, where_clause=Tokens.chain_id == swap_quotes_df["chain_id"].iloc[0])
-    token_address_to_symbol = dict(zip(tokens_df["token_address"], tokens_df["symbol"]))
-    swap_quotes_df["buy_token_symbol"] = swap_quotes_df["buy_token_address"].map(token_address_to_symbol)
-    swap_quotes_df["sell_token_symbol"] = swap_quotes_df["sell_token_address"].map(token_address_to_symbol)
-
-
 def _augment_swap_quotes_df(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
     # how much of the base asset we we get from selling X amoutn of the sell token
     # eg 101 sDAI / 100 USDC  -> effective price of 1.01 sDAI per USDC
     swap_quotes_df["effective_price"] = swap_quotes_df["scaled_amount_out"] / swap_quotes_df["scaled_amount_in"]
-    _add_token_symbols_columns(swap_quotes_df)
     _add_reference_price_column(swap_quotes_df)
     swap_quotes_df["label"] = swap_quotes_df["sell_token_symbol"] + " - " + swap_quotes_df["api_name"]
 
@@ -105,41 +147,65 @@ def _augment_swap_quotes_df(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
     return swap_quotes_df
 
 
-def display_slippage_scatter(swap_quotes_df: pd.DataFrame):
+def display_slippage_scatter(swap_quotes_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """
-    Render a scatter plot of scaled_amount_in vs slippage_bps,
-    filtered by sell_token_symbol and size_factor.
+    Side-by-side subplots of scaled_amount_in vs slippage_bps, grouped by label,
+    for each size_factor (e.g., 'absolute' and 'portion') of a selected sell_token_symbol.
+
+    Returns a dict mapping size_factor -> filtered/aggregated DataFrame.
     """
     # Select sell token symbol
-    symbol_options = swap_quotes_df["sell_token_symbol"].unique().tolist()
+    symbol_options = swap_quotes_df["sell_token_symbol"].dropna().unique().tolist()
     selected_symbol = st.selectbox("Select sell token symbol", symbol_options)
 
-    # Select size factor (absolute / portion)
-    factor_options = swap_quotes_df["size_factor"].unique().tolist()
-    selected_factor = st.selectbox("Select size factor", factor_options)
+    factors = ["absolute", "portion"]
 
-    # Filter the DataFrame
-    filtered_df = (
-        swap_quotes_df[
-            (swap_quotes_df["sell_token_symbol"] == selected_symbol)
-            & (swap_quotes_df["size_factor"] == selected_factor)
-        ]
-        .groupby(["label", "scaled_amount_in"])["slippage_bps"]
-        .median()
-        .reset_index()
+    # Build subplots
+    fig = make_subplots(
+        rows=1,
+        cols=len(factors),
+        subplot_titles=[f"{selected_symbol} ({sf})" for sf in factors],
+        horizontal_spacing=0.07,
+        shared_yaxes=True,
     )
 
-    # Plot
-    fig = px.scatter(
-        filtered_df,
-        x="scaled_amount_in",
-        y="slippage_bps",
-        color="label",
-        title=f"Slippage vs Amount for {selected_symbol} ({selected_factor})",
+    dfs_by_factor: dict[str, pd.DataFrame] = {}
+
+    for idx, size_factor in enumerate(factors, start=1):
+        # Aggregate to median slippage per (label, scaled_amount_in)
+        filtered_df = (
+            swap_quotes_df[
+                (swap_quotes_df["sell_token_symbol"] == selected_symbol)
+                & (swap_quotes_df["size_factor"] == size_factor)
+            ]
+            .groupby(["label", "scaled_amount_in"], as_index=False)["slippage_bps"]
+            .median()
+        )
+        dfs_by_factor[size_factor] = filtered_df
+
+        # One trace per label to keep colors consistent and legend readable
+        for label, df_lab in filtered_df.groupby("label", sort=False):
+            fig.add_trace(
+                go.Scatter(
+                    x=df_lab["scaled_amount_in"],
+                    y=df_lab["slippage_bps"],
+                    mode="markers",
+                    name=label,
+                    showlegend=(idx == 1),  # only show legend once (left plot)
+                ),
+                row=1,
+                col=idx,
+            )
+
+        # Axes titles per subplot
+        fig.update_xaxes(title_text="scaled_amount_in", row=1, col=idx)
+
+    fig.update_yaxes(title_text="slippage_bps", row=1, col=1)
+    fig.update_layout(
+        title_text="Slippage vs Amount by Size Factor", margin=dict(t=60, r=20, b=20, l=50), legend_title_text="label"
     )
+
     st.plotly_chart(fig, use_container_width=True)
-
-    return filtered_df
 
 
 def display_swap_quotes_batch_meta_data(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
@@ -151,7 +217,7 @@ def display_swap_quotes_batch_meta_data(swap_quotes_df: pd.DataFrame) -> pd.Data
     """
     # compute metrics
     quote_count = len(swap_quotes_df)
-    batch_number = swap_quotes_df["quote_batch"].iat[0] if quote_count else None
+    batch_number = swap_quotes_df["quote_batch"].unique()[0]
     start_time = swap_quotes_df["datetime_received"].min()
     end_time = swap_quotes_df["datetime_received"].max()
     window = end_time - start_time
