@@ -42,7 +42,7 @@ from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import THIRD_PAR
 # make a seperate update file
 # TODO add enums instead of strings
 
-ATTEMPTS = 3
+ATTEMPTS = 1
 STABLE_COINS_REFERENCE_QUANTITY = 10_000
 ETH_REFERENCE_QUANTITY = 5
 PERCENT_OWNERSHIP_THRESHOLD = 10  # what percent of a pool can we do we own before we exclude it from odos quotes
@@ -51,6 +51,14 @@ USD_SCALED_SIZES = [10_000, 20_000, 50_000, 100_000, 200_000]
 ETH_SCALED_SIZES = [5, 20, 50, 100, 200]
 
 PORTIONS = [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0]
+
+
+# USD_SCALED_SIZES = [10_000, 20_000, ]
+# ETH_SCALED_SIZES = [5, 20]
+
+# PORTIONS = [0.01,  1.0]
+
+
 
 ALLOWED_SIZE_FACTORS = ["portion", "absolute"]
 
@@ -343,17 +351,20 @@ def fetch_and_save_all_at_once():
 
             unscaled_asset_exposure, percent_ownership_by_destination_df = fetch_needed_context(chain, valid_autopools)
 
-            portion_tokemak_quote_requests, portion_odos_quote_requests = quote_bulding_function(
+            size_facotr_tokemak_quote_requests, size_factor_odos_quote_requests = quote_bulding_function(
                 chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_df
             )
 
-            all_tokemak_requests.extend(portion_tokemak_quote_requests)
-            all_odos_requests.extend(portion_odos_quote_requests)
+            all_tokemak_requests.extend(size_facotr_tokemak_quote_requests)
+            all_odos_requests.extend(size_factor_odos_quote_requests)
 
         # we want 3 of each request to get the median
 
-        all_tokemak_requests = all_tokemak_requests * 3
-        all_odos_requests = all_odos_requests * 3
+        all_tokemak_requests = all_tokemak_requests * ATTEMPTS
+        all_odos_requests = all_odos_requests * ATTEMPTS
+
+        # all_odos_requests = all_odos_requests[:3]
+        # all_tokemak_requests = all_tokemak_requests[:3]
 
         # all_tokemak_requests = all_tokemak_requests[::10]
         # all_odos_requests = all_odos_requests[::10]
@@ -371,14 +382,20 @@ def fetch_and_save_all_at_once():
 
             tokemak_quote_response_df = future_tokemak.result()
             odos_quote_response_df = future_odos.result()
+        
+        print(f"Fetched {len(tokemak_quote_response_df)} Tokemak quotes and {len(odos_quote_response_df)} Odos quotes.")
+
+        print(highest_swap_quote_batch_id)
+
 
         for k, valid_autopools in chain_base_asset_groups.items():
             chain, base_asset = k
 
             sub_odos_df = odos_quote_response_df[
                 (odos_quote_response_df["chainId"] == chain.chain_id)
-                & (odos_quote_response_df["outTokens"].apply(lambda x: x[0]) == base_asset(chain))
+                & (odos_quote_response_df["outTokens"].apply(lambda x: Web3.toChecksumAddress(x)) == base_asset(chain))
             ].reset_index(drop=True)
+            
             sub_tokemak_df = tokemak_quote_response_df[
                 (tokemak_quote_response_df["chainId"] == chain.chain_id)
                 & (tokemak_quote_response_df["buyToken"] == base_asset(chain))
@@ -392,6 +409,10 @@ def fetch_and_save_all_at_once():
                 base_asset=base_asset(chain),
                 batch_id=highest_swap_quote_batch_id,
             )
+            print(
+                f"{sub_odos_df.shape[0]} Odos quotes and {sub_tokemak_df.shape[0]} Tokemak quotes added for {chain.name} and {base_asset.name}."
+            )
+        pass
 
 
 if __name__ == "__main__":

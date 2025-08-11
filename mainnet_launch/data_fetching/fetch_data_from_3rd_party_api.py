@@ -3,6 +3,13 @@ import aiohttp
 import concurrent.futures
 
 from aiolimiter import AsyncLimiter
+from aiohttp.client_exceptions import (
+    ClientResponseError,
+    ClientConnectionError,
+    ServerDisconnectedError,
+    ClientOSError,
+)
+
 from tqdm import tqdm  # pip install tqdm
 import pandas as pd
 
@@ -30,40 +37,68 @@ def _run_async_safely(coro):
         return future.result()
 
 
-async def _get_json_with_retry(session: aiohttp.ClientSession, rate_limiter: AsyncLimiter, request_kwargs: dict):
+async def _get_json_with_retry(
+    session: aiohttp.ClientSession,
+    rate_limiter: AsyncLimiter,
+    request_kwargs: dict,
+):
     while True:
         async with rate_limiter:
-            async with session.request(**request_kwargs, timeout=60 * 2) as resp:
-                pass
-                if resp.status == 429:
-                    print("Rate limit exceeded, retrying...")
-                    await asyncio.sleep(60)
-                    continue
-
+            try:
                 try:
-                    resp.raise_for_status()
-                    # happy path
-                    data = await resp.json()
-                    data[THIRD_PARTY_SUCCESS_KEY] = True
-                    data["request_kwargs"] = request_kwargs
-                    return data
+                    async with session.request(**request_kwargs, timeout=120) as resp:
+                        if resp.status == 429:
+                            print("Rate limit exceeded, retrying...")
+                            await asyncio.sleep(60)
+                            continue
 
-                except aiohttp.ClientResponseError:
-                    # extract as much as we can from the error response
-                    content_type = resp.headers.get("Content-Type", "")
-                    if "application/json" in content_type:
-                        body = await resp.json()
-                    else:
-                        body = await resp.text()
+                        try:
+                            resp.raise_for_status()
+                            data = await resp.json()
+                            data[THIRD_PARTY_SUCCESS_KEY] = True
+                            data["request_kwargs"] = request_kwargs
+                            return data
 
+                        except ClientResponseError:
+                            content_type = resp.headers.get("Content-Type", "")
+                            if "application/json" in content_type:
+                                body = await resp.json()
+                            else:
+                                body = await resp.text()
+
+                            return {
+                                "url": str(resp.url),
+                                "status": resp.status,
+                                "headers": dict(resp.headers),
+                                "body": body,
+                                THIRD_PARTY_SUCCESS_KEY: False,
+                                "request_kwargs": request_kwargs,
+                            }
+
+                except (
+                    ServerDisconnectedError,
+                    ClientConnectionError,
+                    ClientOSError,
+                    asyncio.TimeoutError,
+                ) as e:
                     return {
-                        "url": str(resp.url),
-                        "status": resp.status,
-                        "headers": dict(resp.headers),
-                        "body": body,
+                        "url": request_kwargs.get("url"),
+                        "status": None,
+                        "headers": {},
+                        "body": f"{type(e).__name__}: {e}",
                         THIRD_PARTY_SUCCESS_KEY: False,
                         "request_kwargs": request_kwargs,
                     }
+
+            except Exception as e:
+                return {
+                    "url": request_kwargs.get("url"),
+                    "status": None,
+                    "headers": {},
+                    "body": f"{type(e).__name__}: {e}",
+                    THIRD_PARTY_SUCCESS_KEY: False,
+                    "request_kwargs": request_kwargs,
+                }
 
 
 async def _make_many_requests_async(rate_limiter: AsyncLimiter, requests_kwargs: list[dict]):

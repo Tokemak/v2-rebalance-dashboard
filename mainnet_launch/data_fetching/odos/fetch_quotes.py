@@ -99,7 +99,9 @@ def _flatten_odos_response(raw_odos_response: dict):
         else:
             flat_odos_data[k] = v
 
-    request_kwargs = raw_odos_response.pop("request_kwargs")
+    request_kwargs = raw_odos_response.pop(
+        "request_kwargs",
+    )
     flat_odos_data.update(request_kwargs.pop("json"))
     flat_odos_data.update(request_kwargs)
     return flat_odos_data
