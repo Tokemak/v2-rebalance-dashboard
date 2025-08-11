@@ -305,6 +305,7 @@ def _add_new_swap_quotes_to_db(
         SwapQuote,
     )
 
+
 @time_decorator
 def fetch_and_save_all_at_once():
     chain_base_asset_groups = {

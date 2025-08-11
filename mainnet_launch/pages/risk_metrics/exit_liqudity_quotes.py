@@ -88,7 +88,7 @@ def fetch_and_render_exit_liquidity_from_quotes() -> pd.DataFrame:
 
 
 # cache the data for speed reasons
-# @st.cache_data(ttl=60 * 10)
+@st.cache_data(ttl=60 * 10)
 def _load_full_quote_batch_df(quote_batch_number: int) -> pd.DataFrame:
     """
     Load the full quote batch DataFrame for the given quote batch number, chain, and base asset.
