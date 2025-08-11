@@ -18,7 +18,7 @@ from mainnet_launch.database.schema.postgres_operations import (
 from mainnet_launch.pages.risk_metrics.drop_down import render_pick_chain_and_base_asset_dropdown
 
 
-@st.cache_data(ttl=60 * 10)
+# @st.cache_data(ttl=60 * 10)
 def _load_quote_batch_options_from_db() -> list[dict]:
     df = _exec_sql_and_cache(
         """
@@ -38,6 +38,8 @@ def _load_quote_batch_options_from_db() -> list[dict]:
 
     df = df.drop(columns=["unique_size_factors"])
     options = df.to_dict("records")
+
+    options = [o for o in options if o["quote_batch"] >= 18]
     return options
 
 
@@ -61,6 +63,9 @@ def fetch_and_render_exit_liquidity_from_quotes() -> pd.DataFrame:
     quote_batch_number = _pick_a_quote_batch()
     full_quote_batch_df = _load_full_quote_batch_df(quote_batch_number)
 
+    st.write("Options for this quote batch:")
+    st.dataframe(full_quote_batch_df.groupby(["chain_id", "base_asset"]).size().reset_index(name="count"))
+
     swap_quotes_df = full_quote_batch_df[
         (full_quote_batch_df["chain_id"] == chain.chain_id) & (full_quote_batch_df["base_asset"] == base_asset(chain))
     ].reset_index(drop=True)
@@ -83,7 +88,7 @@ def fetch_and_render_exit_liquidity_from_quotes() -> pd.DataFrame:
 
 
 # cache the data for speed reasons
-@st.cache_data(ttl=60 * 10)
+# @st.cache_data(ttl=60 * 10)
 def _load_full_quote_batch_df(quote_batch_number: int) -> pd.DataFrame:
     """
     Load the full quote batch DataFrame for the given quote batch number, chain, and base asset.
@@ -92,7 +97,7 @@ def _load_full_quote_batch_df(quote_batch_number: int) -> pd.DataFrame:
         SwapQuote,
         where_clause=(SwapQuote.quote_batch == quote_batch_number),
     )
-    tokens_df = get_full_table_as_df(Tokens, where_clause=Tokens.chain_id == full_df["chain_id"].iloc[0])
+    tokens_df = get_full_table_as_df(Tokens)
     token_address_to_symbol = dict(zip(tokens_df["token_address"], tokens_df["symbol"]))
     full_df["buy_token_symbol"] = full_df["buy_token_address"].map(token_address_to_symbol)
     full_df["sell_token_symbol"] = full_df["sell_token_address"].map(token_address_to_symbol)
