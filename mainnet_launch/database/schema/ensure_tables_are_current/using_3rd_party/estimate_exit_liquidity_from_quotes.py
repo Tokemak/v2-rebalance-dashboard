@@ -241,8 +241,8 @@ def _post_process_raw_tokemak_quote_response_df(
     quotes: list[SwapQuote] = []
     for _, row in raw_tokemak_quote_response_df.iterrows():
         if THIRD_PARTY_SUCCESS_KEY not in row:
-            sell_addr = row["sellToken"]
-            buy_addr = row["buyToken"]
+            sell_addr = Web3.toChecksumAddress(row["sellToken"])
+            buy_addr = Web3.toChecksumAddress(row["buyToken"])
             chain_id = int(row["chainId"])
 
             # scale raw integer amounts by the token decimals
@@ -385,7 +385,7 @@ def fetch_and_save_all_at_once():
         all_tokemak_requests = all_tokemak_requests * 3
         all_odos_requests = all_odos_requests * 3
 
-        print(f'Fetching {len(all_odos_requests)} Odos quotes and {len(all_tokemak_requests)} Tokemak quotes.')
+        print(f"Fetching {len(all_odos_requests)} Odos quotes and {len(all_tokemak_requests)} Tokemak quotes.")
 
         odos_quote_response_df = fetch_many_odos_raw_quotes(all_odos_requests)
         tokemak_quote_response_df = fetch_many_swap_quotes_from_internal_api(all_tokemak_requests)
@@ -410,8 +410,6 @@ def fetch_and_save_all_at_once():
                 base_asset=base_asset(chain),
                 batch_id=highest_swap_quote_batch_id,
             )
-        else:
-            print(f"No quotes found for {chain.name} and {base_asset.name} in odos and tokemak.")
 
 
 # def fetch_and_save_odos_and_tokemak_quotes(
