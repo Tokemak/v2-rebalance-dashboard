@@ -18,7 +18,31 @@ from mainnet_launch.database.schema.postgres_operations import (
 from mainnet_launch.pages.risk_metrics.drop_down import render_pick_chain_and_base_asset_dropdown
 
 
-# @st.cache_data(ttl=60 * 10)
+# two charts
+# one for odos quotes, one for tokemak quotes
+
+# same X axix
+
+# ignore the fees from odos
+
+
+
+
+def _display_readme() -> None:
+    with st.expander("Readme", expanded=False):
+        st.markdown(
+            """
+            Odos quotes should always be worse than Tokemak quotes, because they exclude pools we have a large ownership in.
+            excluding options can only make thing worse. 
+
+            open questions::
+            - buy amount and min buy amount?
+            - what do we use?
+            """
+        )
+
+
+@st.cache_data(ttl=60 * 10)
 def _load_quote_batch_options_from_db() -> list[dict]:
     df = _exec_sql_and_cache(
         """
@@ -56,15 +80,13 @@ def _pick_a_quote_batch() -> int:
 
 
 def fetch_and_render_exit_liquidity_from_quotes() -> pd.DataFrame:
-
     st.subheader("Exit Liquidity Quotes")
 
-    chain, base_asset, _ = render_pick_chain_and_base_asset_dropdown()
     quote_batch_number = _pick_a_quote_batch()
+    chain, base_asset, _ = render_pick_chain_and_base_asset_dropdown()
     full_quote_batch_df = _load_full_quote_batch_df(quote_batch_number)
 
-    st.write("Options for this quote batch:")
-    st.dataframe(full_quote_batch_df.groupby(["chain_id", "base_asset"]).size().reset_index(name="count"))
+    # st.dataframe(full_quote_batch_df.groupby(["chain_id", "base_asset"]).size().reset_index(name="count"))
 
     swap_quotes_df = full_quote_batch_df[
         (full_quote_batch_df["chain_id"] == chain.chain_id) & (full_quote_batch_df["base_asset"] == base_asset(chain))
@@ -76,11 +98,13 @@ def fetch_and_render_exit_liquidity_from_quotes() -> pd.DataFrame:
         st.warning("No exit liquidity quotes found for the selected chain and base asset.")
         return pd.DataFrame()
 
+    _display_asset_allocation(swap_quotes_df)
     display_swap_quotes_batch_meta_data(swap_quotes_df)
-    display_slippage_scatter(swap_quotes_df)
+    display_scatter_plot(swap_quotes_df, "effective_price")
+    display_scatter_plot(swap_quotes_df, "slippage_bps")
 
     st.download_button(
-        label="Exit Liquidity Quotes Full Data",
+        label="Download Exit Liquidity Quotes Full Data",
         data=full_quote_batch_df.to_csv(index=False).encode("utf-8"),
         file_name=f"exit_liquidity_quotes_{quote_batch_number}.csv",
         mime="text/csv",
@@ -152,74 +176,102 @@ def _augment_swap_quotes_df(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
     return swap_quotes_df
 
 
-def display_slippage_scatter(swap_quotes_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
-    """
-    Side-by-side subplots of scaled_amount_in vs slippage_bps, grouped by label,
-    for each size_factor (e.g., 'absolute' and 'portion') of a selected sell_token_symbol.
+def _display_asset_allocation(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
+    asset_allocation_series = (
+        swap_quotes_df[swap_quotes_df["size_factor"] == "portion"]
+        .groupby("sell_token_symbol")["scaled_amount_in"]
+        .max()
+    )
 
-    Returns a dict mapping size_factor -> filtered/aggregated DataFrame.
-    """
-    # Select sell token symbol
-    symbol_options = swap_quotes_df["sell_token_symbol"].dropna().unique().tolist()
-    selected_symbol = st.selectbox("Select sell token symbol", symbol_options)
+    st.write("Allocation")
 
+    smallest_amount_in = swap_quotes_df[swap_quotes_df["size_factor"] == "absolute"]["scaled_amount_in"].min()
+
+    sell_token_to_reference_price = (
+        swap_quotes_df[
+            (swap_quotes_df["size_factor"] == "absolute")
+            & (swap_quotes_df["scaled_amount_in"] == smallest_amount_in)
+            & (swap_quotes_df["api_name"] == "tokemak")
+        ]
+        .groupby("sell_token_symbol")["effective_price"]
+        .median()
+    )
+    summary_df = pd.concat(
+        [
+            asset_allocation_series,
+            sell_token_to_reference_price,
+            (asset_allocation_series * sell_token_to_reference_price).rename("value_in_base_asset"),
+        ],
+        axis=1,
+    )
+    summary_df.columns = ["quantity", "reference_price", "value_in_base_asset"]
+    summary_df = summary_df.sort_values("value_in_base_asset", ascending=False)
+    st.dataframe(summary_df)
+
+
+def display_scatter_plot(swap_quotes_df: pd.DataFrame, target_column: str) -> dict[str, pd.DataFrame]:
+
+    st.write(f"Scatter for {target_column}")
+    symbol_options = sorted(swap_quotes_df["sell_token_symbol"].dropna().unique().tolist())
     factors = ["absolute", "portion"]
+    factor_symbol = {"absolute": "circle", "portion": "x"}
 
-    # Build subplots
-    fig = make_subplots(
-        rows=1,
-        cols=len(factors),
-        subplot_titles=[f"{selected_symbol} ({sf})" for sf in factors],
-        horizontal_spacing=0.07,
-        shared_yaxes=True,
-    )
+    # Stable colors per label across all charts
+    all_labels = sorted(swap_quotes_df["label"].dropna().unique().tolist())
+    palette = px.colors.qualitative.Plotly
+    label_color = {lbl: palette[i % len(palette)] for i, lbl in enumerate(all_labels)}
 
-    dfs_by_factor: dict[str, pd.DataFrame] = {}
+    for selected_symbol in symbol_options:
+        fig = go.Figure()
 
-    for idx, size_factor in enumerate(factors, start=1):
-        # Aggregate to median slippage per (label, scaled_amount_in)
-        filtered_df = (
-            swap_quotes_df[
-                (swap_quotes_df["sell_token_symbol"] == selected_symbol)
-                & (swap_quotes_df["size_factor"] == size_factor)
-            ]
-            .groupby(["label", "scaled_amount_in"], as_index=False)["slippage_bps"]
-            .median()
-        )
-        dfs_by_factor[size_factor] = filtered_df
-
-        # One trace per label to keep colors consistent and legend readable
-        for label, df_lab in filtered_df.groupby("label", sort=False):
-            fig.add_trace(
-                go.Scatter(
-                    x=df_lab["scaled_amount_in"],
-                    y=df_lab["slippage_bps"],
-                    mode="markers",
-                    name=label,
-                    showlegend=(idx == 1),  # only show legend once (left plot)
-                ),
-                row=1,
-                col=idx,
+        for size_factor in factors:
+            df_factor = (
+                swap_quotes_df[
+                    (swap_quotes_df["sell_token_symbol"] == selected_symbol)
+                    & (swap_quotes_df["size_factor"] == size_factor)
+                ]
+                .groupby(["label", "scaled_amount_in"], as_index=False)[target_column]
+                .median()
             )
+            if df_factor.empty:
+                continue
 
-        # Axes titles per subplot
-        fig.update_xaxes(title_text="scaled_amount_in", row=1, col=idx)
+            # One trace per (label, factor) to overlay both factors
+            for label, df_lab in df_factor.groupby("label", sort=True):
+                fig.add_trace(
+                    go.Scatter(
+                        x=df_lab["scaled_amount_in"],
+                        y=df_lab[target_column],
+                        mode="markers",
+                        name=f"{label} ({size_factor})",
+                        legendgroup=label,  # group legend entries by label
+                        marker=dict(
+                            symbol=factor_symbol.get(size_factor, "circle"),
+                            size=7,
+                            color=label_color.get(label),
+                            line=dict(width=0.5),
+                        ),
+                       hovertemplate = (
+                        f"label=%{{text}}<br>"
+                        f"factor={size_factor}<br>"
+                        f"scaled_amount_in=%{{x}}<br>"
+                        f"{target_column}=%{{y}}<extra></extra>"
+                    ),
+                        text=[label] * len(df_lab),
+                    )
+                )
 
-    fig.update_yaxes(title_text="slippage_bps", row=1, col=1)
-    fig.update_layout(
-        title_text="Slippage vs Amount by Size Factor", margin=dict(t=60, r=20, b=20, l=50), legend_title_text="label"
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
+        fig.update_xaxes(title_text="scaled_amount_in")
+        fig.update_yaxes(title_text=target_column)
+        fig.update_layout(
+            title_text=f"{target_column} vs Amount — {selected_symbol} (absolute & portion overlaid)",
+            margin=dict(t=60, r=20, b=20, l=50),
+            legend_title_text="label (factor)",
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
 
 def display_swap_quotes_batch_meta_data(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Display the swap quotes DataFrame with:
-      • a one-line summary above (count, batch, duration, first quote time)
-      • four “mini‐metrics” using caption + write instead of st.metric
-      • the interactive table below
-    """
     # compute metrics
     quote_count = len(swap_quotes_df)
     batch_number = swap_quotes_df["quote_batch"].unique()[0]
@@ -248,4 +300,5 @@ if __name__ == "__main__":
     fetch_and_render_exit_liquidity_from_quotes()
 
 
-# 1440 (on 2 min sleeping)
+# open questions:
+# why

@@ -45,7 +45,7 @@ from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import THIRD_PAR
 ATTEMPTS = 1
 STABLE_COINS_REFERENCE_QUANTITY = 10_000
 ETH_REFERENCE_QUANTITY = 5
-PERCENT_OWNERSHIP_THRESHOLD = 10  # what percent of a pool can we do we own before we exclude it from odos quotes
+PERCENT_OWNERSHIP_THRESHOLD = 50  # what percent of a pool can we do we own before we exclude it from odos quotes
 
 USD_SCALED_SIZES = [10_000, 20_000, 50_000, 100_000, 200_000]
 ETH_SCALED_SIZES = [5, 20, 50, 100, 200]
@@ -272,6 +272,8 @@ def _post_process_raw_odos_quote_response_df(
         scaled_in = unscaled_in / 10 ** token_to_decimal[sell_addr]
         scaled_out = unscaled_out / 10 ** token_to_decimal[buy_addr]
 
+        blacklist = row["poolBlacklist"]
+
         quote = SwapQuote(
             chain_id=chain_id,
             api_name="odos",
@@ -279,7 +281,7 @@ def _post_process_raw_odos_quote_response_df(
             buy_token_address=buy_addr,
             scaled_amount_in=scaled_in,
             scaled_amount_out=scaled_out,
-            pools_blacklist=str(tuple(row["poolBlacklist"])),
+            pools_blacklist=str(blacklist),
             aggregator_name="Odos",
             datetime_received=row["datetime_received"],
             quote_batch=batch_id,
