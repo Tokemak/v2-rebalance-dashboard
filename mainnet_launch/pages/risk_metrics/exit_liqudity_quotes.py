@@ -8,7 +8,7 @@ from plotly.subplots import make_subplots
 
 from mainnet_launch.constants import *
 
-from mainnet_launch.database.schema.full import Destinations, AutopoolDestinations, Tokens, SwapQuote
+from mainnet_launch.database.schema.full import Destinations, AutopoolDestinations, Tokens, SwapQuote, AssetExposure
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_df,
     get_highest_value_in_field_where,
@@ -22,33 +22,27 @@ def _display_readme() -> None:
     with st.expander("Readme", expanded=False):
         st.markdown(
             """
-            Odos quotes should always be worse than Tokemak quotes, because they exclude pools we have a large ownership in.
-            excluding options can only make thing worse. 
-
-            open questions::
-            - buy amount and min buy amount?
-            - what do we use?
+            # Exit Liquidity Quotes 
             """
         )
 
 
 @st.cache_data(ttl=60 * 10)
 def _load_quote_batch_options_from_db() -> list[dict]:
+    # cached for speed
     df = _exec_sql_and_cache(
         """
         SELECT 
             quote_batch, 
             MIN(datetime_received) AS first_datetime_received,
             MIN(percent_exclude_threshold) AS percent_exclude_threshold
-        FROM swap_quote
+        FROM swap_quotes
         GROUP BY quote_batch
         ORDER BY first_datetime_received DESC;
         """
     )
 
     options = df.to_dict("records")
-
-    options = [o for o in options if o["quote_batch"] >= 34]
     return options
 
 
@@ -64,12 +58,26 @@ def _pick_a_quote_batch() -> int:
     return selected["quote_batch"]
 
 
-def fetch_and_render_exit_liquidity_from_quotes() -> pd.DataFrame:
+@st.cache_data(ttl=60 * 10)
+def _fetch_asset_allocation_from_db(quote_batch_number: int) -> pd.DataFrame:
+    asset_exposure_df = get_full_table_as_df(
+        AssetExposure,
+        where_clause=(AssetExposure.quote_batch == quote_batch_number),
+    )
+    tokens_df = get_full_table_as_df(Tokens)
+    token_address_to_symbol = dict(zip(tokens_df["token_address"], tokens_df["symbol"]))
+    asset_exposure_df["token_symbol"] = asset_exposure_df["token_address"].map(token_address_to_symbol)
+    asset_exposure_df["reference_symbol"] = asset_exposure_df["reference_asset"].map(token_address_to_symbol)
+    return asset_exposure_df
+
+
+def fetch_and_render_exit_liquidity_from_quotes() -> None:
     st.subheader("Exit Liquidity Quotes")
 
     quote_batch_number = _pick_a_quote_batch()
     chain, base_asset, _ = render_pick_chain_and_base_asset_dropdown()
     full_quote_batch_df = _load_full_quote_batch_df(quote_batch_number)
+    asset_exposure_df = _fetch_asset_allocation_from_db(quote_batch_number)
 
     swap_quotes_df = full_quote_batch_df[
         (full_quote_batch_df["chain_id"] == chain.chain_id) & (full_quote_batch_df["base_asset"] == base_asset(chain))
@@ -78,12 +86,15 @@ def fetch_and_render_exit_liquidity_from_quotes() -> pd.DataFrame:
     _augment_swap_quotes_df(swap_quotes_df)
 
     if swap_quotes_df.empty:
-        st.warning("No exit liquidity quotes found for the selected chain and base asset.")
-        return pd.DataFrame()
-
-    _display_asset_allocation(swap_quotes_df)
-    display_swap_quotes_batch_meta_data(swap_quotes_df)
+        st.warning(
+            f"No exit liquidity quotes found for the {chain.name} chain and {base_asset(chain)} base asset in batch {quote_batch_number}."
+        )
+        return
+    # I don't like this, todo rewrite it
     display_slippage_scatter_plot(swap_quotes_df)
+
+    _display_asset_allocation(asset_exposure_df, swap_quotes_df, chain, base_asset)
+    display_swap_quotes_batch_meta_data(swap_quotes_df)
 
     st.download_button(
         label="Download Exit Liquidity Quotes Full Data",
@@ -93,12 +104,12 @@ def fetch_and_render_exit_liquidity_from_quotes() -> pd.DataFrame:
     )
 
 
-# cache the data for speed reasons
 @st.cache_data(ttl=60 * 10)
 def _load_full_quote_batch_df(quote_batch_number: int) -> pd.DataFrame:
     """
     Load the full quote batch DataFrame for the given quote batch number, chain, and base asset.
     """
+    # consider this a a merge table?
     full_df = get_full_table_as_df(
         SwapQuote,
         where_clause=(SwapQuote.quote_batch == quote_batch_number),
@@ -115,12 +126,10 @@ def _augment_swap_quotes_df(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
     # eg 101 sDAI / 100 USDC  -> effective price of 1.01 sDAI per USDC
     swap_quotes_df["effective_price"] = swap_quotes_df["scaled_amount_out"] / swap_quotes_df["scaled_amount_in"]
 
-    smallest_amount_in = swap_quotes_df[swap_quotes_df["size_factor"] == "absolute"]["scaled_amount_in"].min()
+    smallest_amount_in = swap_quotes_df["scaled_amount_in"].min()
     sell_token_to_reference_price = (
         swap_quotes_df[
-            (swap_quotes_df["size_factor"] == "absolute")
-            & (swap_quotes_df["scaled_amount_in"] == smallest_amount_in)
-            & (swap_quotes_df["api_name"] == "tokemak")
+            (swap_quotes_df["scaled_amount_in"] == smallest_amount_in) & (swap_quotes_df["api_name"] == "tokemak")
         ]
         .groupby("sell_token_symbol")["effective_price"]
         .median()
@@ -129,13 +138,6 @@ def _augment_swap_quotes_df(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
 
     swap_quotes_df["reference_price"] = swap_quotes_df["sell_token_symbol"].map(sell_token_to_reference_price)
     swap_quotes_df["label"] = swap_quotes_df["sell_token_symbol"] + " - " + swap_quotes_df["api_name"]
-
-    # - Sell a larger quantity (e.g., 100 stETH → receive 97.5 ETH)
-    # - New price = 97.5 ETH ÷ 100 stETH = 0.975 ETH/stETH
-
-    # - Excess slippage in basis points (bps):
-
-    # `slippage_bps = 10 000 * (0.98 - 0.975) ÷ 0.98 ≈ 51 bps`
 
     swap_quotes_df["slippage_bps"] = (
         10_000
@@ -146,23 +148,19 @@ def _augment_swap_quotes_df(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
     return swap_quotes_df
 
 
-def _display_asset_allocation(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
-    # TODO this needs to write to db and read from there
-    asset_allocation_series = (
-        swap_quotes_df[swap_quotes_df["size_factor"] == "portion"]
-        .groupby("sell_token_symbol")["scaled_amount_in"]
-        .max()
-    )
+def _display_asset_allocation(
+    asset_exposure_df: pd.DataFrame, swap_quotes_df: pd.DataFrame, chain: ChainData, base_asset: TokemakAddress
+) -> pd.DataFrame:
 
-    st.write("Allocation")
+    asset_allocation_series = asset_exposure_df[
+        (asset_exposure_df["reference_asset"] == base_asset(chain)) & (asset_exposure_df["chain_id"] == chain.chain_id)
+    ].set_index("token_symbol")["quantity"]
 
-    smallest_amount_in = swap_quotes_df[swap_quotes_df["size_factor"] == "absolute"]["scaled_amount_in"].min()
+    smallest_amount_in = swap_quotes_df["scaled_amount_in"].min()
 
     sell_token_to_reference_price = (
         swap_quotes_df[
-            (swap_quotes_df["size_factor"] == "absolute")
-            & (swap_quotes_df["scaled_amount_in"] == smallest_amount_in)
-            & (swap_quotes_df["api_name"] == "tokemak")
+            (swap_quotes_df["scaled_amount_in"] == smallest_amount_in) & (swap_quotes_df["api_name"] == "tokemak")
         ]
         .groupby("sell_token_symbol")["effective_price"]
         .median()
@@ -177,6 +175,7 @@ def _display_asset_allocation(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
     )
     summary_df.columns = ["quantity", "reference_price", "value_in_base_asset"]
     summary_df = summary_df.sort_values("value_in_base_asset", ascending=False)
+    st.subheader("Asset Allocation Summary")
     st.dataframe(summary_df)
 
 
@@ -195,22 +194,18 @@ def display_slippage_scatter_plot(swap_quotes_df: pd.DataFrame) -> None:
         cols=2,
         subplot_titles=("ODOS: Slippage vs Amount Sold", "Tokemak: Slippage vs Amount Sold"),
         shared_yaxes=True,
-        horizontal_spacing=0.08,
     )
 
-    for col, api_name in enumerate(["odos", "tokemak"], start=1):
-        local_df = swap_quotes_df[swap_quotes_df["api_name"] == api_name].copy()
-        if local_df.empty:
-            continue
-
-        local_df = local_df.sort_values(["label", "scaled_amount_in"])
-        # Make legend entries distinct per subplot while preserving cross-API color consistency
-        # local_df["label_api"] = local_df["label"].astype(str) + f" - {api_name}"
+    for i, api_name in enumerate(["odos", "tokemak"]):
+        local_df = (
+            swap_quotes_df[swap_quotes_df["api_name"] == api_name].copy().sort_values(["label", "scaled_amount_in"])
+        )
+        local_df.rename(columns={"scaled_amount_in": "Quantity Sold", "slippage_bps": "Slippage bps"}, inplace=True)
 
         tmp = px.line(
             local_df,
-            x="scaled_amount_in",
-            y="slippage_bps",
+            x="Quantity Sold",
+            y="Slippage bps",
             color="label",
             markers=True,
             color_discrete_map=color_map,
@@ -221,26 +216,18 @@ def display_slippage_scatter_plot(swap_quotes_df: pd.DataFrame) -> None:
             marker_symbol="x",
             marker_size=6,
             showlegend=True,
-            # legendgroup=api_name,                 # group by API
-            # legendgrouptitle_text=api_name,       # shows "ODOS" / "Tokemak" headings
         )
 
-        # Ensure legend names are explicit and unique
         for tr in tmp.data:
-            tr.name = tr.name  # already includes " - {api_name}"
-            fig.add_trace(tr, row=1, col=col)
+            fig.add_trace(tr, row=1, col=i + 1)
 
-    # Axes
-    fig.update_xaxes(title_text="scaled_amount_in", row=1, col=1)
-    fig.update_xaxes(title_text="scaled_amount_in", row=1, col=2)
-    fig.update_yaxes(title_text="slippage_bps", row=1, col=1)
+    fig.update_xaxes(title_text="Quantity Sold", row=1, col=1)
+    fig.update_xaxes(title_text="Quantity Sold", row=1, col=2)
+    fig.update_yaxes(title_text="Slippage bps", row=1, col=1)
 
-    # Layout: group separation and tidy legend ordering
     fig.update_layout(
         title="Slippage vs Amount Sold — ODOS vs Tokemak",
         legend_title_text="label",
-        legend_tracegroupgap=10,
-        legend=dict(traceorder="grouped"),
     )
 
     st.plotly_chart(fig, use_container_width=True)

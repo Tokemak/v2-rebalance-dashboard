@@ -1,6 +1,8 @@
-import asyncio
-import streamlit as st
-import plotly.express as px
+"""
+Takes 5 minutes ot run, with curernt setup
+
+"""
+
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 
@@ -12,7 +14,6 @@ from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (
 )
 
 from mainnet_launch.database.schema.full import (
-    Destinations,
     AutopoolDestinations,
     Tokens,
     SwapQuote,
@@ -45,20 +46,20 @@ CHAIN_BASE_ASSET_GROUPS = {
 
 
 ATTEMPTS = 1
-PERCENT_OWNERSHIP_THRESHOLD = 10  # what percent of a pool can we do we own before we exclude it from odos quotes
-
+# large nubmers me we don't exclude it
+PERCENT_OWNERSHIP_THRESHOLD = 99  # what percent of a pool can we do we own before we exclude it from odos quotes
 
 STABLE_COINS_REFERENCE_QUANTITY = 10_000
 ETH_REFERENCE_QUANTITY = 5
 
-# USD_SCALED_SIZES = [i * 100_000 for i in range(1, 11)]  #
-# USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
-# ETH_SCALED_SIZES = [i * 25 for i in range(1, 16)]
-# ETH_SCALED_SIZES.append(ETH_REFERENCE_QUANTITY)
+USD_SCALED_SIZES = [i * 100_000 for i in range(1, 11)]  #
+USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
+ETH_SCALED_SIZES = [i * 25 for i in range(1, 16)]
+ETH_SCALED_SIZES.append(ETH_REFERENCE_QUANTITY)
 
 # smaller for testing
-USD_SCALED_SIZES = [STABLE_COINS_REFERENCE_QUANTITY]
-ETH_SCALED_SIZES = [ETH_REFERENCE_QUANTITY]
+# USD_SCALED_SIZES = [STABLE_COINS_REFERENCE_QUANTITY]
+# ETH_SCALED_SIZES = [ETH_REFERENCE_QUANTITY]
 
 
 def _fetch_current_asset_exposure(
@@ -381,4 +382,10 @@ def fetch_and_save_all_at_once():
 
 
 if __name__ == "__main__":
-    fetch_and_save_all_at_once()
+    for i in range(24):
+        fetch_and_save_all_at_once()
+        print('success')
+        time.sleep(60 * 60)  # every 30 minutes
+        print(f"Iteration {i + 1} completed. Waiting for the next run...")
+
+# caffeinate -ims bash -c 'cd /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard && poetry run python mainnet_launch/database/schema/ensure_tables_are_current/using_3rd_party/estimate_exit_liquidity_from_quotes.py'
