@@ -715,11 +715,11 @@ class PoolLiquiditySnapshot(Base):
 
 
 class SwapQuote(Base):
-    __tablename__ = "swap_quote"
+    __tablename__ = "swap_quotes"
 
     chain_id: Mapped[int] = mapped_column(nullable=False)
     base_asset: Mapped[str] = mapped_column(nullable=False)  # eg WETH, USDC, DOLA
-    api_name: Mapped[str] = mapped_column(nullable=False)  # eg 1inch, paraswap, etc
+    api_name: Mapped[str] = mapped_column(nullable=False)  # eg tokemak, or odos (so far)
 
     sell_token_address: Mapped[str] = mapped_column(nullable=False)
     buy_token_address: Mapped[str] = mapped_column(nullable=False)
@@ -736,7 +736,7 @@ class SwapQuote(Base):
     datetime_received: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
 
     quote_batch: Mapped[int] = mapped_column(nullable=False)  # eg what run this quote used to group quotes
-    size_factor: Mapped[str] = mapped_column(nullable=False)  # eg PORTION, or abosolute
+    # size_factor: Mapped[str] = mapped_column(nullable=False)  # eg PORTION, or abosolute
 
     __table_args__ = (
         ForeignKeyConstraint(["sell_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
@@ -760,6 +760,8 @@ class AssetExposure(Base):
     token_address: Mapped[str] = mapped_column(primary_key=True)
 
     quantity: Mapped[float] = mapped_column(nullable=False)  # in scaled terms, (eg 1 for ETH instead of 1e18)
+
+    quote_batch: Mapped[int] = mapped_column(nullable=False)  # eg what run this quote used to group quotes
 
     __table_args__ = (
         ForeignKeyConstraint(["reference_asset", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
