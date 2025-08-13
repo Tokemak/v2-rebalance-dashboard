@@ -1,0 +1,2 @@
+Error in iteration 3: Unsupported type: '<class 'float'>'.  Must be one of: bool, str, bytes, bytearrayor int.
+Error in iteration 7: Unsupported type: '<class 'float'>'.  Must be one of: bool, str, bytes, bytearrayor int.

@@ -45,7 +45,7 @@ CHAIN_BASE_ASSET_GROUPS = {
 }
 
 
-ATTEMPTS = 1
+ATTEMPTS = 3
 # large nubmers me we don't exclude it
 PERCENT_OWNERSHIP_THRESHOLD = 99  # what percent of a pool can we do we own before we exclude it from odos quotes
 
@@ -200,33 +200,37 @@ def _post_process_raw_odos_quote_response_df(
     quotes: list[SwapQuote] = []
 
     for _, row in raw_odos_quote_response_df.iterrows():
-        sell_addr = Web3.toChecksumAddress(row["inTokens"])
-        buy_addr = Web3.toChecksumAddress(row["outTokens"])
-        chain_id = int(row["chainId"])
+        try:
+            sell_addr = Web3.toChecksumAddress(row["inTokens"])
+            buy_addr = Web3.toChecksumAddress(row["outTokens"])
+            chain_id = int(row["chainId"])
 
-        unscaled_in = int(row["inAmounts"])
-        unscaled_out = int(row["outAmounts"])
+            unscaled_in = int(row["inAmounts"])
+            unscaled_out = int(row["outAmounts"])
 
-        scaled_in = unscaled_in / 10 ** token_to_decimal[sell_addr]
-        scaled_out = unscaled_out / 10 ** token_to_decimal[buy_addr]
+            scaled_in = unscaled_in / 10 ** token_to_decimal[sell_addr]
+            scaled_out = unscaled_out / 10 ** token_to_decimal[buy_addr]
 
-        blacklist = row["poolBlacklist"]
+            blacklist = row.get("poolBlacklist", "")
 
-        quote = SwapQuote(
-            chain_id=chain_id,
-            api_name="odos",
-            sell_token_address=sell_addr,
-            buy_token_address=buy_addr,
-            scaled_amount_in=scaled_in,
-            scaled_amount_out=scaled_out,
-            pools_blacklist=str(blacklist),
-            aggregator_name="Odos",
-            datetime_received=row["datetime_received"],
-            quote_batch=batch_id,
-            base_asset=base_asset,
-            percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
-        )
-        quotes.append(quote)
+            quote = SwapQuote(
+                chain_id=chain_id,
+                api_name="odos",
+                sell_token_address=sell_addr,
+                buy_token_address=buy_addr,
+                scaled_amount_in=scaled_in,
+                scaled_amount_out=scaled_out,
+                pools_blacklist=str(blacklist),
+                aggregator_name="Odos",
+                datetime_received=row["datetime_received"],
+                quote_batch=batch_id,
+                base_asset=base_asset,
+                percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
+            )
+            quotes.append(quote)
+        except Exception as e:
+            with open("error_log.txt", "a") as f:
+                f.write(f"Error processing Odos quote: {e}\n {type(e)}")
 
     return quotes
 
@@ -383,9 +387,18 @@ def fetch_and_save_all_at_once():
 
 if __name__ == "__main__":
     for i in range(24):
-        fetch_and_save_all_at_once()
-        print('success')
-        time.sleep(60 * 60)  # every 30 minutes
-        print(f"Iteration {i + 1} completed. Waiting for the next run...")
+        try:
+            fetch_and_save_all_at_once()
+            print("success")
+            time.sleep(60 * 30)  # every 30 minutes
+            print(f"Iteration {i + 1} completed. Waiting for the next run...")
+        except Exception as e:
+            print(f"Error in iteration {i + 1}: {e}")
+            # write the error to a local log file
+            with open("error_log.txt", "a") as f:
+                f.write(f"Error in iteration {i + 1}: {e}\n")
+            # wait 5 minutes before retrying
+            print("Retrying in 5 minutes...")
+            time.sleep(60 * 5)
 
 # caffeinate -ims bash -c 'cd /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard && poetry run python mainnet_launch/database/schema/ensure_tables_are_current/using_3rd_party/estimate_exit_liquidity_from_quotes.py'
