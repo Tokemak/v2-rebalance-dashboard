@@ -20,8 +20,8 @@ load_dotenv()
 
 # tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
 #  DEV_LOCAL_DATABASE_URL
-# tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
-tmpPostgres = urlparse(os.getenv("ADD_SONIC_DATABASE_URL"))
+tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
+# tmpPostgres = urlparse(os.getenv("ADD_SONIC_DATABASE_URL"))
 
 
 ENGINE = create_engine(
@@ -78,7 +78,9 @@ class Transactions(Base):
     to_address: Mapped[str] = mapped_column(String(42), nullable=False)
     effective_gas_price: Mapped[int] = mapped_column(BigInteger, nullable=False)  # pretty sure this is just gas price
     gas_used: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    gas_cost_in_eth: Mapped[float] = mapped_column(nullable=False)  # gas_used * effective_gas_price
+    gas_cost_in_eth: Mapped[float] = mapped_column(
+        nullable=False
+    )  # gas_used * effective_gas_price # technically redundent
 
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
@@ -557,32 +559,33 @@ class IncentiveTokenLiquidations(Base):
 
 
 # extra
-class DebtReporting(Base):
-    # double check what this is used for
-    __tablename__ = "debt_reporting"
+# # not used
+# class DebtReporting(Base):
+#     # double check what this is used for
+#     __tablename__ = "debt_reporting"
 
-    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
-    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
-    block: Mapped[int] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(primary_key=True)
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False)
+#     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
+#     autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
+#     # block: Mapped[int] = mapped_column(primary_key=True) # don
+#     # chain_id: Mapped[int] = mapped_column(primary_key=True) # don't need these because they are in the tx_hash
+#     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False)
 
-    # denominated_in: Mapped[str] = mapped_column(nullable=False) # autopools.base_asset (can skip)
-    base_asset_value: Mapped[float] = mapped_column(nullable=False)
+#     # denominated_in: Mapped[str] = mapped_column(nullable=False) # autopools.base_asset (can skip)
+#     base_asset_value: Mapped[float] = mapped_column(nullable=False)
 
-    __table_args__ = (
-        ForeignKeyConstraint(
-            ["destination_vault_address", "block", "chain_id"],
-            [
-                "destination_states.destination_vault_address",
-                "destination_states.block",
-                "destination_states.chain_id",
-            ],
-        ),
-        ForeignKeyConstraint(
-            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
-        ),
-    )
+#     __table_args__ = (
+#         ForeignKeyConstraint(
+#             ["destination_vault_address", "block", "chain_id"],
+#             [
+#                 "destination_states.destination_vault_address",
+#                 "destination_states.block",
+#                 "destination_states.chain_id",
+#             ],
+#         ),
+#         ForeignKeyConstraint(
+#             ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+#         ),
+#     )
 
 
 class ChainlinkGasCosts(Base):
@@ -770,6 +773,33 @@ class AssetExposure(Base):
     )
 
 
+class DestinationUnderlyingDeposited(Base):
+    __tablename__ = "destination_underlying_deposited"
+    # not certain on this one,
+    # catches the edge case where more than 1 rebalance in the same transaction
+    # eg
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False, primary_key=True)
+
+    destination_vault_address: Mapped[str] = mapped_column(nullable=False, primary_key=True)
+
+    amount: Mapped[str] = mapped_column(nullable=False)  # unscaled quantity of lp tokens (or recipt tokens for lending)
+    sender: Mapped[str] = mapped_column(nullable=False)  # the autopool_vault_address, I'm pretty sure
+    # the address of the destination vault itself that emitted this event
+
+    __table_args__ = (ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),)
+
+
+class DestinationUnderlyingWithdraw(Base):
+    __tablename__ = "destination_underlying_withdraw"
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False, primary_key=True)
+
+    destination_vault_address: Mapped[str] = mapped_column(nullable=False, primary_key=True)
+    # unscaled quantity of lp tokens (or receipt tokens for lending)
+    amount: Mapped[str] = mapped_column(nullable=False)
+    owner: Mapped[str] = mapped_column(nullable=False)  # the autopool_vault_address, I'm pretty sure
+    to_address: Mapped[str] = mapped_column(nullable=False)
+
+
 def drop_and_full_rebuild_db():
     meta = MetaData()
     meta.reflect(bind=ENGINE)
@@ -788,4 +818,4 @@ def reflect_and_create():
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    reflect_and_create()
+    drop_and_full_rebuild_db()

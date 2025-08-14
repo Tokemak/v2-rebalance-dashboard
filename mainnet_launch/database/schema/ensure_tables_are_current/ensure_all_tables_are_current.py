@@ -60,6 +60,13 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
     ensure_chainlink_gas_costs_table_is_updated,
 )
 
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destination_underlying_deposited import (
+    ensure_destination_underlying_deposits_are_current,
+)
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destination_underlying_withdraw import (
+    ensure_destination_underlying_withdraw_are_current,
+)
+
 
 @time_decorator
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
@@ -72,7 +79,9 @@ def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to
     for func in [
         ensure_blocks_is_current,
         ensure_autopools_are_current,
-        ensure__destinations__tokens__and__destination_tokens_are_current,  # I don't like this name
+        ensure__destinations__tokens__and__destination_tokens_are_current,
+        ensure_destination_underlying_deposits_are_current,
+        ensure_destination_underlying_withdraw_are_current,
         ensure_destination_states_from_rebalance_plan_are_current,
         ensure_destination_states_are_current,
         ensure_destination_token_values_are_current,

@@ -47,7 +47,10 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
 from mainnet_launch.database.schema.full import AutopoolDestinations, Destinations, DestinationTokens
 
 
-# broken on sonicUSD
+# could you instead use? looking at the diff in destination vault total supply?
+# assumes that there cannot be two rebalances in the same block
+
+
 def _connect_plans_to_rebalance_events(
     rebalance_event_df: pd.DataFrame,
     rebalance_plan_df: pd.DataFrame,
@@ -113,6 +116,7 @@ def _load_destination_info_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
 
 def _load_raw_rebalance_event_df(autopool: AutopoolConstants):
+    """Gets the data from the subgraph"""
     # this is not smart, it gets every rebalance event
     rebalance_event_df = fetch_autopool_rebalance_events_from_subgraph(autopool)
     rebalance_plan_df = get_full_table_as_df(
@@ -209,8 +213,8 @@ def add_lp_token_safe_and_spot_prices(
                 rebalance_file_path=rebalance_event_row["rebalance_file_path"],
                 destination_out=rebalance_event_row["destinationOutAddress"],
                 destination_in=rebalance_event_row["destinationInAddress"],
-                quantity_out=float(rebalance_event_row["tokenOutAmount"]),
-                quantity_in=float(rebalance_event_row["tokenInAmount"]),
+                quantity_out=float(rebalance_event_row["tokenOutAmount"]),  # not certain this is correct
+                quantity_in=float(rebalance_event_row["tokenInAmount"]),  # not certain this is correct, is wrong
                 safe_value_out=safe_value_out,
                 safe_value_in=safe_value_in,
                 spot_value_out=spot_value_out,

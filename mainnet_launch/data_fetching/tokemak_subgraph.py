@@ -18,6 +18,10 @@ from web3 import Web3
 # https://subgraph.satsuma-prod.com/tokemak/v2-gen3-sonic-mainnet/playground
 
 
+# note: this does not do correct values for amountIn
+# for the ETH denomiated pools
+
+
 class TokemakSubgraphError(Exception):
     pass
 
