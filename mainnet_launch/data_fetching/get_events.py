@@ -79,20 +79,32 @@ def _recursive_helper_get_all_events_within_range(
         clean_found_events.extend(cleaned_events)
 
     except (TimeoutError, ValueError, ReadTimeout, HTTPError, ChunkedEncodingError, ConnectionError) as e:
-        if isinstance(e, ValueError) and e.args[0].get("code") != -32602:
-            print(start_block, end_block, event, str(e), type(e))
-            pass
+        if (e.args[0].get("code") == 32000) and (e.args[0].get("message") == "filter not found"):
+            # for some fast chains (at least sonic), but maybe others, asking alchemy for block to near the head
+            # raises a error
+            # so try again with a smaller top block
+            new_end_block = end_block - 500
+            _recursive_helper_get_all_events_within_range(
+                event, start_block, new_end_block, clean_found_events, argument_filters
+            )
+            return
+
+        elif isinstance(e, ValueError) and e.args[0].get("code") != -32602:
+            print(f"{start_block=}, {end_block=}, {event=}, {e=}, {type(e)=}")
             raise e
-        # otherwise cut the blocks in half and try again
 
-        # Timeout or "Log response size exceeded" error - split the range
-        mid = (start_block + end_block) // 2
-        if start_block == mid or mid + 1 > end_block:
-            # If the range is too small to split further, raise an exception
-            raise RuntimeError(f"Unable to fetch events for blocks {start_block}-{end_block}")
+        elif e.args[0].get("code") == -32602:
+            # otherwise cut the blocks in half and try again
+            # Timeout or "Log response size exceeded" error - split the range
+            mid = (start_block + end_block) // 2
+            if start_block == mid or mid + 1 > end_block:
+                # If the range is too small to split further, raise an exception
+                raise RuntimeError(f"Unable to fetch events for blocks {start_block}-{end_block}")
 
-        _recursive_helper_get_all_events_within_range(event, start_block, mid, clean_found_events, argument_filters)
-        _recursive_helper_get_all_events_within_range(event, mid + 1, end_block, clean_found_events, argument_filters)
+            _recursive_helper_get_all_events_within_range(event, start_block, mid, clean_found_events, argument_filters)
+            _recursive_helper_get_all_events_within_range(
+                event, mid + 1, end_block, clean_found_events, argument_filters
+            )
 
 
 def events_to_df(clean_found_events: list[dict]) -> pd.DataFrame:
