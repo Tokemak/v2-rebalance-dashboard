@@ -129,8 +129,10 @@ def fetch_and_render_intra_day_volitlity():
     df = _load_full_swap_quote_df()
     selected_date = pick_day()
     df = df[df["datetime_received"].dt.date == selected_date].reset_index(drop=True)
-    # _render_intra_day_quote_spread(df)
+    _render_intra_day_quote_spread(df)
     _render_intra_day_effective_price(df)
+
+    # how unreliable are the quotes, within the same day?
 
 
 def _render_intra_day_effective_price(df: pd.DataFrame) -> None:
@@ -259,3 +261,7 @@ if __name__ == "__main__":
 # what is the shape of the swap matrix?
 
 # buy_token, sell_token, datetime_received, sell_token_amount, datetime_received?
+
+
+# what is the typical spread between
+# the quoted amount, and how much we actually get?
