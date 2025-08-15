@@ -16,7 +16,7 @@ from mainnet_launch.app.app_config import SEMAPHORE_LIMITS_FOR_MULTICALL
 from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS, ETH_CHAIN
 
 from mainnet_launch.database.schema.full import Blocks
-from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df, Session
+from mainnet_launch.database.schema.postgres_operations import _exec_sql_and_cache
 
 # needed to run these functions in a jupyter notebook
 nest_asyncio.apply()
@@ -243,24 +243,24 @@ def make_dummy_1_call(name: str) -> Call:
 
 
 def postgres_build_blocks_to_use(chain: ChainData, start_block: int, end_block: int) -> list[int]:
-    df = (
-        get_full_table_as_df(
-            Blocks,
-            where_clause=(Blocks.chain_id == chain.chain_id)
-            and (start_block <= Blocks.block)
-            and (Blocks.block <= end_block),
-        )
-        .set_index("datetime")
-        .sort_index()
-    )
-    # fails if a table is empty
-    if df.empty:
-        # is needed for cold
-        blocks_to_use = []
+    query = f"""SELECT DISTINCT ON (DATE_TRUNC('day', datetime))
+        DATE_TRUNC('day', datetime) AS day,
+        block AS max_block,
+        datetime AS datetime_of_max
+    FROM blocks
+    WHERE chain_id = {chain.chain_id}
+    AND block BETWEEN {start_block} AND {end_block}
+    ORDER BY DATE_TRUNC('day', datetime), block DESC;"""
+
+    block_df = _exec_sql_and_cache(query)
+    if block_df.empty:
+        return []
     else:
-        # this drop na might cause problems down the line
-        blocks_to_use = df["block"].resample("1d").max().dropna().astype(int).to_list()
-    return blocks_to_use
+        # exclude the last day since is is not certain that the block is the highest block of the day
+        # since there can be more hours left in the day
+        block_df = block_df[block_df["datetime_of_max"] != block_df["datetime_of_max"].max()]
+        blocks_to_use = block_df["max_block"].astype(int).to_list()
+        return blocks_to_use
 
 
 # @st.cache_data(ttl=60 * 60)  # 1 hour

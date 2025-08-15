@@ -131,10 +131,11 @@ def _fetch_and_insert_new_autopool_destination_states(autopool: AutopoolConstant
             *destination_info_df["destination_vault_address"].values,
             autopool.autopool_eth_addr,
         ]:
-            owned_shares = float(row[destination_vault_address])
-
-            if destination_vault_address == autopool.autopool_eth_addr:
-                pass
+            owned_shares = row[destination_vault_address]
+            if owned_shares is None:
+                owned_shares = 0
+            else:
+                owned_shares = float(owned_shares)
 
             new_autopool_destination_states_rows.append(
                 AutopoolDestinationStates(

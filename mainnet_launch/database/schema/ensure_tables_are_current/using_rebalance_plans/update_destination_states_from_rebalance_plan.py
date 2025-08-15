@@ -4,7 +4,9 @@ import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 from web3 import Web3
-
+import time
+import random
+from tqdm.contrib.concurrent import thread_map
 
 from multicall.call import Call
 
@@ -23,9 +25,7 @@ from mainnet_launch.data_fetching.block_timestamp import (
 )
 
 
-def convert_rebalance_plan_json_to_rebalance_plan_line(
-    rebalance_plan_json_key: str, s3_client, autopool: AutopoolConstants
-):
+def fetch_rebalance_plan_json_from_remote(rebalance_plan_json_key: str, s3_client, autopool: AutopoolConstants):
     plan = json.loads(
         s3_client.get_object(
             Bucket=autopool.solver_rebalance_plans_bucket,
@@ -63,6 +63,7 @@ def convert_rebalance_plan_to_rows(
     autopool: AutopoolConstants,
     tokens_address_to_decimals: dict[str, int],
 ) -> list[DestinationStates]:
+    """Makes external calls to etherscan, and on http nodes"""
 
     block_after_plan_timestamp = get_block_by_timestamp_etherscan(
         plan["sod"]["currentTimestamp"], chain=autopool.chain, closest="after"
@@ -225,15 +226,37 @@ def _extract_destination_states_rows(
     return new_destination_states_rows
 
 
+def _get_all_solver_plans_on_remote(autopool: AutopoolConstants, s3_client):
+    """Required for when the solver bucket has more than 1k objects"""
+    keys = []
+    continuation_token = None
+
+    while True:
+        kwargs = {"Bucket": autopool.solver_rebalance_plans_bucket}
+        if continuation_token:
+            kwargs["ContinuationToken"] = continuation_token
+
+        resp = s3_client.list_objects_v2(**kwargs)
+
+        # Append this page's keys
+        for obj in resp.get("Contents", []):
+            keys.append(obj["Key"])
+
+        # Check if more results exist
+        if resp.get("IsTruncated"):  # True means there’s another page
+            continuation_token = resp["NextContinuationToken"]
+        else:
+            break
+
+    return keys
+
+
 @time_decorator
 def ensure_destination_states_from_rebalance_plan_are_current():
     s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 
     for autopool in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN:
-
-        solver_plan_paths_on_remote = [
-            r["Key"] for r in s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket).get("Contents")
-        ]
+        solver_plan_paths_on_remote = _get_all_solver_plans_on_remote(autopool, s3_client)
         plans_to_fetch = get_subset_not_already_in_column(  # much slower than it needs to be
             DestinationStates, DestinationStates.rebalance_plan_key, solver_plan_paths_on_remote, where_clause=None
         )
@@ -246,24 +269,42 @@ def ensure_destination_states_from_rebalance_plan_are_current():
         )
         tokens_address_to_decimals = {t.token_address: t.decimals for t in tokens_orm}
 
-        def _process_plan(plan_path):
-            plan = convert_rebalance_plan_json_to_rebalance_plan_line(plan_path, s3_client, autopool)
-            new_destination_states_rows, new_token_values_rows, new_destination_token_values = (
-                convert_rebalance_plan_to_rows(plan, autopool, tokens_address_to_decimals)
-            )
-            return new_destination_states_rows, new_token_values_rows, new_destination_token_values
+        def _process_plan(plan_path: str):
+            i = 0
+            while True:
+                try:
+                    plan = fetch_rebalance_plan_json_from_remote(plan_path, s3_client, autopool)
+                    new_destination_states_rows, new_token_values_rows, new_destination_token_values = (
+                        convert_rebalance_plan_to_rows(plan, autopool, tokens_address_to_decimals)
+                    )
+                    return new_destination_states_rows, new_token_values_rows, new_destination_token_values
+
+                except Exception as e:
+
+                    i += 1
+                    sleep_time = random.uniform(1, 5) + i**2
+                    print(f"Error processing plan {plan_path}, retrying in {sleep_time:.2}")
+                    time.sleep(sleep_time)  # exponential backoff
+
+                    if i == 5:
+                        raise e
 
         all_destination_states = []
         all_new_token_values_rows = []
         all_destination_token_rows = []
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            futures = {executor.submit(_process_plan, path): path for path in plans_to_fetch}
-            for fut in as_completed(futures):
-                new_destination_states_rows, new_token_values_rows, new_destination_token_values = fut.result()
-                all_destination_states.extend(new_destination_states_rows)
-                all_new_token_values_rows.extend(new_token_values_rows)
-                all_destination_token_rows.extend(new_destination_token_values)
+        results = thread_map(
+            _process_plan,
+            plans_to_fetch,
+            max_workers=4,
+            desc=f"Extracting Destination States from Rebalance Plans for {autopool.name}",
+            unit="plan",
+        )
+
+        for new_destination_states_rows, new_token_values_rows, new_destination_token_values in results:
+            all_destination_states.extend(new_destination_states_rows)
+            all_new_token_values_rows.extend(new_token_values_rows)
+            all_destination_token_rows.extend(new_destination_token_values)
 
         all_blocks_to_add = list(set([d.block for d in all_destination_states]))
 

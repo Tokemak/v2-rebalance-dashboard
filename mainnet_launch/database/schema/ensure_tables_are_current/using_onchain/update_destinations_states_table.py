@@ -1,6 +1,7 @@
 import pandas as pd
 from multicall import Call
-
+from sqlalchemy import text, bindparam
+from sqlalchemy.dialects.postgresql import ARRAY, BIGINT, TEXT
 
 from mainnet_launch.database.schema.full import Autopools, DestinationStates, Destinations, AutopoolDestinations
 
@@ -11,6 +12,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     merge_tables_as_df,
     set_some_cells_to_null,
     TableSelector,
+    ENGINE,
 )
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
@@ -18,7 +20,8 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     build_blocks_to_use,
 )
 
-from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
+from mainnet_launch.database.schema.full import Session
+
 from mainnet_launch.constants import (
     ChainData,
     ALL_CHAINS,
@@ -27,8 +30,6 @@ from mainnet_launch.constants import (
     USDC,
     WETH,
     DOLA,
-    ETH_CHAIN,
-    BASE_CHAIN,
     ALL_AUTOPOOLS_DATA_ON_CHAIN,
 )
 
@@ -306,17 +307,108 @@ def _extract_new_destination_states(
     return all_new_destination_states
 
 
-def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainData):
-    missing_blocks = get_subset_not_already_in_column(  # consider switching to looking at timestamps instead
-        DestinationStates,
-        DestinationStates.block,
-        possible_blocks,
-        where_clause=DestinationStates.chain_id == chain.chain_id,
+def get_needed_blocks_pure_sql(desired_blocks: list[int], chain: ChainData) -> list[int]:
+    sql = text(
+        """
+    WITH desired_blocks AS (
+        SELECT UNNEST(CAST(:desired_blocks AS bigint[])) AS block
+        ),
+    destinations AS (
+      SELECT DISTINCT d.destination_vault_address
+      FROM autopool_destinations ad
+      JOIN destinations d
+        ON ad.destination_vault_address = d.destination_vault_address
+      WHERE d.chain_id = :chain_id
+        AND ad.autopool_vault_address = ANY(CAST(:autopool_addrs AS text[]))
+    ),
+    present AS (
+      SELECT db.block, ds.destination_vault_address
+      FROM desired_blocks db
+      JOIN destination_states ds
+        ON ds.block = db.block
+       AND ds.chain_id = :chain_id
+       AND ds.destination_vault_address IN (SELECT destination_vault_address FROM destinations)
     )
-    if not missing_blocks:
-        return
+    SELECT db.block
+    FROM desired_blocks db
+    CROSS JOIN (SELECT COUNT(*) AS total_dests FROM destinations) t
+    LEFT JOIN (
+      SELECT block, COUNT(DISTINCT destination_vault_address) AS have
+      FROM present
+      GROUP BY block
+    ) h ON h.block = db.block
+    WHERE COALESCE(h.have, 0) < t.total_dests
+    ORDER BY db.block;
+    """
+    )
 
-    ensure_all_blocks_are_in_table(missing_blocks, chain)
+    # Keep casts in SQL, but also type the binds (safer with empty lists, etc.)
+    sql = sql.bindparams(
+        bindparam("desired_blocks", type_=ARRAY(BIGINT)),
+        bindparam("autopool_addrs", type_=ARRAY(TEXT)),
+        bindparam("chain_id"),
+    )
+
+    autopool_addrs = [a.autopool_eth_addr for a in ALL_AUTOPOOLS_DATA_ON_CHAIN]
+
+    with Session.begin() as session:
+        return (
+            session.execute(
+                sql,
+                {
+                    "desired_blocks": desired_blocks,
+                    "chain_id": chain.chain_id,
+                    "autopool_addrs": autopool_addrs,
+                },
+            )
+            .scalars()
+            .all()
+        )
+
+
+# def _get_needed_blocks(desired_blocks: list[int], chain: ChainData) -> list[int]:
+#     autopool_and_destinations_df = merge_tables_as_df(
+#         selectors=[
+#             TableSelector(
+#                 AutopoolDestinations,
+#                 [
+#                     AutopoolDestinations.destination_vault_address,
+#                     AutopoolDestinations.autopool_vault_address,
+#                 ],
+#             ),
+#             TableSelector(
+#                 Destinations,
+#                 Destinations.underlying_name,
+#                 join_on=AutopoolDestinations.destination_vault_address == Destinations.destination_vault_address,
+#             ),
+#         ],
+#         where_clause=(Destinations.chain_id == chain.chain_id)
+#         & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in ALL_AUTOPOOLS_DATA_ON_CHAIN])),
+#     )
+
+#     all_missing_blocks = []
+
+#     for destination_vault_address in autopool_and_destinations_df["destination_vault_address"].unique():
+#         missing_blocks = get_subset_not_already_in_column(
+#             DestinationStates,
+#             DestinationStates.block,
+#             desired_blocks,
+#             where_clause=(
+#                 (DestinationStates.destination_vault_address == destination_vault_address)
+#                 & (DestinationStates.chain_id == chain.chain_id)
+#             ),
+#         )
+#         all_missing_blocks.extend(missing_blocks)
+
+#     return list(set(all_missing_blocks))
+
+
+def _add_new_destination_states_to_db(desired_blocks: list[int], chain: ChainData):
+
+    missing_blocks = get_needed_blocks_pure_sql(desired_blocks, chain)
+    if not missing_blocks:
+        # if there are no missing blocks then early exit
+        return
 
     autopool_and_destinations_df = merge_tables_as_df(
         selectors=[
@@ -336,10 +428,13 @@ def _add_new_destination_states_to_db(possible_blocks: list[int], chain: ChainDa
         where_clause=(Destinations.chain_id == chain.chain_id)
         & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in ALL_AUTOPOOLS_DATA_ON_CHAIN])),
     )
+
     if autopool_and_destinations_df.empty:
         # if there are no autopools on this chain that we are using the onchain sources
         # instead of the rebalance plan sources then early exit
         return
+
+    pass
 
     autopool_to_all_ever_active_destinations = (
         autopool_and_destinations_df.groupby("autopool_vault_address")["destination_vault_address"]

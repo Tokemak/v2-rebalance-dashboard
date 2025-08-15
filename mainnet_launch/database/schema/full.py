@@ -818,4 +818,5 @@ def reflect_and_create():
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    drop_and_full_rebuild_db()
+    # drop_and_full_rebuild_db()
+    pass
