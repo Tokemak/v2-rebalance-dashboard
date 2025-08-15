@@ -217,7 +217,7 @@ def _build_backing_calls(tokens: list[Tokens], chain: ChainData) -> list[Call]:
 def _fetch_safe_and_backing_values(missing_blocks: list[int], tokens: list[Tokens], chain: ChainData) -> pd.DataFrame:
     calls = [*_build_safe_price_calls(tokens, chain), *_build_backing_calls(tokens, chain)]
 
-    state = get_state_by_one_block(calls, max(missing_blocks), chain)
+    # state = get_state_by_one_block(calls, max(missing_blocks), chain)
     df = get_raw_state_by_blocks(calls, missing_blocks, chain, include_block_number=True)
     return df
 

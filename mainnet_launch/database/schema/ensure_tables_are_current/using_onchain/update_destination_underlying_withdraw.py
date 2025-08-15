@@ -90,7 +90,7 @@ def fetch_new_destination_underlying_withdraw_events(
     Returns a single DataFrame with destination_vault_address annotated.
     """
     # small safety margin behind the tip
-    top_block_on_chain = chain.client.eth.block_number - 100
+    top_block_on_chain = chain.client.eth.block_number - 500
 
     # Build the event fetch plan
     plans: list[FetchEventParams] = []

@@ -63,70 +63,6 @@ def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFra
     return nav_per_share_df
 
 
-# not used
-# def fetch_destination_apr_state_df(autopool: AutopoolConstants) -> pd.DataFrame:
-#     destination_apr_state_df = merge_tables_as_df(
-#         selectors=[
-#             TableSelector(
-#                 table=AutopoolDestinationStates,
-#                 select_fields=[
-#                     AutopoolDestinationStates.owned_shares,
-#                 ],
-#             ),
-#             TableSelector(
-#                 table=Destinations,
-#                 select_fields=[Destinations.pool_type, Destinations.underlying_name, Destinations.exchange_name],
-#                 join_on=(
-#                     (Destinations.destination_vault_address == AutopoolDestinationStates.destination_vault_address)
-#                     & (Destinations.chain_id == AutopoolDestinationStates.chain_id)
-#                 ),
-#             ),
-#             TableSelector(
-#                 table=DestinationStates,
-#                 select_fields=[
-#                     DestinationStates.incentive_apr,
-#                     DestinationStates.fee_apr,
-#                     DestinationStates.base_apr,
-#                     DestinationStates.fee_plus_base_apr,
-#                     DestinationStates.lp_token_safe_price,
-#                     DestinationStates.total_apr_out,
-#                     DestinationStates.total_apr_in,
-#                 ],
-#                 join_on=(
-#                     (AutopoolDestinationStates.destination_vault_address == DestinationStates.destination_vault_address)
-#                     & (AutopoolDestinationStates.chain_id == DestinationStates.chain_id)
-#                     & (AutopoolDestinationStates.block == DestinationStates.block)
-#                 ),
-#             ),
-#             TableSelector(
-#                 table=Blocks,
-#                 join_on=(
-#                     (AutopoolDestinationStates.block == Blocks.block)
-#                     & (AutopoolDestinationStates.chain_id == Blocks.chain_id)
-#                 ),
-#                 select_fields=[Blocks.datetime],
-#             ),
-#         ],
-#         where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
-#         & (Blocks.datetime >= autopool.start_display_date),
-#         order_by=Blocks.datetime,
-#         order="asc",
-#     )
-
-#     destination_apr_state_df["unweighted_expected_apr"] = 100 * destination_apr_state_df[
-#         ["fee_apr", "base_apr", "incentive_apr", "fee_plus_base_apr"]
-#     ].astype(float).fillna(0).sum(axis=1)
-#     destination_apr_state_df["safe_tvl_by_destination"] = (
-#         destination_apr_state_df["lp_token_safe_price"] * destination_apr_state_df["owned_shares"]
-#     )
-
-#     destination_apr_state_df["readable_name"] = destination_apr_state_df.apply(
-#         lambda row: f"{row['underlying_name']} ({row['exchange_name']})", axis=1
-#     )
-
-#     return destination_apr_state_df
-
-
 def fetch_key_metrics_data(autopool: AutopoolConstants):
     nav_per_share_df = fetch_nav_per_share_and_total_nav(autopool)
     destination_state_df = fetch_autopool_destination_state_df(autopool)
@@ -351,12 +287,13 @@ def _diffReturn(x: list):
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, AUTO_ETH, BASE_ETH, DINERO_ETH, AUTO_USD
+    from mainnet_launch.constants import *
 
-    fetch_and_render_key_metrics_data(BASE_ETH)
-    from mainnet_launch.app.profiler import profile_function
+    fetch_and_render_key_metrics_data(AUTO_ETH)
 
-    # fetch_and_render_key_metrics_data(AUTO_ETH)
+    # from mainnet_launch.app.profiler import profile_function
 
-    # profile_function(fetch_and_render_key_metrics_data, AUTO_USD)
-    pass
+    # # fetch_and_render_key_metrics_data(AUTO_ETH)
+
+    # # profile_function(fetch_and_render_key_metrics_data, AUTO_USD)
+    # pass

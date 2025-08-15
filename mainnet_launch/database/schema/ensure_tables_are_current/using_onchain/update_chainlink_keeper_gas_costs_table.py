@@ -64,6 +64,7 @@ def _ensure_one_chain_chainlink_gas_costs_is_updated(
             chain=chain,
             start_block=highest_block_already_fetched,
             argument_filters={"id": int(topic_id)},
+            end_block=chain.client.eth.block_number - 500,  # fetch up to 100 blocks before the current block
         )
         our_upkeep_df["name"] = name
         upkeep_dfs.append(our_upkeep_df)

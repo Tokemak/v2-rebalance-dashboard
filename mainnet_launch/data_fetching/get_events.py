@@ -79,18 +79,24 @@ def _recursive_helper_get_all_events_within_range(
         clean_found_events.extend(cleaned_events)
 
     except (TimeoutError, ValueError, ReadTimeout, HTTPError, ChunkedEncodingError, ConnectionError) as e:
-        if (e.args[0].get("code") == 32000) and (e.args[0].get("message") == "filter not found"):
-            # for some fast chains (at least sonic), but maybe others, asking alchemy for block to near the head
+
+        e_args = e.args[0]
+        if e.args[0].get("code") == -32000:
+            # for some fast chains (at sonic and base), but maybe others, asking alchemy for block to near the head
             # raises a error
             # so try again with a smaller top block
             new_end_block = end_block - 500
+            print(f"{start_block=}, {end_block=}, {event=}, {e=}, {event.address=} {event.web3.eth.chain_id=}")
+
             _recursive_helper_get_all_events_within_range(
                 event, start_block, new_end_block, clean_found_events, argument_filters
             )
             return
 
         elif isinstance(e, ValueError) and e.args[0].get("code") != -32602:
-            print(f"{start_block=}, {end_block=}, {event=}, {e=}, {type(e)=}")
+            print(
+                f"{start_block=}, {end_block=}, {event=}, {e=}, {type(e)=} {event.address=} {event.web3.eth.chain_id=}"
+            )
             raise e
 
         elif e.args[0].get("code") == -32602:
@@ -132,7 +138,8 @@ def fetch_events(
     # 32222436 <class 'web3._utils.datatypes.DestinationVaultAdded'>
     # {'code': -32000, 'message': 'One of the blocks specified in filter (fromBlock, toBlock or blockHash) cannot be found.'} <class 'ValueError'>
     # this gives all the events up to -100 blocks for the current
-    end_block = (chain.client.eth.block_number - 100) if end_block is None else end_block
+
+    end_block = (chain.client.eth.block_number - 500) if end_block is None else end_block
 
     if end_block > start_block:
         clean_found_events = []
