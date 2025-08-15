@@ -3,6 +3,8 @@ Takes 5 minutes ot run, with curernt setup
 
 """
 
+import random
+
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 
@@ -34,6 +36,7 @@ from mainnet_launch.data_fetching.odos.fetch_quotes import fetch_many_odos_raw_q
 
 ENGINE.echo = False
 
+ERROR_LOG_FILE = "/Users/pb/Desktop/quote_log.txt"
 
 CHAIN_BASE_ASSET_GROUPS = {
     (ETH_CHAIN, WETH): (AUTO_ETH, AUTO_LRT, BAL_ETH, DINERO_ETH),
@@ -46,20 +49,16 @@ CHAIN_BASE_ASSET_GROUPS = {
 
 
 ATTEMPTS = 3
-# large nubmers me we don't exclude it
-PERCENT_OWNERSHIP_THRESHOLD = 99  # what percent of a pool can we do we own before we exclude it from odos quotes
+# large numbers me we don't exclude anything
+PERCENT_OWNERSHIP_THRESHOLD = 10  # what percent of a pool can we do we own before we exclude it from odos quotes
 
 STABLE_COINS_REFERENCE_QUANTITY = 10_000
 ETH_REFERENCE_QUANTITY = 5
 
-USD_SCALED_SIZES = [i * 100_000 for i in range(1, 11)]  #
+USD_SCALED_SIZES = [i * 200_000 for i in range(1, 11)]  #
 USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
-ETH_SCALED_SIZES = [i * 25 for i in range(1, 16)]
+ETH_SCALED_SIZES = [i * 50 for i in range(1, 17)]
 ETH_SCALED_SIZES.append(ETH_REFERENCE_QUANTITY)
-
-# smaller for testing
-# USD_SCALED_SIZES = [STABLE_COINS_REFERENCE_QUANTITY]
-# ETH_SCALED_SIZES = [ETH_REFERENCE_QUANTITY]
 
 
 def _fetch_current_asset_exposure(
@@ -162,30 +161,35 @@ def _post_process_raw_tokemak_quote_response_df(
 
     quotes: list[SwapQuote] = []
     for _, row in raw_tokemak_quote_response_df.iterrows():
+        try:
 
-        sell_addr = Web3.toChecksumAddress(row["sellToken"])
-        buy_addr = Web3.toChecksumAddress(row["buyToken"])
-        chain_id = int(row["chainId"])
+            sell_addr = Web3.toChecksumAddress(row["sellToken"])
+            buy_addr = Web3.toChecksumAddress(row["buyToken"])
+            chain_id = int(row["chainId"])
 
-        # scale raw integer amounts by the token decimals
-        scaled_in = int(row["sellAmount"]) / 10 ** token_to_decimal[sell_addr]
-        scaled_out = int(row["buyAmount"]) / 10 ** token_to_decimal[buy_addr]
+            # scale raw integer amounts by the token decimals
+            scaled_in = int(row["sellAmount"]) / 10 ** token_to_decimal[sell_addr]
+            scaled_out = int(row["buyAmount"]) / 10 ** token_to_decimal[buy_addr]
 
-        quote = SwapQuote(
-            chain_id=chain_id,
-            api_name="tokemak",
-            sell_token_address=sell_addr,
-            buy_token_address=buy_addr,
-            scaled_amount_in=scaled_in,
-            scaled_amount_out=scaled_out,
-            pools_blacklist=None,
-            aggregator_name=row["aggregatorName"],
-            datetime_received=row["datetime_received"],
-            quote_batch=batch_id,
-            base_asset=base_asset,
-            percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
-        )
-        quotes.append(quote)
+            quote = SwapQuote(
+                chain_id=chain_id,
+                api_name="tokemak",
+                sell_token_address=sell_addr,
+                buy_token_address=buy_addr,
+                scaled_amount_in=scaled_in,
+                scaled_amount_out=scaled_out,
+                pools_blacklist=None,
+                aggregator_name=row["aggregatorName"],
+                datetime_received=row["datetime_received"],
+                quote_batch=batch_id,
+                base_asset=base_asset,
+                percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
+            )
+            quotes.append(quote)
+
+        except Exception as e:
+            with open(ERROR_LOG_FILE, "a") as f:
+                f.write(f"Error processing tokemak quote: {e}\n {type(e)}")
 
     return quotes
 
@@ -229,7 +233,7 @@ def _post_process_raw_odos_quote_response_df(
             )
             quotes.append(quote)
         except Exception as e:
-            with open("error_log.txt", "a") as f:
+            with open(ERROR_LOG_FILE, "a") as f:
                 f.write(f"Error processing Odos quote: {e}\n {type(e)}")
 
     return quotes
@@ -386,8 +390,9 @@ def fetch_and_save_all_at_once():
 
 
 if __name__ == "__main__":
-    for i in range(24):
+    for i in range(48):
         try:
+            PERCENT_OWNERSHIP_THRESHOLD = random.choice([10, 50, 99])
             fetch_and_save_all_at_once()
             print("success")
             time.sleep(60 * 30)  # every 30 minutes
@@ -395,7 +400,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Error in iteration {i + 1}: {e}")
             # write the error to a local log file
-            with open("error_log.txt", "a") as f:
+            with open(ERROR_LOG_FILE, "a") as f:
                 f.write(f"Error in iteration {i + 1}: {e}\n")
             # wait 5 minutes before retrying
             print("Retrying in 5 minutes...")

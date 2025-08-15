@@ -8,3 +8,6 @@ Error in iteration 14: Unsupported type: '<class 'float'>'.  Must be one of: boo
 Error in iteration 17: Unsupported type: '<class 'float'>'.  Must be one of: bool, str, bytes, bytearrayor int.
 Error in iteration 18: Unsupported type: '<class 'float'>'.  Must be one of: bool, str, bytes, bytearrayor int.
 Error in iteration 24: Unsupported type: '<class 'float'>'.  Must be one of: bool, str, bytes, bytearrayor int.
+Error in iteration 4: Unsupported type: '<class 'float'>'.  Must be one of: bool, str, bytes, bytearrayor int.
+Error in iteration 5: Unsupported type: '<class 'float'>'.  Must be one of: bool, str, bytes, bytearrayor int.
+Error in iteration 7: Unsupported type: '<class 'float'>'.  Must be one of: bool, str, bytes, bytearrayor int.
