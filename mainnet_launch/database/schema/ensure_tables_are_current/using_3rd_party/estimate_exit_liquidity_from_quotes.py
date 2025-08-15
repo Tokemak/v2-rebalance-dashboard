@@ -386,7 +386,7 @@ def fetch_and_save_all_at_once():
 
 
 if __name__ == "__main__":
-    for i in range(24):
+    for i in range(48):
         try:
             fetch_and_save_all_at_once()
             print("success")
