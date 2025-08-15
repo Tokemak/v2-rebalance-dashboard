@@ -60,8 +60,6 @@ USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
 ETH_SCALED_SIZES = [i * 50 for i in range(1, 17)]
 ETH_SCALED_SIZES.append(ETH_REFERENCE_QUANTITY)
 
-print(ETH_SCALED_SIZES)
-
 
 def _fetch_current_asset_exposure(
     chain: ChainData, valid_autopools: list[AutopoolConstants], block: int
@@ -394,7 +392,7 @@ def fetch_and_save_all_at_once():
 if __name__ == "__main__":
     for i in range(48):
         try:
-            PERCENT_OWNERSHIP_THRESHOLD = random.choice(10, 50, 99)
+            PERCENT_OWNERSHIP_THRESHOLD = random.choice([10, 50, 99])
             fetch_and_save_all_at_once()
             print("success")
             time.sleep(60 * 30)  # every 30 minutes
