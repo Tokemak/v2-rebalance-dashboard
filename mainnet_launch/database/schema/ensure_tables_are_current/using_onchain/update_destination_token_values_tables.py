@@ -1,6 +1,8 @@
 import pandas as pd
 from multicall import Call
 
+from sqlalchemy import text, bindparam
+from sqlalchemy.dialects.postgresql import ARRAY, BIGINT, TEXT
 
 from mainnet_launch.database.schema.full import (
     DestinationTokenValues,
@@ -8,44 +10,30 @@ from mainnet_launch.database.schema.full import (
     Destinations,
     Tokens,
     DestinationStates,
-    Autopools,
     AutopoolDestinations,
 )
 
 
 from mainnet_launch.database.schema.postgres_operations import (
     insert_avoid_conflicts,
-    get_subset_not_already_in_column,
-    natural_left_right_using_where,
-    get_full_table_as_orm,
     TableSelector,
     merge_tables_as_df,
     get_full_table_as_df,
+    Session,
 )
 
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
     safe_normalize_with_bool_success,
-    build_blocks_to_use,
     identity_with_bool_success,
     safe_normalize_6_with_bool_success,
-    get_state_by_one_block,
 )
 
-from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
-
 from mainnet_launch.constants import (
-    ALL_CHAINS,
-    ALL_BASE_ASSETS,
     ROOT_PRICE_ORACLE,
     ALL_AUTOPOOLS,
     ChainData,
-    AUTO_USD,
-    ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN,
-    ALL_AUTOPOOLS_DATA_ON_CHAIN,
     AutopoolConstants,
-    WETH,
-    USDC,
     time_decorator,
     TokemakAddress,
 )
@@ -57,6 +45,22 @@ SOLVER_ROOT_ORACLE = TokemakAddress(
     sonic="0x4137b35266A4f42ad8B4ae21F14D0289861cc970",
     name="SolverRootOracle",
 )
+
+# CONSIDER optimizing this process
+# it takes 28 seconds when empty
+
+
+# TODO consider moving these to another file
+def _build_get_spot_price_in_eth_calls(chain: ChainData, destination_address_info_df: pd.DataFrame) -> list[Call]:
+    pool_token_addresses = destination_address_info_df[["pool", "token_address"]].drop_duplicates()
+    return [
+        Call(
+            ROOT_PRICE_ORACLE(chain),
+            ["getSpotPriceInEth(address,address)(uint256)", token_address, pool_address],
+            [((pool_address, token_address, "spot_price"), safe_normalize_with_bool_success)],
+        )
+        for (pool_address, token_address) in zip(pool_token_addresses["pool"], pool_token_addresses["token_address"])
+    ]
 
 
 def _build_get_spot_price_in_quote_calls(chain: ChainData, destination_address_info_df: pd.DataFrame) -> list[Call]:
@@ -90,37 +94,6 @@ def _build_get_spot_price_in_quote_calls(chain: ChainData, destination_address_i
     return calls
 
 
-def _determine_what_blocks_are_still_needed(chain: ChainData, destination_info_df: pd.DataFrame) -> list[int]:
-    """
-    Determine which blocks are still needed for the destination token values.
-    This is done by checking the existing blocks in the DestinationTokenValues table.
-    """
-    # todo move this up, is 150k rows, only need to fetch it once at the start
-    # keep as is for now
-    full_destination_token_values_df = get_full_table_as_df(
-        DestinationTokenValues,
-        where_clause=(DestinationTokenValues.chain_id == chain.chain_id),
-    )
-
-    existing_blocks_by_destination = (
-        full_destination_token_values_df.groupby("destination_vault_address")["block"].apply(set).to_dict()
-    )
-
-    needed_blocks = set()
-
-    for destination_vault_address, blocks_we_already_have in existing_blocks_by_destination.items():
-        all_blocks_that_we_neeed = destination_info_df[
-            destination_info_df["destination_vault_address"] == destination_vault_address
-        ]["block"].unique()
-
-        for block in all_blocks_that_we_neeed:
-            if block not in blocks_we_already_have:
-                needed_blocks.add(int(block))
-
-    return list(needed_blocks)
-
-
-@time_decorator
 def _fetch_destination_token_value_data_from_external_source(
     chain: ChainData, destination_info_df: pd.DataFrame, needed_blocks: list[int]
 ) -> pd.DataFrame:
@@ -179,38 +152,79 @@ def _fetch_destination_token_value_data_from_external_source(
     return df
 
 
-def _build_get_spot_price_in_eth_calls(chain: ChainData, destination_address_info_df: pd.DataFrame) -> list[Call]:
-    pool_token_addresses = destination_address_info_df[["pool", "token_address"]].drop_duplicates()
-    return [
-        Call(
-            ROOT_PRICE_ORACLE(chain),
-            ["getSpotPriceInEth(address,address)(uint256)", token_address, pool_address],
-            [((pool_address, token_address, "spot_price"), safe_normalize_with_bool_success)],
+# def _build_underlying_reserves_calls(destination_address_info_df: pd.DataFrame) -> list[Call]:
+#     unique_destinations = destination_address_info_df["destination_vault_address"].unique()
+#     return [
+#         Call(
+#             destination_vault_address,
+#             "underlyingReserves()(address[],uint256[])",
+#             [
+#                 ((destination_vault_address, "underlyingReserves_tokens"), identity_with_bool_success),
+#                 ((destination_vault_address, "underlyingReserves_amounts"), identity_with_bool_success),
+#             ],
+#         )
+#         for destination_vault_address in unique_destinations
+#     ]
+
+
+def get_needed_blocks_for_destination_token_values(
+    destination_vault_addresses: list[str], desired_blocks: list[int], chain: ChainData
+) -> list[int]:
+    sql = text(
+        """
+    WITH desired_blocks AS (
+    SELECT UNNEST(CAST(:desired_blocks AS bigint[])) AS block
+    ),
+    destinations AS (
+    SELECT UNNEST(CAST(:destination_vault_addresses AS text[])) AS destination_vault_address
+    ),
+    present AS (
+    SELECT
+        db.block,
+        dtv.destination_vault_address
+    FROM desired_blocks db
+    JOIN destination_token_values dtv
+        ON dtv.block = db.block
+    AND dtv.chain_id = :chain_id
+    AND dtv.destination_vault_address IN (SELECT destination_vault_address FROM destinations)
+    )
+    SELECT db.block
+    FROM desired_blocks db
+    CROSS JOIN (SELECT COUNT(*) AS total_dests FROM destinations) t
+    LEFT JOIN (
+    SELECT block, COUNT(DISTINCT destination_vault_address) AS have
+    FROM present
+    GROUP BY block
+    ) h ON h.block = db.block
+    WHERE COALESCE(h.have, 0) < t.total_dests
+    ORDER BY db.block;
+    """
+    )
+
+    # Keep casts in SQL, but also type the binds (handles empty lists safely).
+    sql = sql.bindparams(
+        bindparam("desired_blocks", type_=ARRAY(BIGINT)),
+        bindparam("destination_vault_addresses", type_=ARRAY(TEXT)),
+        bindparam("chain_id"),
+    )
+
+    with Session.begin() as session:
+        missing_blocks = (
+            session.execute(
+                sql,
+                {
+                    "desired_blocks": desired_blocks,  # list[int]
+                    "destination_vault_addresses": destination_vault_addresses,  # list[str]
+                    "chain_id": chain.chain_id,  # int
+                },
+            )
+            .scalars()
+            .all()
         )
-        for (pool_address, token_address) in zip(pool_token_addresses["pool"], pool_token_addresses["token_address"])
-    ]
+        return missing_blocks
 
 
-def _build_underlying_reserves_calls(destination_address_info_df: pd.DataFrame) -> list[Call]:
-    unique_destinations = destination_address_info_df["destination_vault_address"].unique()
-    return [
-        Call(
-            destination_vault_address,
-            "underlyingReserves()(address[],uint256[])",
-            [
-                ((destination_vault_address, "underlyingReserves_tokens"), identity_with_bool_success),
-                ((destination_vault_address, "underlyingReserves_amounts"), identity_with_bool_success),
-            ],
-        )
-        for destination_vault_address in unique_destinations
-    ]
-
-
-def _fetch_and_insert_destination_token_values(
-    autopools: list[AutopoolConstants],
-    chain: ChainData,
-):
-    # 35k rows
+def _fetch_and_insert_destination_token_values(autopool: AutopoolConstants):
     destination_info_df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -235,28 +249,70 @@ def _fetch_and_insert_destination_token_values(
                 [Tokens.decimals],
                 join_on=DestinationTokens.token_address == Tokens.token_address,
             ),
-            TableSelector(
-                DestinationStates,
-                DestinationStates.block,
-                join_on=(DestinationStates.destination_vault_address == AutopoolDestinations.destination_vault_address),
-            ),
         ],
-        where_clause=(DestinationStates.chain_id == chain.chain_id)
+        where_clause=(Destinations.chain_id == autopool.chain.chain_id)
         & (Destinations.pool_type != "idle")
-        & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in autopools])),
+        & (AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr),
     )
 
-    needed_blocks = _determine_what_blocks_are_still_needed(chain, destination_info_df)
-    if not needed_blocks:
-        return
-    # needs destination pool, destination lp otken address and destination_vault address
-    token_spot_prices_and_reserves_df = _fetch_destination_token_value_data_from_external_source(
-        chain, destination_info_df, needed_blocks
+    destination_vault_addresses = destination_info_df["destination_vault_address"].unique().tolist()
+
+    # we should have a destination token value for each destination state
+    # this is not ideal, should be pure sql select distinct where
+    desired_blocks = (
+        get_full_table_as_df(
+            DestinationStates,
+            where_clause=DestinationStates.destination_vault_address.in_(destination_vault_addresses),
+        )["block"]
+        .unique()
+        .tolist()
     )
+    missing_blocks = get_needed_blocks_for_destination_token_values(
+        destination_vault_addresses, desired_blocks, autopool.chain
+    )
+    if missing_blocks:
+
+        token_spot_prices_and_reserves_df = _fetch_destination_token_value_data_from_external_source(
+            autopool.chain, destination_info_df, missing_blocks
+        )
+
+        new_destination_token_values_rows = _convert_raw_token_spot_prices_and_reserves_df_to_new_rows(
+            autopool, destination_info_df, token_spot_prices_and_reserves_df
+        )
+
+        insert_avoid_conflicts(
+            new_destination_token_values_rows,
+            DestinationTokenValues,
+            index_elements=[
+                DestinationTokenValues.block,
+                DestinationTokenValues.chain_id,
+                DestinationTokenValues.token_address,
+                DestinationTokenValues.destination_vault_address,
+            ],
+        )
+
+    idle_destination_token_values = _fetch_idle_destination_token_values(autopool)
+    # only add rows if there are some to add
+    if idle_destination_token_values:
+        insert_avoid_conflicts(
+            idle_destination_token_values,
+            DestinationTokenValues,
+            index_elements=[
+                DestinationTokenValues.block,
+                DestinationTokenValues.chain_id,
+                DestinationTokenValues.token_address,
+                DestinationTokenValues.destination_vault_address,
+            ],
+        )
+
+
+def _convert_raw_token_spot_prices_and_reserves_df_to_new_rows(
+    autopool: AutopoolConstants, destination_info_df: pd.DataFrame, token_spot_prices_and_reserves_df: pd.DataFrame
+) -> list[DestinationTokenValues]:
 
     new_destination_token_values_rows = []
 
-    # this is really show, unsure why 90 seconds
+    # this is really show, unsure why 90 seconds # double checked and this is not actaually slow
     def _extract_destination_token_values(row: dict) -> None:
         token_spot_price_column = (row["pool"], row["token_address"], "spot_price")
         quantity_column = (row["destination_vault_address"], "underlyingReserves_amounts")
@@ -280,14 +336,14 @@ def _fetch_and_insert_destination_token_values(
 
         sub_df = token_spot_prices_and_reserves_df[["block", token_spot_price_column]].copy()
         sub_df.columns = ["block", "spot_price"]
-        sub_df["denominated_in"] = autopools[0].base_asset
+        sub_df["denominated_in"] = autopool.base_asset
 
         sub_df["quantity"] = amounts_excluding_pool_token
 
         sub_df["quantity"] = sub_df["quantity"].apply(
             lambda amounts: amounts[row["index"]] / (10 ** row["decimals"]) if amounts else None
         )
-        sub_df["chain_id"] = chain.chain_id
+        sub_df["chain_id"] = autopool.chain.chain_id
         sub_df["token_address"] = row["token_address"]
         sub_df["destination_vault_address"] = row["destination_vault_address"]
 
@@ -296,99 +352,62 @@ def _fetch_and_insert_destination_token_values(
         )
 
     destination_info_df.apply(lambda row: _extract_destination_token_values(row), axis=1)
-
-    idle_destination_token_values = _fetch_idle_destination_token_values(autopools, destination_info_df)
-
-    insert_avoid_conflicts(
-        [*new_destination_token_values_rows, *idle_destination_token_values],
-        DestinationTokenValues,
-        index_elements=[
-            DestinationTokenValues.block,
-            DestinationTokenValues.chain_id,
-            DestinationTokenValues.token_address,
-            DestinationTokenValues.destination_vault_address,
-        ],
-    )
-
-
-def ensure_destination_token_values_are_current():
-
-    for autopool in ALL_AUTOPOOLS:
-        _fetch_and_insert_destination_token_values([autopool], autopool.chain)
-
-    # for chain in ALL_CHAINS:
-    #     for base_asset in ALL_BASE_ASSETS:
-    #         autopools = [
-    #             a for a in ALL_AUTOPOOLS_DATA_ON_CHAIN if a.chain == chain and a.base_asset == base_asset(chain)
-    #         ]
-    #         if autopools:
-    #             _fetch_and_insert_destination_token_values(autopools, chain)
-
-    # for chain in ALL_CHAINS:
-    #     autopools = [a for a in ALL_AUTOPOOLS_DATA_ON_CHAIN if a.chain == chain]
-    #     if autopools:
-    #         _fetch_and_insert_destination_token_values(autopools, chain)
-
-    #     autopools = [a for a in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN if a.chain == chain]
-    #     if autopools:
-    #         _fetch_and_insert_destination_token_values(autopools, chain)
+    return new_destination_token_values_rows
 
 
 def _get_missing_idle_destination_token_values_needed_blocks(
-    autopool: AutopoolConstants, destination_info_df: pd.DataFrame
+    autopool: AutopoolConstants,
 ) -> list[int]:
-    idle_destination_token_values_df = get_full_table_as_df(
-        DestinationTokenValues,
+    #  this can be done in one sql query, TODO fix later when optimizing for db reads
+    destination_token_blocks_df = merge_tables_as_df(
+        [
+            TableSelector(
+                DestinationTokenValues,
+                select_fields=[DestinationTokenValues.block],
+            )
+        ],
         where_clause=(DestinationTokenValues.destination_vault_address == autopool.autopool_eth_addr),
     )
 
-    existing_blocks_by_destination = (
-        idle_destination_token_values_df.groupby("destination_vault_address")["block"].apply(set).to_dict()
+    destination_state_blocks_df = merge_tables_as_df(
+        [
+            TableSelector(
+                DestinationStates,
+                select_fields=[DestinationStates.block],
+            )
+        ],
+        where_clause=(DestinationStates.destination_vault_address == autopool.autopool_eth_addr),
     )
 
-    needed_blocks = set()
+    # Use sets for faster diff; coerce to int in case dtype is object
+    desired_blocks = set(destination_state_blocks_df["block"].astype(int).tolist())
+    existing_blocks = set(destination_token_blocks_df["block"].astype(int).tolist())
 
-    for destination_vault_address, blocks_we_already_have in existing_blocks_by_destination.items():
-        all_blocks_that_we_neeed = destination_info_df[
-            destination_info_df["destination_vault_address"] == destination_vault_address
-        ]["block"].unique()
+    needed_blocks = desired_blocks - existing_blocks
 
-        for block in all_blocks_that_we_neeed:
-            if block not in blocks_we_already_have:
-                needed_blocks.add(int(block))
-
-    return list(needed_blocks)
+    return [int(b) for b in needed_blocks]
 
 
 def _fetch_idle_destination_token_values(
-    autopools: list[AutopoolConstants], destination_info_df: pd.DataFrame
+    autopool: AutopoolConstants,
 ) -> list[DestinationTokenValues]:
-    if len(autopools) != 1:
-        raise ValueError("Autopools should only contain a single autopool")
+    missing_blocks = _get_missing_idle_destination_token_values_needed_blocks(autopool)
 
-    idle_calls = []
-    for autopool in autopools:
-        if autopool.base_asset in WETH:
-            decimals = 18
-        elif autopool.base_asset in USDC:
-            decimals = 6
-
-        def _asset_breakdown_to_idle(success, args):
-            if success:
-                totalIdle, totalDebt, totalDebtMin, totalDebtMax = args
-                return int(totalIdle) / (10**decimals)
-
-        idle_calls.append(
-            Call(
-                autopool.autopool_eth_addr,
-                ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
-                [(autopool.autopool_eth_addr, _asset_breakdown_to_idle)],
-            )
-        )
-
-    missing_blocks = _get_missing_idle_destination_token_values_needed_blocks(autopools[0], destination_info_df)
     if not missing_blocks:
         return []
+
+    def _asset_breakdown_to_idle(success, args):
+        if success:
+            totalIdle, totalDebt, totalDebtMin, totalDebtMax = args
+            return int(totalIdle) / (10**autopool.base_asset_decimals)
+
+    idle_calls = [
+        Call(
+            autopool.autopool_eth_addr,
+            ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
+            [(autopool.autopool_eth_addr, _asset_breakdown_to_idle)],
+        )
+    ]
     idle_df = get_raw_state_by_blocks(idle_calls, missing_blocks, autopool.chain, include_block_number=True)
 
     idle_destination_token_values = []
@@ -410,6 +429,15 @@ def _fetch_idle_destination_token_values(
 
     idle_df.apply(_extract_idle_destination_token_values, axis=1)
     return idle_destination_token_values
+
+
+@time_decorator
+def ensure_destination_token_values_are_current():
+    # in theory this can be done faster, in autopool groups but
+    # I ran into issues with too many calls per http request
+    # slower but more readable
+    for autopool in ALL_AUTOPOOLS:
+        _fetch_and_insert_destination_token_values(autopool)
 
 
 if __name__ == "__main__":
