@@ -34,32 +34,50 @@ def _load_full_swap_quote_df():
     return df
 
 
-# streamlit pick a day
-
-
 def pick_day():
     today = datetime.date.today()
     one_week_ago = today - datetime.timedelta(days=7)
-
     selected_date = st.date_input("Date", today, min_value=one_week_ago, max_value=today)
     return selected_date
 
 
-def _render_intra_day_quote_spread(df: pd.DataFrame) -> None:
+def pick_a_percent_exclude_threshold() -> int:
+    options = [10, 50, 99]
+
+    selected = st.selectbox(
+        "Pick a percent exclude threshold",
+        options,
+    )
+
+    return selected
+
+
+def pick_a_exclude_value() -> int:
+    options = [0, 1, 2, 3, 4, 5]
+
+    selected = st.selectbox(
+        "Exclude the top and bottom N quotes",
+        options,
+    )
+
+    return selected
+
+
+def _render_intra_day_quote_spread(df: pd.DataFrame, n_exclude: int) -> None:
     sell_token_choices = sorted(df["sell_token_symbol"].dropna().unique().tolist())
     buy_token_choices = sorted(df["buy_token_symbol"].dropna().unique().tolist())
     api_name_choices = sorted(df["api_name"].dropna().unique().tolist())
     chain_id_choices = sorted(df["chain_id"].dropna().unique().tolist())
 
-    smallest_num = 3
-
     def third_min(x: pd.Series):
-        s = pd.Series(x).dropna().nsmallest(smallest_num)
-        return s.iloc[smallest_num - 1] if len(s) >= smallest_num else None
+        if n_exclude == 0:
+            return pd.Series(x).dropna().min()
+        s = pd.Series(x).dropna().nsmallest(n_exclude)
+        return s.iloc[n_exclude - 1] if len(s) >= n_exclude else None
 
     def third_max(x: pd.Series):
-        s = pd.Series(x).dropna().nlargest(3)
-        return s.iloc[smallest_num - 1] if len(s) >= smallest_num else None
+        if n_exclude == 0:
+            return pd.Series(x).dropna().max()
 
     for base_asset_symbol in buy_token_choices:
         for chain_id in chain_id_choices:
@@ -123,19 +141,10 @@ def _render_intra_day_quote_spread(df: pd.DataFrame) -> None:
                 fig.update_layout(legend_title_text="Symbol")
                 st.plotly_chart(fig, use_container_width=True)
 
-
-def fetch_and_render_intra_day_volitlity():
-    """"""
-    df = _load_full_swap_quote_df()
-    selected_date = pick_day()
-    df = df[df["datetime_received"].dt.date == selected_date].reset_index(drop=True)
-    _render_intra_day_quote_spread(df)
-    _render_intra_day_effective_price(df)
-
     # how unreliable are the quotes, within the same day?
 
 
-def _render_intra_day_effective_price(df: pd.DataFrame) -> None:
+def _render_intra_day_effective_price(df: pd.DataFrame, n_exclude: int) -> None:
     """
     For each (api_name, chain_id, buy_token_symbol), plot effective price per sell_token_symbol
     using error bars that span from the 3rd-smallest to the 3rd-largest effective_price
@@ -146,15 +155,18 @@ def _render_intra_day_effective_price(df: pd.DataFrame) -> None:
     api_name_choices = sorted(df["api_name"].dropna().unique().tolist())
     chain_id_choices = sorted(df["chain_id"].dropna().unique().tolist())
 
-    smallest_num = 3
-
     def third_min(x: pd.Series):
-        s = pd.Series(x).dropna().nsmallest(smallest_num)
-        return s.iloc[smallest_num - 1] if len(s) >= smallest_num else None
+        if n_exclude == 0:
+            return pd.Series(x).dropna().min()
+        s = pd.Series(x).dropna().nsmallest(n_exclude)
+        return s.iloc[n_exclude - 1] if len(s) >= n_exclude else None
 
     def third_max(x: pd.Series):
-        s = pd.Series(x).dropna().nlargest(smallest_num)
-        return s.iloc[smallest_num - 1] if len(s) >= smallest_num else None
+        if n_exclude == 0:
+            return pd.Series(x).dropna().max()
+
+        s = pd.Series(x).dropna().nlargest(n_exclude)
+        return s.iloc[n_exclude - 1] if len(s) >= n_exclude else None
 
     for base_asset_symbol in buy_token_choices:
         for chain_id in chain_id_choices:
@@ -219,6 +231,8 @@ def _render_intra_day_effective_price(df: pd.DataFrame) -> None:
                 if not plot_df.empty:
                     smallest_amount_in = plot_df["scaled_amount_in"].min()
                     plot_df = plot_df[plot_df["scaled_amount_in"] > smallest_amount_in].reset_index(drop=True)
+                    plot_df["err_plus"] = plot_df["max_price"] - plot_df["median_price"]
+                    plot_df["err_minus"] = plot_df["median_price"] - plot_df["min_price"]
 
                 if plot_df.empty:
                     continue
@@ -228,25 +242,40 @@ def _render_intra_day_effective_price(df: pd.DataFrame) -> None:
                     x="scaled_amount_in",
                     y="median_price",
                     color="sell_token_symbol",
-                    error_y="price_spread",  # error bars cover 3rd-min ↔ 3rd-max
                     markers=True,
                     title=(
-                        f"Effective Price with Error Bars (3rd-min ↔ 3rd-max) — "
+                        f"Effective Price (asymmetric error bars: 3rd-min ↔ 3rd-max) — "
                         f"{api_name} on chain {chain_id} for {base_asset_symbol}"
                     ),
-                    labels={
-                        "scaled_amount_in": "Amount In (scaled)",
-                    },
+                    labels={"scaled_amount_in": "Amount In (scaled)"},
                     hover_data={
                         "min_price": ":.6g",
                         "max_price": ":.6g",
+                        "median_price": ":.6g",
                         "price_spread": ":.6g",
                         "batch_count": True,
                         "scaled_amount_in": ":.4g",
                     },
+                    error_y="err_plus",
+                    error_y_minus="err_minus",  # <-- asymmetric!
                 )
                 fig.update_layout(legend_title_text="Symbol")
                 st.plotly_chart(fig, use_container_width=True)
+
+
+def fetch_and_render_intra_day_volitlity():
+    """"""
+    df = _load_full_swap_quote_df()
+    selected_date = pick_day()
+    percent_exclude_threshold = pick_a_percent_exclude_threshold()
+    n_exclude = pick_a_exclude_value()
+
+    df = df[
+        (df["datetime_received"].dt.date == selected_date)
+        & (df["percent_exclude_threshold"] == percent_exclude_threshold)
+    ].reset_index(drop=True)
+    _render_intra_day_quote_spread(df, n_exclude)
+    _render_intra_day_effective_price(df, n_exclude)
 
 
 if __name__ == "__main__":
