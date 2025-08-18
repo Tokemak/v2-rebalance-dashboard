@@ -6,6 +6,7 @@ import numpy as np
 import plotly.express as px
 from multicall import Call
 import streamlit as st
+from web3 import Web3
 
 
 from mainnet_launch.data_fetching.tokemak_subgraph import run_query_with_paginate
@@ -40,12 +41,20 @@ def get_rebalance_volumne_raw_data(chain: ChainData):
     }
     """
 
-    variables = {}
-    df = run_query_with_paginate(chain.tokemak_subgraph_url, query, variables, "autopoolRebalances")
+    df = run_query_with_paginate(chain.tokemak_subgraph_url, query, {}, "autopoolRebalances")
+    found_autopools = set(df["autopool"].apply(lambda x: Web3.toChecksumAddress(x)))
+    valid_autopools = set(autopool_address_to_name.keys())
+    if not found_autopools.issubset(valid_autopools):
+        not_counted_autopools = found_autopools - valid_autopools
+        st.write("Autopools not included in the data: ")
+        for autopool in not_counted_autopools:
+            st.write(f"Autopool: {autopool}, Chain ID: {chain.chain_id}")
+
+        # reset to exclude autopools not in the valid set
+        df = df[df["autopool"].apply(lambda x: Web3.toChecksumAddress(x) in valid_autopools)].reset_index(drop=True)
+
     df["chain_id"] = chain.chain_id
-    df["autopool_name"] = df["autopool"].apply(
-        lambda x: autopool_address_to_name[ETH_CHAIN.client.toChecksumAddress(x)]
-    )
+    df["autopool_name"] = df["autopool"].apply(lambda x: autopool_address_to_name[Web3.toChecksumAddress(x)])
     df["datetime"] = pd.to_datetime(df["timestamp"].astype(int), unit="s", utc=True)
     df["date"] = df["datetime"].dt.date
 
@@ -88,6 +97,7 @@ def get_mainnet_rebalance_volumne_df():
 def get_base_rebalance_volume_df():
     df = get_rebalance_volumne_raw_data(BASE_CHAIN)
 
+    # TODO need to includ ERC here as well
     calls = [
         Call(
             ROOT_PRICE_ORACLE(BASE_CHAIN),

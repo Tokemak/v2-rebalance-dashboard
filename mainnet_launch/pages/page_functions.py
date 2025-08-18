@@ -36,6 +36,14 @@ from mainnet_launch.pages.risk_metrics.exit_liqudity_quotes import (
     fetch_and_render_exit_liquidity_from_quotes,
 )
 
+from mainnet_launch.app.marketing_app.marketing_pages.autopool_cumulative_volume import (
+    fetch_and_render_cumulative_volume,
+)
+
+from mainnet_launch.app.marketing_app.marketing_pages.apr_and_tvl_by_destination_script import (
+    fetch_and_render_autopool_apy_and_allocation_over_time,
+)
+
 
 AUTOPOOL_CONTENT_FUNCTIONS = {
     "Key Metrics": fetch_and_render_key_metrics_data,
@@ -57,4 +65,9 @@ RISK_METRICS_FUNCTIONS = {
     "Tokemak Percent Ownership": fetch_and_render_our_percent_ownership_of_each_destination,
     # "Exit Liquidity Pools": fetch_and_render_exit_liqudity_pools,
     "Exit Liquidity Quotes": fetch_and_render_exit_liquidity_from_quotes,
+}
+
+MARKETING_CONTENT_FUNCTIONS = {
+    "Cumulative Volume": fetch_and_render_cumulative_volume,
+    "APY and Allocation Over Time": fetch_and_render_autopool_apy_and_allocation_over_time,
 }

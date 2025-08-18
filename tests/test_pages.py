@@ -17,13 +17,14 @@ from mainnet_launch.pages.page_functions import (
     AUTOPOOL_CONTENT_FUNCTIONS,
     PROTOCOL_CONTENT_FUNCTIONS,
     RISK_METRICS_FUNCTIONS,
+    MARKETING_CONTENT_FUNCTIONS,
 )
 
 
 # the chain specific functions are not easy to test
-CONTENT_FUNCTIONS = {**AUTOPOOL_CONTENT_FUNCTIONS, **PROTOCOL_CONTENT_FUNCTIONS}
+# CONTENT_FUNCTIONS = {**AUTOPOOL_CONTENT_FUNCTIONS, **PROTOCOL_CONTENT_FUNCTIONS, **MARKETING_CONTENT_FUNCTIONS}
 
-print("CHAIN_SPECIFIC_FUNCTIONS are not tested")
+print("RISK_METRICS_FUNCTIONS are not tested")
 
 for name, logger in logging.root.manager.loggerDict.items():
     if "streamlit" in name:
@@ -66,9 +67,9 @@ def open_log_in_vscode(log_file: str):
         testing_logger.error(f"could not open log file in vs code: {e}")
 
 
-def build_protocol_tasks():
+def build_no_args_page_tasks():
     """Tasks for pages that take no autopool argument."""
-    return [(name, func) for name, func in PROTOCOL_CONTENT_FUNCTIONS.items()]
+    return [(name, func) for name, func in {**PROTOCOL_CONTENT_FUNCTIONS, **MARKETING_CONTENT_FUNCTIONS}.items()]
 
 
 def build_autopool_tasks():
@@ -123,10 +124,10 @@ def run_no_log(page_name, func, autopool=None):
         raise
 
 
-def verify_protocol_pages():
+def verify_no_args_pages():
     """Verify all protocol-wide pages (no autopool)."""
     with ThreadPoolExecutor() as ex:
-        futures = {ex.submit(run_no_log, name, func): name for name, func in build_protocol_tasks()}
+        futures = {ex.submit(run_no_log, name, func): name for name, func in build_no_args_page_tasks()}
         for future in tqdm(as_completed(futures), total=len(futures), desc="verifying protocol pages"):
             page = futures[future]
             try:
@@ -150,7 +151,7 @@ def verify_autopool_pages():
 
 
 def verify_all_pages_work():
-    verify_protocol_pages()
+    verify_no_args_pages()
     verify_autopool_pages()
 
 
@@ -162,7 +163,7 @@ def verify_all_pages_work_with_times():
         for page_name, func, autopool in build_autopool_tasks():
             run_with_log(page_name, func, autopool)
 
-        for page_name, func in build_protocol_tasks():
+        for page_name, func in build_no_args_page_tasks():
             run_with_log(page_name, func)
 
         duration = time.time() - start
