@@ -110,7 +110,7 @@ def insert_avoid_conflicts(
         else:
             return
     # tod remove index_elements
-    a_tup = new_rows[0].to_tuple()
+    # a_tup = new_rows[0].to_tuple()
 
     rows_as_tuples = list(set([r.to_tuple() for r in new_rows]))
     bulk_copy_skip_duplicates(rows_as_tuples, table)
@@ -188,51 +188,6 @@ def get_highest_value_in_field_where(table: Base, column: InstrumentedAttribute,
         return session.execute(sql).scalar_one_or_none()
 
 
-def get_subset_not_already_in_column(
-    table: Base, column: InstrumentedAttribute, values: list[any], where_clause: OperatorExpression | None = None
-) -> list[any]:
-
-    old_version = get_subset_not_already_in_column_old(table, column, values, where_clause)
-    sql_version = get_subset_not_already_in_column_sql(table, column, values, where_clause)
-
-    if set(old_version) != set(sql_version):
-        raise ValueError(
-            f"get_subset_not_already_in_column_old and get_subset_not_already_in_column_sql returned different results: "
-            f"{set(old_version)} != {set(sql_version)}"
-        )
-    else:
-        return list(sql_version)
-
-
-def get_subset_not_already_in_column_old(
-    table: Base,
-    column: InstrumentedAttribute,
-    values: list[any],
-    where_clause: OperatorExpression | None = None,
-) -> list[any]:
-    """
-    1) Run a raw SQL query to fetch all existing values of `column` from `table`
-       with an optional WHERE clause.
-    2) In Python, return only those items in `values` that are not present.
-    """
-    if len(values) == 0:
-        return []
-
-    with Session.begin() as session:
-        where_sql = _where_clause_to_string(where_clause, session)
-
-        sql = f"""
-            SELECT DISTINCT
-            {column.key}
-            FROM
-            {table.__tablename__}
-            {where_sql};
-            """
-        existing = session.execute(text(sql)).scalars().all()
-
-    return [v for v in values if v not in existing]
-
-
 def _to_python_list(values) -> list:
     """Flatten to 1-D and convert numpy scalars -> native Python scalars."""
     try:
@@ -245,7 +200,7 @@ def _to_python_list(values) -> list:
         return list(values)
 
 
-def get_subset_not_already_in_column_sql(
+def get_subset_not_already_in_column(
     table: Base,
     column: InstrumentedAttribute,
     values,
@@ -260,7 +215,6 @@ def get_subset_not_already_in_column_sql(
     """
 
     col = column.property.columns[0]
-
     sql_column_type = col.type.compile(dialect=postgresql.dialect()).upper()
 
     if sql_column_type.upper() not in ["TEXT", "VARCHAR", "INTEGER", "BIGINT", "NUMERIC", "FLOAT"]:

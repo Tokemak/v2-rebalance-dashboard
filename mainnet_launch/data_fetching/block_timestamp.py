@@ -10,7 +10,6 @@ from mainnet_launch.database.schema.full import Blocks
 from mainnet_launch.database.schema.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
-    get_subset_not_already_in_column_sql,
 )
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, build_blocks_to_use
 
