@@ -1,24 +1,23 @@
 import pandas as pd
-import numpy as np
 import streamlit as st
 import psutil
 import plotly.express as px
 import plotly.graph_objects as go
+from datetime import datetime, timezone
 
-from mainnet_launch.constants import AutopoolConstants, AUTO_USD
-from mainnet_launch.database.schema.full import (
-    AutopoolStates,
-    Blocks,
-    DestinationStates,
-    Destinations,
-    AutopoolDestinationStates,
-)
+from mainnet_launch.constants import AutopoolConstants
+from mainnet_launch.database.schema.full import AutopoolStates, Blocks, RebalanceEvents, RebalancePlans
 from mainnet_launch.database.schema.postgres_operations import (
     merge_tables_as_df,
+    get_highest_value_in_field_where,
     TableSelector,
 )
 
-from mainnet_launch.database.schema.views import fetch_autopool_destination_state_df
+
+from mainnet_launch.database.schema.views import (
+    fetch_autopool_destination_state_df,
+    get_latest_rebalance_event_datetime_for_autopool,
+)
 
 
 def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFrame:
@@ -122,43 +121,87 @@ def _compute_percent_deployed(
     return round(100 - (100 * idle_today), 2), round(100 - (100 * idle_yesterday), 2)
 
 
-def _render_top_level_stats(nav_per_share_df, expected_return_series, portion_allocation_by_destination_df, autopool):
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
-    col1.metric(
+def _render_top_level_stats(
+    nav_per_share_df,
+    expected_return_series,
+    portion_allocation_by_destination_df,
+    autopool,
+    latest_rebalance_event_datetime,
+):
+    def _fmt_dt(dt):
+        return dt.strftime("%m-%d %H:%M") if dt else "—"
+
+    def _simple_timedelta(td):
+        secs = int(td.total_seconds())
+        days, secs = divmod(secs, 86400)
+        hours, secs = divmod(secs, 3600)
+        minutes, secs = divmod(secs, 60)
+        if days > 0:
+            return f"{days}d {hours}h ago"
+        elif hours > 0:
+            return f"{hours}h ago"
+        elif minutes > 0:
+            return f"{minutes}m ago"
+        else:
+            return f"{secs}s ago"
+
+    now = datetime.now(timezone.utc)
+
+    # Row 1
+    r1c1, r1c2, r1c3 = st.columns(3)
+    r1c1.metric(
         "30-day Rolling APY (%)",
         round(nav_per_share_df["30_day_annualized_return"].iloc[-1], 2),
         _diffReturn(nav_per_share_df["30_day_annualized_return"]),
     )
-    col2.metric(
+    r1c2.metric(
         "30-day MA APY (%)",
         round(nav_per_share_df["30_day_MA_annualized_return"].iloc[-1], 2),
         _diffReturn(nav_per_share_df["30_day_MA_annualized_return"]),
     )
-    col3.metric(
+    r1c3.metric(
         "7-day Rolling APY (%)",
         round(nav_per_share_df["7_day_annualized_return"].iloc[-1], 2),
         _diffReturn(nav_per_share_df["7_day_annualized_return"]),
     )
-    col4.metric(
+
+    # Row 2
+    r2c1, r2c2, r2c3 = st.columns(3)
+    r2c1.metric(
         "7-day MA APY (%)",
         round(nav_per_share_df["7_day_MA_annualized_return"].iloc[-1], 2),
         _diffReturn(nav_per_share_df["7_day_MA_annualized_return"]),
-    )
-    col5.metric(
-        "Expected Annual Return (%)",
-        round(expected_return_series.iloc[-1], 2),
-        _diffReturn(expected_return_series),
     )
 
     percent_deployed_today, percent_deployed_yesterday = _compute_percent_deployed(
         portion_allocation_by_destination_df, autopool
     )
 
-    col6.metric(
+    r2c2.metric(
+        "Expected Annual Return (%)",
+        round(expected_return_series.iloc[-1], 2),
+        _diffReturn(expected_return_series),
+    )
+    r2c3.metric(
         "Percent Deployed",
         round(percent_deployed_today, 2),
         round(percent_deployed_today - percent_deployed_yesterday, 2),
     )
+
+    # Row 3
+    r3c1, r3c2, r3c3 = st.columns(3)
+    # r3c1.metric(
+    #     "Latest Rebalance Plan",
+    #     _simple_timedelta(now - latest_rebalance_plan_datetime_generated),
+    # )
+
+    r3c1.metric(
+        "Time Since Last Rebalance",
+        _simple_timedelta(now - latest_rebalance_event_datetime),
+    )
+
+    r3c2.metric(" ", " ", " ")  # Spacer to complete the 3x3 grid
+    r3c3.metric(" ", " ", " ")
 
 
 def _render_top_level_charts(
@@ -234,11 +277,19 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
         price_return_series,
     ) = fetch_key_metrics_data(autopool)
 
+    latest_rebalance_event_datetime = get_latest_rebalance_event_datetime_for_autopool(autopool)
     # autopool_price_return = 100 * (autopool_backing_value - autopool_safe_value) / autopool_backing_value
     # weighted_price_return_series = _fetch_price_return(autopool)
 
     st.header(f"{autopool.name} Key Metrics")
-    _render_top_level_stats(nav_per_share_df, expected_return_series, portion_allocation_by_destination_df, autopool)
+
+    _render_top_level_stats(
+        nav_per_share_df,
+        expected_return_series,
+        portion_allocation_by_destination_df,
+        autopool,
+        latest_rebalance_event_datetime,
+    )
     _render_top_level_charts(nav_per_share_df, autopool, total_nav_series, expected_return_series, price_return_series)
 
     with st.expander("See explanation for Key Metrics"):

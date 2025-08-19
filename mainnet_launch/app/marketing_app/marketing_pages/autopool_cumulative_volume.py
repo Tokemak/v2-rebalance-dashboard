@@ -57,7 +57,6 @@ def get_rebalance_volumne_raw_data(chain: ChainData):
     df["autopool_name"] = df["autopool"].apply(lambda x: autopool_address_to_name[Web3.toChecksumAddress(x)])
     df["datetime"] = pd.to_datetime(df["timestamp"].astype(int), unit="s", utc=True)
     df["date"] = df["datetime"].dt.date
-
     df["block"] = df["blockNumber"].astype(int)
     df["tokenOutValueInEth_norm"] = df["tokenOutValueInEth"].apply(lambda x: int(x) / 1e18)
     return df
@@ -146,6 +145,11 @@ def fetch_all_time_cumulative_usd_volume() -> pd.DataFrame:
         .cumsum()
     )
 
+    rebalance_count_by_autopool = volume_by_pool.groupby("autopool_name").size().reset_index(name="rebalance_count")
+
+    cumulaitive_volume_by_autopool["rebalance_count"] = cumulaitive_volume_by_autopool.index.map(
+        rebalance_count_by_autopool.set_index("autopool_name")["rebalance_count"]
+    )
     return cumulaitive_volume_by_autopool, raw_df
 
 

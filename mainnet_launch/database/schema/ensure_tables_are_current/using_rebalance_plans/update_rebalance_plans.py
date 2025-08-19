@@ -6,7 +6,7 @@ import pandas as pd
 from web3 import Web3
 
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA
+from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA, BAL_ETH, AUTO_LRT
 from mainnet_launch.database.schema.full import RebalancePlans, Destinations, DexSwapSteps, Tokens
 
 from mainnet_launch.database.schema.postgres_operations import (
@@ -228,11 +228,17 @@ def _extract_new_dext_steps(plan: dict) -> list[DexSwapSteps]:
 
 
 def ensure_rebalance_plans_table_are_current():
+
+    destinations: list[Destinations] = get_full_table_as_orm(Destinations)
+    destination_address_to_symbol = {d.destination_vault_address: d.underlying_symbol for d in destinations}
+
+    tokens: list[Tokens] = get_full_table_as_orm(Tokens)
+    token_address_to_decimals = {t.token_address: t.decimals for t in tokens}
+
     s3_client = make_s3_client()
-
     for autopool in ALL_AUTOPOOLS:
-
         solver_plan_paths_on_remote = fetch_all_solver_rebalance_plan_file_names(autopool, s3_client)
+
         plans_not_already_fetched = get_subset_not_already_in_column(
             RebalancePlans,
             RebalancePlans.file_name,
@@ -242,15 +248,6 @@ def ensure_rebalance_plans_table_are_current():
 
         if not plans_not_already_fetched:
             continue
-
-        destinations: list[Destinations] = get_full_table_as_orm(
-            Destinations, where_clause=Destinations.chain_id == autopool.chain.chain_id
-        )
-
-        destination_address_to_symbol = {d.destination_vault_address: d.underlying_symbol for d in destinations}
-
-        tokens: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == autopool.chain.chain_id)
-        token_address_to_decimals = {t.token_address: t.decimals for t in tokens}
 
         def _process_plan(plan_on_remote: str):
             # only external call here
@@ -270,6 +267,7 @@ def ensure_rebalance_plans_table_are_current():
                 new_rebalance_plan_row, new_dex_steps_rows = response
                 all_rebalance_plan_rows.append(new_rebalance_plan_row)
                 all_dex_steps_rows.extend(new_dex_steps_rows)
+
                 # TODO add RebalanceCandidateDestinations here
 
         insert_avoid_conflicts(all_rebalance_plan_rows, RebalancePlans, index_elements=[RebalancePlans.file_name])

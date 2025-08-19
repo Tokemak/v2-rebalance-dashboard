@@ -5,11 +5,36 @@ import pandas as pd
 
 from mainnet_launch.constants import *
 
+from sqlalchemy import text
 from mainnet_launch.database.schema.full import *
-from mainnet_launch.database.schema.postgres_operations import merge_tables_as_df, TableSelector, get_full_table_as_df
+from mainnet_launch.database.schema.postgres_operations import (
+    merge_tables_as_df,
+    TableSelector,
+    get_full_table_as_df,
+    Session,
+)
 
 
-# TODO add plan here
+def get_latest_rebalance_event_datetime_for_autopool(autopool: AutopoolConstants) -> pd.Timestamp | None:
+    """
+    Return the datetime from the blocks table for the highest block in rebalance_events
+    for the given autopool_vault_address. Ensures the datetime is explicitly cast to timestamptz.
+    """
+    sql_txt = """
+        SELECT CAST(b.datetime AS timestamptz) AS datetime
+        FROM rebalance_events AS re
+        JOIN transactions     AS t ON t.tx_hash  = re.tx_hash
+        JOIN blocks           AS b ON b.block    = t.block
+                                   AND b.chain_id = t.chain_id
+        WHERE re.autopool_vault_address = :autopool_vault_address
+        ORDER BY t.block DESC
+        LIMIT 1;
+    """
+    with Session.begin() as session:
+        result = session.execute(
+            text(sql_txt), {"autopool_vault_address": autopool.autopool_eth_addr}
+        ).scalar_one_or_none()
+        return pd.Timestamp(result) if result is not None else None
 
 
 def get_all_autopool_destinations(autopool: AutopoolConstants) -> pd.DataFrame:
@@ -162,7 +187,7 @@ def fetch_autopool_destination_state_df(autopool: AutopoolConstants) -> pd.DataF
 
 
 if __name__ == "__main__":
-    df = fetch_autopool_destination_state_df(AUTO_LRT)
 
-    print(df.shape)
-    print(df.columns)
+    for autopool in ALL_AUTOPOOLS:
+        d = get_latest_rebalance_event_datetime_for_autopool(autopool)
+        print(f"{autopool.name}\n  latest rebalance event datetime: {d}")

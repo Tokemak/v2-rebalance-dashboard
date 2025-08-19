@@ -1,11 +1,32 @@
 import pandas as pd
 import streamlit as st
+from datetime import datetime, timezone
 
 import plotly.express as px
 from mainnet_launch.constants import AutopoolConstants
 
 from mainnet_launch.database.schema.full import *
-from mainnet_launch.database.schema.postgres_operations import TableSelector, merge_tables_as_df, get_full_table_as_df
+from mainnet_launch.database.schema.postgres_operations import (
+    TableSelector,
+    get_highest_value_in_field_where,
+    merge_tables_as_df,
+    get_full_table_as_df,
+)
+
+from mainnet_launch.database.schema.views import (
+    get_latest_rebalance_event_datetime_for_autopool,
+)
+
+
+def get_datetime_of_latest_rebalances(autopool: AutopoolConstants) -> tuple[pd.Timestamp, pd.Timestamp]:
+    latest_rebalance_plan_datetime_generated = get_highest_value_in_field_where(
+        RebalancePlans,
+        RebalancePlans.datetime_generated,
+        where_clause=RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr,
+    )
+    latest_rebalance_event_datetime = get_latest_rebalance_event_datetime_for_autopool(autopool)
+
+    return latest_rebalance_plan_datetime_generated, latest_rebalance_event_datetime
 
 
 def _load_actual_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
@@ -76,6 +97,42 @@ def _load_dex_swap_steps_df(autopool: AutopoolConstants) -> pd.DataFrame:
     return dex_swap_steps_df
 
 
+def _render_time_since_rebalance_plan_and_events(autopool: AutopoolConstants):
+    latest_rebalance_plan_datetime, latest_rebalance_event_datetime = get_datetime_of_latest_rebalances(autopool)
+
+    def _fmt_dt(dt):
+        return dt.strftime("%m-%d %H:%M") if dt else "—"
+
+    def _simple_timedelta(td):
+        secs = int(td.total_seconds())
+        days, secs = divmod(secs, 86400)
+        hours, secs = divmod(secs, 3600)
+        minutes, secs = divmod(secs, 60)
+        if days > 0:
+            return f"{days}d {hours}h ago"
+        elif hours > 0:
+            return f"{hours}h ago"
+        elif minutes > 0:
+            return f"{minutes}m ago"
+        else:
+            return f"{secs}s ago"
+
+    now = datetime.now(timezone.utc)
+    col1, col2 = st.columns(2)
+
+    col1.metric(
+        "Latest Rebalance Plan",
+        _fmt_dt(latest_rebalance_plan_datetime),
+        _simple_timedelta(now - latest_rebalance_plan_datetime),
+    )
+
+    col2.metric(
+        "Latest Rebalance Event",
+        _fmt_dt(latest_rebalance_event_datetime),
+        _simple_timedelta(now - latest_rebalance_event_datetime),
+    )
+
+
 def fetch_and_render_solver_diagnostics_data(autopool: AutopoolConstants):
     actual_rebalance_events_df = _load_actual_rebalance_events_df(autopool)
     dex_swap_steps_df = _load_dex_swap_steps_df(autopool)
@@ -84,6 +141,7 @@ def fetch_and_render_solver_diagnostics_data(autopool: AutopoolConstants):
     ).sort_values("datetime_generated")
 
     st.header(f"Solver Diagnostics for {autopool.name}")
+    _render_time_since_rebalance_plan_and_events(autopool)
 
     render_dex_win_by_steps(dex_swap_steps_df)  # dex win count, by step
 
