@@ -12,7 +12,6 @@ from mainnet_launch.database.schema.full import drop_and_full_rebuild_db, ENGINE
 from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
 from mainnet_launch.constants import time_decorator
 
-
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_tokens_and_autopoolDestinations_table import (
     ensure__destinations__tokens__and__destination_tokens_are_current,
 )
@@ -72,8 +71,8 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
 def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
     ENGINE.echo = echo_sql_to_console
 
-    if full_reset_and_refetch:
-        drop_and_full_rebuild_db()
+    # if full_reset_and_refetch:
+    #     drop_and_full_rebuild_db()
 
     time_taken = {}
     for func in [
@@ -185,7 +184,3 @@ def main():
     # if you want to profile, swap these two lines:
     # ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=False)
     profile_database_update(full_reset_and_refetch=False, echo_sql_to_console=False)
-
-
-if __name__ == "__main__":
-    main()
