@@ -30,7 +30,6 @@ def _load_full_swap_quote_df():
     token_address_to_symbol = dict(zip(tokens_df["token_address"], tokens_df["symbol"]))
     df["buy_token_symbol"] = df["buy_token_address"].map(token_address_to_symbol)
     df["sell_token_symbol"] = df["sell_token_address"].map(token_address_to_symbol)
-
     return df
 
 
@@ -79,6 +78,9 @@ def _render_intra_day_quote_spread(df: pd.DataFrame, n_exclude: int) -> None:
         if n_exclude == 0:
             return pd.Series(x).dropna().max()
 
+        s = pd.Series(x).dropna().nlargest(n_exclude)
+        return s.iloc[n_exclude - 1] if len(s) >= n_exclude else None
+
     for base_asset_symbol in buy_token_choices:
         for chain_id in chain_id_choices:
             for api_name in api_name_choices:
@@ -97,8 +99,8 @@ def _render_intra_day_quote_spread(df: pd.DataFrame, n_exclude: int) -> None:
                     summary = (
                         this_token_df.groupby("scaled_amount_in", as_index=False)
                         .agg(
-                            min_price=("effective_price", third_min),  # 3rd smallest
-                            max_price=("effective_price", third_max),  # 3rd largest
+                            min_price=("effective_price", third_min),
+                            max_price=("effective_price", third_max),
                             batch_count=("quote_batch", "count"),
                         )
                         .sort_values("scaled_amount_in")
@@ -130,7 +132,7 @@ def _render_intra_day_quote_spread(df: pd.DataFrame, n_exclude: int) -> None:
                     y="bps_spread",
                     color="sell_token_symbol",
                     markers=True,
-                    title=f"BPS Spread (3rd-max vs 3rd-min) — {api_name} on chain {chain_id} for {base_asset_symbol}",
+                    title=f"BPS Spread ({n_exclude}-max vs {n_exclude}-min) — {api_name} on chain {chain_id} for {base_asset_symbol}",
                     labels={
                         "scaled_amount_in": "Amount In (scaled)",
                         "bps_spread": "Spread (bps)",
@@ -140,8 +142,6 @@ def _render_intra_day_quote_spread(df: pd.DataFrame, n_exclude: int) -> None:
 
                 fig.update_layout(legend_title_text="Symbol")
                 st.plotly_chart(fig, use_container_width=True)
-
-    # how unreliable are the quotes, within the same day?
 
 
 def _render_intra_day_effective_price(df: pd.DataFrame, n_exclude: int) -> None:
@@ -244,7 +244,7 @@ def _render_intra_day_effective_price(df: pd.DataFrame, n_exclude: int) -> None:
                     color="sell_token_symbol",
                     markers=True,
                     title=(
-                        f"Effective Price (asymmetric error bars: 3rd-min ↔ 3rd-max) — "
+                        f"Effective Price (asymmetric error bars: {n_exclude}-min ↔ {n_exclude}-max) — "
                         f"{api_name} on chain {chain_id} for {base_asset_symbol}"
                     ),
                     labels={"scaled_amount_in": "Amount In (scaled)"},
@@ -274,8 +274,23 @@ def fetch_and_render_intra_day_volitlity():
         (df["datetime_received"].dt.date == selected_date)
         & (df["percent_exclude_threshold"] == percent_exclude_threshold)
     ].reset_index(drop=True)
-    _render_intra_day_quote_spread(df, n_exclude)
-    _render_intra_day_effective_price(df, n_exclude)
+
+    if df.empty:
+        st.warning(f"No data available for {selected_date} with percent exclude threshold {percent_exclude_threshold}.")
+        return
+
+    choice = st.radio(
+        "What would you like to see?",
+        ("Quote spread", "Effective prices"),
+        index=0,
+        horizontal=True,
+    )
+
+    if st.button("Render"):
+        if choice == "Quote spread":
+            _render_intra_day_quote_spread(df, n_exclude)
+        else:
+            _render_intra_day_effective_price(df, n_exclude)
 
 
 if __name__ == "__main__":

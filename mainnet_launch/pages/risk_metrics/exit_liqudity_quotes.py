@@ -225,8 +225,8 @@ def display_slippage_scatter_plot(swap_quotes_df: pd.DataFrame) -> None:
     fig.update_xaxes(title_text="Quantity Sold", row=1, col=2)
     fig.update_yaxes(title_text="Slippage bps", row=1, col=1)
 
-    fig.update_yaxes(title_text="Slippage bps", range=[-100, 50], row=1, col=1)
-    fig.update_yaxes(range=[-100, 50], row=1, col=2)
+    # fig.update_yaxes(title_text="Slippage bps", range=[-100, 50], row=1, col=1)
+    # fig.update_yaxes(range=[-100, 50], row=1, col=2)
 
     fig.update_layout(
         title="Slippage vs Amount Sold — ODOS vs Tokemak",

@@ -18,10 +18,10 @@ import uuid
 
 load_dotenv()
 
-# tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
+tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
 #  DEV_LOCAL_DATABASE_URL
 # tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
-tmpPostgres = urlparse(os.getenv("ADD_SONIC_DATABASE_URL"))
+# tmpPostgres = urlparse(os.getenv("ADD_SONIC_DATABASE_URL"))
 
 
 ENGINE = create_engine(
@@ -818,5 +818,5 @@ def reflect_and_create():
 Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
-    # drop_and_full_rebuild_db()
+    drop_and_full_rebuild_db()
     pass
