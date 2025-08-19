@@ -24,18 +24,11 @@ from mainnet_launch.data_fetching.block_timestamp import (
     get_block_by_timestamp_etherscan,
 )
 
-
-def fetch_rebalance_plan_json_from_remote(rebalance_plan_json_key: str, s3_client, autopool: AutopoolConstants):
-    plan = json.loads(
-        s3_client.get_object(
-            Bucket=autopool.solver_rebalance_plans_bucket,
-            Key=rebalance_plan_json_key,
-        )["Body"].read()
-    )
-
-    plan["rebalance_plan_json_key"] = rebalance_plan_json_key
-    plan["autopool_vault_address"] = autopool.autopool_eth_addr
-    return plan
+from mainnet_launch.data_fetching.internal.s3_helper import (
+    fetch_all_solver_rebalance_plan_file_names,
+    make_s3_client,
+    fetch_rebalance_plan_json_from_s3_bucket,
+)
 
 
 def _get_quantity_of_base_asset_in_idle(
@@ -226,37 +219,13 @@ def _extract_destination_states_rows(
     return new_destination_states_rows
 
 
-def _get_all_solver_plans_on_remote(autopool: AutopoolConstants, s3_client):
-    """Required for when the solver bucket has more than 1k objects"""
-    keys = []
-    continuation_token = None
-
-    while True:
-        kwargs = {"Bucket": autopool.solver_rebalance_plans_bucket}
-        if continuation_token:
-            kwargs["ContinuationToken"] = continuation_token
-
-        resp = s3_client.list_objects_v2(**kwargs)
-
-        # Append this page's keys
-        for obj in resp.get("Contents", []):
-            keys.append(obj["Key"])
-
-        # Check if more results exist
-        if resp.get("IsTruncated"):  # True means there’s another page
-            continuation_token = resp["NextContinuationToken"]
-        else:
-            break
-
-    return keys
-
-
 @time_decorator
 def ensure_destination_states_from_rebalance_plan_are_current():
-    s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+    s3_client = make_s3_client()
 
     for autopool in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN:
-        solver_plan_paths_on_remote = _get_all_solver_plans_on_remote(autopool, s3_client)
+        solver_plan_paths_on_remote = fetch_all_solver_rebalance_plan_file_names(autopool, s3_client)
+        # not certain if actually slower
         plans_to_fetch = get_subset_not_already_in_column(  # much slower than it needs to be
             DestinationStates, DestinationStates.rebalance_plan_key, solver_plan_paths_on_remote, where_clause=None
         )
@@ -273,7 +242,7 @@ def ensure_destination_states_from_rebalance_plan_are_current():
             i = 0
             while True:
                 try:
-                    plan = fetch_rebalance_plan_json_from_remote(plan_path, s3_client, autopool)
+                    plan = fetch_rebalance_plan_json_from_s3_bucket(plan_path, s3_client, autopool)
                     new_destination_states_rows, new_token_values_rows, new_destination_token_values = (
                         convert_rebalance_plan_to_rows(plan, autopool, tokens_address_to_decimals)
                     )

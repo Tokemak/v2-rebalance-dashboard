@@ -10,6 +10,7 @@ from mainnet_launch.database.schema.full import Blocks
 from mainnet_launch.database.schema.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
+    get_subset_not_already_in_column_sql,
 )
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, build_blocks_to_use
 
@@ -165,6 +166,7 @@ def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> None:
     blocks_to_add = get_subset_not_already_in_column(
         table=Blocks, column=Blocks.block, values=blocks, where_clause=Blocks.chain_id == chain.chain_id
     )
+
     if blocks_to_add:
         df = get_raw_state_by_blocks([], blocks, chain, include_block_number=True)
         df["chain_id"] = chain.chain_id

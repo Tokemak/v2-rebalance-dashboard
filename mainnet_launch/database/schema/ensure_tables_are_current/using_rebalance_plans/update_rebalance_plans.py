@@ -1,39 +1,30 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
-import boto3
-from botocore import UNSIGNED
-from botocore.config import Config
+
 import pandas as pd
 from web3 import Web3
 
+
+from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA
 from mainnet_launch.database.schema.full import RebalancePlans, Destinations, DexSwapSteps, Tokens
 
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_orm,
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
+    get_subset_not_already_in_column_sql,
 )
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA
+
+from mainnet_launch.data_fetching.internal.s3_helper import (
+    fetch_all_solver_rebalance_plan_file_names,
+    make_s3_client,
+    fetch_rebalance_plan_json_from_s3_bucket,
+)
 
 # todo the scale on the rebalance safe amoutn in and min safe amount out is wrong, way too small for autoUSD
 # also safe the plans locally as well, just ot have them
-
-
-def convert_rebalance_plan_json_to_rebalance_plan_line(
-    rebalance_plan_json_key: str, s3_client, autopool: AutopoolConstants
-):
-    plan = json.loads(
-        s3_client.get_object(
-            Bucket=autopool.solver_rebalance_plans_bucket,
-            Key=rebalance_plan_json_key,
-        )["Body"].read()
-    )
-
-    plan["rebalance_plan_json_key"] = rebalance_plan_json_key
-    plan["autopool_vault_address"] = autopool.autopool_eth_addr
-    return plan
 
 
 def _handle_only_state_of_destinations_rebalance_plan(plan: dict) -> RebalancePlans:
@@ -117,15 +108,16 @@ def _extract_spot_values(rebalance_test: dict, autopool: AutopoolConstants):
     return amount_out_spot_value, min_amount_in_spot_value
 
 
-def _extract_rebalance_plan_and_dex_steps(
+def _extract_rebalance_plan(
     plan: dict,
     autopool: AutopoolConstants,
     destination_address_to_symbol: dict[str, str],
     token_address_to_decimals: dict[str, int],
-) -> tuple[RebalancePlans, list[DexSwapSteps]]:
+) -> RebalancePlans:
+    # TODO this is inelegant, consider refactoring
     if plan["sodOnly"] == True:
         new_sod_only_plan = _handle_only_state_of_destinations_rebalance_plan(plan)
-        return new_sod_only_plan, []
+        return new_sod_only_plan
 
     underlying_out_symbol = destination_address_to_symbol[Web3.toChecksumAddress(plan["destinationOut"])]
     underlying_in_symbol = destination_address_to_symbol[Web3.toChecksumAddress(plan["destinationIn"])]
@@ -201,6 +193,10 @@ def _extract_rebalance_plan_and_dex_steps(
         projected_slippage=projected_slippage,
     )
 
+    return new_rebalance_plan_row
+
+
+def _extract_new_dext_steps(plan: dict) -> list[DexSwapSteps]:
     new_dex_steps = []
 
     def find_agg_names(step_dictionary_details: dict, target="aggregatorName"):
@@ -229,18 +225,15 @@ def _extract_rebalance_plan_and_dex_steps(
                     aggregator_names=aggregator_names,
                 )
             )
-
-    return new_rebalance_plan_row, new_dex_steps
+    return new_dex_steps
 
 
 def ensure_rebalance_plans_table_are_current():
-    s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+    s3_client = make_s3_client()
 
     for autopool in ALL_AUTOPOOLS:
 
-        solver_plan_paths_on_remote = [
-            r["Key"] for r in s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket).get("Contents")
-        ]
+        solver_plan_paths_on_remote = fetch_all_solver_rebalance_plan_file_names(autopool, s3_client)
         plans_not_already_fetched = get_subset_not_already_in_column(
             RebalancePlans,
             RebalancePlans.file_name,
@@ -260,20 +253,22 @@ def ensure_rebalance_plans_table_are_current():
         tokens: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == autopool.chain.chain_id)
         token_address_to_decimals = {t.token_address: t.decimals for t in tokens}
 
-        all_rebalance_plan_rows = []
-        all_dex_steps_rows = []
-
-        def _process_plan(plan_on_remote):
-            plan = convert_rebalance_plan_json_to_rebalance_plan_line(plan_on_remote, s3_client, autopool)
-            return _extract_rebalance_plan_and_dex_steps(
+        def _process_plan(plan_on_remote: str):
+            # only external call here
+            plan = fetch_rebalance_plan_json_from_s3_bucket(plan_on_remote, s3_client, autopool)
+            new_rebalance_plan_row = _extract_rebalance_plan(
                 plan, autopool, destination_address_to_symbol, token_address_to_decimals
             )
+            new_dex_steps_rows = _extract_new_dext_steps(plan)
+
+            return (new_rebalance_plan_row, new_dex_steps_rows)
 
         all_rebalance_plan_rows = []
         all_dex_steps_rows = []
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            for new_rebalance_plan_row, new_dex_steps_rows in executor.map(_process_plan, plans_not_already_fetched):
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for response in executor.map(_process_plan, plans_not_already_fetched):
+                new_rebalance_plan_row, new_dex_steps_rows = response
                 all_rebalance_plan_rows.append(new_rebalance_plan_row)
                 all_dex_steps_rows.extend(new_dex_steps_rows)
                 # TODO add RebalanceCandidateDestinations here
@@ -285,14 +280,11 @@ def ensure_rebalance_plans_table_are_current():
 
 
 def print_count_of_rebalance_plans_in_db():
-    s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+    s3_client = make_s3_client()
 
     for autopool in ALL_AUTOPOOLS:
-
-        solver_plan_paths_on_remote = [
-            r["Key"] for r in s3_client.list_objects_v2(Bucket=autopool.solver_rebalance_plans_bucket).get("Contents")
-        ]
-        print(autopool.autopool_eth_addr, len(solver_plan_paths_on_remote))
+        solver_plan_paths_on_remote = fetch_all_solver_rebalance_plan_file_names(autopool, s3_client)
+        print(autopool.name, len(solver_plan_paths_on_remote))
 
 
 if __name__ == "__main__":

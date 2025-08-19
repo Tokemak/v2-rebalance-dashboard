@@ -80,8 +80,7 @@ def _recursive_helper_get_all_events_within_range(
 
     except (TimeoutError, ValueError, ReadTimeout, HTTPError, ChunkedEncodingError, ConnectionError) as e:
 
-        e_args = e.args[0]
-        if e.args[0].get("code") == -32000:
+        if (e.args[0].get("code") == -32000) or (e.args[0].get("code") == -32600):
             # for some fast chains (at sonic and base), but maybe others, asking alchemy for block to near the head
             # raises a error
             # so try again with a smaller top block

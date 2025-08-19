@@ -9,11 +9,14 @@ from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import OperatorExpression, BooleanClauseList
 from sqlalchemy import text
 from psycopg2.extras import execute_values
+from sqlalchemy.dialects import postgresql
+import numpy as np
+
 import pandas as pd
-import streamlit as st
 
 
 from mainnet_launch.database.schema.full import Session, Base, ENGINE
+from mainnet_launch.constants import time_decorator
 
 
 @dataclass
@@ -145,7 +148,7 @@ def bulk_copy_skip_duplicates(rows: list[tuple], table: type[Base]) -> None:
         fields=sql.SQL(", ").join(map(sql.Identifier, cols)),
         pkey=sql.SQL(", ").join(map(sql.Identifier, id_cols)),
     )
-    ENGINE.echo = True
+
     with ENGINE.connect() as conn:
         # this begin() opens a transaction and will commit on exit
         with conn.begin():
@@ -186,6 +189,22 @@ def get_highest_value_in_field_where(table: Base, column: InstrumentedAttribute,
 
 
 def get_subset_not_already_in_column(
+    table: Base, column: InstrumentedAttribute, values: list[any], where_clause: OperatorExpression | None = None
+) -> list[any]:
+
+    old_version = get_subset_not_already_in_column_old(table, column, values, where_clause)
+    sql_version = get_subset_not_already_in_column_sql(table, column, values, where_clause)
+
+    if set(old_version) != set(sql_version):
+        raise ValueError(
+            f"get_subset_not_already_in_column_old and get_subset_not_already_in_column_sql returned different results: "
+            f"{set(old_version)} != {set(sql_version)}"
+        )
+    else:
+        return list(sql_version)
+
+
+def get_subset_not_already_in_column_old(
     table: Base,
     column: InstrumentedAttribute,
     values: list[any],
@@ -212,6 +231,65 @@ def get_subset_not_already_in_column(
         existing = session.execute(text(sql)).scalars().all()
 
     return [v for v in values if v not in existing]
+
+
+def _to_python_list(values) -> list:
+    """Flatten to 1-D and convert numpy scalars -> native Python scalars."""
+    try:
+        arr = np.asarray(values)
+        if arr.ndim != 1:
+            raise ValueError(f"Expected 1-D values, got shape {arr.shape}")
+        return arr.ravel().tolist()  # returns native Python scalars
+    except Exception:
+        # No numpy or coercion failed; fall back to simple list
+        return list(values)
+
+
+def get_subset_not_already_in_column_sql(
+    table: Base,
+    column: InstrumentedAttribute,
+    values,
+    where_clause: OperatorExpression | None = None,
+) -> list:
+    """
+    Return the items in `values` that are NOT already present in `table.column`,
+    respecting an optional SQLAlchemy `where_clause`.
+
+    Uses a single round-trip UNNEST + anti-join. Preserves input order and duplicates.
+    NULL-safe equality via IS NOT DISTINCT FROM.
+    """
+
+    col = column.property.columns[0]
+
+    sql_column_type = col.type.compile(dialect=postgresql.dialect()).upper()
+
+    if sql_column_type.upper() not in ["TEXT", "VARCHAR", "INTEGER", "BIGINT", "NUMERIC", "FLOAT"]:
+        raise ValueError(f"Unsupported sql_column_type: {sql_column_type}")
+
+    values = list(set(_to_python_list(values)))
+    if not values:
+        return []
+
+    with Session.begin() as session:
+        where_sql = _where_clause_to_string(where_clause, session)
+
+        sql_txt = f"""
+        WITH input(v) AS (
+            SELECT * FROM UNNEST(CAST(:vals AS {sql_column_type}[]))
+        ),
+        existing AS (
+            SELECT {column.key}
+            FROM {table.__tablename__}
+            {where_sql}
+        )
+        SELECT i.v
+        FROM input i
+        LEFT JOIN existing e
+          ON e.{column.key} IS NOT DISTINCT FROM i.v
+        WHERE e.{column.key} IS NULL
+        """
+        rows = session.execute(text(sql_txt), {"vals": values}).scalars().all()
+        return rows
 
 
 def get_full_table_as_df(table: Base, where_clause: OperatorExpression | None = None) -> pd.DataFrame:
