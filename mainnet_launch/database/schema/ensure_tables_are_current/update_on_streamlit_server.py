@@ -1,4 +1,4 @@
-from mainnet_launch.database.schema.full import Blocks
+from mainnet_launch.database.schema.full import RebalancePlans
 from mainnet_launch.database.schema.postgres_operations import get_highest_value_in_field_where
 from datetime import datetime, timezone, timedelta
 
@@ -29,7 +29,11 @@ def _human_timedelta(td: timedelta) -> str:
 
 @st.cache_data(ttl=3600)  # Cache for 1 hour
 def _should_update_streamlit_server() -> bool:
-    latest_datetime = get_highest_value_in_field_where(Blocks, Blocks.datetime, where_clause=None)
+    # update on the 12 hour mark
+    # update if we don't have a plan in the last hour
+    latest_datetime = get_highest_value_in_field_where(
+        RebalancePlans, RebalancePlans.datetime_generated, where_clause=None
+    )
 
     now = datetime.now(timezone.utc)
     delta = now - latest_datetime
@@ -38,7 +42,7 @@ def _should_update_streamlit_server() -> bool:
         f"Last update: {latest_datetime}, "
         f"Current time: {now}"
     )
-    return delta > timedelta(hours=24)
+    return delta > timedelta(hours=12)
 
 
 def _update_on_streamlit_server():

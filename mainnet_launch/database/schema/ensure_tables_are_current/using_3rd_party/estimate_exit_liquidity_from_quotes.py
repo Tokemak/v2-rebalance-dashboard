@@ -3,8 +3,6 @@ Takes 5 minutes ot run, with curernt setup
 
 """
 
-import random
-
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 
@@ -32,9 +30,12 @@ from mainnet_launch.data_fetching.internal.fetch_quotes import (
     fetch_many_swap_quotes_from_internal_api,
     TokemakQuoteRequest,
 )
-from mainnet_launch.data_fetching.odos.fetch_quotes import fetch_many_odos_raw_quotes, OdosQuoteRequest
+from mainnet_launch.data_fetching.odos.fetch_quotes import (
+    fetch_many_odos_raw_quotes,
+    OdosQuoteRequest,
+    THIRD_PARTY_SUCCESS_KEY,
+)
 
-ENGINE.echo = False
 
 ERROR_LOG_FILE = "/Users/pb/Desktop/quote_log.txt"
 
@@ -47,15 +48,13 @@ CHAIN_BASE_ASSET_GROUPS = {
     (BASE_CHAIN, USDC): (BASE_USD,),
 }
 
-
-ATTEMPTS = 3
-# large numbers me we don't exclude anything
-PERCENT_OWNERSHIP_THRESHOLD = 10  # what percent of a pool can we do we own before we exclude it from odos quotes
+ATTEMPTS = 3  # 3
+PERCENT_OWNERSHIP_THRESHOLD = 25
 
 STABLE_COINS_REFERENCE_QUANTITY = 10_000
 ETH_REFERENCE_QUANTITY = 5
 
-USD_SCALED_SIZES = [i * 200_000 for i in range(1, 11)]  #
+USD_SCALED_SIZES = [i * 200_000 for i in range(1, 11)]
 USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
 ETH_SCALED_SIZES = [i * 50 for i in range(1, 17)]
 ETH_SCALED_SIZES.append(ETH_REFERENCE_QUANTITY)
@@ -74,8 +73,7 @@ def _fetch_current_asset_exposure(
     return unscaled_asset_exposure
 
 
-def fetch_needed_context(chain: ChainData, valid_autopools: list[AutopoolConstants]):
-    block = chain.client.eth.block_number
+def fetch_needed_context(chain: ChainData, block: int, valid_autopools: list[AutopoolConstants]):
     # TODO I suspect this duplicates work
     unscaled_asset_exposure = _fetch_current_asset_exposure(chain, valid_autopools, block)
     percent_ownership_by_destination_df = fetch_readable_our_tvl_by_destination(chain, block)
@@ -158,38 +156,34 @@ def _post_process_raw_tokemak_quote_response_df(
     base_asset: str,
 ) -> list[SwapQuote]:
     token_to_decimal = token_df.set_index("token_address")["decimals"].to_dict()
+    raw_tokemak_quote_response_df = raw_tokemak_quote_response_df[
+        raw_tokemak_quote_response_df[THIRD_PARTY_SUCCESS_KEY]
+    ].copy()
 
     quotes: list[SwapQuote] = []
     for _, row in raw_tokemak_quote_response_df.iterrows():
-        try:
+        sell_addr = Web3.toChecksumAddress(row["sellToken"])
+        buy_addr = Web3.toChecksumAddress(row["buyToken"])
+        chain_id = int(row["chainId"])
 
-            sell_addr = Web3.toChecksumAddress(row["sellToken"])
-            buy_addr = Web3.toChecksumAddress(row["buyToken"])
-            chain_id = int(row["chainId"])
+        scaled_in = int(row["sellAmount"]) / 10 ** token_to_decimal[sell_addr]
+        scaled_out = int(row["buyAmount"]) / 10 ** token_to_decimal[buy_addr]
 
-            # scale raw integer amounts by the token decimals
-            scaled_in = int(row["sellAmount"]) / 10 ** token_to_decimal[sell_addr]
-            scaled_out = int(row["buyAmount"]) / 10 ** token_to_decimal[buy_addr]
-
-            quote = SwapQuote(
-                chain_id=chain_id,
-                api_name="tokemak",
-                sell_token_address=sell_addr,
-                buy_token_address=buy_addr,
-                scaled_amount_in=scaled_in,
-                scaled_amount_out=scaled_out,
-                pools_blacklist=None,
-                aggregator_name=row["aggregatorName"],
-                datetime_received=row["datetime_received"],
-                quote_batch=batch_id,
-                base_asset=base_asset,
-                percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
-            )
-            quotes.append(quote)
-
-        except Exception as e:
-            with open(ERROR_LOG_FILE, "a") as f:
-                f.write(f"Error processing tokemak quote: {e}\n {type(e)}")
+        quote = SwapQuote(
+            chain_id=chain_id,
+            api_name="tokemak",
+            sell_token_address=sell_addr,
+            buy_token_address=buy_addr,
+            scaled_amount_in=scaled_in,
+            scaled_amount_out=scaled_out,
+            pools_blacklist=None,
+            aggregator_name=row["aggregatorName"],
+            datetime_received=row["datetime_received"],
+            quote_batch=batch_id,
+            base_asset=base_asset,
+            percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
+        )
+        quotes.append(quote)
 
     return quotes
 
@@ -202,39 +196,36 @@ def _post_process_raw_odos_quote_response_df(
 ) -> list[SwapQuote]:
     token_to_decimal = token_df.set_index("token_address")["decimals"].to_dict()
     quotes: list[SwapQuote] = []
+    raw_odos_quote_response_df = raw_odos_quote_response_df[raw_odos_quote_response_df[THIRD_PARTY_SUCCESS_KEY]].copy()
 
     for _, row in raw_odos_quote_response_df.iterrows():
-        try:
-            sell_addr = Web3.toChecksumAddress(row["inTokens"])
-            buy_addr = Web3.toChecksumAddress(row["outTokens"])
-            chain_id = int(row["chainId"])
+        sell_addr = Web3.toChecksumAddress(row["inTokens"])
+        buy_addr = Web3.toChecksumAddress(row["outTokens"])
+        chain_id = int(row["chainId"])
 
-            unscaled_in = int(row["inAmounts"])
-            unscaled_out = int(row["outAmounts"])
+        unscaled_in = int(row["inAmounts"])
+        unscaled_out = int(row["outAmounts"])
 
-            scaled_in = unscaled_in / 10 ** token_to_decimal[sell_addr]
-            scaled_out = unscaled_out / 10 ** token_to_decimal[buy_addr]
+        scaled_in = unscaled_in / 10 ** token_to_decimal[sell_addr]
+        scaled_out = unscaled_out / 10 ** token_to_decimal[buy_addr]
 
-            blacklist = row.get("poolBlacklist", "")
+        blacklist = row.get("poolBlacklist", "")
 
-            quote = SwapQuote(
-                chain_id=chain_id,
-                api_name="odos",
-                sell_token_address=sell_addr,
-                buy_token_address=buy_addr,
-                scaled_amount_in=scaled_in,
-                scaled_amount_out=scaled_out,
-                pools_blacklist=str(blacklist),
-                aggregator_name="Odos",
-                datetime_received=row["datetime_received"],
-                quote_batch=batch_id,
-                base_asset=base_asset,
-                percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
-            )
-            quotes.append(quote)
-        except Exception as e:
-            with open(ERROR_LOG_FILE, "a") as f:
-                f.write(f"Error processing Odos quote: {e}\n {type(e)}")
+        quote = SwapQuote(
+            chain_id=chain_id,
+            api_name="odos",
+            sell_token_address=sell_addr,
+            buy_token_address=buy_addr,
+            scaled_amount_in=scaled_in,
+            scaled_amount_out=scaled_out,
+            pools_blacklist=str(blacklist),
+            aggregator_name="Odos",
+            datetime_received=row["datetime_received"],
+            quote_batch=batch_id,
+            base_asset=base_asset,
+            percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
+        )
+        quotes.append(quote)
 
     return quotes
 
@@ -278,14 +269,18 @@ def _build_requests_and_asset_exposure_rows():
 
     all_tokemak_requests = []
     all_odos_requests = []
+
+    chain_to_block = {c: c.client.eth.block_number for c in ALL_CHAINS}
     for k, valid_autopools in CHAIN_BASE_ASSET_GROUPS.items():
         chain, base_asset = k
 
-        unscaled_asset_exposure, percent_ownership_by_destination_df = fetch_needed_context(chain, valid_autopools)
+        unscaled_asset_exposure, percent_ownership_by_destination_df = fetch_needed_context(
+            chain, chain_to_block[chain], valid_autopools
+        )
         new_asset_exposure_rows = _extract_asset_exposure_rows(
             chain,
             base_asset,
-            chain.client.eth.block_number,
+            chain_to_block[chain],
             unscaled_asset_exposure,
             token_df,
             highest_swap_quote_batch_id,
@@ -299,7 +294,6 @@ def _build_requests_and_asset_exposure_rows():
         all_tokemak_requests.extend(tokemak_requests)
         all_odos_requests.extend(odos_requests)
 
-    # we want 3 of each request to get the median
     all_tokemak_requests = all_tokemak_requests * ATTEMPTS
     all_odos_requests = all_odos_requests * ATTEMPTS
 
@@ -333,9 +327,11 @@ def insert_new_batch_quotes(
 ):
     processed_quotes = []
 
+    odos_quote_response_df = odos_quote_response_df[odos_quote_response_df[THIRD_PARTY_SUCCESS_KEY]].copy()
+
     for k, _ in CHAIN_BASE_ASSET_GROUPS.items():
         chain, base_asset = k
-
+        # this breaks some how
         sub_odos_df = odos_quote_response_df[
             (odos_quote_response_df["chainId"] == chain.chain_id)
             & (odos_quote_response_df["outTokens"].apply(lambda x: Web3.toChecksumAddress(x)) == base_asset(chain))
@@ -362,15 +358,11 @@ def insert_new_batch_quotes(
     )
 
 
-@time_decorator
-def fetch_and_save_all_at_once():
+def fetch_and_save_current_swap_quotes():
     all_tokemak_requests, all_odos_requests, highest_swap_quote_batch_id, new_asset_exposure_rows, token_df = (
         _build_requests_and_asset_exposure_rows()
     )
-    print(f"Fetching {len(all_odos_requests)} Odos quotes and {len(all_tokemak_requests)} Tokemak quotes.")
-
     tokemak_quote_response_df, odos_quote_response_df = _fetch_all_quotes(all_tokemak_requests, all_odos_requests)
-    print(f"Fetched {len(tokemak_quote_response_df)} Tokemak quotes and {len(odos_quote_response_df)} Odos quotes.")
 
     insert_new_batch_quotes(
         odos_quote_response_df=odos_quote_response_df,
@@ -382,28 +374,20 @@ def fetch_and_save_all_at_once():
     for chain in ALL_CHAINS:
         blocks = [r.block for r in new_asset_exposure_rows if r.chain_id == chain.chain_id]
         ensure_all_blocks_are_in_table(blocks, chain)
-
     insert_avoid_conflicts(
         new_asset_exposure_rows,
         AssetExposure,
     )
 
 
+def fetch_and_save_loop(seconds_delay: int, num_batches: int):
+    for i in range(num_batches):
+        fetch_and_save_current_swap_quotes()
+        time.sleep(seconds_delay)
+
+
 if __name__ == "__main__":
-    for i in range(48):
-        try:
-            PERCENT_OWNERSHIP_THRESHOLD = random.choice([10, 50, 99])
-            fetch_and_save_all_at_once()
-            print("success")
-            time.sleep(60 * 30)  # every 30 minutes
-            print(f"Iteration {i + 1} completed. Waiting for the next run...")
-        except Exception as e:
-            print(f"Error in iteration {i + 1}: {e}")
-            # write the error to a local log file
-            with open(ERROR_LOG_FILE, "a") as f:
-                f.write(f"Error in iteration {i + 1}: {e}\n")
-            # wait 5 minutes before retrying
-            print("Retrying in 5 minutes...")
-            time.sleep(60 * 5)
+    fetch_and_save_current_swap_quotes()
+
 
 # caffeinate -ims bash -c 'cd /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard && poetry run python mainnet_launch/database/schema/ensure_tables_are_current/using_3rd_party/estimate_exit_liquidity_from_quotes.py'

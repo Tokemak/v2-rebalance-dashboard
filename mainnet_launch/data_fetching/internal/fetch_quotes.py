@@ -11,11 +11,6 @@ from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
     THIRD_PARTY_SUCCESS_KEY,
 )
 
-ATTEMPTS = 3
-STABLE_COINS_REFERENCE_QUANTITY = 10_000
-ETH_REFERENCE_QUANTITY = 5
-PORTIONS_TO_CHECK = [0.01, 0.05, 0.1, 0.25]
-
 
 @dataclass
 class TokemakQuoteRequest:
@@ -27,7 +22,7 @@ class TokemakQuoteRequest:
 
 def _process_quote_response(response: dict) -> dict:
     if response[THIRD_PARTY_SUCCESS_KEY]:
-        fields_to_keep = ["buyAmount", "aggregatorName", "datetime_received"]
+        fields_to_keep = ["buyAmount", "aggregatorName", "datetime_received", THIRD_PARTY_SUCCESS_KEY]
         cleaned_data = {a: response[a] for a in fields_to_keep}
         request_kwargs = response["request_kwargs"]
         json_payload = request_kwargs.pop("json")
@@ -44,7 +39,7 @@ def fetch_single_swap_quote_from_internal_api(
     buy_token: str,
     unscaled_amount_in: int,
     system_name: str = "gen3",
-    slippage_bps: int = 50,
+    slippage_bps: int = 1000,
     include_sources: str = "",
     exclude_sources: str = "Bebop",
     sell_all: bool = True,
@@ -90,7 +85,7 @@ def fetch_many_swap_quotes_from_internal_api(
         json_payload = {
             "chainId": quote_request.chain_id,
             "systemName": "gen3",
-            "slippageBps": 50,
+            "slippageBps": 500,
             "taker": DEAD_ADDRESS,
             "sellToken": quote_request.token_in,
             "buyToken": quote_request.token_out,
@@ -154,9 +149,10 @@ if __name__ == "__main__":
         chain_id=ETH_CHAIN.chain_id,
         sell_token=WETH(ETH_CHAIN),
         buy_token="0x04C154b66CB340F3Ae24111CC767e0184Ed00Cc6",
-        unscaled_amount_in=str(int(1e18)),
+        unscaled_amount_in=str(int(10000e18)),
     )
 
     from pprint import pprint
 
     pprint(tokemak_response)
+    pass

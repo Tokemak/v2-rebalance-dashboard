@@ -8,6 +8,7 @@ from mainnet_launch.constants import *
 from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
     make_single_request_to_3rd_party,
     make_many_requests_to_3rd_party,
+    THIRD_PARTY_SUCCESS_KEY,
 )
 from pprint import pprint
 
@@ -42,6 +43,7 @@ def fetch_odos_single_token_raw_quote(
         "outputTokens": [{"tokenAddress": token_out, "proportion": 1.0}],
         "compact": False,
         "simple": False,
+        "likeAsset": True,
     }
 
     if poolBlacklist:
@@ -49,7 +51,7 @@ def fetch_odos_single_token_raw_quote(
 
     request_kwargs = {
         "method": "POST",
-        "url": f"{ODOS_BASE_URL}/sor/quote/v2",
+        "url": f"{ODOS_BASE_URL}/sor/quote/v3",
         "json": json_payload,
     }
     raw_odos_response = make_single_request_to_3rd_party(request_kwargs=request_kwargs)
@@ -75,7 +77,7 @@ def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> pd.Dat
         requests_kwargs.append(
             {
                 "method": "POST",
-                "url": f"{ODOS_BASE_URL}/sor/quote/v2",
+                "url": f"{ODOS_BASE_URL}/sor/quote/v3",
                 "json": json_payload,
             }
         )
@@ -83,22 +85,47 @@ def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> pd.Dat
     # slightly under the 600 / 5 minute
     # interestingly this does not preserve order
     raw_odos_responses = make_many_requests_to_3rd_party(
-        rate_limit_max_rate=12, rate_limit_time_period=10, requests_kwargs=requests_kwargs
+        rate_limit_max_rate=8, rate_limit_time_period=10, requests_kwargs=requests_kwargs
     )
 
     flat_odos_responses = [_flatten_odos_response(r) for r in raw_odos_responses]
-    return pd.DataFrame.from_records(flat_odos_responses)
+
+    df = pd.DataFrame.from_records(flat_odos_responses)
+    return df
 
 
 def _flatten_odos_response(raw_odos_response: dict):
-    flat_odos_data = {}
-    # this works because we only have one input and one output token
-    for k, v in raw_odos_response.items():
-        if isinstance(v, list):
-            flat_odos_data[k] = v[0]
-        else:
-            flat_odos_data[k] = v
+    if raw_odos_response[THIRD_PARTY_SUCCESS_KEY]:
 
+        keys_to_keep = [
+            "inTokens",
+            "inAmounts",
+            "outTokens",
+            "outAmounts",
+            "datetime_received",
+            THIRD_PARTY_SUCCESS_KEY,
+        ]
+        flat_odos_data = {}
+
+        for col in keys_to_keep:
+            value = raw_odos_response[col]
+            if isinstance(value, list) and len(value) == 1:
+                # if the value is a list with one item, take that item
+                flat_odos_data[col] = value[0]
+            elif isinstance(value, list) and len(value) > 1:
+                raise ValueError(
+                    f"Expected {col} to have one item, but got {len(value)} items: {value}. "
+                    "This is unexpected from odos response."
+                )
+            else:
+                flat_odos_data[col] = value
+
+    else:
+        # if the request was not successful, return an empty dict
+
+        flat_odos_data = {
+            THIRD_PARTY_SUCCESS_KEY: raw_odos_response[THIRD_PARTY_SUCCESS_KEY],
+        }
     request_kwargs = raw_odos_response.pop(
         "request_kwargs",
     )

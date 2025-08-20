@@ -32,7 +32,7 @@ from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (
 )
 from mainnet_launch.pages.risk_metrics.estimate_exit_liquidity_from_pool_tvl import fetch_and_render_exit_liqudity_pools
 
-from mainnet_launch.pages.risk_metrics.exit_liqudity_quotes import (
+from mainnet_launch.pages.risk_metrics.render_exit_liquidity_batch import (
     fetch_and_render_exit_liquidity_from_quotes,
 )
 
