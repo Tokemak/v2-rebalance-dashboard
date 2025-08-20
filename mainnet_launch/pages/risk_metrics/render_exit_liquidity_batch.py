@@ -201,12 +201,13 @@ def fetch_and_render_exit_liquidity_from_quotes() -> None:
     st.subheader(
         f"Suspect Exit Liquidity Pairs, Stable Coin Slippage > {STABLE_COINS_SLIPPAGE_WARNING_THESHOLD_BPS} bps or WETH Slippage > {WETH_SLIPPAGE_WARNING_THESHOLD_BPS} bps"
     )
-    st.dataframe(limited_suspect_df, use_container_width=True)
+    st.dataframe(limited_suspect_df, use_container_width=True, hide_index=True)
 
     render_slippage_scatter_plots(swap_quotes_df, should_trim_slippage_graph)
-    _render_asset_exposure_df(asset_exposure_df, median_reference_prices, chain, base_asset)
-    display_swap_quotes_batch_meta_data(swap_quotes_df)
 
+    token_median_reference_prices = swap_quotes_df.groupby("sell_token_symbol")["reference_price"].first().to_dict()
+    _render_asset_exposure_df(asset_exposure_df, token_median_reference_prices, chain, base_asset)
+    display_swap_quotes_batch_meta_data(swap_quotes_df)
     _display_readme()
 
     st.download_button(
@@ -218,22 +219,17 @@ def fetch_and_render_exit_liquidity_from_quotes() -> None:
 
 
 def _render_asset_exposure_df(
-    asset_exposure_df: pd.DataFrame, median_reference_prices: dict, chain: ChainData, base_asset: TokemakAddress
+    asset_exposure_df: pd.DataFrame, token_median_reference_prices: dict, chain: ChainData, base_asset: TokemakAddress
 ) -> pd.DataFrame:
-
-    # chain_sell_buy_token_symbols\
-
-    # self._raise_if_missing(keyarr, indexer, axis_name)
-    #   File "/Users/pb/Library/Caches/pypoetry/virtualenvs/mainnet-launch-FtycU18g-py3.10/lib/python3.10/site-packages/pandas/core/indexes/base.py", line 6252, in _raise_if_missing
-    #     raise KeyError(f"{not_found} not in index")
-    # KeyError: "['chain_sell_buy_token_symbols'] not in index"
-
+    token_median_reference_prices["WETH"] = 1
+    token_median_reference_prices["USDC"] = 1
+    token_median_reference_prices["DOLA"] = 1
     this_asset_allocation_df = asset_exposure_df[
         (asset_exposure_df["reference_asset"] == base_asset(chain)) & (asset_exposure_df["chain_id"] == chain.chain_id)
-    ][["token_symbol", "chain_sell_buy_token_symbols", "quantity"]].reset_index()
+    ][["token_symbol", "quantity"]].reset_index()
 
-    this_asset_allocation_df["reference_price"] = this_asset_allocation_df["chain_sell_buy_token_symbols"].map(
-        median_reference_prices
+    this_asset_allocation_df["reference_price"] = this_asset_allocation_df["token_symbol"].map(
+        token_median_reference_prices
     )
 
     this_asset_allocation_df["value_in_base_asset"] = (
@@ -277,6 +273,7 @@ def render_slippage_scatter_plots(swap_quotes_df: pd.DataFrame, should_trim_slip
             markers=True,
             color_discrete_map=color_map,
         )
+        # TODO add a dashed line at 50 for ETH, and 25 for stable coins
         tmp.update_traces(
             mode="lines+markers",
             line=dict(dash="dash"),
