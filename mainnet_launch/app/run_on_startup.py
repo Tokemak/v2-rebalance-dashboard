@@ -40,7 +40,7 @@ from mainnet_launch.pages.autopool_diagnostics.fetch_values_nav_and_shares_and_e
 from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import (
     add_new_asset_oracle_and_discount_price_rows_to_table,
 )
-from mainnet_launch.constants.constants import STARTUP_LOG_FILE
+from mainnet_launch.constants import STARTUP_LOG_FILE
 
 
 def write_pandas(stats, top_level_function):

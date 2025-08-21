@@ -10,7 +10,7 @@ from pprint import pprint
 
 from mainnet_launch.database.schema.full import drop_and_full_rebuild_db, ENGINE
 from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
-from mainnet_launch.constants.constants import time_decorator
+from mainnet_launch.constants import time_decorator
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_tokens_and_autopoolDestinations_table import (
     ensure__destinations__tokens__and__destination_tokens_are_current,

@@ -11,7 +11,7 @@ import plotly.express as px
 import pandas as pd
 
 
-from mainnet_launch.constants.constants import (
+from mainnet_launch.constants import (
     ChainData,
     TokemakAddress,
     AutopoolConstants,

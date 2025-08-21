@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 import plotly.express as px
-from mainnet_launch.constants.constants import AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI

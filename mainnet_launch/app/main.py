@@ -7,7 +7,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.update_on_streamli
     update_if_needed_on_streamlit_server,
 )
 from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit, STREAMLIT_MARKDOWN_HTML, format_timedelta
-from mainnet_launch.constants.constants import ALL_AUTOPOOLS
+from mainnet_launch.constants import ALL_AUTOPOOLS
 from mainnet_launch.pages.page_functions import (
     AUTOPOOL_CONTENT_FUNCTIONS,
     PROTOCOL_CONTENT_FUNCTIONS,

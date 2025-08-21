@@ -472,4 +472,4 @@ ALL_BASE_ASSETS: list[TokemakAddress] = [
 
 # add base EURO
 
-# 
+#

@@ -31,7 +31,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     make_dummy_1_call,
     safe_normalize_6_with_bool_success,
 )
-from mainnet_launch.constants.constants import (
+from mainnet_launch.constants import (
     ALL_CHAINS,
     ROOT_PRICE_ORACLE,
     ChainData,

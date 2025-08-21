@@ -7,7 +7,7 @@ from botocore import UNSIGNED
 from botocore.config import Config
 
 
-from mainnet_launch.constants.constants import AutopoolConstants
+from mainnet_launch.constants import AutopoolConstants
 from mainnet_launch.database.schema.postgres_operations import (
     merge_tables_as_df,
     TableSelector,
@@ -352,7 +352,7 @@ def _fetch_plan_for_tx(tx_hash: str, rebalance_df: pd.DataFrame, autopool: Autop
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants.constants import *
+    from mainnet_launch.constants import *
 
     rebalance_df = fetch_and_render_rebalance_events_data(AUTO_DOLA)
 

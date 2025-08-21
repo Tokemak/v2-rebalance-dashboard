@@ -21,7 +21,7 @@ similar for scrvUSD, crvUSD
 """
 
 from dataclasses import dataclass
-from mainnet_launch.constants.constants import *
+from mainnet_launch.constants import *
 from multicall import Call
 from copy import deepcopy
 

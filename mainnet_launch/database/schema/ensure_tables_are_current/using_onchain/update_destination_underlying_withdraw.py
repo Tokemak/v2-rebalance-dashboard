@@ -6,7 +6,7 @@
 import pandas as pd
 
 from mainnet_launch.abis import BALANCER_AURA_DESTINATION_VAULT_ABI
-from mainnet_launch.constants.constants import ChainData, ALL_CHAINS
+from mainnet_launch.constants import ChainData, ALL_CHAINS
 
 from mainnet_launch.database.schema.full import Destinations, DestinationUnderlyingWithdraw, Transactions, ENGINE
 from mainnet_launch.database.schema.postgres_operations import (

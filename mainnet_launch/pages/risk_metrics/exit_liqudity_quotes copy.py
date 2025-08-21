@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 
-from mainnet_launch.constants.constants import *
+from mainnet_launch.constants import *
 
 from mainnet_launch.database.schema.full import Destinations, AutopoolDestinations, Tokens, SwapQuote, AssetExposure
 from mainnet_launch.database.schema.postgres_operations import (

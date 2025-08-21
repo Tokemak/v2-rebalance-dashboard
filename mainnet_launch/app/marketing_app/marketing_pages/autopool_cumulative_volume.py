@@ -10,7 +10,7 @@ from web3 import Web3
 
 
 from mainnet_launch.data_fetching.tokemak_subgraph import run_query_with_paginate
-from mainnet_launch.constants.constants import *
+from mainnet_launch.constants import *
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, safe_normalize_6_with_bool_success
 
 

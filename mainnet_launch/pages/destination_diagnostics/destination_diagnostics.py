@@ -2,7 +2,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 import pandas as pd
-from mainnet_launch.constants.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, AUTO_LRT
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, AUTO_LRT
 from mainnet_launch.database.schema.full import (
     Blocks,
     DestinationStates,
@@ -136,6 +136,6 @@ def _apply_default_style(fig: go.Figure) -> None:
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants.constants import *
+    from mainnet_launch.constants import *
 
     fetch_and_render_destination_apr_data(SONIC_USD)

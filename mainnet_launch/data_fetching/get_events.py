@@ -7,7 +7,7 @@ import pandas as pd
 import web3
 from web3.contract import Contract, ContractEvent
 
-from mainnet_launch.constants.constants import ChainData
+from mainnet_launch.constants import ChainData
 from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
 

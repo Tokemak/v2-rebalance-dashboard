@@ -20,7 +20,7 @@ from mainnet_launch.database.should_update_database import should_update_table
 
 from mainnet_launch.data_fetching.get_events import fetch_events
 
-from mainnet_launch.constants.constants import (
+from mainnet_launch.constants import (
     INCENTIVE_PRICING_STATS,
     LIQUIDATION_ROW,
     ROOT_PRICE_ORACLE,

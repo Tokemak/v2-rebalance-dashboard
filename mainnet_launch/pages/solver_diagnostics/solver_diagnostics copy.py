@@ -12,7 +12,7 @@ import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 
-from mainnet_launch.constants.constants import (
+from mainnet_launch.constants import (
     AutopoolConstants,
     ALL_AUTOPOOLS,
     SOLVER_REBALANCE_PLANS_DIR,
@@ -304,6 +304,6 @@ def _add_add_rank_count(solver_df):
 
 if __name__ == "__main__":
     # streamlit run mainnet_launch/pages/solver_diagnostics/solver_diagnostics.py
-    from mainnet_launch.constants.constants import DINERO_ETH
+    from mainnet_launch.constants import DINERO_ETH
 
     fetch_and_render_solver_diagnositics_data(DINERO_ETH)

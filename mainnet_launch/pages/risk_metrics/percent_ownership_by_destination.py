@@ -8,7 +8,7 @@ from web3 import Web3
 from multicall import Call
 
 
-from mainnet_launch.constants.constants import *
+from mainnet_launch.constants import *
 from mainnet_launch.database.schema.full import Destinations, AutopoolDestinations
 from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
 from mainnet_launch.data_fetching.get_state_by_block import identity_with_bool_success, get_state_by_one_block

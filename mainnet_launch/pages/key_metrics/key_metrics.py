@@ -5,7 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timezone
 
-from mainnet_launch.constants.constants import AutopoolConstants
+from mainnet_launch.constants import AutopoolConstants
 from mainnet_launch.database.schema.full import AutopoolStates, Blocks, RebalanceEvents, RebalancePlans
 from mainnet_launch.database.schema.postgres_operations import (
     merge_tables_as_df,
@@ -338,7 +338,7 @@ def _diffReturn(x: list):
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants.constants import *
+    from mainnet_launch.constants import *
 
     fetch_and_render_key_metrics_data(AUTO_ETH)
 

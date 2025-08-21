@@ -22,7 +22,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 
 from mainnet_launch.database.schema.full import Session
 
-from mainnet_launch.constants.constants import (
+from mainnet_launch.constants import (
     ChainData,
     ALL_CHAINS,
     POINTS_HOOK,
@@ -642,7 +642,7 @@ def _overwrite_bad_summary_states_rows():
     pass
 
 
-from mainnet_launch.constants.constants import SONIC_CHAIN
+from mainnet_launch.constants import SONIC_CHAIN
 
 
 def ensure_destination_states_are_current():

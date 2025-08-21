@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 
 from mainnet_launch.destinations import get_destination_details
-from mainnet_launch.constants.constants import AutopoolConstants, ALL_AUTOPOOLS, AUTO_LRT
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, AUTO_LRT
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.add_info_to_dataframes import (
     add_timestamp_to_df_with_block_column,

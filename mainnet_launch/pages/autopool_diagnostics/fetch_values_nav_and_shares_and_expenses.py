@@ -3,7 +3,7 @@
 import pandas as pd
 from multicall import Call
 
-from mainnet_launch.constants.constants import AutopoolConstants, AUTO_ETH
+from mainnet_launch.constants import AutopoolConstants, AUTO_ETH
 
 from mainnet_launch.pages.rebalance_events.rebalance_events import (
     fetch_rebalance_events_df,
@@ -13,7 +13,7 @@ from mainnet_launch.pages.protocol_level_profit_and_loss.fees import (
     fetch_all_autopool_fee_events,
 )
 from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
-from mainnet_launch.constants.constants import AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
 
 
 from mainnet_launch.data_fetching.get_state_by_block import (

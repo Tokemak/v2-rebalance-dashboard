@@ -6,7 +6,7 @@ import pandas as pd
 from web3 import Web3
 
 
-from mainnet_launch.constants.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA, BAL_ETH, AUTO_LRT
+from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA, BAL_ETH, AUTO_LRT
 from mainnet_launch.database.schema.full import RebalancePlans, Destinations, DexSwapSteps, Tokens
 
 from mainnet_launch.database.schema.postgres_operations import (

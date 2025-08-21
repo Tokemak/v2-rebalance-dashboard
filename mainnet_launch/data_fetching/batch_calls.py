@@ -2,7 +2,7 @@ import requests
 import json
 import numpy as np
 from web3 import Web3
-from mainnet_launch.constants.constants import ChainData
+from mainnet_launch.constants import ChainData
 
 
 # not used

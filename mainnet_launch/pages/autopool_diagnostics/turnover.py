@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import streamlit as st
 
-from mainnet_launch.constants.constants import AutopoolConstants, ALL_AUTOPOOLS, BASE_ETH, DINERO_ETH
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, BASE_ETH, DINERO_ETH
 
 # from mainnet_launch.pages.rebalance_events.rebalance_events import (
 #     fetch_rebalance_events_df,

@@ -4,7 +4,7 @@ import aiohttp
 from typing import Optional, Sequence, Iterable
 import pandas as pd
 
-from mainnet_launch.constants.constants import *
+from mainnet_launch.constants import *
 from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
     make_single_request_to_3rd_party,
     make_many_requests_to_3rd_party,

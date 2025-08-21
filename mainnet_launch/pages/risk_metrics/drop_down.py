@@ -1,5 +1,5 @@
 import streamlit as st
-from mainnet_launch.constants.constants import *
+from mainnet_launch.constants import *
 
 
 def render_pick_chain_and_base_asset_dropdown() -> tuple[ChainData, TokemakAddress, list[AutopoolConstants]]:

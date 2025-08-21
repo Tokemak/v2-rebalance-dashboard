@@ -7,7 +7,7 @@ from web3 import Web3
 import concurrent.futures
 
 
-from mainnet_launch.constants.constants import (
+from mainnet_launch.constants import (
     AutopoolConstants,
     WETH,
     ROOT_PRICE_ORACLE,
@@ -621,7 +621,7 @@ def make_expoded_box_plot(df: pd.DataFrame, col: str, resolution: str = "1W"):
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants.constants import AUTO_ETH
+    from mainnet_launch.constants import AUTO_ETH
     from mainnet_launch.database.database_operations import drop_table
 
     # drop_table(REBALANCE_EVENTS_TABLE)

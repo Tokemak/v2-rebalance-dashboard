@@ -5,7 +5,7 @@
 import streamlit as st
 import pandas as pd
 
-from mainnet_launch.constants.constants import *
+from mainnet_launch.constants import *
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.exit_liquidity.update_total_usd_exit_liqudity import (
     fetch_exit_liqudity_tvl,

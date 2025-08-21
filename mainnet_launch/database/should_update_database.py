@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
-from mainnet_launch.constants.constants import DB_FILE
+from mainnet_launch.constants import DB_FILE
 from mainnet_launch.app.app_config import SHOULD_UPDATE_DATABASE_MAX_LATENCY
 
 

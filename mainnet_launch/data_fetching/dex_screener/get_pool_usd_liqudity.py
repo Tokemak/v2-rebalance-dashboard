@@ -7,7 +7,7 @@ from aiolimiter import AsyncLimiter
 import nest_asyncio
 import concurrent.futures
 
-from mainnet_launch.constants.constants import ChainData, ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN
+from mainnet_launch.constants import ChainData, ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN
 
 # nest_asyncio.apply()
 

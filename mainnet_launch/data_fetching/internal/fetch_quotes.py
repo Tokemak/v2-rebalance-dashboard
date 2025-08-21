@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 import concurrent.futures
 
-from mainnet_launch.constants.constants import *
+from mainnet_launch.constants import *
 from mainnet_launch.database.schema.full import Tokens
 from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
 from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
@@ -143,7 +143,7 @@ def build_quotes_to_fetch(
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants.constants import *
+    from mainnet_launch.constants import *
 
     tokemak_response = fetch_single_swap_quote_from_internal_api(
         chain_id=ETH_CHAIN.chain_id,

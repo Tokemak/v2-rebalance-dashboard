@@ -13,7 +13,7 @@ from mainnet_launch.pages.autopool_diagnostics.turnover import fetch_and_render_
 from mainnet_launch.pages.autopool_diagnostics.returns_before_expenses import (
     fetch_and_render_autopool_return_and_expenses_metrics,
 )
-from mainnet_launch.constants.constants import AutopoolConstants
+from mainnet_launch.constants import AutopoolConstants
 
 
 def fetch_and_render_autopool_diagnostics_data(autopool: AutopoolConstants):
@@ -26,6 +26,6 @@ def fetch_and_render_autopool_diagnostics_data(autopool: AutopoolConstants):
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants.constants import AUTO_ETH
+    from mainnet_launch.constants import AUTO_ETH
 
     fetch_and_render_autopool_diagnostics_data(AUTO_ETH)

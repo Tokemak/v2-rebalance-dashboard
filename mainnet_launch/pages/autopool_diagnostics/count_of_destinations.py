@@ -3,7 +3,7 @@
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-from mainnet_launch.constants.constants import AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
 
 
 from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats

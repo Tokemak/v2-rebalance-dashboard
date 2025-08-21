@@ -23,7 +23,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 
 
-from mainnet_launch.constants.constants import (
+from mainnet_launch.constants import (
     ALL_CHAINS,
     ChainData,
     USDC,

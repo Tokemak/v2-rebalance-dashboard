@@ -7,7 +7,7 @@ import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 
-from mainnet_launch.constants.constants import WORKING_DATA_DIR, ALL_AUTOPOOLS, AutopoolConstants
+from mainnet_launch.constants import WORKING_DATA_DIR, ALL_AUTOPOOLS, AutopoolConstants
 
 
 # assumes AutopoolConstants is already imported from your constants module

@@ -1,7 +1,7 @@
 import os
 import requests
 import pandas as pd
-from mainnet_launch.constants.constants import ChainData, ETHERSCAN_API_KEY, ETHERSCAN_API_URL
+from mainnet_launch.constants import ChainData, ETHERSCAN_API_KEY, ETHERSCAN_API_URL
 
 # For Etherscan you need to use the v2 endpoint
 # use
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     # — example usage —
     mainnet_deployer = "0x123cC4AFA59160C6328C0152cf333343F510e5A3"
 
-    from mainnet_launch.constants.constants import ETH_CHAIN
+    from mainnet_launch.constants import ETH_CHAIN
 
     tx_df = get_all_transactions_sent_by_eoa_address(
         ETH_CHAIN, mainnet_deployer, from_block=20638356 - 100, to_block=22884434

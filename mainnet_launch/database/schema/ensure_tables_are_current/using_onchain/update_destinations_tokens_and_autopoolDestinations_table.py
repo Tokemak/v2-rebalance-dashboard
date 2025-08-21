@@ -3,7 +3,7 @@ from multicall import Call
 from web3 import Web3
 
 
-from mainnet_launch.constants.constants import ChainData, ALL_CHAINS, ALL_AUTOPOOLS, WETH, USDC
+from mainnet_launch.constants import ChainData, ALL_CHAINS, ALL_AUTOPOOLS, WETH, USDC
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
 from mainnet_launch.data_fetching.get_events import fetch_events

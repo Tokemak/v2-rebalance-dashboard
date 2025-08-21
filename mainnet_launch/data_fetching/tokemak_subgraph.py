@@ -4,7 +4,7 @@ from pprint import pprint
 
 import requests
 import pandas as pd
-from mainnet_launch.constants.constants import AutopoolConstants, SONIC_USD
+from mainnet_launch.constants import AutopoolConstants, SONIC_USD
 from web3 import Web3
 
 # TODO this fetches everything from 0, duplicates fetching
@@ -160,7 +160,7 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH, SONIC_USD
+    from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH, SONIC_USD
 
     # df = fetch_autopool_rebalance_events_from_subgraph(AUTO_ETH)
 

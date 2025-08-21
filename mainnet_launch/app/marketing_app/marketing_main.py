@@ -7,7 +7,7 @@ from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit, STRE
 config_plotly_and_streamlit()
 
 
-from mainnet_launch.constants.constants import *
+from mainnet_launch.constants import *
 from mainnet_launch.app.marketing_app.marketing_pages.autopool_cumulative_volume import (
     fetch_and_render_cumulative_volume,
 )

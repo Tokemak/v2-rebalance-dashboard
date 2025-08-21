@@ -1,7 +1,7 @@
 import pandas as pd
 from web3 import Web3
 
-from mainnet_launch.constants.constants import (
+from mainnet_launch.constants import (
     ChainData,
     COINGECKO_API_KEY,
     ETH_CHAIN,
@@ -120,7 +120,7 @@ def fetch_many_pairs_from_coingecko(
 
 if __name__ == "__main__":
 
-    from mainnet_launch.constants.constants import ALL_CHAINS, DOLA, USDC, WETH
+    from mainnet_launch.constants import ALL_CHAINS, DOLA, USDC, WETH
 
     print("Prices")
     for chain in ALL_CHAINS:
