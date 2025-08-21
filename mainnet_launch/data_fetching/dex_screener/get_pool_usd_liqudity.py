@@ -10,6 +10,7 @@ from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import _run_asyn
 
 # TODO refactor to use fetch_data_from_3rd_party_api.py
 
+
 async def fetch_dex_pair(session: aiohttp.ClientSession, chain: ChainData, pool_address: str):
     """This gets the USD liquidity on each side, with 429‐retry logic."""
     datetime_requested = datetime.now(timezone.utc)
