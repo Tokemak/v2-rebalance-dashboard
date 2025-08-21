@@ -1,15 +1,19 @@
-from mainnet_launch.database.schema.full import RebalancePlans
+from mainnet_launch.database.schema.full import RebalancePlans, Session
 from mainnet_launch.database.schema.postgres_operations import get_highest_value_in_field_where
 from datetime import datetime, timezone, timedelta
 
 import sys
 import time
 import streamlit as st
+from sqlalchemy import text
 from io import StringIO
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, contextmanager
 from mainnet_launch.database.schema.ensure_tables_are_current.ensure_all_tables_are_current import (
     ensure_database_is_current,
 )
+
+
+UPDATE_POSTGRES_LOCK_KEY = 1
 
 
 def _human_timedelta(td: timedelta) -> str:
@@ -64,12 +68,34 @@ def _update_on_streamlit_server():
     st.success("Database update complete.")
 
 
+@contextmanager
+def advisory_lock(session, key: int):
+    """Non-blocking advisory lock. Yields True if acquired, else False."""
+    got = session.scalar(text("SELECT pg_try_advisory_lock(:k)"), {"k": key})
+    if not got:
+        yield False
+        return
+    try:
+        yield True
+    finally:
+        session.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": key})
+
+
 def update_if_needed_on_streamlit_server():
     """
-    Checks if the database needs to be updated and performs the update if necessary.
-    This function is intended to be called on the Streamlit server.
+    One global Postgres advisory lock for the entire app.
+    Any process that can't acquire it exits quickly.
     """
-    if _should_update_streamlit_server():
-        _update_on_streamlit_server()
-    else:
+    if not _should_update_streamlit_server():
         print("Database is up-to-date. No update needed.")
+        return
+
+    with Session.begin() as session:
+        with advisory_lock(session, UPDATE_POSTGRES_LOCK_KEY) as locked:
+            if not locked:
+                msg = "Another streamlit server is currently updating the database"
+                print(msg)
+                st.info(msg)
+                return
+
+            _update_on_streamlit_server()

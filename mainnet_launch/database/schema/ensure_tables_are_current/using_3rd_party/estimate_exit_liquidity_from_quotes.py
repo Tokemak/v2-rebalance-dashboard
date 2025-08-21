@@ -381,7 +381,13 @@ def fetch_and_save_current_swap_quotes():
 
 
 def fetch_and_save_loop(seconds_delay: int, num_batches: int):
+    global PERCENT_OWNERSHIP_THRESHOLD
     for i in range(num_batches):
+        if i % 2 == 0:
+            PERCENT_OWNERSHIP_THRESHOLD = 25
+        else:
+            PERCENT_OWNERSHIP_THRESHOLD = 50
+
         fetch_and_save_current_swap_quotes()
         print(f"Batch {i + 1}/{num_batches} completed.")
         print(f"Sleeping for {seconds_delay} seconds...")
@@ -390,6 +396,5 @@ def fetch_and_save_loop(seconds_delay: int, num_batches: int):
 
 if __name__ == "__main__":
     fetch_and_save_loop(60 * 60, 24)
-
 
 # caffeinate -ims bash -c 'cd /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard && poetry run python mainnet_launch/database/schema/ensure_tables_are_current/using_3rd_party/estimate_exit_liquidity_from_quotes.py'
