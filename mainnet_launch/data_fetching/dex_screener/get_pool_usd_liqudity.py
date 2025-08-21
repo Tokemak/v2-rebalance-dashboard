@@ -4,57 +4,18 @@ from datetime import datetime, timezone
 
 import pandas as pd
 from aiolimiter import AsyncLimiter
-import nest_asyncio
-import concurrent.futures
 
 from mainnet_launch.constants import ChainData, ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN
+from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import _run_async_safely, _get_json_with_retry
 
-# nest_asyncio.apply()
-
-
-def run_async_safely(coro):
-    """
-    Sync wrapper around any coroutine. Works whether or not an event loop is already running.
-    If there's no running loop: uses asyncio.run.
-    If there is one: runs the coroutine in a separate thread's new loop and blocks for the result.
-    """
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        # no running loop
-        return asyncio.run(coro)
-
-    # if we get here, there is a running loop; run in separate thread to avoid reentrancy issues
-    def _runner(c):
-        return asyncio.run(c)  # safe: new loop inside thread
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as exe:
-        future = exe.submit(_runner, coro)
-        return future.result()
-
-
-RATE_LIMITER = AsyncLimiter(max_rate=250, time_period=60)
-
-
-async def _get_json_with_retry(session: aiohttp.ClientSession, url: str):
-    """Fetch JSON from `url`, retrying after 60 s if we hit 429."""
-    while True:
-        async with RATE_LIMITER:
-            async with session.get(url, timeout=30) as resp:
-                if resp.status == 429:
-                    # Too many requests: wait and retry
-                    await asyncio.sleep(60)
-                    continue
-                resp.raise_for_status()
-                return await resp.json()
-
+# TODO refactor to use fetch_data_from_3rd_party_api.py
 
 async def fetch_dex_pair(session: aiohttp.ClientSession, chain: ChainData, pool_address: str):
     """This gets the USD liquidity on each side, with 429‐retry logic."""
     datetime_requested = datetime.now(timezone.utc)
     chain_slug = _chain_to_dex_screener_slug(chain)
     url = f"https://api.dexscreener.com/latest/dex/pairs/{chain_slug}/{pool_address.lower()}"
-    data = await _get_json_with_retry(session, url)
+    data = await _get_json_with_retry(session, url, request_kwargs={})
 
     pair = data.get("pair") or {}
     datetime_received = datetime.now(timezone.utc)
@@ -71,7 +32,7 @@ async def fetch_token_pairs(session: aiohttp.ClientSession, chain: ChainData, to
     datetime_requested = datetime.now(timezone.utc)
     chain_slug = _chain_to_dex_screener_slug(chain)
     url = f"https://api.dexscreener.com/token-pairs/v1/{chain_slug}/{token_address.lower()}"
-    data = await _get_json_with_retry(session, url)
+    data = await _get_json_with_retry(session, url, request_kwargs={})
 
     datetime_received = datetime.now(timezone.utc)
     for pool in data:
@@ -81,6 +42,7 @@ async def fetch_token_pairs(session: aiohttp.ClientSession, chain: ChainData, to
 
 
 async def _get_dex_sided_liquidity(chain: ChainData, pool_addresses: list[str]):
+    # TODO refactor to use fetch_data_from_3rd_party_api.py
     async with aiohttp.ClientSession() as session:
         results = await asyncio.gather(*(fetch_dex_pair(session, chain, addr) for addr in pool_addresses))
 
@@ -120,7 +82,7 @@ def get_liquidity_quantities_of_many_pools(chain: ChainData, pool_addresses: lis
     :param pool_addresses: List of pool addresses to fetch liquidity for.
     :return: DataFrame containing the liquidity information for each pool.
     """
-    return run_async_safely(_get_dex_sided_liquidity(chain, pool_addresses))
+    return _run_async_safely(_get_dex_sided_liquidity(chain, pool_addresses))
 
 
 def get_many_pairs_from_dex_screener(chain: ChainData, token_addresses: list[str]) -> pd.DataFrame:
@@ -130,7 +92,7 @@ def get_many_pairs_from_dex_screener(chain: ChainData, token_addresses: list[str
     :param token_addresses: List of token addresses to fetch pairs for.
     :return: DataFrame containing the pairs information.
     """
-    return run_async_safely(_get_token_pair_pools(chain, token_addresses))
+    return _run_async_safely(_get_token_pair_pools(chain, token_addresses))
 
 
 def _chain_to_dex_screener_slug(chain: ChainData) -> str:

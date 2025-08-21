@@ -242,7 +242,12 @@ def make_dummy_1_call(name: str) -> Call:
     )
 
 
-def postgres_build_blocks_to_use(chain: ChainData, start_block: int, end_block: int) -> list[int]:
+def build_blocks_to_use(chain: ChainData, start_block: int | None = None, end_block: int | None = None) -> list[int]:
+    """Returns the highest block for day on chain stored in the postgres db"""
+
+    start_block = chain.block_autopool_first_deployed if start_block is None else start_block
+    end_block = 100_000_000 if end_block is None else end_block
+
     query = f"""SELECT DISTINCT ON (DATE_TRUNC('day', datetime))
         DATE_TRUNC('day', datetime) AS day,
         block AS max_block,
@@ -261,29 +266,6 @@ def postgres_build_blocks_to_use(chain: ChainData, start_block: int, end_block: 
         block_df = block_df[block_df["datetime_of_max"] != block_df["datetime_of_max"].max()]
         blocks_to_use = block_df["max_block"].astype(int).to_list()
         return blocks_to_use
-
-
-# @st.cache_data(ttl=60 * 60)  # 1 hour
-def build_blocks_to_use(chain: ChainData, start_block: int | None = None, end_block: int | None = None) -> list[int]:
-    """Returns the highest block for day on chain stored in the postgres db"""
-
-    start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    end_block = 100_000_000 if end_block is None else end_block
-
-    return postgres_build_blocks_to_use(chain, start_block, end_block)
-
-
-def _build_blocks_to_use_dont_clip(
-    chain: ChainData, start_block: int | None = None, end_block: int | None = None, approx_num_blocks_per_day: int = 48
-) -> list[int]:
-    """Returns a block approx every 6 hours. by default between when autopool was first deployed to the current block"""
-    # this is not the number of seconds between blocks is not constant
-    start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    end_block = chain.client.eth.block_number if end_block is None else end_block
-    blocks_hop = int(86400 / chain.approx_seconds_per_block) // approx_num_blocks_per_day
-
-    blocks = [b for b in range(start_block, end_block, blocks_hop)]
-    return blocks
 
 
 if __name__ == "__main__":

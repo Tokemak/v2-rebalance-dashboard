@@ -13,18 +13,9 @@ from mainnet_launch.constants import (
 from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
     make_many_requests_to_3rd_party,
     make_single_request_to_3rd_party,
+    ThirdPartyAPIError,
     THIRD_PARTY_SUCCESS_KEY,
 )
-
-
-# custom error 3rd party API error
-
-
-class ThirdPartyAPIError(Exception):
-    def __init__(self, message: str, data: dict):
-        super().__init__(message)
-        self.data = data
-
 
 _CHAIN_TO_COINGECKO_SLUGS = {
     ETH_CHAIN: {"token_prices": "ethereum", "network_id": "eth"},
