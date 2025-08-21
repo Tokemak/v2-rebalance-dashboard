@@ -10,7 +10,6 @@ from mainnet_launch.database.schema.full import *
 from mainnet_launch.database.schema.postgres_operations import (
     merge_tables_as_df,
     TableSelector,
-    get_full_table_as_df,
     Session,
 )
 
