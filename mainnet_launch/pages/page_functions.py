@@ -30,7 +30,8 @@ from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts impor
 from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (
     fetch_and_render_our_percent_ownership_of_each_destination,
 )
-from mainnet_launch.pages.risk_metrics.estimate_exit_liquidity_from_pool_tvl import fetch_and_render_exit_liqudity_pools
+
+# from mainnet_launch.pages.risk_metrics.estimate_exit_liquidity_from_pool_tvl import fetch_and_render_exit_liqudity_pools
 
 from mainnet_launch.pages.risk_metrics.render_exit_liquidity_batch import (
     fetch_and_render_exit_liquidity_from_quotes,

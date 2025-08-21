@@ -277,7 +277,6 @@ def render_slippage_scatter_plots(
             markers=True,
             color_discrete_map=color_map,
         )
-        # TODO add a dashed line at 50 for ETH, and 25 for stable coins
         tmp.update_traces(
             mode="lines+markers",
             line=dict(dash="dash"),
@@ -302,7 +301,7 @@ def render_slippage_scatter_plots(
         y=dashed_line_slippage_threshold,
         line_dash="dash",
         line_color="red",
-        annotation_text="Target: 50 bps",
+        annotation_text=f"Warning Threshold: {dashed_line_slippage_threshold} bps",
         annotation_position="top right",
         annotation_font=dict(color="red"),
     )
