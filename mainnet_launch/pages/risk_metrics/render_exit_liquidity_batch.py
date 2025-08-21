@@ -11,7 +11,6 @@ from mainnet_launch.constants import *
 from mainnet_launch.database.schema.full import Tokens, SwapQuote, AssetExposure
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_df,
-    get_highest_value_in_field_where,
     _exec_sql_and_cache,
 )
 
@@ -149,7 +148,7 @@ def _load_quote_data(chain: ChainData, base_asset: TokemakAddress, quote_batch_n
 
     limited_suspect_df = identify_suspect_exit_liquidity_quotes(full_quote_batch_df)
 
-    return asset_exposure_df, swap_quotes_df, median_reference_prices, limited_suspect_df
+    return asset_exposure_df, swap_quotes_df, limited_suspect_df
 
 
 def identify_suspect_exit_liquidity_quotes(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
@@ -189,9 +188,7 @@ def fetch_and_render_exit_liquidity_from_quotes() -> None:
         value=True,
     )
 
-    asset_exposure_df, swap_quotes_df, median_reference_prices, limited_suspect_df = _load_quote_data(
-        chain, base_asset, quote_batch_number
-    )
+    asset_exposure_df, swap_quotes_df, limited_suspect_df = _load_quote_data(chain, base_asset, quote_batch_number)
 
     if swap_quotes_df.empty:
         st.warning(
@@ -203,7 +200,7 @@ def fetch_and_render_exit_liquidity_from_quotes() -> None:
     )
     st.dataframe(limited_suspect_df, use_container_width=True, hide_index=True)
 
-    render_slippage_scatter_plots(swap_quotes_df, should_trim_slippage_graph)
+    render_slippage_scatter_plots(swap_quotes_df, should_trim_slippage_graph, base_asset)
 
     token_median_reference_prices = swap_quotes_df.groupby("sell_token_symbol")["reference_price"].first().to_dict()
     _render_asset_exposure_df(asset_exposure_df, token_median_reference_prices, chain, base_asset)
@@ -243,7 +240,14 @@ def _render_asset_exposure_df(
     )
 
 
-def render_slippage_scatter_plots(swap_quotes_df: pd.DataFrame, should_trim_slippage_graph: bool) -> None:
+def render_slippage_scatter_plots(
+    swap_quotes_df: pd.DataFrame, should_trim_slippage_graph: bool, base_asset: TokemakAddress
+) -> None:
+
+    if base_asset.name == "WETH":
+        dashed_line_slippage_threshold = WETH_SLIPPAGE_WARNING_THESHOLD_BPS
+    elif base_asset.name in ["USDC", "DOLA"]:
+        dashed_line_slippage_threshold = STABLE_COINS_SLIPPAGE_WARNING_THESHOLD_BPS
 
     median_df = swap_quotes_df.groupby(["label", "scaled_amount_in"])["slippage_bps"].median().reset_index()
 
@@ -294,7 +298,14 @@ def render_slippage_scatter_plots(swap_quotes_df: pd.DataFrame, should_trim_slip
         fig.update_yaxes(range=[-50, 100], row=1, col=2)
 
     fig.update_layout(title="Slippage vs Amount Sold — ODOS vs Tokemak", legend_title_text="label", height=600)
-
+    fig.add_hline(
+        y=dashed_line_slippage_threshold,
+        line_dash="dash",
+        line_color="red",
+        annotation_text="Target: 50 bps",
+        annotation_position="top right",
+        annotation_font=dict(color="red"),
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 
