@@ -460,3 +460,16 @@ ALL_BASE_ASSETS: list[TokemakAddress] = [
     USDC,
     DOLA,
 ]
+
+
+# TODO, split addresses to a separate file
+# split autopools to a seperate file
+
+
+# add silo ETH
+
+# add silo USD
+
+# add base EURO
+
+# 

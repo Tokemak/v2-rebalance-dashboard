@@ -6,7 +6,7 @@ from web3.exceptions import TransactionNotFound
 
 
 from mainnet_launch.app.app_config import NUM_GAS_INFO_FETCHING_THREADS
-from mainnet_launch.constants import ChainData, ETH_CHAIN
+from mainnet_launch.constants.constants import ChainData, ETH_CHAIN
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
 from mainnet_launch.database.database_operations import (
     run_read_only_query,

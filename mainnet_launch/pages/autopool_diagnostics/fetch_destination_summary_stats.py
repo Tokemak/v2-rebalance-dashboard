@@ -10,7 +10,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     build_blocks_to_use,
 )
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import fetch_pools_and_destinations_df
-from mainnet_launch.constants import (
+from mainnet_launch.constants.constants import (
     AutopoolConstants,
     ALL_AUTOPOOLS,
     AUTO_LRT,
@@ -317,7 +317,7 @@ def fetch_destination_summary_stats(autopool: AutopoolConstants, summary_stats_f
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import DINERO_ETH
+    from mainnet_launch.constants.constants import DINERO_ETH
 
     summary_stats_df = _fetch_destination_summary_stats_from_external_source(
         DINERO_ETH, build_blocks_to_use(DINERO_ETH.chain, DINERO_ETH.chain.block_autopool_first_deployed)

@@ -2,7 +2,7 @@ import plotly.express as px
 import pandas as pd
 import streamlit as st
 
-from mainnet_launch.constants import *
+from mainnet_launch.constants.constants import *
 from mainnet_launch.database.schema.full import *
 from mainnet_launch.database.schema.postgres_operations import *
 

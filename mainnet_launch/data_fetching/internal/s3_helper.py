@@ -4,7 +4,7 @@ import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 
-from mainnet_launch.constants import AutopoolConstants
+from mainnet_launch.constants.constants import AutopoolConstants
 
 
 def make_s3_client() -> boto3.client:

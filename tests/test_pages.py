@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
 from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit
-from mainnet_launch.constants import ALL_AUTOPOOLS, TEST_LOG_FILE_NAME, AutopoolConstants
+from mainnet_launch.constants.constants import ALL_AUTOPOOLS, TEST_LOG_FILE_NAME, AutopoolConstants
 from mainnet_launch.pages.page_functions import (
     AUTOPOOL_CONTENT_FUNCTIONS,
     PROTOCOL_CONTENT_FUNCTIONS,

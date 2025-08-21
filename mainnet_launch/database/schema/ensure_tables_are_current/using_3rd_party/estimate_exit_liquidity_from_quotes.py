@@ -6,7 +6,7 @@ Takes 5 minutes ot run, with curernt setup
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 
-from mainnet_launch.constants import *
+from mainnet_launch.constants.constants import *
 from mainnet_launch.data_fetching.quotes.get_all_underlying_reserves import fetch_raw_amounts_by_destination
 from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
 from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (

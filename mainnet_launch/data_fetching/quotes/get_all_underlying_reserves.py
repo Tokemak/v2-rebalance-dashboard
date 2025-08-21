@@ -14,7 +14,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 from mainnet_launch.database.schema.full import Destinations, Tokens
 from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
-from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, AutopoolConstants, time_decorator
+from mainnet_launch.constants.constants import ChainData, ALL_AUTOPOOLS, AutopoolConstants, time_decorator
 
 
 def get_eth_value_by_destination_by_autopool(lens_contract_data: dict):

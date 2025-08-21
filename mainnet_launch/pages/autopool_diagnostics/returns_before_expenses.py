@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
 
-from mainnet_launch.constants import AutopoolConstants, AUTO_ETH
+from mainnet_launch.constants.constants import AutopoolConstants, AUTO_ETH
 from mainnet_launch.pages.autopool_diagnostics.fetch_values_nav_and_shares_and_expenses import (
     fetch_nav_and_shares_and_factors_that_impact_nav_per_share,
 )
@@ -312,6 +312,6 @@ def fetch_and_render_autopool_return_and_expenses_metrics(autopool: AutopoolCons
 if __name__ == "__main__":
     # to test run $ streamlit run mainnet_launch/pages/autopool_diagnostics/returns_before_expenses.py
 
-    from mainnet_launch.constants import AUTO_ETH
+    from mainnet_launch.constants.constants import AUTO_ETH
 
     fetch_and_render_autopool_return_and_expenses_metrics(AUTO_ETH)

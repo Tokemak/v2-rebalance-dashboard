@@ -3,7 +3,7 @@ import pandas as pd
 from web3 import Web3
 
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, get_state_by_one_block
-from mainnet_launch.constants import LENS_CONTRACT, ChainData
+from mainnet_launch.constants.constants import LENS_CONTRACT, ChainData
 from mainnet_launch.database.schema.full import (
     Autopools,
     Destinations,
@@ -267,7 +267,7 @@ def get_full_destination_pools_and_destinations_at_one_block(chain: ChainData, b
 
 if __name__ == "__main__":
 
-    from mainnet_launch.constants import ETH_CHAIN, BASE_CHAIN
+    from mainnet_launch.constants.constants import ETH_CHAIN, BASE_CHAIN
 
     df = fetch_pools_and_destinations_df(BASE_CHAIN, [31133925])
     data = df["getPoolsAndDestinations"].values[0]

@@ -4,7 +4,7 @@ import plotly.express as px
 from datetime import datetime, timedelta, timezone
 
 from mainnet_launch.abis import CHAINLINK_KEEPER_REGISTRY_ABI
-from mainnet_launch.constants import ALL_AUTOPOOLS, ETH_CHAIN
+from mainnet_launch.constants.constants import ALL_AUTOPOOLS, ETH_CHAIN
 
 
 from mainnet_launch.data_fetching.get_events import fetch_events

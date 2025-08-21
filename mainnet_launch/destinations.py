@@ -12,7 +12,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     build_blocks_to_use,
 )
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, ChainData, ALL_CHAINS
+from mainnet_launch.constants.constants import ALL_AUTOPOOLS, AutopoolConstants, ChainData, ALL_CHAINS
 from mainnet_launch.pages.autopool_diagnostics.lens_contract import fetch_pools_and_destinations_df
 from mainnet_launch.database.database_operations import (
     write_dataframe_to_table,
@@ -193,7 +193,7 @@ def get_destination_details(autopool: AutopoolConstants) -> tuple[DestinationDet
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import BASE_CHAIN, ETH_CHAIN, BAL_ETH, AUTO_ETH
+    from mainnet_launch.constants.constants import BASE_CHAIN, ETH_CHAIN, BAL_ETH, AUTO_ETH
 
     details1 = get_destination_details(BAL_ETH)
     details2 = get_destination_details(AUTO_ETH)

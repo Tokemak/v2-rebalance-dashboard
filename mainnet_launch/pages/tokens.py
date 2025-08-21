@@ -4,7 +4,7 @@ import pandas as pd
 
 import streamlit as st
 import plotly.express as px
-from mainnet_launch.constants import (
+from mainnet_launch.constants.constants import (
     AutopoolConstants,
     STATS_CALCULATOR_REGISTRY,
     ALL_CHAINS,

@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, WETH, USDC
+from mainnet_launch.constants.constants import AutopoolConstants, ALL_AUTOPOOLS, WETH, USDC
 
 from mainnet_launch.database.schema.full import (
     AutopoolDestinationStates,
@@ -238,6 +238,6 @@ def fetch_and_render_asset_allocation_over_time(autopool: AutopoolConstants):
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import *
+    from mainnet_launch.constants.constants import *
 
     fetch_and_render_asset_allocation_over_time(SONIC_USD)

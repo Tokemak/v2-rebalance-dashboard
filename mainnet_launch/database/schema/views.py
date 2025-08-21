@@ -3,7 +3,7 @@
 import pandas as pd
 
 
-from mainnet_launch.constants import *
+from mainnet_launch.constants.constants import *
 
 from sqlalchemy import text
 from mainnet_launch.database.schema.full import *

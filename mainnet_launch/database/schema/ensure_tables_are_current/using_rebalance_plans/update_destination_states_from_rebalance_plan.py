@@ -18,7 +18,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     get_subset_not_already_in_column,
 )
 
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, time_decorator
+from mainnet_launch.constants.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, time_decorator
 from mainnet_launch.data_fetching.block_timestamp import (
     ensure_all_blocks_are_in_table,
     get_block_by_timestamp_etherscan,

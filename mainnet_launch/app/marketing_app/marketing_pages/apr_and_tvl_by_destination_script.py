@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
+from mainnet_launch.constants.constants import AutopoolConstants, ALL_AUTOPOOLS
 from mainnet_launch.data_fetching.tokemak_subgraph import run_query_with_paginate
 from mainnet_launch.database.schema.views import fetch_autopool_destination_state_df
 from mainnet_launch.pages.key_metrics.key_metrics import fetch_key_metrics_data
@@ -174,7 +174,7 @@ def fetch_and_render_autopool_apy_and_allocation_over_time():
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import ALL_AUTOPOOLS
+    from mainnet_launch.constants.constants import ALL_AUTOPOOLS
 
     for a in ALL_AUTOPOOLS:
         print(f"Fetching data for {a.name}")

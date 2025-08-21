@@ -1,7 +1,7 @@
 from multicall import Call
 from web3 import Web3
 
-from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, ALL_CHAINS
+from mainnet_launch.constants.constants import ChainData, ALL_AUTOPOOLS, ALL_CHAINS
 
 from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block, identity_with_bool_success
 from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table

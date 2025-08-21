@@ -13,7 +13,7 @@ from mainnet_launch.database.schema.postgres_operations import (
 )
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, build_blocks_to_use
 
-from mainnet_launch.constants import ALL_CHAINS, ChainData, ETH_CHAIN
+from mainnet_launch.constants.constants import ALL_CHAINS, ChainData, ETH_CHAIN
 
 
 def add_blocks_from_dataframe_to_database(df: pd.DataFrame):

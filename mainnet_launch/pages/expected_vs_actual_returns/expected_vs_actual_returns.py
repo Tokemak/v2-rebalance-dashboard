@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 from plotly.subplots import make_subplots
 
-from mainnet_launch.constants import AutopoolConstants
+from mainnet_launch.constants.constants import AutopoolConstants
 
 from mainnet_launch.pages.autopool_diagnostics.returns_before_expenses import (
     fetch_nav_and_shares_and_factors_that_impact_nav_per_share,
@@ -229,6 +229,6 @@ def fetch_and_render_actual_and_gross_and_projected_returns(autopool: AutopoolCo
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import AUTO_ETH
+    from mainnet_launch.constants.constants import AUTO_ETH
 
     fetch_and_render_actual_and_gross_and_projected_returns(AUTO_ETH)

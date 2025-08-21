@@ -9,7 +9,7 @@ import plotly.express as px
 import streamlit as st
 
 
-from mainnet_launch.constants import ETH_CHAIN, ChainData
+from mainnet_launch.constants.constants import ETH_CHAIN, ChainData
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions_table_for_gas_costs import (
     fetch_tokemak_address_constants_dfs,
 )

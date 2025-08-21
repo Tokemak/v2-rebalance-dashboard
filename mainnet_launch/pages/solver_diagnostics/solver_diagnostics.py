@@ -3,7 +3,7 @@ import streamlit as st
 from datetime import datetime, timezone
 
 import plotly.express as px
-from mainnet_launch.constants import AutopoolConstants
+from mainnet_launch.constants.constants import AutopoolConstants
 
 from mainnet_launch.database.schema.full import *
 from mainnet_launch.database.schema.postgres_operations import (
@@ -219,7 +219,7 @@ def render_dex_win_by_steps(dex_swap_steps_df: pd.DataFrame) -> pd.DataFrame:
 
 if __name__ == "__main__":
     # streamlit run mainnet_launch/pages/solver_diagnostics/solver_diagnostics.py
-    from mainnet_launch.constants import ALL_AUTOPOOLS
+    from mainnet_launch.constants.constants import ALL_AUTOPOOLS
 
     for autopool in ALL_AUTOPOOLS:
         fetch_and_render_solver_diagnostics_data(autopool)

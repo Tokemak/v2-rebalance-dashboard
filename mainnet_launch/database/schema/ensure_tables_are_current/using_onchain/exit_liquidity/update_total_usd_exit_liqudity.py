@@ -4,7 +4,7 @@ from web3 import Web3
 import pandas as pd
 import streamlit as st
 
-from mainnet_launch.constants import (
+from mainnet_launch.constants.constants import (
     TokemakAddress,
     ChainData,
 )

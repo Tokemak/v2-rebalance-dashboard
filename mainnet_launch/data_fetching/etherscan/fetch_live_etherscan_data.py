@@ -20,7 +20,7 @@ import requests
 import pandas as pd
 import streamlit as st
 from datetime import date, timedelta
-from mainnet_launch.constants import ETHERSCAN_API_KEY, ETHERSCAN_API_URL
+from mainnet_launch.constants.constants import ETHERSCAN_API_KEY, ETHERSCAN_API_URL
 
 # note can't use this, is an etherscan pro endpoint takes $200 per day
 

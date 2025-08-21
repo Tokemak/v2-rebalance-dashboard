@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from mainnet_launch.constants import AutopoolConstants
+from mainnet_launch.constants.constants import AutopoolConstants
 from mainnet_launch.pages.autopool_diagnostics.returns_before_expenses import (
     fetch_nav_and_shares_and_factors_that_impact_nav_per_share,
 )
@@ -138,7 +138,7 @@ def fetch_and_render_bps_lost_to_rebalances(autopool: AutopoolConstants):
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import AUTO_ETH
+    from mainnet_launch.constants.constants import AUTO_ETH
 
     fig = _make_daily_bps_lost_to_rebalance_figures(AUTO_ETH)
     fig.show()

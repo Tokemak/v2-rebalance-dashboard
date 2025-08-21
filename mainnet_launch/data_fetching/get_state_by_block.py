@@ -13,7 +13,7 @@ import asyncio
 from mainnet_launch.app.app_config import SEMAPHORE_LIMITS_FOR_MULTICALL
 
 
-from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS, ETH_CHAIN
+from mainnet_launch.constants.constants import ChainData, TokemakAddress, ALL_CHAINS, ETH_CHAIN
 
 from mainnet_launch.database.schema.full import Blocks
 from mainnet_launch.database.schema.postgres_operations import _exec_sql_and_cache
@@ -287,7 +287,7 @@ def _build_blocks_to_use_dont_clip(
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import ETH_CHAIN, BASE_CHAIN, ALL_CHAINS
+    from mainnet_launch.constants.constants import ETH_CHAIN, BASE_CHAIN, ALL_CHAINS
 
     for c in ALL_CHAINS:
         print(get_raw_state_by_blocks([], [20_000_000], chain=c, include_block_number=True))

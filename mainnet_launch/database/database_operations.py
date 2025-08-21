@@ -3,7 +3,7 @@ from typing import Optional
 
 import pandas as pd
 
-from mainnet_launch.constants import DB_FILE, AutopoolConstants, ChainData
+from mainnet_launch.constants.constants import DB_FILE, AutopoolConstants, ChainData
 from mainnet_launch.database.should_update_database import (
     write_timestamp_table_was_last_updated,
     TABLE_NAME_TO_LAST_UPDATED,
@@ -345,6 +345,6 @@ def get_all_tables_info() -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import WORKING_DATA_DIR
+    from mainnet_launch.constants.constants import WORKING_DATA_DIR
 
     get_all_tables_info().to_csv(WORKING_DATA_DIR / "table_info.csv")

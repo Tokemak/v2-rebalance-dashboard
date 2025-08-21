@@ -29,7 +29,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_6_with_bool_success,
 )
 
-from mainnet_launch.constants import (
+from mainnet_launch.constants.constants import (
     ROOT_PRICE_ORACLE,
     ALL_AUTOPOOLS,
     ChainData,
