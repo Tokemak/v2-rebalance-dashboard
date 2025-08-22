@@ -1,4 +1,8 @@
 from dataclasses import dataclass
+from functools import cached_property
+
+from typing import TYPE_CHECKING, cast
+import importlib
 
 from web3 import Web3
 
@@ -11,6 +15,26 @@ class ChainData:
     chain_id: int
     start_unix_timestamp: int
     tokemak_subgraph_url: str
+
+    def __hash__(self):
+        return self.chain_id
+
+    @cached_property
+    def client(self) -> "Web3":
+        """
+        Dynamically retrieves the Web3 client associated with this chain.
+
+        This is required to ensure that ChainData is hashable so can be used in
+
+        @st.cache_data(ttl=CACHE_TIME)
+
+        You may want to optimize this, or refactor it down the line
+        """
+        chains = importlib.import_module("mainnet_launch.constants.chains")
+        clients = getattr(chains, "WEB3_CLIENTS", None)
+        if clients is None or self.name not in clients:
+            raise ValueError(f"No Web3 client configured for chain: {self.name}")
+        return cast("Web3", clients[self.name])
 
 
 @dataclass(frozen=True)
@@ -43,7 +67,7 @@ class TokemakAddress:
 
     def __call__(self, chain: ChainData) -> str:
         """
-        Returns the checksum address for this canonical address (eg USDC, WETH, SYSTEM_REGISTRY)
+        Returns the checksum address for this (thing) on the specified chain.
         """
         return getattr(self, chain.name)
 

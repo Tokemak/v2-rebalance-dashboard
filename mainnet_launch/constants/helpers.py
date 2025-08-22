@@ -1,5 +1,6 @@
 import time
 
+
 def time_decorator(func):
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -9,5 +10,6 @@ def time_decorator(func):
         return result
 
     return wrapper
+
 
 # add format time delta here as a helper

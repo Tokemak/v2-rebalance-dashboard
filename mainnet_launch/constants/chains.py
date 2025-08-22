@@ -15,6 +15,16 @@ base_client.middleware_onion.inject(geth_poa_middleware, layer=0)
 sonic_client = Web3(Web3.HTTPProvider(ALCHEMY_URL.replace("eth-mainnet", "sonic-mainnet")))
 sonic_client.middleware_onion.inject(geth_poa_middleware, layer=0)
 
+eth_client.eth._chain_id = lambda: 1
+base_client.eth._chain_id = lambda: 8453
+sonic_client.eth._chain_id = lambda: 146
+
+WEB3_CLIENTS: dict[str, Web3] = {
+    "eth": eth_client,
+    "base": base_client,
+    "sonic": sonic_client,
+}
+
 
 def _add_retry_get_block_number(
     client: Web3,
@@ -41,16 +51,6 @@ def _add_retry_get_block_number(
 
     client.eth.get_block_number = get_block_number_with_retry
 
-
-eth_client.eth._chain_id = lambda: 1
-base_client.eth._chain_id = lambda: 8453
-sonic_client.eth._chain_id = lambda: 146
-
-WEB3_CLIENTS: dict[str, Web3] = {
-    "eth": eth_client,
-    "base": base_client,
-    "sonic": sonic_client,
-}
 
 for client in WEB3_CLIENTS.values():
     _add_retry_get_block_number(client, retries=4, backoff=0.5)
