@@ -86,9 +86,17 @@ DOLA = TokemakAddress(
     name="DOLA",
 )
 
+EURC = TokemakAddress(
+    eth=DEAD_ADDRESS,
+    base="0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42",
+    sonic=DEAD_ADDRESS,
+    name="ERUC",
+)
+
 
 ALL_BASE_ASSETS: list[TokemakAddress] = [
     WETH,
     USDC,
     DOLA,
+    EURC,
 ]
