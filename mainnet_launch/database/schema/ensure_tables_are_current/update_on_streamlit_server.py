@@ -1,3 +1,6 @@
+# broken,
+# put on a chron job instead on aws
+
 from mainnet_launch.database.schema.full import RebalancePlans, Session
 from mainnet_launch.database.schema.postgres_operations import get_highest_value_in_field_where
 from datetime import datetime, timezone, timedelta
