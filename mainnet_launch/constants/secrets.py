@@ -29,6 +29,9 @@ BUCKETS = {
     "BASE_USD": os.environ.get("BASE_USD_BUCKET"),
     "AUTO_DOLA": os.environ.get("AUTO_DOLA_BUCKET"),
     "SONIC_USD": os.environ.get("SONIC_USD_BUCKET"),
+    "BASE_EUR": os.environ.get("BASE_EUR_BUCKET"),
+    "SILO_USD": os.environ.get("SILO_USD_BUCKET"),
+    "SILO_ETH": os.environ.get("SILO_ETH_BUCKET"),
 }
 
 

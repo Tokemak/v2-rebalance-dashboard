@@ -18,9 +18,10 @@ import uuid
 
 load_dotenv()
 
-tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
+# tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
 # tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
 # tmpPostgres = urlparse(os.getenv("ADD_SONIC_DATABASE_URL"))
+tmpPostgres = urlparse(os.getenv("ADD_NEW_AUTOPOOLS_URL"))
 
 
 ENGINE = create_engine(
