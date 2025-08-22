@@ -1,3 +1,5 @@
+# deprecated
+
 import sqlite3
 from typing import Optional
 

@@ -1,10 +1,9 @@
-import pandas as pd
-import streamlit as st
-import concurrent.futures
+from dataclasses import dataclass
 
-from mainnet_launch.constants import *
-from mainnet_launch.database.schema.full import Tokens
-from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
+import pandas as pd
+
+
+from mainnet_launch.constants import DEAD_ADDRESS, ChainData
 from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
     make_many_requests_to_3rd_party,
     make_single_request_to_3rd_party,

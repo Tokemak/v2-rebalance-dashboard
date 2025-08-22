@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-import asyncio
-import aiohttp
-from typing import Optional, Sequence, Iterable
+from typing import Optional
+
 import pandas as pd
 
 from mainnet_launch.constants import *
@@ -12,13 +11,8 @@ from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
 )
 from pprint import pprint
 
-# add a configurable parameter for what level of exposrue to exclude
-# eg we can still trade witha pool where we ahve 5% of it
-# start with a 10% threshold
-# do this later
-
-ODOS_RATELIMIT_MAX_RATE = 600  #  # 600 requests per 5 minutes
-ODOS_RATE_LIMIT_TIME_PERIOD = 5 * 60  # 5 minutes
+# ODOS_RATELIMIT_MAX_RATE = 600  #  # 600 requests per 5 minutes
+# ODOS_RATE_LIMIT_TIME_PERIOD = 5 * 60  # 5 minutes
 
 ODOS_BASE_URL = "https://api.odos.xyz"
 
@@ -122,7 +116,6 @@ def _flatten_odos_response(raw_odos_response: dict):
 
     else:
         # if the request was not successful, return an empty dict
-
         flat_odos_data = {
             THIRD_PARTY_SUCCESS_KEY: raw_odos_response[THIRD_PARTY_SUCCESS_KEY],
         }

@@ -10,10 +10,16 @@ from aiohttp.client_exceptions import (
     ClientOSError,
 )
 
-from tqdm import tqdm  # pip install tqdm
+from tqdm import tqdm
 import pandas as pd
 
 THIRD_PARTY_SUCCESS_KEY = "3rd_party_response_success"
+
+
+class ThirdPartyAPIError(Exception):
+    def __init__(self, message: str, data: dict):
+        super().__init__(message)
+        self.data = data
 
 
 def _run_async_safely(coro):

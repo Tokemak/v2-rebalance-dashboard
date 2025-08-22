@@ -17,7 +17,6 @@ from web3 import Web3
 # ask nick if we are keeping the new or old schema
 # https://subgraph.satsuma-prod.com/tokemak/v2-gen3-sonic-mainnet/playground
 
-
 # note: this does not do correct values for amountIn
 # for the ETH denomiated pools
 
@@ -161,10 +160,6 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
 
 if __name__ == "__main__":
     from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH, SONIC_USD
-
-    # df = fetch_autopool_rebalance_events_from_subgraph(AUTO_ETH)
-
-    # print(df.columns)
 
     df = fetch_autopool_rebalance_events_from_subgraph(SONIC_USD)
     pass

@@ -1,3 +1,5 @@
+# deprecated
+
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 

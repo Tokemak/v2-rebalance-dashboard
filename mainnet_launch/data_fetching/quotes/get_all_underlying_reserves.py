@@ -10,11 +10,10 @@ from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,
-    safe_normalize_with_bool_success,
 )
-from mainnet_launch.database.schema.full import Destinations, Tokens
+from mainnet_launch.database.schema.full import Tokens
 from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
-from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, AutopoolConstants, time_decorator
+from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, AutopoolConstants
 
 
 def get_eth_value_by_destination_by_autopool(lens_contract_data: dict):
