@@ -1,7 +1,7 @@
 from .models import AutopoolConstants
 from .chains import ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN
 from .secrets import BUCKETS
-from .addresses import WETH, USDC, DOLA
+from .addresses import WETH, USDC, DOLA, EURC
 
 
 AUTO_ETH: AutopoolConstants = AutopoolConstants(
@@ -143,6 +143,8 @@ SONIC_USD: AutopoolConstants = AutopoolConstants(
 )
 
 
+# NEW, untested
+
 SILO_USD: AutopoolConstants = AutopoolConstants(
     "siloUSD",
     "siloUSD",
@@ -173,6 +175,21 @@ SILO_ETH: AutopoolConstants = AutopoolConstants(
     base_asset_decimals=18,
 )
 
+BASE_EUR = AutopoolConstants(
+    "baseEUR",
+    "baseEUR",
+    autopool_eth_addr="0xeb042DEE6f7Ff3B45eF0A71686653D168FB02477",
+    autopool_eth_strategy_addr=None,
+    solver_rebalance_plans_bucket=BUCKETS["BASE_EUR"],
+    chain=BASE_CHAIN,
+    base_asset=EURC(BASE_CHAIN),
+    block_deployed=33811934,
+    data_from_rebalance_plan=True,
+    base_asset_symbol="EURC",
+    start_display_date="8-05-2025",  # TODO move this date up
+    base_asset_decimals=6,
+)
+
 
 ALL_AUTOPOOLS: list[AutopoolConstants] = [
     AUTO_ETH,
@@ -186,7 +203,13 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
     SONIC_USD,
     SILO_USD,
     SILO_ETH,
+    BASE_EUR,
 ]
+
+NEW_AUTOPOOLS: list[AutopoolConstants] = [SILO_USD, SILO_ETH, BASE_EUR]
+
+NEW_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [SILO_USD, SILO_ETH, BASE_EUR]
+
 
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
 ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [AUTO_USD, BASE_USD, AUTO_DOLA, SONIC_USD]
