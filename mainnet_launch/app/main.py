@@ -22,7 +22,7 @@ CATEGORY_AUTOPOOL = "Autopool"
 def main():
 
     config_plotly_and_streamlit()
-    update_if_needed_on_streamlit_server()
+    # update_if_needed_on_streamlit_server() # broken, takes too long for streamlit server, SSL connection dropped
 
     st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
     st.title("Autopool Diagnostics Dashboard")
