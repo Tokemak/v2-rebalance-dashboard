@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from functools import cached_property
 
-from typing import TYPE_CHECKING, cast
+from typing import cast
 import importlib
 
 from web3 import Web3
@@ -11,7 +11,6 @@ from web3 import Web3
 class ChainData:
     name: str
     block_autopool_first_deployed: int
-    approx_seconds_per_block: float  # TODO remove this arg
     chain_id: int
     start_unix_timestamp: int
     tokemak_subgraph_url: str

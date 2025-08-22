@@ -143,6 +143,37 @@ SONIC_USD: AutopoolConstants = AutopoolConstants(
 )
 
 
+SILO_USD: AutopoolConstants = AutopoolConstants(
+    "siloUSD",
+    "siloUSD",
+    autopool_eth_addr="0x408b6A3E2Daf288864968454AAe786a2A042Df36",
+    autopool_eth_strategy_addr=None,
+    solver_rebalance_plans_bucket=BUCKETS["SILO_USD"],
+    chain=ETH_CHAIN,
+    base_asset=USDC(ETH_CHAIN),
+    block_deployed=23025070,
+    data_from_rebalance_plan=True,
+    base_asset_symbol="USDC",
+    start_display_date="7-29-2025",  # TODO move this date up
+    base_asset_decimals=6,
+)
+
+SILO_ETH: AutopoolConstants = AutopoolConstants(
+    "siloETH",
+    "siloETH",
+    autopool_eth_addr="0x52F0D57Fb5D4780a37164f918746f9BD51c684a3",
+    autopool_eth_strategy_addr=None,
+    solver_rebalance_plans_bucket=BUCKETS["SILO_ETH"],
+    chain=ETH_CHAIN,
+    base_asset=WETH(ETH_CHAIN),
+    block_deployed=23025073,
+    data_from_rebalance_plan=True,
+    base_asset_symbol="ETH",
+    start_display_date="7-29-2025",  # TODO move this date up
+    base_asset_decimals=18,
+)
+
+
 ALL_AUTOPOOLS: list[AutopoolConstants] = [
     AUTO_ETH,
     BAL_ETH,
@@ -153,6 +184,8 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
     BASE_USD,
     AUTO_DOLA,
     SONIC_USD,
+    SILO_USD,
+    SILO_ETH,
 ]
 
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
