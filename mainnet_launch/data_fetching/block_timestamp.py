@@ -175,5 +175,6 @@ def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> None:
 def no_args_determine_what_days_have_highest_block_found():
     determine_what_days_have_highest_block_found(ETH_CHAIN)
 
+
 if __name__ == "__main__":
     profile_function(determine_what_days_have_highest_block_found, ETH_CHAIN)

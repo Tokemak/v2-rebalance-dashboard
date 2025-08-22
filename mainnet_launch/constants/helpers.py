@@ -17,7 +17,7 @@ def time_decorator(func):
 def profile_function(func, *args, **kwargs):
     """
     Profiles the given function line-by-line, prints the result in seconds,
-    and saves it to profiles/<function_name>.txt.
+    and saves it to profiles/<function_name>.txt, including total time in seconds.
 
     Args:
         func (callable): The function to profile.
@@ -32,11 +32,20 @@ def profile_function(func, *args, **kwargs):
     profiler.enable_by_count()
 
     try:
-        func(*args, **kwargs)  # Run the function with given args
+        func(*args, **kwargs)
     finally:
         profiler.disable_by_count()
+
+        # Print to console
         profiler.print_stats(output_unit=1)
+
+        # Get total time in seconds
+        stats = profiler.get_stats()
+        total_time_sec = sum(t for _, rows in stats.timings.items() for _, _, t in rows) * stats.unit
+
+        # Save to file with total time header
         with open(output_path, "w") as f:
+            f.write(f"Total time: {total_time_sec:.6f} s\n\n")
             profiler.print_stats(stream=f, output_unit=1)
 
         print(f"Profile written to: {output_path}")

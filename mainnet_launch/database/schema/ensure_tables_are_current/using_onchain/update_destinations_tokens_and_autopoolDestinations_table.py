@@ -3,7 +3,7 @@ from multicall import Call
 from web3 import Web3
 
 
-from mainnet_launch.constants import ChainData, ALL_CHAINS, ALL_AUTOPOOLS, WETH, USDC
+from mainnet_launch.constants import ChainData, ALL_CHAINS, ALL_AUTOPOOLS, ALL_BASE_ASSETS, DEAD_ADDRESS
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
 from mainnet_launch.data_fetching.get_events import fetch_events
@@ -236,12 +236,16 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
             index_elements=[Destinations.destination_vault_address, Destinations.chain_id],
         )
 
+        base_asset_tokens_to_get = [
+            base_asset(chain) for base_asset in ALL_BASE_ASSETS if base_asset(chain) != DEAD_ADDRESS
+        ]
+
         tokens_addresses_to_get = [
             *[t.token_address for t in destination_tokens],
             *[t.underlying for t in new_destination_rows],
-            WETH(chain),
-            USDC(chain),
+            *base_asset_tokens_to_get,
         ]
+        tokens_addresses_to_get = list(set(tokens_addresses_to_get))
         new_token_rows = _fetch_token_rows(tokens_addresses_to_get, chain)
 
         insert_avoid_conflicts(
@@ -274,4 +278,6 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
 
 
 if __name__ == "__main__":
-    ensure__destinations__tokens__and__destination_tokens_are_current()
+    from mainnet_launch.constants import profile_function
+
+    profile_function(ensure__destinations__tokens__and__destination_tokens_are_current)
