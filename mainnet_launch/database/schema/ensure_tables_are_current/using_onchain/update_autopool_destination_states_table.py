@@ -161,5 +161,9 @@ def ensure_autopool_destination_states_are_current():
 
 
 if __name__ == "__main__":
-    ensure_autopool_destination_states_are_current()
-    # _determine_what_blocks_are_needed(ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, ALL_CHAINS[0])
+
+    from mainnet_launch.constants import *
+
+    profile_function(ensure_autopool_destination_states_are_current)
+
+# _determine_what_blocks_are_needed(ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, ALL_CHAINS[0])

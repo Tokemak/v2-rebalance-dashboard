@@ -431,7 +431,6 @@ def _fetch_idle_destination_token_values(
     return idle_destination_token_values
 
 
-@time_decorator
 def ensure_destination_token_values_are_current():
     # in theory this can be done faster, in autopool groups but
     # I ran into issues with too many calls per http request
@@ -441,4 +440,6 @@ def ensure_destination_token_values_are_current():
 
 
 if __name__ == "__main__":
-    ensure_destination_token_values_are_current()
+    from mainnet_launch.constants import *
+
+    profile_function(ensure_destination_token_values_are_current)

@@ -6,7 +6,7 @@ import pandas as pd
 from web3 import Web3
 
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA, BAL_ETH, AUTO_LRT
+from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA, EURC
 from mainnet_launch.database.schema.full import RebalancePlans, Destinations, DexSwapSteps, Tokens
 
 from mainnet_launch.database.schema.postgres_operations import (
@@ -22,12 +22,8 @@ from mainnet_launch.data_fetching.internal.s3_helper import (
     fetch_rebalance_plan_json_from_s3_bucket,
 )
 
-# todo the scale on the rebalance safe amoutn in and min safe amount out is wrong, way too small for autoUSD
-# also safe the plans locally as well, just ot have them
-
 
 def _handle_only_state_of_destinations_rebalance_plan(plan: dict) -> RebalancePlans:
-    # just to make sure the keys are on remote
     return RebalancePlans(
         file_name=plan["rebalance_plan_json_key"],
         datetime_generated=pd.to_datetime(int(plan["timestamp"]), unit="s", utc=True),
@@ -61,7 +57,6 @@ def _handle_only_state_of_destinations_rebalance_plan(plan: dict) -> RebalancePl
 
 
 def _extract_normalized_amounts(plan: dict, token_address_to_decimals: dict):
-
     out_decimals = token_address_to_decimals[plan["tokenOut"]]
     in_decimals = token_address_to_decimals[plan["tokenIn"]]
 
@@ -72,7 +67,6 @@ def _extract_normalized_amounts(plan: dict, token_address_to_decimals: dict):
 
 
 def _extract_safe_values(plan: dict, autopool: AutopoolConstants):
-
     possible_amount_out_keys = ["amountOutUSD", "amountOutETH", "amountOutQuote"]
     possible_amount_in_keys = ["minAmountInUSD", "minAmountInETH", "minAmountInQuote"]
 
@@ -92,7 +86,7 @@ def _extract_spot_values(rebalance_test: dict, autopool: AutopoolConstants):
     elif autopool.base_asset in WETH:
         spot_value_out_key = "outSpotETH"
         min_amount_in_spot_value_key = "inSpotETH"
-    elif autopool.base_asset in DOLA:
+    elif (autopool.base_asset in DOLA) or (autopool.base_asset in EURC):
         spot_value_out_key = "outSpotQuote"
         min_amount_in_spot_value_key = "inSpotQuote"
     else:
@@ -228,7 +222,6 @@ def _extract_new_dext_steps(plan: dict) -> list[DexSwapSteps]:
 
 
 def ensure_rebalance_plans_table_are_current():
-
     destinations: list[Destinations] = get_full_table_as_orm(Destinations)
     destination_address_to_symbol = {d.destination_vault_address: d.underlying_symbol for d in destinations}
 
@@ -285,5 +278,7 @@ def print_count_of_rebalance_plans_in_db():
 
 
 if __name__ == "__main__":
-    # print_count_of_rebalance_plans_in_db()
-    ensure_rebalance_plans_table_are_current()
+
+    from mainnet_launch.constants import profile_function
+
+    profile_function(ensure_rebalance_plans_table_are_current)

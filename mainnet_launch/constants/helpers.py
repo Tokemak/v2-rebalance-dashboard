@@ -36,12 +36,11 @@ def profile_function(func, *args, **kwargs):
     finally:
         profiler.disable_by_count()
 
-        # Print to console
-        profiler.print_stats(output_unit=1)
-
-        # Get total time in seconds
         stats = profiler.get_stats()
         total_time_sec = sum(t for _, rows in stats.timings.items() for _, _, t in rows) * stats.unit
+
+        print(f"Total time: {total_time_sec:.6f} s\n\n")
+        profiler.print_stats(output_unit=1)
 
         # Save to file with total time header
         with open(output_path, "w") as f:

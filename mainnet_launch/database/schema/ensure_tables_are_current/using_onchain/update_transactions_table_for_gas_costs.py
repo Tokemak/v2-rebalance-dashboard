@@ -125,7 +125,10 @@ def update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched():
             etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
                 chain, EOA_address, from_block=from_block, to_block=to_block
             )
-            sleep(0.5)
+            # not certain why I have the sleep here,
+            # removing it seems fine?
+            # not certain
+            # sleep(0.5)
             if not etherscan_tx_df.empty:
                 transaction_hashes_required.extend(etherscan_tx_df["hash"].tolist())
                 print(len(transaction_hashes_required), i, len(EOAs_we_want_to_track), EOA_address)
@@ -168,4 +171,6 @@ def update_tokemak_EOA_gas_costs_from_0():
 
 
 if __name__ == "__main__":
-    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()
+    from mainnet_launch.constants import profile_function
+
+    profile_function(update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched)

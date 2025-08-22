@@ -127,17 +127,6 @@ def _fetch_and_insert_new_token_values(autopools: list[AutopoolConstants], chain
     )
 
 
-def ensure_token_values_are_current():
-    for chain in ALL_CHAINS:
-        autopools = [a for a in ALL_AUTOPOOLS_DATA_ON_CHAIN if a.chain == chain]
-        if autopools:
-            _fetch_and_insert_new_token_values(autopools, chain)
-
-        autopools = [a for a in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN if a.chain == chain]
-        if autopools:
-            _fetch_and_insert_new_token_values(autopools, chain)
-
-
 def _build_safe_price_calls(tokens: list[Tokens], chain: ChainData) -> list[Call]:
 
     eth_safe_price_calls = [
@@ -222,5 +211,18 @@ def _fetch_safe_and_backing_values(missing_blocks: list[int], tokens: list[Token
     return df
 
 
+def ensure_token_values_are_current():
+    for chain in ALL_CHAINS:
+        autopools = [a for a in ALL_AUTOPOOLS_DATA_ON_CHAIN if a.chain == chain]
+        if autopools:
+            _fetch_and_insert_new_token_values(autopools, chain)
+
+        autopools = [a for a in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN if a.chain == chain]
+        if autopools:
+            _fetch_and_insert_new_token_values(autopools, chain)
+
+
 if __name__ == "__main__":
-    ensure_token_values_are_current()
+    from mainnet_launch.constants import profile_function
+
+    profile_function(ensure_token_values_are_current)
