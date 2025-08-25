@@ -135,6 +135,7 @@ def _pick_a_quote_batch() -> int:
     return selected["quote_batch"]
 
 
+@st.cache_data(ttl=60 * 10)
 def _load_quote_data(chain: ChainData, base_asset: TokemakAddress, quote_batch_number: int) -> pd.DataFrame:
     full_quote_batch_df, median_reference_prices = _load_full_quote_batch_df(quote_batch_number)
     asset_exposure_df = _fetch_asset_allocation_from_db(quote_batch_number)
@@ -146,9 +147,9 @@ def _load_quote_data(chain: ChainData, base_asset: TokemakAddress, quote_batch_n
         (full_quote_batch_df["chain_id"] == chain.chain_id) & (full_quote_batch_df["base_asset"] == base_asset(chain))
     ].reset_index(drop=True)
 
-    limited_suspect_df = identify_suspect_exit_liquidity_quotes(full_quote_batch_df)
+    suspect_exit_liqudity_assets_df = identify_suspect_exit_liquidity_quotes(full_quote_batch_df)
 
-    return asset_exposure_df, swap_quotes_df, limited_suspect_df
+    return asset_exposure_df, swap_quotes_df, suspect_exit_liqudity_assets_df
 
 
 def identify_suspect_exit_liquidity_quotes(swap_quotes_df: pd.DataFrame) -> pd.DataFrame:
@@ -181,24 +182,34 @@ def fetch_and_render_exit_liquidity_from_quotes() -> None:
     st.subheader("Exit Liquidity Quotes")
 
     quote_batch_number = _pick_a_quote_batch()
-    chain, base_asset, _ = render_pick_chain_and_base_asset_dropdown()
 
-    should_trim_slippage_graph = st.checkbox(
-        "Trim Slippage Graphs to -50 bps to 100 bps",
-        value=True,
+    default_chain, default_base_asset = ETH_CHAIN, WETH
+
+    asset_exposure_df, swap_quotes_df, suspect_exit_liqudity_assets_df = _load_quote_data(
+        default_chain, default_base_asset, quote_batch_number
     )
-
-    asset_exposure_df, swap_quotes_df, limited_suspect_df = _load_quote_data(chain, base_asset, quote_batch_number)
 
     if swap_quotes_df.empty:
         st.warning(
             f"No exit liquidity quotes found for the {chain.name} chain and {base_asset(chain)} base asset in batch {quote_batch_number}."
         )
         return
+
     st.subheader(
         f"Suspect Exit Liquidity Pairs, Stable Coin Slippage > {STABLE_COINS_SLIPPAGE_WARNING_THESHOLD_BPS} bps or WETH Slippage > {WETH_SLIPPAGE_WARNING_THESHOLD_BPS} bps"
     )
-    st.dataframe(limited_suspect_df, use_container_width=True, hide_index=True)
+    st.dataframe(suspect_exit_liqudity_assets_df, use_container_width=True, hide_index=True)
+
+    chain, base_asset, _ = render_pick_chain_and_base_asset_dropdown()
+
+    asset_exposure_df, swap_quotes_df, suspect_exit_liqudity_assets_df = _load_quote_data(
+        chain, base_asset, quote_batch_number
+    )
+
+    should_trim_slippage_graph = st.checkbox(
+        "Trim Slippage Graphs to -50 bps to 100 bps",
+        value=True,
+    )
 
     render_slippage_scatter_plots(swap_quotes_df, should_trim_slippage_graph, base_asset)
 
