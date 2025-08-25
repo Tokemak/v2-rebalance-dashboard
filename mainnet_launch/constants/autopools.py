@@ -171,7 +171,7 @@ SILO_ETH: AutopoolConstants = AutopoolConstants(
     block_deployed=23025073,
     data_from_rebalance_plan=True,
     base_asset_symbol="ETH",
-    start_display_date="7-29-2025",  # TODO move this date up
+    start_display_date="8-20-2025",  # TODO move this date up
     base_asset_decimals=18,
 )
 
@@ -186,7 +186,7 @@ BASE_EUR = AutopoolConstants(
     block_deployed=33811934,
     data_from_rebalance_plan=True,
     base_asset_symbol="EURC",
-    start_display_date="8-05-2025",  # TODO move this date up
+    start_display_date="8-19-2025",  # TODO move this date up
     base_asset_decimals=6,
 )
 
@@ -212,4 +212,12 @@ NEW_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [SILO_USD, SIL
 
 
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
-ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [AUTO_USD, BASE_USD, AUTO_DOLA, SONIC_USD]
+ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [
+    AUTO_USD,
+    BASE_USD,
+    AUTO_DOLA,
+    SONIC_USD,
+    SILO_USD,
+    SILO_ETH,
+    BASE_EUR,
+]
