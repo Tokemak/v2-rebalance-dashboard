@@ -26,18 +26,23 @@ class OdosQuoteRequest:
     poolBlacklist: Optional[tuple[str]] = None
 
 
-def fetch_odos_single_token_raw_quote(
-    chain_id: int, token_in: str, token_out: str, unscaled_amount_in: str, poolBlacklist: tuple[str] = None
-) -> dict:
-    # https://docs.odos.xyz/build/api-docs
-
+def _build_request_kwargs(
+    chain_id: int,
+    token_in: str,
+    token_out: str,
+    unscaled_amount_in: str,
+    poolBlacklist: tuple[str] = None,
+    compact: bool = False,
+    simple: bool = False,
+    likeAsset: bool = True,
+):
     json_payload = {
         "chainId": chain_id,
         "inputTokens": [{"tokenAddress": token_in, "amount": unscaled_amount_in}],
         "outputTokens": [{"tokenAddress": token_out, "proportion": 1.0}],
-        "compact": False,
-        "simple": False,
-        "likeAsset": True,
+        "compact": compact,
+        "simple": simple,
+        "likeAsset": likeAsset,
     }
 
     if poolBlacklist:
@@ -48,8 +53,24 @@ def fetch_odos_single_token_raw_quote(
         "url": f"{ODOS_BASE_URL}/sor/quote/v3",
         "json": json_payload,
     }
-    raw_odos_response = make_single_request_to_3rd_party(request_kwargs=request_kwargs)
+    return request_kwargs
 
+
+def fetch_odos_single_token_raw_quote(
+    chain_id: int,
+    token_in: str,
+    token_out: str,
+    unscaled_amount_in: str,
+    poolBlacklist: tuple[str] = None,
+    compact: bool = False,
+    simple: bool = False,
+    likeAsset: bool = True,
+) -> dict:
+    # https://docs.odos.xyz/build/api-docs
+    request_kwargs = _build_request_kwargs(
+        chain_id, token_in, token_out, unscaled_amount_in, poolBlacklist, compact, simple, likeAsset
+    )
+    raw_odos_response = make_single_request_to_3rd_party(request_kwargs=request_kwargs)
     flat_odos_response = _flatten_odos_response(raw_odos_response)
     return flat_odos_response
 
@@ -57,27 +78,13 @@ def fetch_odos_single_token_raw_quote(
 def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> pd.DataFrame:
     requests_kwargs = []
     for quote_request in quote_requests:
-
-        json_payload = {
-            "chainId": quote_request.chain_id,
-            "inputTokens": [{"tokenAddress": quote_request.token_in, "amount": str(quote_request.unscaled_amount_in)}],
-            "outputTokens": [{"tokenAddress": quote_request.token_out, "proportion": 1.0}],
-            "compact": False,
-            "simple": False,
-        }
-        if quote_request.poolBlacklist:
-            json_payload["poolBlacklist"] = quote_request.poolBlacklist
-
-        requests_kwargs.append(
-            {
-                "method": "POST",
-                "url": f"{ODOS_BASE_URL}/sor/quote/v3",
-                "json": json_payload,
-            }
+        requests_kwargs = _build_request_kwargs(
+            quote_request.chain_id,
+            quote_request.token_in,
+            quote_request.token_out,
+            quote_request.unscaled_amount_in,
+            quote_request.poolBlacklist,
         )
-
-    # slightly under the 600 / 5 minute
-    # interestingly this does not preserve order
     raw_odos_responses = make_many_requests_to_3rd_party(
         rate_limit_max_rate=8, rate_limit_time_period=10, requests_kwargs=requests_kwargs
     )
@@ -85,6 +92,7 @@ def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> pd.Dat
     flat_odos_responses = [_flatten_odos_response(r) for r in raw_odos_responses]
 
     df = pd.DataFrame.from_records(flat_odos_responses)
+
     return df
 
 

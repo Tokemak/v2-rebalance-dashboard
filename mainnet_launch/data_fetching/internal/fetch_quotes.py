@@ -19,6 +19,29 @@ class TokemakQuoteRequest:
     unscaled_amount_in: str
 
 
+def _build_request_kwargs(chain_id: int, token_in: str, token_out: str, unscaled_amount_in: str):
+    json_payload = {
+        "chainId": chain_id,
+        "systemName": "gen3",
+        "slippageBps": 5000,
+        "taker": DEAD_ADDRESS,
+        "sellToken": token_in,
+        "buyToken": token_out,
+        "sellAmount": str(unscaled_amount_in),
+        "includeSources": "",
+        "excludeSources": "Bebop",
+        "sellAll": True,
+        "timeoutMS": 20000,  # 20 seconds?, default was 5 seconds
+    }
+
+    requests_kwargs = {
+        "method": "POST",
+        "url": "https://swaps-pricing.tokemaklabs.com/swap-quote-v2",
+        "json": json_payload,
+    }
+    return requests_kwargs
+
+
 def _process_quote_response(response: dict) -> dict:
     if response[THIRD_PARTY_SUCCESS_KEY]:
         fields_to_keep = ["buyAmount", "aggregatorName", "datetime_received", THIRD_PARTY_SUCCESS_KEY]
@@ -37,42 +60,11 @@ def fetch_single_swap_quote_from_internal_api(
     sell_token: str,
     buy_token: str,
     unscaled_amount_in: int,
-    system_name: str = "gen3",
-    slippage_bps: int = 1000,
-    include_sources: str = "",
-    exclude_sources: str = "Bebop",
-    sell_all: bool = True,
-    timeout_ms: int = None,
-    transfer_to_caller: bool = True,
 ) -> dict:
-    url = "https://swaps-pricing.tokemaklabs.com/swap-quote-v2"
-
-    payload = {
-        "chainId": chain_id,
-        "systemName": system_name,
-        "slippageBps": slippage_bps,
-        "taker": DEAD_ADDRESS,
-        "sellToken": sell_token,
-        "buyToken": buy_token,
-        "sellAmount": str(unscaled_amount_in),
-        "includeSources": include_sources,
-        "excludeSources": exclude_sources,
-        "sellAll": sell_all,
-        "timeoutMS": str(timeout_ms) if timeout_ms is not None else "",
-        "transferToCaller": transfer_to_caller,
-    }
-
-    tokemak_response = make_single_request_to_3rd_party(
-        request_kwargs={
-            "url": url,
-            "json": payload,
-            "method": "POST",
-        }
-    )
-
+    request_kwargs = _build_request_kwargs(chain_id, sell_token, buy_token, unscaled_amount_in)
+    make_single_request_to_3rd_party(request_kwargs=request_kwargs)
     clean_response = _process_quote_response(tokemak_response)
-    clean_response.update(payload)
-
+    clean_response.update(request_kwargs["json"])
     return clean_response
 
 
@@ -81,25 +73,11 @@ def fetch_many_swap_quotes_from_internal_api(
 ) -> pd.DataFrame:
     requests_kwargs = []
     for quote_request in quote_requests:
-        json_payload = {
-            "chainId": quote_request.chain_id,
-            "systemName": "gen3",
-            "slippageBps": 500,
-            "taker": DEAD_ADDRESS,
-            "sellToken": quote_request.token_in,
-            "buyToken": quote_request.token_out,
-            "sellAmount": str(quote_request.unscaled_amount_in),
-            "includeSources": "",
-            "excludeSources": "Bebop",
-            "sellAll": True,
-        }
-
-        requests_kwargs.append(
-            {
-                "method": "POST",
-                "url": "https://swaps-pricing.tokemaklabs.com/swap-quote-v2",
-                "json": json_payload,
-            }
+        requests_kwargs = _build_request_kwargs(
+            quote_request.chain_id,
+            quote_request.token_in,
+            quote_request.token_out,
+            quote_request.unscaled_amount_in,
         )
 
     # no real idea here

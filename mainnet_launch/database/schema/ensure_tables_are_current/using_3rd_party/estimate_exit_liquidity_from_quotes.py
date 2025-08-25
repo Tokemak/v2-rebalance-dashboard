@@ -18,7 +18,6 @@ from mainnet_launch.database.schema.full import (
     Tokens,
     SwapQuote,
     AssetExposure,
-    ENGINE,
 )
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_df,
@@ -384,9 +383,9 @@ def fetch_and_save_loop(seconds_delay: int, num_batches: int):
     global PERCENT_OWNERSHIP_THRESHOLD
     for i in range(num_batches):
         if i % 2 == 0:
-            PERCENT_OWNERSHIP_THRESHOLD = 25
-        else:
             PERCENT_OWNERSHIP_THRESHOLD = 50
+        else:
+            PERCENT_OWNERSHIP_THRESHOLD = 25
 
         fetch_and_save_current_swap_quotes()
         print(f"Batch {i + 1}/{num_batches} completed.")
