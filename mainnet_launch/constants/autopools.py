@@ -156,7 +156,7 @@ SILO_USD: AutopoolConstants = AutopoolConstants(
     block_deployed=23025070,
     data_from_rebalance_plan=True,
     base_asset_symbol="USDC",
-    start_display_date="7-29-2025",  # TODO move this date up
+    start_display_date="8-20-2025",  # TODO move this date up
     base_asset_decimals=6,
 )
 

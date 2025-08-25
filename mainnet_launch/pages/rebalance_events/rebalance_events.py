@@ -72,7 +72,8 @@ def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
             ),
         ],
     )
-    destinations_df = get_full_table_as_df(Destinations, where_clause=Destinations.chain_id == 1)
+
+    destinations_df = get_full_table_as_df(Destinations, where_clause=Destinations.chain_id == autopool.chain.chain_id)
 
     destination_to_underlying = destinations_df.set_index("destination_vault_address")["underlying_symbol"].to_dict()
 
