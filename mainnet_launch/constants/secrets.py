@@ -38,8 +38,8 @@ BUCKETS = {
 ROOT_DIR = Path(__file__).parent
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "data_fetching/rebalance_plans"
 WORKING_DATA_DIR = ROOT_DIR / "working_data"
-# TODO these can all be removed
 
+# TODO these can all be removed
 DB_DIR = ROOT_DIR / "database"
 DB_FILE = DB_DIR / "autopool_dashboard.db"
 PRODUCTION_LOG_FILE_NAME = "production_usage.log"
