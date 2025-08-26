@@ -147,6 +147,7 @@ def _load_raw_rebalance_event_df(autopool: AutopoolConstants):
 
 def ensure_rebalance_events_are_current():
     for autopool in ALL_AUTOPOOLS:
+        # dominating time cost here 50 seconds
         rebalance_event_df = _load_raw_rebalance_event_df(autopool)
 
         if rebalance_event_df.empty:
@@ -341,4 +342,11 @@ def _get_spot_value_change_in_solver(
 
 
 if __name__ == "__main__":
-    ensure_rebalance_events_are_current()
+
+    from mainnet_launch.constants import *
+
+    # 50 seconds, need to make subgrapoh calls in parallel
+    # for each autopool
+    # thread pool executors
+    profile_function(ensure_rebalance_events_are_current)
+    # profile_function(_load_raw_rebalance_event_df, BASE_ETH)

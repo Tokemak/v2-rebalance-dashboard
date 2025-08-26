@@ -152,4 +152,6 @@ def ensure_destination_underlying_withdraw_are_current() -> None:
 
 
 if __name__ == "__main__":
-    ensure_destination_underlying_withdraw_are_current()
+    from mainnet_launch.constants import profile_function
+
+    profile_function(ensure_destination_underlying_withdraw_are_current)

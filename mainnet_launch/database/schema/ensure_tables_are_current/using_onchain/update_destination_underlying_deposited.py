@@ -128,7 +128,6 @@ def fetch_new_destination_underlying_deposited_events(
     return pd.concat(dfs, ignore_index=True)
 
 
-# 8.3 seconds when empty
 def ensure_destination_underlying_deposits_are_current() -> None:
     for chain in ALL_CHAINS:
         destinations_df = get_full_table_as_df(Destinations, where_clause=Destinations.chain_id == chain.chain_id)
@@ -147,4 +146,6 @@ def ensure_destination_underlying_deposits_are_current() -> None:
 
 
 if __name__ == "__main__":
-    ensure_destination_underlying_deposits_are_current()
+    from mainnet_launch.constants import profile_function
+
+    profile_function(ensure_destination_underlying_deposits_are_current)

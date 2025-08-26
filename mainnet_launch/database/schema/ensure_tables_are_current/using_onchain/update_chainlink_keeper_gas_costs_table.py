@@ -97,4 +97,9 @@ def ensure_chainlink_gas_costs_table_is_updated() -> None:
 
 
 if __name__ == "__main__":
-    ensure_chainlink_gas_costs_table_is_updated()
+
+    deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
+
+    from mainnet_launch.constants import profile_function
+
+    profile_function(_ensure_one_chain_chainlink_gas_costs_is_updated, ETH_CHAIN, chainlink_keepers_df)

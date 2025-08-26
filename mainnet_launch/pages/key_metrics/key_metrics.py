@@ -340,7 +340,7 @@ def _diffReturn(x: list):
 if __name__ == "__main__":
     from mainnet_launch.constants import *
 
-    fetch_and_render_key_metrics_data(AUTO_ETH)
+    fetch_and_render_key_metrics_data(SILO_USD)
 
     # from mainnet_launch.app.profiler import profile_function
 

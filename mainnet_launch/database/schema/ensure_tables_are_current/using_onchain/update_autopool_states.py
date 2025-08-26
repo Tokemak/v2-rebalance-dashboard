@@ -146,6 +146,8 @@ def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain:
 
 
 def ensure_autopool_states_are_current():
+
+    # I don't like this format, just do it at the autopool level
     for chain in ALL_CHAINS:
         autopools = [a for a in ALL_AUTOPOOLS_DATA_ON_CHAIN if a.chain == chain]
         if autopools:
@@ -159,4 +161,7 @@ def ensure_autopool_states_are_current():
 
 
 if __name__ == "__main__":
-    ensure_autopool_states_are_current()
+
+    from mainnet_launch.constants import *
+
+    profile_function(ensure_autopool_states_are_current)

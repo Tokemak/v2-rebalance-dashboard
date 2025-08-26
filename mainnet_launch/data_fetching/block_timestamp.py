@@ -13,7 +13,7 @@ from mainnet_launch.database.schema.postgres_operations import (
 )
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, build_blocks_to_use
 
-from mainnet_launch.constants import ALL_CHAINS, ChainData, ETH_CHAIN
+from mainnet_launch.constants import ALL_CHAINS, ChainData, ETH_CHAIN, time_decorator, profile_function
 
 
 def add_blocks_from_dataframe_to_database(df: pd.DataFrame):
@@ -53,7 +53,7 @@ def build_last_second_of_each_day_since_inception(chain: ChainData):
 
 
 def determine_what_days_have_highest_block_found(chain: ChainData) -> pd.DataFrame:
-    # I still think this assumes we will previously have a block, timestmap of each day
+    # I still think this assumes we will previously have a block, timestamp of each day
     blocks = build_blocks_to_use(chain)
     if not blocks:
         return pd.DataFrame(columns=["date"])
@@ -172,5 +172,9 @@ def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> None:
         add_blocks_from_dataframe_to_database(df)
 
 
+def no_args_determine_what_days_have_highest_block_found():
+    determine_what_days_have_highest_block_found(ETH_CHAIN)
+
+
 if __name__ == "__main__":
-    ensure_blocks_is_current()
+    profile_function(determine_what_days_have_highest_block_found, ETH_CHAIN)

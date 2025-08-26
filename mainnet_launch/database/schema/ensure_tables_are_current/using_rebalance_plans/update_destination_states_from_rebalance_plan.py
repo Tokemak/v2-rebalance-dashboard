@@ -10,15 +10,24 @@ from tqdm.contrib.concurrent import thread_map
 
 from multicall.call import Call
 
-from mainnet_launch.database.schema.full import Tokens, DestinationStates, TokenValues, DestinationTokenValues
+from mainnet_launch.database.schema.full import (
+    Tokens,
+    DestinationStates,
+    TokenValues,
+    DestinationTokenValues,
+    AutopoolDestinations,
+)
 from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_orm,
+    get_full_table_as_df,
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
+    merge_tables_as_df,
+    TableSelector,
 )
 
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, time_decorator
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN
 from mainnet_launch.data_fetching.block_timestamp import (
     ensure_all_blocks_are_in_table,
     get_block_by_timestamp_etherscan,
@@ -219,24 +228,42 @@ def _extract_destination_states_rows(
     return new_destination_states_rows
 
 
-@time_decorator
 def ensure_destination_states_from_rebalance_plan_are_current():
     s3_client = make_s3_client()
 
+    autopool_destinations = merge_tables_as_df(
+        selectors=[
+            TableSelector(
+                AutopoolDestinations,
+                select_fields=[
+                    AutopoolDestinations.autopool_vault_address,
+                    AutopoolDestinations.destination_vault_address,
+                ],
+            )
+        ]
+    )
+
+    autopool_vault_address_to_destinations = (
+        autopool_destinations.groupby("autopool_vault_address")["destination_vault_address"].apply(set).to_dict()
+    )
+
+    tokens_orm: list[Tokens] = get_full_table_as_orm(Tokens)
+    tokens_address_to_decimals = {t.token_address: t.decimals for t in tokens_orm}
+
     for autopool in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN:
         solver_plan_paths_on_remote = fetch_all_solver_rebalance_plan_file_names(autopool, s3_client)
-        # not certain if actually slower
-        plans_to_fetch = get_subset_not_already_in_column(  # much slower than it needs to be
-            DestinationStates, DestinationStates.rebalance_plan_key, solver_plan_paths_on_remote, where_clause=None
+
+        this_autopool_destinations = list(autopool_vault_address_to_destinations[autopool.autopool_eth_addr])
+
+        plans_to_fetch = get_subset_not_already_in_column(
+            DestinationStates,
+            DestinationStates.rebalance_plan_key,
+            solver_plan_paths_on_remote,
+            where_clause=DestinationStates.destination_vault_address.in_(this_autopool_destinations),
         )
 
         if not plans_to_fetch:
             continue
-
-        tokens_orm: list[Tokens] = get_full_table_as_orm(
-            Tokens, where_clause=(Tokens.chain_id == autopool.chain.chain_id)
-        )
-        tokens_address_to_decimals = {t.token_address: t.decimals for t in tokens_orm}
 
         def _process_plan(plan_path: str):
             i = 0
@@ -311,4 +338,6 @@ def ensure_destination_states_from_rebalance_plan_are_current():
 
 
 if __name__ == "__main__":
-    ensure_destination_states_from_rebalance_plan_are_current()
+    from mainnet_launch.constants import profile_function
+
+    profile_function(ensure_destination_states_from_rebalance_plan_are_current)

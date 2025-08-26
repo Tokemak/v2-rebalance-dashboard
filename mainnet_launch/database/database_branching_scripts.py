@@ -54,5 +54,6 @@ def reset_main_to_match_dev_local():
 
 
 if __name__ == "__main__":
-    # reset_dev_local_branch_to_match_main()
+    # does not work
+    reset_dev_local_branch_to_match_main()
     pass

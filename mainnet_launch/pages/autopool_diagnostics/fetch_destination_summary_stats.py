@@ -1,3 +1,4 @@
+# deprecated
 import pandas as pd
 from multicall import Call
 import numpy as np

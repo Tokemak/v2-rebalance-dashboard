@@ -30,6 +30,7 @@ from mainnet_launch.constants import (
     USDC,
     WETH,
     DOLA,
+    EURC,
     ALL_AUTOPOOLS_DATA_ON_CHAIN,
 )
 
@@ -42,7 +43,7 @@ def build_lp_token_spot_and_safe_price_calls(
     base_asset: str,
 ) -> list[Call]:
 
-    if base_asset in USDC:
+    if base_asset in USDC or base_asset in EURC:
         base_asset_decimals = 6
     elif base_asset in WETH or base_asset in DOLA:
         base_asset_decimals = 18
@@ -366,48 +367,9 @@ def get_needed_blocks_pure_sql(desired_blocks: list[int], chain: ChainData) -> l
         )
 
 
-# def _get_needed_blocks(desired_blocks: list[int], chain: ChainData) -> list[int]:
-#     autopool_and_destinations_df = merge_tables_as_df(
-#         selectors=[
-#             TableSelector(
-#                 AutopoolDestinations,
-#                 [
-#                     AutopoolDestinations.destination_vault_address,
-#                     AutopoolDestinations.autopool_vault_address,
-#                 ],
-#             ),
-#             TableSelector(
-#                 Destinations,
-#                 Destinations.underlying_name,
-#                 join_on=AutopoolDestinations.destination_vault_address == Destinations.destination_vault_address,
-#             ),
-#         ],
-#         where_clause=(Destinations.chain_id == chain.chain_id)
-#         & (AutopoolDestinations.autopool_vault_address.in_([a.autopool_eth_addr for a in ALL_AUTOPOOLS_DATA_ON_CHAIN])),
-#     )
-
-#     all_missing_blocks = []
-
-#     for destination_vault_address in autopool_and_destinations_df["destination_vault_address"].unique():
-#         missing_blocks = get_subset_not_already_in_column(
-#             DestinationStates,
-#             DestinationStates.block,
-#             desired_blocks,
-#             where_clause=(
-#                 (DestinationStates.destination_vault_address == destination_vault_address)
-#                 & (DestinationStates.chain_id == chain.chain_id)
-#             ),
-#         )
-#         all_missing_blocks.extend(missing_blocks)
-
-#     return list(set(all_missing_blocks))
-
-
 def _add_new_destination_states_to_db(desired_blocks: list[int], chain: ChainData):
-
     missing_blocks = get_needed_blocks_pure_sql(desired_blocks, chain)
     if not missing_blocks:
-        # if there are no missing blocks then early exit
         return
 
     autopool_and_destinations_df = merge_tables_as_df(
@@ -433,8 +395,6 @@ def _add_new_destination_states_to_db(desired_blocks: list[int], chain: ChainDat
         # if there are no autopools on this chain that we are using the onchain sources
         # instead of the rebalance plan sources then early exit
         return
-
-    pass
 
     autopool_to_all_ever_active_destinations = (
         autopool_and_destinations_df.groupby("autopool_vault_address")["destination_vault_address"]
@@ -642,9 +602,6 @@ def _overwrite_bad_summary_states_rows():
     pass
 
 
-from mainnet_launch.constants import SONIC_CHAIN
-
-
 def ensure_destination_states_are_current():
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)
@@ -653,7 +610,8 @@ def ensure_destination_states_are_current():
     _overwrite_bad_summary_states_rows()
 
 
-import cProfile, pstats
-
 if __name__ == "__main__":
-    ensure_destination_states_are_current()
+
+    from mainnet_launch.constants import profile_function
+
+    profile_function(ensure_destination_states_are_current)

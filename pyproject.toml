@@ -28,6 +28,7 @@ graphviz = "^0.20.3"
 statsmodels = "^0.14.4"
 tdqm = "^0.0.1"
 aiolimiter = "^1.2.1"
+line-profiler = "^5.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
