@@ -7,6 +7,9 @@ ABI_DIR = Path(__file__).parent.parent / "abis"
 with open(ABI_DIR / "vault_abi.json", "r") as fin:
     AUTOPOOL_VAULT_ABI = json.load(fin)
 
+with open(ABI_DIR / "AutopoolETH_abi_with_AutopoolFees_abi.json", "r") as fin:
+    AUTOPOOL_VAULT_WITH_FEE_COLLECTED_EVENT_ABI = json.load(fin)
+
 with open(ABI_DIR / "strategy_abi.json", "r") as fin:
     AUTOPOOL_ETH_STRATEGY_ABI = json.load(fin)
 

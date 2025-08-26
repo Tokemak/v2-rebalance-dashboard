@@ -207,10 +207,9 @@ if __name__ == "__main__":
     from mainnet_launch.constants import ETH_CHAIN, DOLA
     from mainnet_launch.abis import ERC_20_ABI
 
-    contract = ETH_CHAIN.client.eth.contract(
-        address=DOLA(ETH_CHAIN),
-        abi=ERC_20_ABI
+    contract = ETH_CHAIN.client.eth.contract(address=DOLA(ETH_CHAIN), abi=ERC_20_ABI)
+    few_transfers_df = fetch_events(
+        contract.events.Transfer, chain=ETH_CHAIN, start_block=23227316 - 1, end_block=23227316 + 5
     )
-    few_transfers_df = fetch_events(contract.events.Transfer, chain=ETH_CHAIN, start_block=23227316 - 1, end_block=23227316 + 5)
     print(few_transfers_df.head())
     pass

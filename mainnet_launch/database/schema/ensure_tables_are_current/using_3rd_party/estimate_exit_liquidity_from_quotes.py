@@ -103,7 +103,9 @@ def _build_quote_requests_from_absolute_sizes(
 
     if base_asset(chain) == WETH(chain):
         sizes = ETH_SCALED_SIZES
-    elif (base_asset(chain) == USDC(chain)) or (base_asset(chain) == DOLA(chain)) or (base_asset(chain) == EURC(chain)):  # add EURC here
+    elif (
+        (base_asset(chain) == USDC(chain)) or (base_asset(chain) == DOLA(chain)) or (base_asset(chain) == EURC(chain))
+    ):  # add EURC here
         sizes = USD_SCALED_SIZES
     else:
         raise ValueError(f"Unexpected base asset: {base_asset.name}")

@@ -475,6 +475,32 @@ class ChainlinkGasCosts(Base):
 
 
 # not populated
+class AutopoolFees(Base):
+    __tablename__ = "autopool_fees"
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    log_index: Mapped[int] = mapped_column(primary_key=True)
+
+    autopool_vault_address: Mapped[str] = mapped_column(nullable=False)
+
+    fees: Mapped[float] = mapped_column(nullable=False)
+    fee_sink: Mapped[str] = mapped_column(nullable=False)  # where the fee went
+    minted_shares: Mapped[float] = mapped_column(nullable=False)
+    profit: Mapped[float] = mapped_column(nullable=False)
+    totalAssets: Mapped[float] = mapped_column(nullable=False)
+
+
+# not populated
+class AutopoolWithdrawalToken(Base):
+    # for when the user can withdraw the LP tokens, not the base asset
+    __tablename__ = "autopool_withdrawal_token"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"))
+    token_address: Mapped[str] = mapped_column(nullable=False)
+    amount: Mapped[float] = mapped_column(nullable=False)
+
+
+# not populated
 class AutopoolDeposit(Base):
     __tablename__ = "autopool_deposit"
 
@@ -516,38 +542,6 @@ class AutopoolWithdrawal(Base):
         nullable=False
     )  # the actual ratio of base asset amount / shares they got out
     slippage: Mapped[float] = mapped_column(nullable=False)
-
-    __table_args__ = (
-        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        ForeignKeyConstraint(
-            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
-        ),
-    )
-
-
-# not populated
-class AutopoolWithdrawalToken(Base):
-    __tablename__ = "autopool_withdrawal_token"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"))
-    token_address: Mapped[str] = mapped_column(nullable=False)
-    amount: Mapped[float] = mapped_column(nullable=False)
-
-
-# not populated
-class AutopoolFees(Base):
-    __tablename__ = "autopool_fees"
-    autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
-    block: Mapped[int] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(primary_key=True)
-
-    event_name: Mapped[str] = mapped_column(primary_key=True)
-
-    denominated_in: Mapped[str] = mapped_column(nullable=False)
-    minted_shares: Mapped[float] = mapped_column(nullable=False)
-    minted_shares_value: Mapped[float] = mapped_column(nullable=False)
 
     __table_args__ = (
         ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
@@ -692,7 +686,8 @@ Session = sessionmaker(bind=ENGINE)
 
 
 if __name__ == "__main__":
-    drop_and_full_rebuild_db()
+    reflect_and_create()
+    # drop_and_full_rebuild_db()
 
     pass
 
