@@ -474,19 +474,16 @@ class ChainlinkGasCosts(Base):
     chainlink_topic_id: Mapped[str] = mapped_column(nullable=False)
 
 
-# not populated
 class AutopoolFees(Base):
     __tablename__ = "autopool_fees"
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
     log_index: Mapped[int] = mapped_column(primary_key=True)
 
     autopool_vault_address: Mapped[str] = mapped_column(nullable=False)
+    fee_name: Mapped[str] = mapped_column(nullable=False)  # eg FeeCollected or PeriodicFeeCollected
 
-    fees: Mapped[float] = mapped_column(nullable=False)
     fee_sink: Mapped[str] = mapped_column(nullable=False)  # where the fee went
-    minted_shares: Mapped[float] = mapped_column(nullable=False)
-    profit: Mapped[float] = mapped_column(nullable=False)
-    totalAssets: Mapped[float] = mapped_column(nullable=False)
+    minted_shares: Mapped[float] = mapped_column(nullable=False)  # shares is always in 1e18
 
 
 # not populated
