@@ -50,3 +50,7 @@ fetch-exit-quotes = "mainnet_launch.database.schema.ensure_tables_are_current.us
 
 app = "mainnet_launch.app.cli:app"
 marketing-app = "mainnet_launch.app.cli:marketing_app"
+
+
+export_config = "mainnet_launch.app.export_config:create_streamlit_secrets_from_env"
+
