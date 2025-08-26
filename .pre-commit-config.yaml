@@ -1,8 +1,5 @@
 repos:
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.4
+    rev: v8.28.0
     hooks:
       - id: gitleaks
-        name: gitleaks (strict, no allowlist)
-        args: ["--staged", "--verbose", "--redact"]
-        stages: [pre-commit]
