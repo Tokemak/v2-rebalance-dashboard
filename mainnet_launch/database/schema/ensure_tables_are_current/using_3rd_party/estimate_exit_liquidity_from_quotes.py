@@ -18,7 +18,6 @@ from mainnet_launch.database.schema.full import (
     Tokens,
     SwapQuote,
     AssetExposure,
-    ENGINE,
 )
 from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_df,
