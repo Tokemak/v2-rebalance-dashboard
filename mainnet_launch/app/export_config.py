@@ -2,12 +2,12 @@ import os
 from pathlib import Path
 from dotenv import dotenv_values
 import toml
+from mainnet_launch.constants.secrets import WORKING_DATA_DIR
 
 
 def create_streamlit_secrets_from_env(
     env_path: str = ".env",
     output_filename: str = "streamlit_config_secrets.toml",
-    working_data_dir: str = "working_data",
 ) -> None:
     """
     Reads environment variables from a .env file and writes them to a TOML file
@@ -31,15 +31,12 @@ def create_streamlit_secrets_from_env(
     env_vars_str = {str(k): v for k, v in env_vars.items() if v is not None}
 
     # Make sure working_data_dir exists
-    output_dir = Path(working_data_dir)
+    output_dir = Path(WORKING_DATA_DIR)
     output_dir.mkdir(parents=True, exist_ok=True)
-
     output_path = output_dir / output_filename
-    print(env_vars_str)
 
-    # Write to TOML
-    # with open(output_path, "w") as f:
-    #     toml.dump(env_vars_str, f)
+    with open(output_path, "w") as f:
+        toml.dump(env_vars_str, f)
 
     print(f"✅ Streamlit secrets TOML created at: {output_path.resolve()}")
 
