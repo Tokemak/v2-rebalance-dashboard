@@ -1,8 +1,4 @@
-"""
-Takes 5 minutes ot run, with curernt setup
-
-"""
-
+# broken as of aug 26
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 
@@ -38,24 +34,19 @@ from mainnet_launch.data_fetching.odos.fetch_quotes import (
 
 ERROR_LOG_FILE = "/Users/pb/Desktop/quote_log.txt"
 
-CHAIN_BASE_ASSET_GROUPS = {
-    (ETH_CHAIN, WETH): (AUTO_ETH, AUTO_LRT, BAL_ETH, DINERO_ETH),
-    (ETH_CHAIN, USDC): (AUTO_USD,),
-    (ETH_CHAIN, DOLA): (AUTO_DOLA,),
-    (SONIC_CHAIN, USDC): (SONIC_USD,),
-    (BASE_CHAIN, WETH): (BASE_ETH,),
-    (BASE_CHAIN, USDC): (BASE_USD,),
-}
 
-ATTEMPTS = 3  # 3
+ATTEMPTS = 1  # 3
 PERCENT_OWNERSHIP_THRESHOLD = 25
 
 STABLE_COINS_REFERENCE_QUANTITY = 10_000
 ETH_REFERENCE_QUANTITY = 5
 
 USD_SCALED_SIZES = [i * 200_000 for i in range(1, 11)]
+USD_SCALED_SIZES = [200_000]
 USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
 ETH_SCALED_SIZES = [i * 50 for i in range(1, 17)]
+USD_SCALED_SIZES = [50]
+
 ETH_SCALED_SIZES.append(ETH_REFERENCE_QUANTITY)
 
 
@@ -112,7 +103,7 @@ def _build_quote_requests_from_absolute_sizes(
 
     if base_asset(chain) == WETH(chain):
         sizes = ETH_SCALED_SIZES
-    elif (base_asset(chain) == USDC(chain)) or (base_asset(chain) == DOLA(chain)):  # add EURC here
+    elif (base_asset(chain) == USDC(chain)) or (base_asset(chain) == DOLA(chain)) or (base_asset(chain) == EURC(chain)):  # add EURC here
         sizes = USD_SCALED_SIZES
     else:
         raise ValueError(f"Unexpected base asset: {base_asset.name}")
@@ -327,6 +318,7 @@ def insert_new_batch_quotes(
     processed_quotes = []
 
     odos_quote_response_df = odos_quote_response_df[odos_quote_response_df[THIRD_PARTY_SUCCESS_KEY]].copy()
+    odos_quote_response_df = odos_quote_response_df.dropna(subset=["inTokens", "outTokens"])
 
     for k, _ in CHAIN_BASE_ASSET_GROUPS.items():
         chain, base_asset = k

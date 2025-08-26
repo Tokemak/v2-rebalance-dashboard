@@ -73,11 +73,13 @@ def fetch_many_swap_quotes_from_internal_api(
 ) -> pd.DataFrame:
     requests_kwargs = []
     for quote_request in quote_requests:
-        requests_kwargs = _build_request_kwargs(
-            quote_request.chain_id,
-            quote_request.token_in,
-            quote_request.token_out,
-            quote_request.unscaled_amount_in,
+        requests_kwargs.append(
+            _build_request_kwargs(
+                quote_request.chain_id,
+                quote_request.token_in,
+                quote_request.token_out,
+                quote_request.unscaled_amount_in,
+            )
         )
 
     # no real idea here

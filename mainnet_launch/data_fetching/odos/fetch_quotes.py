@@ -78,12 +78,14 @@ def fetch_odos_single_token_raw_quote(
 def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> pd.DataFrame:
     requests_kwargs = []
     for quote_request in quote_requests:
-        requests_kwargs = _build_request_kwargs(
-            quote_request.chain_id,
-            quote_request.token_in,
-            quote_request.token_out,
-            quote_request.unscaled_amount_in,
-            quote_request.poolBlacklist,
+        requests_kwargs.append(
+            _build_request_kwargs(
+                quote_request.chain_id,
+                quote_request.token_in,
+                quote_request.token_out,
+                quote_request.unscaled_amount_in,
+                quote_request.poolBlacklist,
+            )
         )
     raw_odos_responses = make_many_requests_to_3rd_party(
         rate_limit_max_rate=8, rate_limit_time_period=10, requests_kwargs=requests_kwargs

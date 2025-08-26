@@ -201,3 +201,16 @@ def get_each_event_in_contract(
     for event in contract.events:
         events_dict[event.event_name] = fetch_events(event, chain=chain, start_block=start_block, end_block=end_block)
     return events_dict
+
+
+if __name__ == "__main__":
+    from mainnet_launch.constants import ETH_CHAIN, DOLA
+    from mainnet_launch.abis import ERC_20_ABI
+
+    contract = ETH_CHAIN.client.eth.contract(
+        address=DOLA(ETH_CHAIN),
+        abi=ERC_20_ABI
+    )
+    few_transfers_df = fetch_events(contract.events.Transfer, chain=ETH_CHAIN, start_block=23227316 - 1, end_block=23227316 + 5)
+    print(few_transfers_df.head())
+    pass
