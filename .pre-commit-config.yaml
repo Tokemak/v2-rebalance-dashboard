@@ -4,5 +4,5 @@ repos:
     hooks:
       - id: gitleaks
         name: gitleaks (strict, no allowlist)
-        args: ["protect", "--staged", "--verbose", "--redact"]
+        args: ["--staged", "--verbose", "--redact"]
         stages: [pre-commit]
