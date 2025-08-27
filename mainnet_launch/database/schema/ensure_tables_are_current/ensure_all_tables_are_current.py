@@ -140,7 +140,7 @@ def ensure_database_is_current_old(echo_sql_to_console: bool = False):
 
 
 def main():
-    profile_function(ensure_database_is_current_old)
+    profile_function(ensure_database_is_current)
 
 
 if __name__ == "__main__":

@@ -432,39 +432,31 @@ class SolverProfit(Base):
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
-# not populated
-class IncentiveTokenLiquidations(Base):
-    # not certain if this makes sense to belong to an autopool
-    __tablename__ = "incentive_token_liquidations"
+# class IncentiveTokenLiquidations(Base):
+#     __tablename__ = "incentive_token_liquidations"
+#     tx_hash: Mapped[str] = mapped_column(primary_key=True)
+#     token_address: Mapped[str] = mapped_column(primary_key=True)
+#     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)  # what destination this token is sold for
 
-    block: Mapped[int] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(primary_key=True)
-    token_address: Mapped[str] = mapped_column(primary_key=True)
-    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)  # what destination this token is sold for
 
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False)
+#     achieved_price: Mapped[float] = mapped_column(nullable=False)
+#     safe_price: Mapped[float] = mapped_column(nullable=True)  # points to tokens values
+#     incentive_calculator_price: Mapped[float] = mapped_column(nullable=False)
 
-    achieved_price: Mapped[float] = mapped_column(nullable=False)
-    safe_price: Mapped[float] = mapped_column(nullable=True)  # points to tokens values
-    incentive_calculator_price: Mapped[float] = mapped_column(nullable=False)
+#     buy_amount: Mapped[float] = mapped_column(nullable=False)
+#     sell_amount: Mapped[float] = mapped_column(nullable=False)
 
-    buy_amount: Mapped[float] = mapped_column(nullable=False)
-    sell_amount: Mapped[float] = mapped_column(nullable=False)
+#     denominated_in: Mapped[str] = mapped_column(nullable=False)  # USDC, WETH
 
-    # can get what this is denomicated in form looking up the table,
-    denominated_in: Mapped[str] = mapped_column(nullable=False)  # USDC, WETH
 
-    incentive_calculator_price_diff_with_acheived: Mapped[float] = mapped_column(nullable=False)
-    safe_price_diff_with_acheived: Mapped[float] = mapped_column(nullable=False)
-
-    __table_args__ = (
-        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
-        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
-        ForeignKeyConstraint(
-            ["destination_vault_address", "chain_id"],
-            ["destinations.destination_vault_address", "destinations.chain_id"],
-        ),
-    )
+#     __table_args__ = (
+#         ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+#         ForeignKeyConstraint(
+#             ["destination_vault_address", "chain_id"],
+#             ["destinations.destination_vault_address", "destinations.chain_id"],
+#         ),
+#         ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
+#     )
 
 
 class ChainlinkGasCosts(Base):

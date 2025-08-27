@@ -5,7 +5,7 @@
 
 import pandas as pd
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, BAL_ETH, ALL_CHAINS, profile_function
+from mainnet_launch.constants import ALL_AUTOPOOLS, ALL_CHAINS, profile_function
 from mainnet_launch.abis import AUTOPOOL_VAULT_WITH_FEE_COLLECTED_EVENT_ABI
 from mainnet_launch.database.schema.full import AutopoolFees
 from mainnet_launch.database.schema.postgres_operations import _exec_sql_and_cache
