@@ -153,8 +153,11 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
         unit="s",
         utc=True,
     )
-    tx_hash_to_swap_cost_offset = _fetch_tx_hash_to_swap_cost_offset(autopool)
-    df["swapOffsetPeriod"] = df["transactionHash"].map(lambda tx: tx_hash_to_swap_cost_offset.get(tx))
+    # tx_hash_to_swap_cost_offset = _fetch_tx_hash_to_swap_cost_offset(autopool)
+    # df["swapOffsetPeriod"] = df["transactionHash"].map(lambda tx: tx_hash_to_swap_cost_offset.get(tx))
+    # don't care about swapOffsetPeriod
+    df["swapOffsetPeriod"] = None
+
     return df
 
 

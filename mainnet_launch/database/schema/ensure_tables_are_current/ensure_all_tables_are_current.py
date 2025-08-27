@@ -1,16 +1,16 @@
 """
 
 Top line scirpt that updates the database to the current time
-Run this, via a once a day lambada function (or as needed) to update the dashboard pulling from the db
+Run this, via a once a day lambda function (or as needed) to update the dashboard pulling from the db
 
 """
 
-from datetime import datetime
-from pprint import pprint
+from concurrent.futures import ThreadPoolExecutor
 
-from mainnet_launch.database.schema.full import drop_and_full_rebuild_db, ENGINE
+
+from mainnet_launch.database.schema.full import ENGINE
 from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
-from mainnet_launch.constants import time_decorator
+from mainnet_launch.constants import profile_function
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_tokens_and_autopoolDestinations_table import (
     ensure__destinations__tokens__and__destination_tokens_are_current,
@@ -66,121 +66,133 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
     ensure_destination_underlying_withdraw_are_current,
 )
 
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopool_fees import (
+    ensure_autopool_fees_are_current,
+)
 
-@time_decorator
-def ensure_database_is_current(full_reset_and_refetch: bool = False, echo_sql_to_console: bool = True):
+
+def _setup_constants():
+    ensure_blocks_is_current()
+    ensure_autopools_are_current()
+    ensure__destinations__tokens__and__destination_tokens_are_current()
+
+
+def _fully_independent_update_functions():
+
+    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()  # independent
+    ensure_chainlink_gas_costs_table_is_updated()  # idependent
+    ensure_autopool_fees_are_current()  # independent
+
+
+def _independent_after_constants():
+    ensure_destination_underlying_deposits_are_current()  # depends on destinations
+    ensure_destination_underlying_withdraw_are_current()  #  depends on destinations
+
+
+def _sequential_after_constants():
+    ensure_destination_states_from_rebalance_plan_are_current()  # big,
+    ensure_destination_states_are_current()
+    ensure_destination_token_values_are_current()
+    ensure_autopool_destination_states_are_current()
+    ensure_autopool_states_are_current()
+    ensure_token_values_are_current()
+
+
+# I think this comes down to 167 seconds
+def ensure_database_is_current(echo_sql_to_console: bool = False):
     ENGINE.echo = echo_sql_to_console
 
-    # if full_reset_and_refetch:
-    #     drop_and_full_rebuild_db()
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        constants_task = executor.submit(_setup_constants)
+        fully_independent_task = executor.submit(_fully_independent_update_functions)
+        constants_task.result()
 
-    time_taken = {}
-    for func in [
-        ensure_blocks_is_current,
-        ensure_autopools_are_current,
-        ensure__destinations__tokens__and__destination_tokens_are_current,
-        ensure_destination_underlying_deposits_are_current,
-        ensure_destination_underlying_withdraw_are_current,
-        ensure_destination_states_from_rebalance_plan_are_current,
-        ensure_destination_states_are_current,
-        ensure_destination_token_values_are_current,
-        ensure_autopool_destination_states_are_current,
-        ensure_autopool_states_are_current,
-        ensure_token_values_are_current,
-        ensure_rebalance_plans_table_are_current,
-        ensure_rebalance_events_are_current,
-        update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched,  # 22 seconds slow, to optimize
-        ensure_chainlink_gas_costs_table_is_updated,
-    ]:
-        start = datetime.now()
-        func()
-        fin = datetime.now() - start
-        time_taken[func.__name__] = fin
+        independent_after_constants_task = executor.submit(_independent_after_constants)
+        sequential_after_constants_task = executor.submit(_sequential_after_constants)
 
-    for k, v in time_taken.items():
-        print(k, v)
-
-    # June 26 from  0
-    # ensure_rebalance_events_are_current 0:07:53.975450
-    # ensure_blocks_is_current 0:00:12.555990
-    # ensure_autopools_are_current 0:00:00.960664
-    # ensure__destinations__tokens__and__destination_tokens_are_current 0:00:13.856148
-    # ensure_destination_states_from_rebalance_plan_are_current  0:17:35.417473
-    # ensure_destination_states_are_current 0:01:02.743695
-    # ensure_destination_token_values_are_current 0:01:13.483548
-    # ensure_autopool_destination_states_are_current 0:01:01.335403
-    # ensure_autopool_states_are_current 0:01:23.220615
-    # ensure_token_values_are_current 0:00:26.729837
-    # ensure_rebalance_plans_table_are_current 0:00:53.385648
-    # ensure_rebalance_events_are_current 0:07:53.975450
-    # self contained parts add later
+        sequential_after_constants_task.result()
+        fully_independent_task.result()
+        independent_after_constants_task.result()
 
 
-# def main():
-#     ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=False)
+def ensure_database_is_current_old(echo_sql_to_console: bool = False):
+    ENGINE.echo = echo_sql_to_console
 
+    ensure_blocks_is_current()
+    ensure_autopools_are_current()
+    ensure__destinations__tokens__and__destination_tokens_are_current()
 
-#
-# ensure_database_is_current took 4802.3633 seconds.
-# 80 minutes from 0
-# TODOs
+    ensure_destination_underlying_deposits_are_current()  # depends on destinations
+    ensure_destination_underlying_withdraw_are_current()  #  depends on destinations
 
-# add after autoUSD
-# IncentiveTokenLiquidations   # AutopoolWithdrawal
-# AutopoolDeposit
-# chainlink gas costs
-# solver profit ( maybe exclude for complexity reasons, and solver profit is near 0)
-# debt reporting
+    ensure_destination_states_from_rebalance_plan_are_current()  # big,
+    ensure_destination_states_are_current()
+    ensure_destination_token_values_are_current()
+    ensure_autopool_destination_states_are_current()
+    ensure_autopool_states_are_current()
+    ensure_token_values_are_current()
+    ensure_rebalance_plans_table_are_current()  # big
+    ensure_rebalance_events_are_current()  # big ensure_rebalance_events_are_current
 
-# last time database made to be current,
-
-# add to schema (maybe there is a way to store as one row instead of many)
-# tx_hash, asset, amount, to_user_address, from, (primary key serial (auto incrementing))
-# some person takes assets out, ETH, 100, bob, autopool
-# some person takes assets out, curve LP tokens, 20, bob
-# tx_hash, aave aWETH, 20, bob
-
-# has it at least an hour
-
-import os
-import cProfile
-import pstats
-from datetime import datetime
-
-
-def profile_database_update(
-    full_reset_and_refetch: bool = False,
-    echo_sql_to_console: bool = False,
-    output_dir: str = "profiles",
-):
-    """
-    Profiles the entire ensure_database_is_current run (including member functions),
-    writes a text‐based cumulative‐time report to a timestamped file under `output_dir`.
-    """
-    # 1. Ensure the output directory exists
-    os.makedirs(output_dir, exist_ok=True)
-    # 2. Build a timestamped filename so we never clobber previous runs
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_path = os.path.join(output_dir, f"db_update_profile_{stamp}.txt")
-
-    # 3. Run under the profiler
-    profiler = cProfile.Profile()
-    profiler.enable()
-    ensure_database_is_current(
-        full_reset_and_refetch=full_reset_and_refetch,
-        echo_sql_to_console=echo_sql_to_console,
-    )
-    profiler.disable()
-
-    # 4. Dump a sorted (by cumulative time) text report
-    with open(report_path, "w") as report_file:
-        stats = pstats.Stats(profiler, stream=report_file)
-        stats.strip_dirs().sort_stats("cumtime").print_stats(500)
-
-    print(f"📝 Profile report written to {report_path}")
+    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()  # independent
+    ensure_chainlink_gas_costs_table_is_updated()  # idependent
+    ensure_autopool_fees_are_current()  # independent
 
 
 def main():
-    # if you want to profile, swap these two lines:
-    # ensure_database_is_current(full_reset_and_refetch=False, echo_sql_to_console=False)
-    profile_database_update(full_reset_and_refetch=False, echo_sql_to_console=False)
+    profile_function(ensure_database_is_current_old)
+
+
+if __name__ == "__main__":
+    main()
+
+# aug 26
+
+# Line #      Hits         Time  Per Hit   % Time  Line Contents
+# ==============================================================
+#    101                                           def ensure_database_is_current(echo_sql_to_console: bool = False):
+#    102         1          0.0      0.0      0.0      ENGINE.echo = echo_sql_to_console
+#    103
+#    104         2          0.0      0.0      0.0      with ThreadPoolExecutor(max_workers=5) as executor:
+#    105         1          0.0      0.0      0.0          constants_task = executor.submit(_setup_constants)
+#    106         1          0.0      0.0      0.0          fully_independent_task = executor.submit(_fully_independent_update_functions)
+#    107         1         30.5     30.5     22.3          constants_task.result()
+#    108
+#    109         1          0.0      0.0      0.0          independent_after_constants_task = executor.submit(_independent_after_constants)
+#    110         1          0.0      0.0      0.0          sequential_after_constants_task = executor.submit(_sequential_after_constants)
+#    111
+#    112         1        106.1    106.1     77.7          sequential_after_constants_task.result()
+#    113
+#    114         1          0.0      0.0      0.0          fully_independent_task.result()
+#    115
+#    116         1          0.0      0.0      0.0          independent_after_constants_task.result()
+
+
+# Total time: 234.538 s
+# File: /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/ensure_tables_are_current/ensure_all_tables_are_current.py
+# Function: ensure_database_is_current_old at line 118
+
+# Line #      Hits         Time  Per Hit   % Time  Line Contents
+# ==============================================================
+#    118                                           def ensure_database_is_current_old(echo_sql_to_console: bool = False):
+#    119         1          0.0      0.0      0.0      ENGINE.echo = echo_sql_to_console
+#    120
+#    121         1         13.9     13.9      5.9      ensure_blocks_is_current()
+#    122         1          0.9      0.9      0.4      ensure_autopools_are_current()
+#    123         1         16.4     16.4      7.0      ensure__destinations__tokens__and__destination_tokens_are_current()
+#    124
+#    125         1         10.1     10.1      4.3      ensure_destination_underlying_deposits_are_current()  # depends on destinations
+#    126         1          8.6      8.6      3.7      ensure_destination_underlying_withdraw_are_current()  #  depends on destinations
+#    127
+#    128         1         13.7     13.7      5.8      ensure_destination_states_from_rebalance_plan_are_current()  # big,
+#    129         1          2.3      2.3      1.0      ensure_destination_states_are_current()
+#    130         1         33.9     33.9     14.4      ensure_destination_token_values_are_current()
+#    131         1         19.0     19.0      8.1      ensure_autopool_destination_states_are_current()
+#    132         1         10.7     10.7      4.5      ensure_autopool_states_are_current()
+#    133         1         25.9     25.9     11.0      ensure_token_values_are_current()
+#    134         1         16.9     16.9      7.2      ensure_rebalance_plans_table_are_current()  # big
+#    135         1         34.9     34.9     14.9      ensure_rebalance_events_are_current()  # big ensure_rebalance_events_are_current
+#    136
+#    137         1         11.5     11.5      4.9      update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()  # independent
+#    138         1          6.0      6.0      2.6      ensure_chainlink_gas_costs_table_is_updated()  # idependent
+#    139         1         10.0     10.0      4.3      ensure_autopool_fees_are_current()  # independent

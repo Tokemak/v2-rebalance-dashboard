@@ -125,18 +125,13 @@ def update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched():
             etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
                 chain, EOA_address, from_block=from_block, to_block=to_block
             )
-            # not certain why I have the sleep here,
-            # removing it seems fine?
-            # not certain
-            # sleep(0.5)
             if not etherscan_tx_df.empty:
                 transaction_hashes_required.extend(etherscan_tx_df["hash"].tolist())
-                print(len(transaction_hashes_required), i, len(EOAs_we_want_to_track), EOA_address)
+                print(f"{len(transaction_hashes_required)=} {i=} {len(EOAs_we_want_to_track)=} {EOA_address=}")
 
         ensure_all_transactions_are_saved_in_db(transaction_hashes_required, chain)
 
 
-@time_decorator
 def update_tokemak_EOA_gas_costs_from_0():
     """Be certain to get all transactions from 0 to the current block for all deployers and service accounts.
 

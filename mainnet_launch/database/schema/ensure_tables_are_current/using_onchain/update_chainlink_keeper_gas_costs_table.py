@@ -53,18 +53,11 @@ def _ensure_one_chain_chainlink_gas_costs_is_updated(
     for topic_id, name in keeper_network_topic_ids_to_name.items():
         highest_block_already_fetched = topic_id_to_highest_already_fetched_block.get(topic_id, 0)
         # note still fetches for deprecated blocks, but it is fine
-        # TODO somehow handle `deprecated` topic ids
-        # not really needed
-
-        # seperate fetch for each topic id
-        # because the blocks can be different and otherwise we duplicate fetches
-        # or miss some blocks
         our_upkeep_df = fetch_events(
             contract.events.UpkeepPerformed,
             chain=chain,
             start_block=highest_block_already_fetched,
             argument_filters={"id": int(topic_id)},
-            end_block=chain.client.eth.block_number - 500,  # fetch up to 100 blocks before the current block
         )
         our_upkeep_df["name"] = name
         upkeep_dfs.append(our_upkeep_df)

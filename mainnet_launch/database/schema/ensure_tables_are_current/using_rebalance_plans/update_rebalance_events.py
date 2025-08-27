@@ -117,8 +117,11 @@ def _load_destination_info_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
 def _load_raw_rebalance_event_df(autopool: AutopoolConstants):
     """Gets the data from the subgraph"""
-    # this is not smart, it gets every rebalance event
+
+    # these are dominating time costs
     rebalance_event_df = fetch_autopool_rebalance_events_from_subgraph(autopool)
+
+    # these are dominating time costs
     rebalance_plan_df = get_full_table_as_df(
         RebalancePlans,
         where_clause=(RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr),
@@ -148,7 +151,7 @@ def _load_raw_rebalance_event_df(autopool: AutopoolConstants):
 def ensure_rebalance_events_are_current():
     for autopool in ALL_AUTOPOOLS:
         # dominating time cost here 50 seconds
-        rebalance_event_df = _load_raw_rebalance_event_df(autopool)
+        rebalance_event_df = _load_raw_rebalance_event_df(autopool)  # hits the subgraph
 
         if rebalance_event_df.empty:
             print(autopool.name, "no new rebalance events to fetch")
@@ -348,5 +351,5 @@ if __name__ == "__main__":
     # 50 seconds, need to make subgrapoh calls in parallel
     # for each autopool
     # thread pool executors
-    profile_function(ensure_rebalance_events_are_current)
+    profile_function(_load_raw_rebalance_event_df, AUTO_ETH)
     # profile_function(_load_raw_rebalance_event_df, BASE_ETH)
