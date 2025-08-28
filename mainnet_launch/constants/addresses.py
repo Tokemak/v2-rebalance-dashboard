@@ -56,7 +56,7 @@ LIQUIDATION_ROW = TokemakAddress(
 LIQUIDATION_ROW2 = TokemakAddress(
     eth="0xF570EA70106B8e109222297f9a90dA477658d481",
     base="0x7571dE594A92379c0A053E2A5004514057c10B5D",
-    sonic=DEAD_ADDRESS, # there is only one sonic liquidation row
+    sonic=DEAD_ADDRESS,  # there is only one sonic liquidation row
     name="liquidation_row2",
 )
 

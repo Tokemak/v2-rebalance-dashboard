@@ -78,9 +78,8 @@ class Transactions(Base):
     to_address: Mapped[str] = mapped_column(String(42), nullable=False)
     effective_gas_price: Mapped[int] = mapped_column(BigInteger, nullable=False)  # pretty sure this is just gas price
     gas_used: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    gas_cost_in_eth: Mapped[float] = mapped_column(
-        nullable=False
-    )  # gas_used * effective_gas_price # technically redundent
+    # this is gas_used * effective_gas_price # is redundent
+    gas_cost_in_eth: Mapped[float] = mapped_column(nullable=False)
 
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 

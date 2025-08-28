@@ -30,7 +30,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
 )
 
 
-
 def ensure_incentive_token_prices_at_liquidation_are_current() -> None:
     """
     Event-sourced, idempotent updater for incentive token achieved vs expected prices
@@ -214,15 +213,16 @@ from dataclasses import dataclass
 
 
 @dataclass
-class VaultLiquidated:  
-    tx_hash: str # primary keys
-    log_index: int # primary keys
+class VaultLiquidated:
+    tx_hash: str  # primary keys
+    log_index: int  # primary keys
 
     destination_vault_address: str
     from_token_address: str
     to_token_address: str
-    
-    liquidated_amount:float # in terms of to_token_address
+
+    liquidated_amount: float  # in terms of to_token_address
+
 
 # swapped event
 

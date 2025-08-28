@@ -12,40 +12,22 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
 )
 from mainnet_launch.database.schema.full import Destinations, DestinationTokens, Tokens, AutopoolDestinations
-from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts
+from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_subset_not_already_in_column
 
 
 def _fetch_token_rows(token_addresses: list[str], chain: ChainData) -> list[Tokens]:
-    symbol_calls = [
-        Call(
-            t,
-            "symbol()(string)",
-            [((t, "symbol"), identity_with_bool_success)],
-        )
-        for t in token_addresses
-    ]
+    calls = []
 
-    name_calls = [
-        Call(
-            t,
-            "name()(string)",
-            [((t, "name"), identity_with_bool_success)],
+    for v in token_addresses:
+        calls.extend(
+            [
+                Call(v, "symbol()(string)", [((v, "symbol"), identity_with_bool_success)]),
+                Call(v, "name()(string)", [((v, "name"), identity_with_bool_success)]),
+                Call(v, "decimals()(uint256)", [((v, "decimals"), identity_with_bool_success)]),
+            ]
         )
-        for t in token_addresses
-    ]
 
-    decimals_calls = [
-        Call(
-            t,
-            "decimals()(uint256)",
-            [((t, "decimals"), identity_with_bool_success)],
-        )
-        for t in token_addresses
-    ]
-
-    raw = get_state_by_one_block(
-        [*symbol_calls, *name_calls, *decimals_calls], block=chain.client.eth.block_number, chain=chain
-    )
+    raw = get_state_by_one_block(calls, block=chain.client.eth.block_number, chain=chain)
 
     return [
         Tokens(
@@ -275,6 +257,19 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
                 AutopoolDestinations.destination_vault_address,
             ],
         )
+
+
+def ensure_all_tokens_are_saved_in_db(token_addresses: list[str], chain: ChainData) -> None:
+    token_addresses = list(set([Web3.toChecksumAddress(addr) for addr in token_addresses]))
+    token_addresses_to_add = get_subset_not_already_in_column(
+        table_class=Tokens,
+        column_name=Tokens.token_address,
+        values=token_addresses,
+        where_clause=(Tokens.chain_id == chain.chain_id),
+    )
+    if token_addresses_to_add:
+        token_rows = _fetch_token_rows(token_addresses_to_add, chain)
+        insert_avoid_conflicts(Tokens, token_rows)
 
 
 if __name__ == "__main__":

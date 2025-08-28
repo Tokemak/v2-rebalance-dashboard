@@ -247,8 +247,14 @@ def get_readable_rebalance_events_by_autopool(autopool: AutopoolConstants) -> pd
     return rebalance_df
 
 
-if __name__ == "__main__":
+def get_token_details_dict() -> tuple[dict, dict]:
+    tokens_df = get_full_table_as_df(Tokens)  # not totally certain that token address is distinct across chains
+    token_to_decimals = tokens_df.set_index(["token_address"])["decimals"].to_dict()
+    token_to_symbol = tokens_df.set_index(["token_address"])["symbol"].to_dict()
+    return token_to_decimals, token_to_symbol
 
+
+if __name__ == "__main__":
     for autopool in ALL_AUTOPOOLS:
         d = get_latest_rebalance_event_datetime_for_autopool(autopool)
         print(f"{autopool.name}\n  latest rebalance event datetime: {d}")
