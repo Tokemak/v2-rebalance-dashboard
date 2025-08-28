@@ -53,6 +53,13 @@ LIQUIDATION_ROW = TokemakAddress(
     name="liquidation_row",
 )
 
+LIQUIDATION_ROW2 = TokemakAddress(
+    eth="0xF570EA70106B8e109222297f9a90dA477658d481",
+    base="0x7571dE594A92379c0A053E2A5004514057c10B5D",
+    sonic=DEAD_ADDRESS, # there is only one sonic liquidation row
+    name="liquidation_row2",
+)
+
 # only autoLRT on mainnet uses points
 POINTS_HOOK = TokemakAddress(
     eth="0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3", base=DEAD_ADDRESS, sonic=DEAD_ADDRESS, name="points_hook"

@@ -191,7 +191,6 @@ class AutopoolStates(Base):
     )
 
 
-#
 class DestinationStates(Base):
     __tablename__ = "destination_states"
 

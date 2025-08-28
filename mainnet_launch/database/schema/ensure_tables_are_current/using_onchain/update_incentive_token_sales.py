@@ -29,95 +29,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
     insert_avoid_conflicts,
 )
 
-# from mainnet_launch.database.schema.full import IncentiveTokenLiquidations  # noqa: E402
-
-
-def _add_achieved_price_column(swapped_df: pd.DataFrame, token_address_to_decimals: dict[str, int]) -> pd.DataFrame:
-    # Normalize amounts by token decimals
-    swapped_df["normalized_sell_amount"] = swapped_df.apply(
-        lambda row: float(row["sellAmount"]) / (10 ** int(token_address_to_decimals[row["sellTokenAddress"]])),
-        axis=1,
-    )
-    swapped_df["normalized_buy_amount"] = swapped_df.apply(
-        lambda row: float(row["buyTokenAmountReceived"])
-        / (10 ** int(token_address_to_decimals[row["buyTokenAddress"]])),
-        axis=1,
-    )
-    swapped_df["achieved_price"] = swapped_df["normalized_buy_amount"] / swapped_df["normalized_sell_amount"]
-    return swapped_df
-
-
-def _get_highest_already_fetched_incentive_token_block() -> dict[int, int]:
-    """
-    Returns {chain_id: max_block} for already-saved liquidation price rows,
-    so we can resume from max_block+1 per chain. Falls back to 0 if none.
-    """
-    query = """
-        WITH itpl_with_blocks AS (
-            SELECT itpl.tx_hash, t.block, t.chain_id
-            FROM incentive_token_prices_at_liquidation itpl
-            JOIN transactions t ON itpl.tx_hash = t.tx_hash
-        )
-        SELECT chain_id, MAX(block) AS max_block
-        FROM itpl_with_blocks
-        GROUP BY chain_id;
-    """
-    df = _exec_sql_and_cache(query)
-    out = {} if df.empty else df.set_index("chain_id")["max_block"].to_dict()
-    # Sensible fallback for first run
-    for chain in ALL_CHAINS:
-        out.setdefault(chain.chain_id, 0)
-    return out
-
-
-def _fetch_oracle_frames(swapped_df: pd.DataFrame, chain: ChainData) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    For all blocks present in swapped_df, fetch per-token price frames from:
-    - ROOT_PRICE_ORACLE.getPriceInEth (normalized to float ETH terms)
-    - INCENTIVE_PRICING_STATS.getPrice (min(fast, slow) normalized)
-    """
-    token_addresses = sorted(set(swapped_df["sellTokenAddress"].unique()).union(swapped_df["buyTokenAddress"].unique()))
-    blocks = swapped_df["block"].unique().tolist()
-
-    # Root Price Oracle
-    rpo_calls = [
-        Call(
-            ROOT_PRICE_ORACLE(chain),
-            ["getPriceInEth(address)(uint256)", addr],
-            [(addr, safe_normalize_with_bool_success)],
-        )
-        for addr in token_addresses
-    ]
-
-    # Incentive Pricing Stats (min(fast, slow))
-    def _min_of_low_and_high_price(success, data):
-        if success:
-            fast, slow = data
-            return min(fast, slow) / 1e18
-        return None
-
-    ips_calls = [
-        Call(
-            INCENTIVE_PRICING_STATS(chain),
-            ["getPrice(address,uint40)((uint256,uint256))", addr, 2 * 86400],  # 2d smoothing window
-            [(addr, _min_of_low_and_high_price)],
-        )
-        for addr in token_addresses
-    ]
-
-    oracle_price_df = get_raw_state_by_blocks(rpo_calls, blocks, chain, include_block_number=True)
-    incentive_price_df = get_raw_state_by_blocks(ips_calls, blocks, chain, include_block_number=True)
-    return oracle_price_df, incentive_price_df
-
-
-def _token_metadata(chain: ChainData, token_addresses: list[str], ref_block: int) -> tuple[dict, dict]:
-    symbol_calls = [Call(addr, ["symbol()(string)"], [(addr, identity_with_bool_success)]) for addr in token_addresses]
-    decimals_calls = [
-        Call(addr, ["decimals()(uint8)"], [(addr, identity_with_bool_success)]) for addr in token_addresses
-    ]
-    token_address_to_symbol = get_state_by_one_block(symbol_calls, ref_block, chain)
-    token_address_to_decimals = get_state_by_one_block(decimals_calls, ref_block, chain)
-    return token_address_to_symbol, token_address_to_decimals
 
 
 def ensure_incentive_token_prices_at_liquidation_are_current() -> None:
@@ -264,3 +175,61 @@ if __name__ == "__main__":
 #
 
 # vault, looks like a destination vault
+
+
+# I want the
+
+
+# https://etherscan.io/tx/0x052b4231be3c2b28480b335085cad1c20ba838cccd5fc98e9c1d39e8502c9f11#eventlog
+
+# VaultLiquidated (index_topic_1 address vault, index_topic_2 address fromToken, index_topic_3 address toToken, uint256 amount)View Source
+
+# 133
+
+# Topics
+# 0 0x0272b5a6ff5cab190795f808ef35307240b8bc0011849cb8e15c093b40b22dfb
+# 1: vault
+# 0x0091Fec1B75013D1b83f4Bb82f0BEC4E256758CB # Tokemak-Dola USD Stablecoin-DOLA/sUSDe string
+# 2: fromToken
+# 0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B # CVX
+# 3: toToken
+# 0x865377367054516e17014CcdED1e7d814EDC9ce4 # dola
+# Data
+
+
+# amount :
+# 583413391926390257
+
+# at a vault level?
+
+
+# https://etherscan.io/address/0xe2c7011866db4cc754f1b9b60b2f2999b5b54be4#code
+
+
+# we also want reward added events
+
+# rewardAdded
+
+from dataclasses import dataclass
+
+
+@dataclass
+class VaultLiquidated:  
+    tx_hash: str # primary keys
+    log_index: int # primary keys
+
+    destination_vault_address: str
+    from_token_address: str
+    to_token_address: str
+    
+    liquidated_amount:float # in terms of to_token_address
+
+# swapped event
+
+# event Swapped(
+#     address indexed sellTokenAddress,
+#     address indexed buyTokenAddress,
+#     uint256 sellAmount,
+#     uint256 buyAmount,
+#     uint256 buyTokenAmountReceived
+# );
