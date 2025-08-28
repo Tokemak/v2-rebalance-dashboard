@@ -104,13 +104,14 @@ def _exec_sql_and_cache(sql_plain_text: str) -> pd.DataFrame:
 def insert_avoid_conflicts(
     new_rows: list[Base], table: Base, index_elements: list[InstrumentedAttribute] = None, expecting_rows: bool = False
 ) -> None:
+    if not (isinstance(table, type) and issubclass(table, Base)):
+        raise TypeError("must be in order insert_avoid_conflicts(new_rows, table, *args), might have wrong order")
+
     if not new_rows:
         if expecting_rows:
             raise ValueError("expecterd new rows here but found None")
         else:
             return
-    # tod remove index_elements
-    # a_tup = new_rows[0].to_tuple()
 
     rows_as_tuples = list(set([r.to_tuple() for r in new_rows]))
     bulk_copy_skip_duplicates(rows_as_tuples, table)

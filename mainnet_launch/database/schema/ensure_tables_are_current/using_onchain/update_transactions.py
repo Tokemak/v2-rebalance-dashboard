@@ -66,6 +66,10 @@ def fetch_transaction_rows_bulk_from_alchemy(tx_hashes: list[str], chain: ChainD
 
 
 def ensure_all_transactions_are_saved_in_db(tx_hashes: list[str], chain: ChainData) -> None:
+    """
+    Idempotently ensure that all tx_hashes are saved in the Transactions table
+    Also ensures that all blocks for those transactions are saved in the Blocks table
+    """
     if not isinstance(tx_hashes, list):
         raise TypeError("tx_hashes must be a list")
 

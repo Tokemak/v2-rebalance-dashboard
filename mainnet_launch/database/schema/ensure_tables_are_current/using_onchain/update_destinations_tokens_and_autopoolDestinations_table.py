@@ -262,17 +262,22 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
 def ensure_all_tokens_are_saved_in_db(token_addresses: list[str], chain: ChainData) -> None:
     token_addresses = list(set([Web3.toChecksumAddress(addr) for addr in token_addresses]))
     token_addresses_to_add = get_subset_not_already_in_column(
-        table_class=Tokens,
-        column_name=Tokens.token_address,
+        table=Tokens,
+        column=Tokens.token_address,
         values=token_addresses,
         where_clause=(Tokens.chain_id == chain.chain_id),
     )
     if token_addresses_to_add:
         token_rows = _fetch_token_rows(token_addresses_to_add, chain)
-        insert_avoid_conflicts(Tokens, token_rows)
+        insert_avoid_conflicts(token_rows, Tokens)
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import profile_function
+    from mainnet_launch.constants import ETH_CHAIN
 
-    profile_function(ensure__destinations__tokens__and__destination_tokens_are_current)
+    some_tokens = ["0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF"]
+    ensure_all_tokens_are_saved_in_db(some_tokens, ETH_CHAIN)
+
+    # from mainnet_launch.constants import profile_function
+
+    # profile_function(ensure__destinations__tokens__and__destination_tokens_are_current)

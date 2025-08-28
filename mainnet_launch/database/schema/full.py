@@ -256,14 +256,17 @@ class TokenValues(Base):
     )
 
 
+# largest table, can make smaller
 class DestinationTokenValues(Base):
     __tablename__ = "destination_token_values"
 
     block: Mapped[int] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)  # can make smaller?, smaller dtype?
     token_address: Mapped[str] = mapped_column(primary_key=True)
     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
-    denominated_in: Mapped[str] = mapped_column(primary_key=True)
+    denominated_in: Mapped[str] = mapped_column(
+        primary_key=True
+    )  # we don't need this, it the same as destinations.base_asset()
 
     spot_price: Mapped[float] = mapped_column(nullable=True)
     quantity: Mapped[float] = mapped_column(nullable=True)  # scaled by token decimals
@@ -430,31 +433,27 @@ class SolverProfit(Base):
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
-# class IncentiveTokenLiquidations(Base):
-#     __tablename__ = "incentive_token_liquidations"
-#     tx_hash: Mapped[str] = mapped_column(primary_key=True)
-#     token_address: Mapped[str] = mapped_column(primary_key=True)
-#     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)  # what destination this token is sold for
+class IncentiveTokenSwapped(Base):
+    __tablename__ = "incentive_token_swapped"
 
+    tx_hash: Mapped[str] = mapped_column(primary_key=True)
+    log_index: Mapped[int] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(nullable=False)  # technically redundent, but we need it for foreign to tokens
+    liquidation_row: Mapped[str] = mapped_column(nullable=False)
 
-#     achieved_price: Mapped[float] = mapped_column(nullable=False)
-#     safe_price: Mapped[float] = mapped_column(nullable=True)  # points to tokens values
-#     incentive_calculator_price: Mapped[float] = mapped_column(nullable=False)
+    sell_token_address: Mapped[str] = mapped_column(nullable=False)
+    buy_token_address: Mapped[str] = mapped_column(nullable=False)
 
-#     buy_amount: Mapped[float] = mapped_column(nullable=False)
-#     sell_amount: Mapped[float] = mapped_column(nullable=False)
+    # normalized, scaled by decimals
+    sell_amount: Mapped[float] = mapped_column(nullable=False)
+    buy_amount: Mapped[float] = mapped_column(nullable=False)  # how much we expected
+    buy_amount_received: Mapped[float] = mapped_column(nullable=False)  # how much we actually got
 
-#     denominated_in: Mapped[str] = mapped_column(nullable=False)  # USDC, WETH
-
-
-#     __table_args__ = (
-#         ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
-#         ForeignKeyConstraint(
-#             ["destination_vault_address", "chain_id"],
-#             ["destinations.destination_vault_address", "destinations.chain_id"],
-#         ),
-#         ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
-#     )
+    __table_args__ = (
+        ForeignKeyConstraint(["sell_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["buy_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+        ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
+    )
 
 
 class ChainlinkGasCosts(Base):
@@ -664,6 +663,7 @@ def drop_and_full_rebuild_db():
 
 
 def reflect_and_create():
+    print("reflecting and creating Schema")
     meta = MetaData()
     meta.reflect(bind=ENGINE)
     Base.metadata.create_all(bind=ENGINE)
