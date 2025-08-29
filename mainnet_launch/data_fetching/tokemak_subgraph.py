@@ -25,7 +25,9 @@ class TokemakSubgraphError(Exception):
     pass
 
 
-def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col: str) -> pd.DataFrame:
+def run_query_with_paginate(
+    api_url: str, query: str, variables: dict, data_col: str, batch_size: int = 500, first_n_records: int | None = None
+) -> pd.DataFrame:
     """
     Helper to page through a GraphQL connection using `first`/`skip`.
     """
@@ -34,10 +36,10 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
     skip = 0
 
     if ("$first" not in query) or ("$skip" not in query):
-        raise ValueError("")
+        raise TokemakSubgraphError("Query must contain `first` and `skip` variables" + "\n" + query)
 
     while True:
-        vars_with_pagination = {**variables, "first": 500, "skip": skip}
+        vars_with_pagination = {**variables, "first": batch_size, "skip": skip}
         resp = requests.post(api_url, json={"query": query, "variables": vars_with_pagination})
         resp.raise_for_status()
 
@@ -50,7 +52,9 @@ def run_query_with_paginate(api_url: str, query: str, variables: dict, data_col:
             break
 
         all_records.extend(batch)
-        skip += 500
+        skip += batch_size
+        if first_n_records is not None and len(all_records) >= first_n_records:
+            break
 
     df = pd.DataFrame.from_records(all_records)
     return df
