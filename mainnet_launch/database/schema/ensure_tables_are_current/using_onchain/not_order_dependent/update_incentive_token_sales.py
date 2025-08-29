@@ -1,8 +1,4 @@
-# does not depend on any other tables being current
-# this can be run in parallel to other update functions
-# cold start: fetch-all; warm start: only new blocks
-
-
+from dataclasses import dataclass
 import pandas as pd
 from multicall import Call
 
@@ -28,121 +24,218 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
     ensure_all_transactions_are_saved_in_db,
     insert_avoid_conflicts,
 )
+from mainnet_launch.database.schema.views import get_token_details_dict
+
+from mainnet_launch.database.schema.postgres_operations import get_subset_not_already_in_column, insert_avoid_conflicts
+from mainnet_launch.database.schema.full import Tokens, IncentiveTokenSwapped
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions import (
+    ensure_all_transactions_are_saved_in_db,
+)
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_tokens_and_autopoolDestinations_table import (
+    ensure_all_tokens_are_saved_in_db,
+)
+
+from mainnet_launch.database.schema.full import IncentiveTokenSwapped
+from mainnet_launch.constants import *
+from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.abis import DESTINATION_DEBT_REPORTING_SWAPPED_ABI
 
 
-def ensure_incentive_token_prices_at_liquidation_are_current() -> None:
+def _get_highest_swapped_event_already_fetched() -> dict:
+    query = """
+        WITH swapped_events_with_blocks AS (
+            SELECT
+                its.tx_hash,
+                its.liquidation_row,
+                its.chain_id,
+                t.block
+            FROM
+                incentive_token_swapped AS its
+                JOIN transactions AS t
+                    ON t.tx_hash = its.tx_hash
+                    AND
+                    t.chain_id = its.chain_id
+        )
+        SELECT
+            liquidation_row,
+            chain_id,
+            MAX(block) AS max_block
+        FROM
+            swapped_events_with_blocks
+        GROUP BY
+            chain_id,
+            liquidation_row;
     """
-    Event-sourced, idempotent updater for incentive token achieved vs expected prices
-    during liquidation swaps. Matches the Autopool Fees pattern.
-    """
-    # max_block_by_chain = _get_checkpoint_max_block_by_chain()
-    # new_rows: List[IncentiveTokenPriceAtLiquidation] = []
+    highest_block_already_fetched = _exec_sql_and_cache(query)
+    if highest_block_already_fetched.empty:
+        highest_block_already_fetched = dict()
+    else:
+        highest_block_already_fetched = {
+            (row["chain_id"], row["liquidation_row"]): row["max_block"]
+            for _, row in highest_block_already_fetched.iterrows()
+        }
+    for liquidation_row in [LIQUIDATION_ROW, LIQUIDATION_ROW2]:
+        for chain in ALL_CHAINS:
+            if (chain.chain_id, liquidation_row(chain)) not in highest_block_already_fetched:
+                highest_block_already_fetched[(chain.chain_id, liquidation_row(chain))] = (
+                    chain.block_autopool_first_deployed
+                )
+
+    return highest_block_already_fetched
+
+
+def _add_token_details(
+    all_swapped_events: pd.DataFrame, token_to_decimals: dict, token_to_symbol: dict
+) -> pd.DataFrame:
+    all_swapped_events["sellTokenAddress"] = all_swapped_events["sellTokenAddress"].apply(
+        lambda x: Web3.toChecksumAddress(x)
+    )
+    all_swapped_events["buyTokenAddress"] = all_swapped_events["buyTokenAddress"].apply(
+        lambda x: Web3.toChecksumAddress(x)
+    )
+    all_swapped_events["sellTokenAddress_decimals"] = all_swapped_events["sellTokenAddress"].map(token_to_decimals)
+    all_swapped_events["buyTokenAddress_decimals"] = all_swapped_events["buyTokenAddress"].map(token_to_decimals)
+    all_swapped_events["sellTokenAddress_symbol"] = all_swapped_events["sellTokenAddress"].map(token_to_symbol)
+    all_swapped_events["buyTokenAddress_symbol"] = all_swapped_events["buyTokenAddress"].map(token_to_symbol)
+
+    all_swapped_events["sellAmount_normalized"] = all_swapped_events["sellAmount"] / (
+        10 ** all_swapped_events["sellTokenAddress_decimals"]
+    )
+    all_swapped_events["buyAmount_normalized"] = all_swapped_events["buyAmount"] / (
+        10 ** all_swapped_events["buyTokenAddress_decimals"]
+    )
+    all_swapped_events["buyTokenAmountReceived_normalized"] = all_swapped_events["buyTokenAmountReceived"] / (
+        10 ** all_swapped_events["buyTokenAddress_decimals"]
+    )
+
+    return all_swapped_events
+
+
+def ensure_incentive_token_swapped_events_are_saved_in_db() -> pd.DataFrame:
+    highest_block_already_fetched = _get_highest_swapped_event_already_fetched()
+    all_new_inentive_token_swapped_events = []
+    chain_to_highest_block = {chain: chain.client.eth.block_number - 500 for chain in ALL_CHAINS}
 
     for chain in ALL_CHAINS:
-        start_block = int(max_block_by_chain.get(chain.chain_id, 0)) + 1
-        if start_block < 0:
-            start_block = 0
+        all_swapped_events = []
+        token_addresses_to_ensure_we_have_in_db = set()
+        for liquidation_row in [LIQUIDATION_ROW, LIQUIDATION_ROW2]:
+            start_block = highest_block_already_fetched[(chain.chain_id, liquidation_row(chain))] + 1
 
-        contract = chain.client.eth.contract(LIQUIDATION_ROW(chain), abi=DESTINATION_DEBT_REPORTING_SWAPPED_ABI)
-        swapped_df = fetch_events(contract.events.Swapped, chain=chain, start_block=start_block)
+            contract = chain.client.eth.contract(liquidation_row(chain), abi=DESTINATION_DEBT_REPORTING_SWAPPED_ABI)
+            swapped_df = fetch_events(
+                contract.events.Swapped, chain=chain, start_block=start_block, end_block=chain_to_highest_block[chain]
+            )
+            swapped_df["liquidation_row"] = liquidation_row(chain)
+            swapped_df["chain_id"] = chain.chain_id
 
-        if swapped_df.empty:
+            if not swapped_df.empty:
+                all_swapped_events.append(swapped_df)
+
+            token_addresses_to_ensure_we_have_in_db.update(set(swapped_df["sellTokenAddress"].unique()))
+            token_addresses_to_ensure_we_have_in_db.update(set(swapped_df["buyTokenAddress"].unique()))
+
+        ensure_all_tokens_are_saved_in_db(list(token_addresses_to_ensure_we_have_in_db), chain)
+        token_to_decimals, token_to_symbol = get_token_details_dict()
+
+        if all_swapped_events:
+            all_swapped_events = pd.concat(all_swapped_events)
+            all_swapped_events = _add_token_details(all_swapped_events, token_to_decimals, token_to_symbol)
+        else:
+            all_swapped_events = pd.DataFrame()
+
+        if all_swapped_events.empty:
+            # early continue if there are no new swapped events
             continue
-
-        # Metadata once per batch at a stable block
-        token_addresses = sorted(
-            set(swapped_df["sellTokenAddress"].unique()).union(swapped_df["buyTokenAddress"].unique())
-        )
-        ref_block = int(swapped_df["block"].max())
-        token_address_to_symbol, token_address_to_decimals = _token_metadata(chain, token_addresses, ref_block)
-
-        # Normalize & achieved price
-        swapped_df = _add_achieved_price_column(swapped_df, token_address_to_decimals)
-
-        # Per-block oracle frames (Root Price Oracle & Incentive Pricing Stats)
-        oracle_price_df, incentive_price_df = _fetch_oracle_frames(swapped_df, chain)
-
-        # Melt those wide frames so we can join on (block, token_address)
-        long_oracle = pd.melt(oracle_price_df, id_vars=["block"], var_name="token_address", value_name="oracle_price")
-        long_ips = pd.melt(
-            incentive_price_df, id_vars=["block"], var_name="token_address", value_name="incentive_calculator_price"
-        )
-
-        # Reward token = sell side of the swap
-        base_cols = [
-            "hash",  # tx hash from fetch_events
-            "log_index",  # unique within tx
-            "block",
-            "sellTokenAddress",
-            "sellAmount",
-            "buyTokenAddress",
-            "buyTokenAmountReceived",
-            "normalized_sell_amount",
-            "normalized_buy_amount",
-            "achieved_price",
-        ]
-        base = swapped_df[base_cols].rename(columns={"sellTokenAddress": "token_address"})
-
-        # Attach oracle & incentive prices and a timestamp (from oracle frame index)
-        ts_df = oracle_price_df.reset_index()[["timestamp", "block"]]
-        base = (
-            base.merge(long_oracle, on=["block", "token_address"], how="left")
-            .merge(long_ips, on=["block", "token_address"], how="left")
-            .merge(ts_df, on="block", how="left")
-        )
-
-        base["token_symbol"] = base["token_address"].map(token_address_to_symbol)
-        base["chain_id"] = chain.chain_id
-
-        # Ensure transactions exist (independent, safe to call)
-        txs = list(base["hash"].drop_duplicates())
-        if txs:
-            ensure_all_transactions_are_saved_in_db(txs, chain)
-
-        # Build ORM rows (PK: tx_hash + log_index)
-        for _, r in base.iterrows():
-            new_rows.append(
-                IncentiveTokenPriceAtLiquidation(
+        else:
+            new_incentive_token_swapped_events = all_swapped_events.apply(
+                lambda r: IncentiveTokenSwapped(
                     tx_hash=r["hash"],
                     log_index=int(r["log_index"]),
                     chain_id=int(r["chain_id"]),
-                    block=int(r["block"]),
-                    timestamp=(
-                        datetime.fromtimestamp(int(r["timestamp"]), tz=timezone.utc)
-                        if pd.notna(r["timestamp"])
-                        else datetime.fromtimestamp(0, tz=timezone.utc)
-                    ),
-                    token_address=str(r["token_address"]),
-                    token_symbol=str(r["token_symbol"]),
-                    achieved_price=float(r["achieved_price"]),
-                    normalized_sell_amount=float(r["normalized_sell_amount"]),
-                    normalized_buy_amount=float(r["normalized_buy_amount"]),
-                    oracle_price=None if pd.isna(r["oracle_price"]) else float(r["oracle_price"]),
-                    incentive_calculator_price=(
-                        None if pd.isna(r["incentive_calculator_price"]) else float(r["incentive_calculator_price"])
-                    ),
-                )
-            )
+                    sell_token_address=r["sellTokenAddress"],
+                    buy_token_address=r["buyTokenAddress"],
+                    sell_amount=float(r["sellAmount_normalized"]),
+                    buy_amount=float(r["buyAmount_normalized"]),
+                    buy_amount_received=float(r["buyTokenAmountReceived_normalized"]),
+                    liquidation_row=r["liquidation_row"],
+                ),
+                axis=1,
+            ).tolist()
 
-    if not new_rows:
-        return
+            all_new_inentive_token_swapped_events.extend(new_incentive_token_swapped_events)
 
-    insert_avoid_conflicts(new_rows, IncentiveTokenPriceAtLiquidation)
+            ensure_all_transactions_are_saved_in_db(list(all_swapped_events["hash"].unique()), chain)
+            insert_avoid_conflicts(new_incentive_token_swapped_events, IncentiveTokenSwapped)
 
 
 if __name__ == "__main__":
 
-    # the ETH liquditaiont row does not have transaction smore recenlty than 140 days ago
-    chain = ETH_CHAIN
-    contract = chain.client.eth.contract(LIQUIDATION_ROW(chain), abi=DESTINATION_DEBT_REPORTING_SWAPPED_ABI)
-    swapped_df = fetch_events(contract.events.Swapped, chain=chain, start_block=chain.block_autopool_first_deployed)
+    # ensure_incentive_token_swapped_events_are_saved_in_db()
+    profile_function(ensure_incentive_token_swapped_events_are_saved_in_db)
 
-    print(swapped_df.columns)
-    print(swapped_df.head())
-    print(swapped_df.shape)
-    pass
 
-    # profile_function(ensure_incentive_token_prices_at_liquidation_are_current)
+# first run from 0
+# Total time: 51.700065 s
+
+# Timer unit: 1 s
+
+# Total time: 51.7001 s
+# File: /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/ensure_tables_are_current/using_onchain/not_order_dependent/update_incentive_token_sales.py
+# Function: ensure_incentive_token_swapped_events_are_saved_in_db at line 109
+
+# Line #      Hits         Time  Per Hit   % Time  Line Contents
+# ==============================================================
+#    109                                           def ensure_incentive_token_swapped_events_are_saved_in_db() -> pd.DataFrame:
+#    110         1          1.5      1.5      2.9      highest_block_already_fetched = _get_highest_swapped_event_already_fetched()
+#    111         1          0.0      0.0      0.0      all_new_inentive_token_swapped_events = []
+#    112
+#    113         4          0.0      0.0      0.0      for chain in ALL_CHAINS:
+#    114         3          0.0      0.0      0.0          all_swapped_events = []
+#    115         3          0.0      0.0      0.0          token_addresses_to_ensure_we_have_in_db = set()
+#    116         9          0.0      0.0      0.0          for liquidation_row in [LIQUIDATION_ROW, LIQUIDATION_ROW2]:
+#    117         6          0.0      0.0      0.0              start_block = highest_block_already_fetched[(chain.chain_id, liquidation_row(chain))] + 1
+#    118
+#    119         6          0.0      0.0      0.1              contract = chain.client.eth.contract(liquidation_row(chain), abi=DESTINATION_DEBT_REPORTING_SWAPPED_ABI)
+#    120         6         11.3      1.9     21.9              swapped_df = fetch_events(contract.events.Swapped, chain=chain, start_block=start_block)
+#    121         6          0.0      0.0      0.0              swapped_df["liquidation_row"] = liquidation_row(chain)
+#    122         6          0.0      0.0      0.0              swapped_df["chain_id"] = chain.chain_id
+#    123
+#    124         6          0.0      0.0      0.0              if not swapped_df.empty:
+#    125         5          0.0      0.0      0.0                  all_swapped_events.append(swapped_df)
+#    126
+#    127         6          0.0      0.0      0.0              token_addresses_to_ensure_we_have_in_db.update(set(swapped_df["sellTokenAddress"].unique()))
+#    128         6          0.0      0.0      0.0              token_addresses_to_ensure_we_have_in_db.update(set(swapped_df["buyTokenAddress"].unique()))
+#    129
+#    130         3          0.9      0.3      1.7          ensure_all_tokens_are_saved_in_db(list(token_addresses_to_ensure_we_have_in_db), chain)
+#    131         3          1.1      0.4      2.1          token_to_decimals, token_to_symbol = get_token_details_dict()
+#    132
+#    133         3          0.0      0.0      0.0          if all_swapped_events:
+#    134         3          0.0      0.0      0.0              all_swapped_events = pd.concat(all_swapped_events)
+#    135         3          0.9      0.3      1.7              all_swapped_events = _add_token_details(all_swapped_events, token_to_decimals, token_to_symbol)
+#    136                                                   else:
+#    137                                                       all_swapped_events = pd.DataFrame()
+#    138
+#    139         9          0.5      0.1      1.0          new_incentive_token_swapped_events = all_swapped_events.apply(
+#    140         3          0.0      0.0      0.0              lambda r: IncentiveTokenSwapped(
+#    141                                                           tx_hash=r["hash"],
+#    142                                                           log_index=int(r["log_index"]),
+#    143                                                           chain_id=int(r["chain_id"]),
+#    144                                                           sell_token_address=r["sellTokenAddress"],
+#    145                                                           buy_token_address=r["buyTokenAddress"],
+#    146                                                           sell_amount=float(r["sellAmount_normalized"]),
+#    147                                                           buy_amount=float(r["buyAmount_normalized"]),
+#    148                                                           buy_amount_received=float(r["buyTokenAmountReceived_normalized"]),
+#    149                                                           liquidation_row=r["liquidation_row"],
+#    150                                                       ),
+#    151         3          0.0      0.0      0.0              axis=1,
+#    152         3          0.0      0.0      0.0          ).tolist()
+#    153
+#    154         3          0.0      0.0      0.0          all_new_inentive_token_swapped_events.extend(new_incentive_token_swapped_events)
+#    155
+#    156         3         32.6     10.9     63.1          ensure_all_transactions_are_saved_in_db(list(all_swapped_events["hash"].unique()), chain)
+#    157         3          2.9      1.0      5.5          insert_avoid_conflicts(new_incentive_token_swapped_events, IncentiveTokenSwapped)
+
 
 # some options,
 

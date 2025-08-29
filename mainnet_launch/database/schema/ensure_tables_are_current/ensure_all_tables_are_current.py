@@ -59,10 +59,10 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
     ensure_chainlink_gas_costs_table_is_updated,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destination_underlying_deposited import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_destination_underlying_deposited import (
     ensure_destination_underlying_deposits_are_current,
 )
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destination_underlying_withdraw import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_destination_underlying_withdraw import (
     ensure_destination_underlying_withdraw_are_current,
 )
 
