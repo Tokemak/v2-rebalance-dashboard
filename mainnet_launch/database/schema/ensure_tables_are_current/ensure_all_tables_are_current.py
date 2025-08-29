@@ -50,12 +50,12 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
     ensure_rebalance_events_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions_table_for_gas_costs import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_transactions_table_for_gas_costs import (
     update_tokemak_EOA_gas_costs_from_0,
     update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_chainlink_keeper_gas_costs_table import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_chainlink_keeper_gas_costs_table import (
     ensure_chainlink_gas_costs_table_is_updated,
 )
 
@@ -66,7 +66,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
     ensure_destination_underlying_withdraw_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopool_fees import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_autopool_fees import (
     ensure_autopool_fees_are_current,
 )
 
