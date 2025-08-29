@@ -1,44 +1,19 @@
 from dataclasses import dataclass
 import pandas as pd
-from multicall import Call
 
-from mainnet_launch.constants import (
-    ALL_CHAINS,
-    ROOT_PRICE_ORACLE,
-    INCENTIVE_PRICING_STATS,
-    LIQUIDATION_ROW,
-    profile_function,
-    ChainData,
-    ETH_CHAIN,
-)
+from mainnet_launch.constants import *
 from mainnet_launch.abis import DESTINATION_DEBT_REPORTING_SWAPPED_ABI
 from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.data_fetching.get_state_by_block import (
-    get_raw_state_by_blocks,
-    get_state_by_one_block,
-    identity_with_bool_success,
-    safe_normalize_with_bool_success,
-)
-from mainnet_launch.database.schema.postgres_operations import _exec_sql_and_cache
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions import (
-    ensure_all_transactions_are_saved_in_db,
-    insert_avoid_conflicts,
-)
-from mainnet_launch.database.schema.views import get_token_details_dict
 
-from mainnet_launch.database.schema.postgres_operations import get_subset_not_already_in_column, insert_avoid_conflicts
-from mainnet_launch.database.schema.full import Tokens, IncentiveTokenSwapped
+from mainnet_launch.database.schema.views import get_token_details_dict
+from mainnet_launch.database.schema.full import IncentiveTokenSwapped
+from mainnet_launch.database.schema.postgres_operations import _exec_sql_and_cache, insert_avoid_conflicts
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions import (
     ensure_all_transactions_are_saved_in_db,
 )
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_tokens_and_autopoolDestinations_table import (
     ensure_all_tokens_are_saved_in_db,
 )
-
-from mainnet_launch.database.schema.full import IncentiveTokenSwapped
-from mainnet_launch.constants import *
-from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.abis import DESTINATION_DEBT_REPORTING_SWAPPED_ABI
 
 
 def _get_highest_swapped_event_already_fetched() -> dict:

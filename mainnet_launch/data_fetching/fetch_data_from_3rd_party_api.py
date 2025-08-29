@@ -108,6 +108,29 @@ async def _get_json_with_retry(
 
 
 async def _make_many_requests_async(rate_limiter: AsyncLimiter, requests_kwargs: list[dict]):
+    if not requests_kwargs:
+        return []
+
+    async with aiohttp.ClientSession() as session:
+
+        async def runner(i: int, req_kwargs: dict):
+            res: dict = await _get_json_with_retry(session, rate_limiter, request_kwargs=req_kwargs)
+            res["datetime_received"] = pd.Timestamp.now(tz="UTC")
+            return i, res
+
+        tasks = [asyncio.create_task(runner(i, req)) for i, req in enumerate(requests_kwargs)]
+
+        results: list[dict] = [None] * len(tasks)
+        desc = f"Fetching 3rd-party data from {requests_kwargs[0].get('url', '')}"
+
+        for fut in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc=desc):
+            i, res = await fut
+            results[i] = res
+
+        return results
+
+
+async def _make_many_requests_async_old(rate_limiter: AsyncLimiter, requests_kwargs: list[dict]):
     async with aiohttp.ClientSession() as session:
         tasks = [
             _get_json_with_retry(session, rate_limiter, request_kwargs=request_kwargs)
@@ -129,6 +152,7 @@ async def _make_many_requests_async(rate_limiter: AsyncLimiter, requests_kwargs:
 def make_many_requests_to_3rd_party(
     rate_limit_max_rate: int, rate_limit_time_period, requests_kwargs: list[dict]
 ) -> list[dict]:
+    """Returns the values from all requests, in the same order as the input list."""
     rate_limiter = AsyncLimiter(max_rate=rate_limit_max_rate, time_period=rate_limit_time_period)
     return _run_async_safely(_make_many_requests_async(rate_limiter, requests_kwargs))
 

@@ -66,7 +66,9 @@ def _process_price_response(response: dict) -> dict:
     return response
 
 
-def fetch_many_prices_from_internal_api(price_requests: list[TokemakPriceRequest]) -> pd.DataFrame:
+def fetch_many_prices_from_internal_api(
+    price_requests: list[TokemakPriceRequest], rate_limit_max_rate: int = 10, rate_limit_time_period: int = 10
+) -> pd.DataFrame:
     requests_kwargs = [
         _build_price_request_kwargs(
             req.chain_id,
@@ -78,9 +80,10 @@ def fetch_many_prices_from_internal_api(price_requests: list[TokemakPriceRequest
         for req in price_requests
     ]
 
-    # no idea here about pricess
     raw_responses = make_many_requests_to_3rd_party(
-        rate_limit_max_rate=8, rate_limit_time_period=10, requests_kwargs=requests_kwargs
+        rate_limit_max_rate=rate_limit_max_rate,
+        rate_limit_time_period=rate_limit_time_period,
+        requests_kwargs=requests_kwargs,
     )
 
     flat_responses = [_process_price_response(r) for r in raw_responses]

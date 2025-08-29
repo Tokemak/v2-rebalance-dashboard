@@ -438,7 +438,9 @@ class IncentiveTokenSwapped(Base):
 
     tx_hash: Mapped[str] = mapped_column(primary_key=True)
     log_index: Mapped[int] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(nullable=False)  # technically redundent, but we need it for foreign to tokens
+    chain_id: Mapped[int] = mapped_column(
+        nullable=False
+    )  # technically redundent, but we need it for foreign keys to tokens
     liquidation_row: Mapped[str] = mapped_column(nullable=False)
 
     sell_token_address: Mapped[str] = mapped_column(nullable=False)
@@ -453,6 +455,21 @@ class IncentiveTokenSwapped(Base):
         ForeignKeyConstraint(["sell_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
         ForeignKeyConstraint(["buy_token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
         ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
+    )
+
+
+class IncentiveTokenPrices(Base):
+    __tablename__ = "incentive_token_sale_prices"
+
+    tx_hash: Mapped[str] = mapped_column(primary_key=True)
+    log_index: Mapped[int] = mapped_column(primary_key=True)
+    third_party_price: Mapped[float] = mapped_column(nullable=True)
+    # the price according to our internal historical prices api
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tx_hash", "log_index"], ["incentive_token_swapped.tx_hash", "incentive_token_swapped.log_index"]
+        ),
     )
 
 

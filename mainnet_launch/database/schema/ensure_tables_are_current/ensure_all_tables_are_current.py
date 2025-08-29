@@ -97,6 +97,9 @@ def _sequential_after_constants():
     ensure_autopool_states_are_current()
     ensure_token_values_are_current()
 
+    ensure_rebalance_plans_table_are_current()  # big
+    ensure_rebalance_events_are_current()
+
 
 # I think this comes down to 167 seconds
 def ensure_database_is_current(echo_sql_to_console: bool = False):
