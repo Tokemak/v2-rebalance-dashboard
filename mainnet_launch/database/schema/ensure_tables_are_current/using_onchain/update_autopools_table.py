@@ -13,6 +13,11 @@ from mainnet_launch.database.schema.postgres_operations import (
 )
 
 
+def _identity_checksum_with_bool_success(success: bool, address: str) -> str | None:
+    if success:
+        return Web3.toChecksumAddress(address)
+
+
 def _fetch_autopool_state_dicts(autopool_vault_addresses: list[str], chain: ChainData) -> dict[tuple[str, str], any]:
     calls = []
     for v in autopool_vault_addresses:
@@ -20,56 +25,49 @@ def _fetch_autopool_state_dicts(autopool_vault_addresses: list[str], chain: Chai
             [
                 Call(v, "symbol()(string)", [((v, "symbol"), identity_with_bool_success)]),
                 Call(v, "name()(string)", [((v, "name"), identity_with_bool_success)]),
-                Call(v, "autoPoolStrategy()(address)", [((v, "strategy"), identity_with_bool_success)]),
-                Call(v, "asset()(address)", [((v, "asset"), identity_with_bool_success)]),
+                Call(v, "autoPoolStrategy()(address)", [((v, "strategy"), _identity_checksum_with_bool_success)]),
+                Call(v, "asset()(address)", [((v, "asset"), _identity_checksum_with_bool_success)]),
             ]
         )
-    return get_state_by_one_block(calls, block=chain.client.eth.block_number, chain=chain)  # just some current block
+
+    return get_state_by_one_block(calls, block=chain.client.eth.block_number, chain=chain)
 
 
 def ensure_autopools_are_current() -> None:
     """
     Make sure that the Destinations, DestinationTokens and Tokens tables are current for all the underlying tokens in each of the destinations
     """
-    for chain in ALL_CHAINS:
-        autopool_vault_addresses = [a.autopool_eth_addr for a in ALL_AUTOPOOLS if a.chain == chain]
-        autopools_not_in_table = get_subset_not_already_in_column(
-            Autopools,
-            Autopools.autopool_vault_address,
-            autopool_vault_addresses,
-            where_clause=Autopools.chain_id == chain.chain_id,
-        )
-        if len(autopools_not_in_table) == 0:
-            continue
 
-        autopool_state_dict = _fetch_autopool_state_dicts(autopools_not_in_table, chain)
-        autopools_to_add = [a for a in ALL_AUTOPOOLS if a.autopool_eth_addr in autopools_not_in_table]
+    autopool_vault_addresses = [a.autopool_eth_addr for a in ALL_AUTOPOOLS]
+    autopools_not_in_table = get_subset_not_already_in_column(
+        Autopools,
+        Autopools.autopool_vault_address,
+        autopool_vault_addresses,
+    )
+    if not autopools_not_in_table:
+        return
 
-        autopools_rows = []
-        for a in autopools_to_add:
-            strategy_address = (
-                Web3.toChecksumAddress(autopool_state_dict[(a.autopool_eth_addr, "strategy")])
-                if autopool_state_dict[(a.autopool_eth_addr, "strategy")] is not None
-                else None
+    for autopool in ALL_AUTOPOOLS:
+        if autopool.autopool_eth_addr in autopools_not_in_table:
+            autopool_state_dict = _fetch_autopool_state_dicts([autopool], autopool.chain)
+
+            new_autopool_row = Autopools(
+                autopool_vault_address=autopool.autopool_eth_addr,
+                chain_id=autopool.chain.chain_id,
+                block_deployed=autopool.block_deployed,
+                name=autopool_state_dict[(autopool.autopool_eth_addr, "name")],
+                symbol=autopool_state_dict[(autopool.autopool_eth_addr, "symbol")],
+                strategy_address=autopool_state_dict[(autopool.autopool_eth_addr, "strategy")],
+                base_asset=autopool_state_dict[(autopool.autopool_eth_addr, "asset")],
+                data_from_rebalance_plan=autopool.data_from_rebalance_plan,
             )
-            row = Autopools(
-                autopool_vault_address=a.autopool_eth_addr,
-                chain_id=a.chain.chain_id,
-                block_deployed=a.block_deployed,
-                name=autopool_state_dict[(a.autopool_eth_addr, "name")],
-                symbol=autopool_state_dict[(a.autopool_eth_addr, "symbol")],
-                strategy_address=strategy_address,
-                base_asset=Web3.toChecksumAddress(autopool_state_dict[(a.autopool_eth_addr, "asset")]),
-                data_from_rebalance_plan=a.data_from_rebalance_plan,
-            )
-            autopools_rows.append(row)
 
-        new_blocks = [a.block_deployed for a in autopools_rows]
-        ensure_all_blocks_are_in_table(new_blocks, chain)
-        insert_avoid_conflicts(
-            autopools_rows, Autopools, index_elements=[Autopools.autopool_vault_address, Autopools.chain_id]
-        )
+            ensure_all_blocks_are_in_table([autopool.block_deployed], autopool.chain)
+
+            insert_avoid_conflicts([new_autopool_row], Autopools)
 
 
 if __name__ == "__main__":
-    ensure_autopools_are_current()
+    from mainnet_launch.constants import profile_function
+
+    profile_function(ensure_autopools_are_current)

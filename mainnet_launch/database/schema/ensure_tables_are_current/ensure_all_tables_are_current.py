@@ -70,6 +70,14 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
     ensure_autopool_fees_are_current,
 )
 
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_incentive_token_sales import (
+    ensure_incentive_token_swapped_events_are_current,
+)
+
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_incentive_token_prices import (
+    ensure_incentive_token_prices_are_current,
+)
+
 
 def _setup_constants():
     ensure_blocks_is_current()
@@ -78,10 +86,12 @@ def _setup_constants():
 
 
 def _fully_independent_update_functions():
-
     update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()  # independent
     ensure_chainlink_gas_costs_table_is_updated()  # idependent
     ensure_autopool_fees_are_current()  # independent
+
+    ensure_incentive_token_swapped_events_are_current()  # fully independent
+    ensure_incentive_token_prices_are_current()  # fully independent
 
 
 def _independent_after_constants():
@@ -125,6 +135,13 @@ def ensure_database_is_current_old(echo_sql_to_console: bool = False):
     ensure_autopools_are_current()
     ensure__destinations__tokens__and__destination_tokens_are_current()
 
+    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()  # independent
+    ensure_chainlink_gas_costs_table_is_updated()  # idependent
+    ensure_autopool_fees_are_current()  # independent
+
+    ensure_incentive_token_swapped_events_are_current()  # fully independent
+    ensure_incentive_token_prices_are_current()  # fully independent
+
     ensure_destination_underlying_deposits_are_current()  # depends on destinations
     ensure_destination_underlying_withdraw_are_current()  #  depends on destinations
 
@@ -134,16 +151,13 @@ def ensure_database_is_current_old(echo_sql_to_console: bool = False):
     ensure_autopool_destination_states_are_current()
     ensure_autopool_states_are_current()
     ensure_token_values_are_current()
-    ensure_rebalance_plans_table_are_current()  # big
-    ensure_rebalance_events_are_current()  # big ensure_rebalance_events_are_current
 
-    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()  # independent
-    ensure_chainlink_gas_costs_table_is_updated()  # idependent
-    ensure_autopool_fees_are_current()  # independent
+    ensure_rebalance_plans_table_are_current()  # big
+    ensure_rebalance_events_are_current()
 
 
 def main():
-    profile_function(ensure_database_is_current)
+    profile_function(ensure_database_is_current_old)
 
 
 if __name__ == "__main__":

@@ -177,4 +177,7 @@ def no_args_determine_what_days_have_highest_block_found():
 
 
 if __name__ == "__main__":
+    # determine_what_days_have_highest_block_found almost all the time cost
     profile_function(determine_what_days_have_highest_block_found, ETH_CHAIN)
+
+    # profile_function(ensure_blocks_is_current)

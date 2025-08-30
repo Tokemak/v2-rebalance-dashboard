@@ -86,7 +86,7 @@ def _add_token_details(
     return all_swapped_events
 
 
-def ensure_incentive_token_swapped_events_are_saved_in_db() -> pd.DataFrame:
+def ensure_incentive_token_swapped_events_are_current() -> pd.DataFrame:
     highest_block_already_fetched = _get_highest_swapped_event_already_fetched()
     all_new_inentive_token_swapped_events = []
     chain_to_highest_block = {chain: chain.client.eth.block_number - 500 for chain in ALL_CHAINS}
@@ -147,157 +147,39 @@ def ensure_incentive_token_swapped_events_are_saved_in_db() -> pd.DataFrame:
 if __name__ == "__main__":
 
     # ensure_incentive_token_swapped_events_are_saved_in_db()
-    profile_function(ensure_incentive_token_swapped_events_are_saved_in_db)
+    profile_function(ensure_incentive_token_swapped_events_are_current)
 
 
-# first run from 0
-# Total time: 51.700065 s
-
-# Timer unit: 1 s
-
-# Total time: 51.7001 s
-# File: /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/ensure_tables_are_current/using_onchain/not_order_dependent/update_incentive_token_sales.py
-# Function: ensure_incentive_token_swapped_events_are_saved_in_db at line 109
+# Total time: 289.359 s
+# File: /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/ensure_tables_are_current/ensure_all_tables_are_current.py
+# Function: ensure_database_is_current_old at line 131
 
 # Line #      Hits         Time  Per Hit   % Time  Line Contents
 # ==============================================================
-#    109                                           def ensure_incentive_token_swapped_events_are_saved_in_db() -> pd.DataFrame:
-#    110         1          1.5      1.5      2.9      highest_block_already_fetched = _get_highest_swapped_event_already_fetched()
-#    111         1          0.0      0.0      0.0      all_new_inentive_token_swapped_events = []
-#    112
-#    113         4          0.0      0.0      0.0      for chain in ALL_CHAINS:
-#    114         3          0.0      0.0      0.0          all_swapped_events = []
-#    115         3          0.0      0.0      0.0          token_addresses_to_ensure_we_have_in_db = set()
-#    116         9          0.0      0.0      0.0          for liquidation_row in [LIQUIDATION_ROW, LIQUIDATION_ROW2]:
-#    117         6          0.0      0.0      0.0              start_block = highest_block_already_fetched[(chain.chain_id, liquidation_row(chain))] + 1
-#    118
-#    119         6          0.0      0.0      0.1              contract = chain.client.eth.contract(liquidation_row(chain), abi=DESTINATION_DEBT_REPORTING_SWAPPED_ABI)
-#    120         6         11.3      1.9     21.9              swapped_df = fetch_events(contract.events.Swapped, chain=chain, start_block=start_block)
-#    121         6          0.0      0.0      0.0              swapped_df["liquidation_row"] = liquidation_row(chain)
-#    122         6          0.0      0.0      0.0              swapped_df["chain_id"] = chain.chain_id
-#    123
-#    124         6          0.0      0.0      0.0              if not swapped_df.empty:
-#    125         5          0.0      0.0      0.0                  all_swapped_events.append(swapped_df)
-#    126
-#    127         6          0.0      0.0      0.0              token_addresses_to_ensure_we_have_in_db.update(set(swapped_df["sellTokenAddress"].unique()))
-#    128         6          0.0      0.0      0.0              token_addresses_to_ensure_we_have_in_db.update(set(swapped_df["buyTokenAddress"].unique()))
-#    129
-#    130         3          0.9      0.3      1.7          ensure_all_tokens_are_saved_in_db(list(token_addresses_to_ensure_we_have_in_db), chain)
-#    131         3          1.1      0.4      2.1          token_to_decimals, token_to_symbol = get_token_details_dict()
-#    132
-#    133         3          0.0      0.0      0.0          if all_swapped_events:
-#    134         3          0.0      0.0      0.0              all_swapped_events = pd.concat(all_swapped_events)
-#    135         3          0.9      0.3      1.7              all_swapped_events = _add_token_details(all_swapped_events, token_to_decimals, token_to_symbol)
-#    136                                                   else:
-#    137                                                       all_swapped_events = pd.DataFrame()
-#    138
-#    139         9          0.5      0.1      1.0          new_incentive_token_swapped_events = all_swapped_events.apply(
-#    140         3          0.0      0.0      0.0              lambda r: IncentiveTokenSwapped(
-#    141                                                           tx_hash=r["hash"],
-#    142                                                           log_index=int(r["log_index"]),
-#    143                                                           chain_id=int(r["chain_id"]),
-#    144                                                           sell_token_address=r["sellTokenAddress"],
-#    145                                                           buy_token_address=r["buyTokenAddress"],
-#    146                                                           sell_amount=float(r["sellAmount_normalized"]),
-#    147                                                           buy_amount=float(r["buyAmount_normalized"]),
-#    148                                                           buy_amount_received=float(r["buyTokenAmountReceived_normalized"]),
-#    149                                                           liquidation_row=r["liquidation_row"],
-#    150                                                       ),
-#    151         3          0.0      0.0      0.0              axis=1,
-#    152         3          0.0      0.0      0.0          ).tolist()
-#    153
-#    154         3          0.0      0.0      0.0          all_new_inentive_token_swapped_events.extend(new_incentive_token_swapped_events)
+#    131                                           def ensure_database_is_current_old(echo_sql_to_console: bool = False):
+#    132         1          0.0      0.0      0.0      ENGINE.echo = echo_sql_to_console
+#    133
+#    134         1         66.5     66.5     23.0      ensure_blocks_is_current()
+#    135         1          0.9      0.9      0.3      ensure_autopools_are_current()
+#    136         1         16.0     16.0      5.5      ensure__destinations__tokens__and__destination_tokens_are_current()
+#    137
+#    138         1          8.9      8.9      3.1      update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()  # independent
+#    139         1          5.3      5.3      1.8      ensure_chainlink_gas_costs_table_is_updated()  # idependent
+#    140         1          9.8      9.8      3.4      ensure_autopool_fees_are_current()  # independent
+#    141
+#    142         1          3.6      3.6      1.3      ensure_incentive_token_swapped_events_are_current()  # fully independent
+#    143         1          0.3      0.3      0.1      ensure_incentive_token_prices_are_current()  # fully independent
+#    144
+#    145         1          8.7      8.7      3.0      ensure_destination_underlying_deposits_are_current()  # depends on destinations
+#    146         1          8.3      8.3      2.9      ensure_destination_underlying_withdraw_are_current()  #  depends on destinations
+#    147
+#    148
+#    149         1         16.3     16.3      5.6      ensure_destination_states_from_rebalance_plan_are_current()  # big,
+#    150         1          2.2      2.2      0.8      ensure_destination_states_are_current()
+#    151         1         34.2     34.2     11.8      ensure_destination_token_values_are_current()
+#    152         1         20.5     20.5      7.1      ensure_autopool_destination_states_are_current()
+#    153         1         11.0     11.0      3.8      ensure_autopool_states_are_current()
+#    154         1         27.0     27.0      9.3      ensure_token_values_are_current()
 #    155
-#    156         3         32.6     10.9     63.1          ensure_all_transactions_are_saved_in_db(list(all_swapped_events["hash"].unique()), chain)
-#    157         3          2.9      1.0      5.5          insert_avoid_conflicts(new_incentive_token_swapped_events, IncentiveTokenSwapped)
-
-
-# some options,
-
-# - ~~Incentive Harvester:  [`0x453BF45e5A9A476C6d6c74D1c8e529C9C27f51e7`](https://etherscan.io/address/0x453BF45e5A9A476C6d6c74D1c8e529C9C27f51e7)~~
-# - Incentive Harvester: [`0x4A566dbb39d5b75DA98e1E1fd98F785896178791`](https://etherscan.io/address/0x4A566dbb39d5b75DA98e1E1fd98F785896178791)
-# Liquidator: 0x0b1EAA1CF011C80f075958Cf5B6bD49Abc3D7a72
-
-# maybe get the liquidator and
-
-
-# 0xF570EA70106B8e109222297f9a90dA477658d481 ( most recent liqudation row)
-
-
-# current
-# Liquidation Row: 0xF570EA70106B8e109222297f9a90dA477658d481
-
-# old
-# Liquidation Row: 0xBf58810BB1946429830C1f12205331608c470ff5
-
-
-# emit VaultLiquidated(address(vaultAddress), fromToken, params.buyTokenAddress, amount);
-# emit GasUsedForVault(address(vaultAddress), gasUsedPerVault, bytes32("liquidation"));
-
-# emit VaultLiquidated(address(vaultAddress), fromToken, params.buyTokenAddress, amount);
-# emit GasUsedForVault(address(vaultAddress), gasUsedPerVault, bytes32("liquidation"));
-
-# event VaultLiquidated(address indexed vault, address indexed fromToken, address indexed toToken, uint256 amount);
-# event GasUsedForVault(address indexed vault, uint256 gasAmount, bytes32 action);
-#
-
-# vault, looks like a destination vault
-
-
-# I want the
-
-
-# https://etherscan.io/tx/0x052b4231be3c2b28480b335085cad1c20ba838cccd5fc98e9c1d39e8502c9f11#eventlog
-
-# VaultLiquidated (index_topic_1 address vault, index_topic_2 address fromToken, index_topic_3 address toToken, uint256 amount)View Source
-
-# 133
-
-# Topics
-# 0 0x0272b5a6ff5cab190795f808ef35307240b8bc0011849cb8e15c093b40b22dfb
-# 1: vault
-# 0x0091Fec1B75013D1b83f4Bb82f0BEC4E256758CB # Tokemak-Dola USD Stablecoin-DOLA/sUSDe string
-# 2: fromToken
-# 0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B # CVX
-# 3: toToken
-# 0x865377367054516e17014CcdED1e7d814EDC9ce4 # dola
-# Data
-
-
-# amount :
-# 583413391926390257
-
-# at a vault level?
-
-
-# https://etherscan.io/address/0xe2c7011866db4cc754f1b9b60b2f2999b5b54be4#code
-
-
-# we also want reward added events
-
-# rewardAdded
-
-from dataclasses import dataclass
-
-
-@dataclass
-class VaultLiquidated:
-    tx_hash: str  # primary keys
-    log_index: int  # primary keys
-
-    destination_vault_address: str
-    from_token_address: str
-    to_token_address: str
-
-    liquidated_amount: float  # in terms of to_token_address
-
-
-# swapped event
-
-# event Swapped(
-#     address indexed sellTokenAddress,
-#     address indexed buyTokenAddress,
-#     uint256 sellAmount,
-#     uint256 buyAmount,
-#     uint256 buyTokenAmountReceived
-# );
+#    156         1         17.1     17.1      5.9      ensure_rebalance_plans_table_are_current()  # big
+#    157         1         32.8     32.8     11.3      ensure_rebalance_events_are_current()
