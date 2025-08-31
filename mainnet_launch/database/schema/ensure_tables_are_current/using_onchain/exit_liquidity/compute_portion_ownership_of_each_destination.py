@@ -40,11 +40,3 @@
 #     )
 
 #     return portion_ownership_by_destination_df
-
-
-# if __name__ == "__main__":
-#     from mainnet_launch.constants import ETH_CHAIN
-
-#     block = ETH_CHAIN.client.eth.block_number
-#     portion_ownership_by_destination_df = get_portion_ownership_by_pool(block, ETH_CHAIN)
-#     print(portion_ownership_by_destination_df)

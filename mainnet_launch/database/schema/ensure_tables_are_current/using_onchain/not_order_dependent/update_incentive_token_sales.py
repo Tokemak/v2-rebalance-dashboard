@@ -89,7 +89,6 @@ def _add_token_details(
 def ensure_incentive_token_swapped_events_are_current() -> pd.DataFrame:
     highest_block_already_fetched = _get_highest_swapped_event_already_fetched()
     all_new_inentive_token_swapped_events = []
-    chain_to_highest_block = {chain: chain.client.eth.block_number - 500 for chain in ALL_CHAINS}
 
     for chain in ALL_CHAINS:
         all_swapped_events = []
@@ -99,7 +98,9 @@ def ensure_incentive_token_swapped_events_are_current() -> pd.DataFrame:
 
             contract = chain.client.eth.contract(liquidation_row(chain), abi=DESTINATION_DEBT_REPORTING_SWAPPED_ABI)
             swapped_df = fetch_events(
-                contract.events.Swapped, chain=chain, start_block=start_block, end_block=chain_to_highest_block[chain]
+                contract.events.Swapped,
+                chain=chain,
+                start_block=start_block,
             )
             swapped_df["liquidation_row"] = liquidation_row(chain)
             swapped_df["chain_id"] = chain.chain_id

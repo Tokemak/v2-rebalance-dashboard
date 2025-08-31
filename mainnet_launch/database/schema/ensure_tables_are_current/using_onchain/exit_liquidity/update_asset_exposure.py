@@ -101,13 +101,11 @@ def _write_asset_exposure_to_database(asset_exposure_records: list[AssetExposure
 
 
 def ensure_asset_exposure_is_current():
-
     for chain in ALL_CHAINS:
-        block = chain.client.eth.block_number
         all_asset_exposure_records = []
         for base_asset in [DOLA, USDC, WETH]:
             asset_exposure_records = _fetch_asset_exposure(
-                block=block,
+                block=chain.get_block_near_top(),
                 chain=chain,
                 base_asset=base_asset(chain),
             )

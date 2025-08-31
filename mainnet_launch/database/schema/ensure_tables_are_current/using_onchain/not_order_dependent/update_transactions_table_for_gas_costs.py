@@ -118,12 +118,11 @@ def update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched():
 
         transaction_hashes_required = []
 
-        to_block = chain.client.eth.block_number
         for i, EOA_address in enumerate(EOAs_we_want_to_track):
 
             from_block = highest_block_already_seen.get(EOA_address, 0) + 1
             etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
-                chain, EOA_address, from_block=from_block, to_block=to_block
+                chain, EOA_address, from_block=from_block, to_block=chain.get_block_near_top()
             )
             if not etherscan_tx_df.empty:
                 transaction_hashes_required.extend(etherscan_tx_df["hash"].tolist())
@@ -151,11 +150,10 @@ def update_tokemak_EOA_gas_costs_from_0():
 
         transaction_hashes_required = []
 
-        to_block = chain.client.eth.block_number
         for i, EOA_address in enumerate(EOAs_we_want_to_track):
             # this should have a rate limiter of no more than 4/ second
             etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
-                chain, EOA_address, from_block=0, to_block=to_block
+                chain, EOA_address, from_block=0, to_block=chain.get_block_near_top()
             )
             sleep(0.5)
             transaction_hashes_required.extend(etherscan_tx_df["hash"].tolist())

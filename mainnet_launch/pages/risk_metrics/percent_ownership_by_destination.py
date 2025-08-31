@@ -204,10 +204,9 @@ def fetch_and_render_our_percent_ownership_of_each_destination():
     chain, base_asset, valid_autopools = render_pick_chain_and_base_asset_dropdown()
 
     with st.spinner(f"Fetching {chain.name} {base_asset.name} Percent Ownership By Destination..."):
-        block = chain.client.eth.block_number
-        our_tvl_by_destination_df = fetch_readable_our_tvl_by_destination(chain, block)
+        our_tvl_by_destination_df = fetch_readable_our_tvl_by_destination(chain, chain.get_block_near_top())
         this_autopool_destinations_df, percent_cols = _fetch_autopool_percent_ownership_of_each_destination(
-            valid_autopools, our_tvl_by_destination_df, block
+            valid_autopools, our_tvl_by_destination_df, chain.get_block_near_top()
         )
 
     st.download_button(

@@ -136,7 +136,7 @@ def fetch_events(
     # {'code': -32000, 'message': 'One of the blocks specified in filter (fromBlock, toBlock or blockHash) cannot be found.'} <class 'ValueError'>
     # this gives all the events up to -100 blocks for the current
 
-    end_block = (chain.client.eth.block_number - 500) if end_block is None else end_block
+    end_block = chain.get_block_near_top() if end_block is None else end_block
 
     if end_block > start_block:
         clean_found_events = []

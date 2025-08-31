@@ -1,25 +1,24 @@
 import pandas as pd
-import streamlit as st
-import numpy as np
-from functools import reduce
 from datetime import datetime
-from copy import deepcopy
 
 from multicall import Multicall, Call
-from sqlalchemy import select, func
+from web3 import Web3
 
 import nest_asyncio
 import asyncio
 from mainnet_launch.app.app_config import SEMAPHORE_LIMITS_FOR_MULTICALL
 
 
-from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS, ETH_CHAIN
-
-from mainnet_launch.database.schema.full import Blocks
+from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS, ETH_CHAIN, DEAD_ADDRESS
 from mainnet_launch.database.schema.postgres_operations import _exec_sql_and_cache
 
 # needed to run these functions in a jupyter notebook
 nest_asyncio.apply()
+
+
+class MulticallException(Exception):
+    pass
+
 
 MULTICALL_V3 = TokemakAddress(
     eth="0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696",
@@ -225,6 +224,15 @@ def identity_with_bool_success(success, value):
     return None
 
 
+def to_checksum_address_with_bool_success(success: bool, address: str) -> str | None:
+    if success:
+        try:
+            return Web3.toChecksumAddress(address)
+        except Exception as e:
+            raise MulticallException(f"Failed to convert {address} to checksum address") from e
+    return None
+
+
 def identity_function(value):
     return value
 
@@ -236,7 +244,7 @@ def _constant_1(success, value) -> float:
 
 def make_dummy_1_call(name: str) -> Call:
     return Call(
-        "0x000000000000000000000000000000000000dEaD",
+        DEAD_ADDRESS,
         ["dummy()(uint256)"],
         [(name, _constant_1)],
     )

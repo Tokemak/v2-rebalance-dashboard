@@ -117,7 +117,7 @@ def fetch_current_ratios():
 
         this_chain_ratios = get_state_by_one_block(
             calls=calls,
-            block=chain.client.eth.block_number,
+            block=chain.get_block_near_top(),
             chain=chain,
         )
         ratios.update(this_chain_ratios)

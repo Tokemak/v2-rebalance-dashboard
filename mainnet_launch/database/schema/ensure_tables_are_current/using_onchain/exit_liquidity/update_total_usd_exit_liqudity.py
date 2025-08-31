@@ -197,7 +197,7 @@ def _pure_function_group_destinations(
     ]
 
     portion_ownership_by_destination_df = fetch_percent_ownership_by_destination_from_destination_vaults(
-        chain.client.eth.block_number, chain
+        chain.get_block_near_top(), chain
     )
     pool_to_portion_ownership = portion_ownership_by_destination_df.set_index("getPool")["portion_ownership"].to_dict()
 

@@ -1,9 +1,13 @@
 from multicall import Call
 from web3 import Web3
 
-from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, ALL_CHAINS
+from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS
 
-from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block, identity_with_bool_success
+from mainnet_launch.data_fetching.get_state_by_block import (
+    get_state_by_one_block,
+    identity_with_bool_success,
+    to_checksum_address_with_bool_success,
+)
 from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
 
 from mainnet_launch.database.schema.full import Autopools
@@ -13,11 +17,6 @@ from mainnet_launch.database.schema.postgres_operations import (
 )
 
 
-def _identity_checksum_with_bool_success(success: bool, address: str) -> str | None:
-    if success:
-        return Web3.toChecksumAddress(address)
-
-
 def _fetch_autopool_state_dicts(autopool_vault_addresses: list[str], chain: ChainData) -> dict[tuple[str, str], any]:
     calls = []
     for v in autopool_vault_addresses:
@@ -25,12 +24,12 @@ def _fetch_autopool_state_dicts(autopool_vault_addresses: list[str], chain: Chai
             [
                 Call(v, "symbol()(string)", [((v, "symbol"), identity_with_bool_success)]),
                 Call(v, "name()(string)", [((v, "name"), identity_with_bool_success)]),
-                Call(v, "autoPoolStrategy()(address)", [((v, "strategy"), _identity_checksum_with_bool_success)]),
-                Call(v, "asset()(address)", [((v, "asset"), _identity_checksum_with_bool_success)]),
+                Call(v, "autoPoolStrategy()(address)", [((v, "strategy"), to_checksum_address_with_bool_success)]),
+                Call(v, "asset()(address)", [((v, "asset"), to_checksum_address_with_bool_success)]),
             ]
         )
 
-    return get_state_by_one_block(calls, block=chain.client.eth.block_number, chain=chain)
+    return get_state_by_one_block(calls, block=chain.get_block_near_top(), chain=chain)
 
 
 def ensure_autopools_are_current() -> None:

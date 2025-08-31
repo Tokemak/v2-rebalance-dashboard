@@ -65,13 +65,11 @@ def _fetch_autopool_deposit_and_withdraw_events_from_external_source(
         contract.events.Deposit,
         autopool.chain,
         start_block=start_block,
-        end_block=autopool.chain.client.eth.block_number - 1000,
     )
     withdraw_df = fetch_events(
         contract.events.Withdraw,
         autopool.chain,
         start_block=start_block,
-        end_block=autopool.chain.client.eth.block_number - 1000,
     )
     # deposit_df["normalized_assets"] = deposit_df["assets"].apply(lambda x: int(x) / 1e18)
     # withdraw_df["normalized_assets"] = withdraw_df["assets"].apply(lambda x: int(x) / 1e18)
@@ -166,7 +164,6 @@ def fetch_autopool_transfer_events(autopool: AutopoolConstants) -> pd.DataFrame:
         contract.events.Transfer,
         autopool.chain,
         start_block=autopool.block_deployed,
-        end_block=autopool.chain.client.eth.block_number - 1000,
     )
 
     df = add_timestamp_to_df_with_block_column(raw_df, autopool.chain).reset_index(drop=True)

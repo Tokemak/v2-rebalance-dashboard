@@ -10,24 +10,29 @@ from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,
+    to_checksum_address_with_bool_success,
 )
 from mainnet_launch.database.schema.full import Destinations, DestinationTokens, Tokens, AutopoolDestinations
 from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_subset_not_already_in_column
 
 
+# the reason why this is slow, is because it is inserting all of the destinations even if we have them
+# 17 second optimization if needed
+
+
 def _fetch_token_rows(token_addresses: list[str], chain: ChainData) -> list[Tokens]:
     calls = []
 
-    for v in token_addresses:
+    for t in token_addresses:
         calls.extend(
             [
-                Call(v, "symbol()(string)", [((v, "symbol"), identity_with_bool_success)]),
-                Call(v, "name()(string)", [((v, "name"), identity_with_bool_success)]),
-                Call(v, "decimals()(uint256)", [((v, "decimals"), identity_with_bool_success)]),
+                Call(t, "symbol()(string)", [((t, "symbol"), identity_with_bool_success)]),
+                Call(t, "name()(string)", [((t, "name"), identity_with_bool_success)]),
+                Call(t, "decimals()(uint256)", [((t, "decimals"), identity_with_bool_success)]),
             ]
         )
 
-    raw = get_state_by_one_block(calls, block=chain.client.eth.block_number, chain=chain)
+    raw = get_state_by_one_block(calls, block=chain.get_block_near_top(), chain=chain)
 
     return [
         Tokens(
@@ -41,10 +46,7 @@ def _fetch_token_rows(token_addresses: list[str], chain: ChainData) -> list[Toke
     ]
 
 
-def _make_destination_vault_dicts(
-    destination_vault_addreseses: list[str], highest_block: int, chain: ChainData
-) -> list[dict]:
-    # 1) build all the on-chain calls with tuple keys
+def _make_destination_vault_dicts(destination_vault_addreseses: list[str], chain: ChainData) -> list[dict]:
     calls = []
     for v in destination_vault_addreseses:
         calls.extend(
@@ -53,15 +55,15 @@ def _make_destination_vault_dicts(
                 Call(v, "name()(string)", [((v, "name"), identity_with_bool_success)]),
                 Call(v, "poolType()(string)", [((v, "pool_type"), identity_with_bool_success)]),
                 Call(v, "exchangeName()(string)", [((v, "exchange_name"), identity_with_bool_success)]),
-                Call(v, "underlying()(address)", [((v, "underlying"), identity_with_bool_success)]),
-                Call(v, "getPool()(address)", [((v, "pool"), identity_with_bool_success)]),
-                Call(v, "baseAsset()(address)", [((v, "base_asset"), identity_with_bool_success)]),
+                Call(v, "underlying()(address)", [((v, "underlying"), to_checksum_address_with_bool_success)]),
+                Call(v, "getPool()(address)", [((v, "pool"), to_checksum_address_with_bool_success)]),
+                Call(v, "baseAsset()(address)", [((v, "base_asset"), to_checksum_address_with_bool_success)]),
                 Call(v, "underlyingTokens()(address[])", [((v, "underlyingTokens"), identity_with_bool_success)]),
                 Call(v, "decimals()(uint256)", [((v, "decimals"), identity_with_bool_success)]),
             ]
         )
 
-    destination_vault_state = get_state_by_one_block(calls, block=highest_block, chain=chain)
+    destination_vault_state = get_state_by_one_block(calls, block=chain.get_block_near_top(), chain=chain)
 
     under_calls = []
     for v in destination_vault_addreseses:
@@ -73,9 +75,9 @@ def _make_destination_vault_dicts(
             ]
         )
 
-    tokens_raw = get_state_by_one_block(under_calls, block=highest_block, chain=chain)
-
+    tokens_raw = get_state_by_one_block(under_calls, block=chain.get_block_near_top(), chain=chain)
     destination_vault_state.update(tokens_raw)
+
     return destination_vault_state
 
 
@@ -86,7 +88,7 @@ def _make_idle_destinations(chain: ChainData) -> list[Destinations]:
         if autopool.chain == chain:
             idle_details.append(
                 Destinations(
-                    destination_vault_address=Web3.toChecksumAddress(autopool.autopool_eth_addr),
+                    destination_vault_address=autopool.autopool_eth_addr,
                     chain_id=chain.chain_id,
                     exchange_name="tokemak",
                     name=autopool.name,
@@ -96,7 +98,7 @@ def _make_idle_destinations(chain: ChainData) -> list[Destinations]:
                     underlying=autopool.autopool_eth_addr,
                     underlying_symbol=autopool.name,
                     underlying_name=autopool.name,
-                    denominated_in=Web3.toChecksumAddress(autopool.base_asset),
+                    denominated_in=autopool.base_asset,
                     destination_vault_decimals=18,  # always 18
                 )
             )
@@ -147,13 +149,12 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
         for autopool in ALL_AUTOPOOLS:
             if autopool.chain != chain:
                 continue
-            autopool_vault_contract = chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
 
+            autopool_vault_contract = chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
             DestinationVaultAdded = fetch_events(
                 autopool_vault_contract.events.DestinationVaultAdded,
                 chain=chain,
                 start_block=autopool.block_deployed,
-                end_block=chain.client.eth.block_number - 500,
             )
             DestinationVaultAdded["autopool"] = autopool.autopool_eth_addr
             DestinationVaultAdded["destination"] = DestinationVaultAdded["destination"].apply(
@@ -165,25 +166,26 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
         DestinationVaultAdded = pd.concat(autopool_vault_added_dfs, axis=0)
 
         destination_vault_state = _make_destination_vault_dicts(
-            [v for v in DestinationVaultAdded["destination"]], max(DestinationVaultAdded["block"].astype(int)), chain
+            [v for v in DestinationVaultAdded["destination"]], chain
         )
 
         new_autopool_destinations = _make_idle_autopool_destinations(chain)
 
         new_destination_rows = []
+        destination_tokens = []
         for v, autopool_vault_address in zip(DestinationVaultAdded["destination"], DestinationVaultAdded["autopool"]):
             new_destination_row = Destinations(
-                destination_vault_address=Web3.toChecksumAddress(v),
+                destination_vault_address=v,
                 chain_id=chain.chain_id,
                 exchange_name=destination_vault_state[(v, "exchange_name")],
                 name=destination_vault_state[(v, "name")],
                 symbol=destination_vault_state[(v, "symbol")],
                 pool_type=destination_vault_state[(v, "pool_type")],
-                pool=Web3.toChecksumAddress(destination_vault_state[(v, "pool")]),
-                underlying=Web3.toChecksumAddress(destination_vault_state[(v, "underlying")]),
+                pool=destination_vault_state[(v, "pool")],
+                underlying=destination_vault_state[(v, "underlying")],
                 underlying_symbol=destination_vault_state[(v, "underlying_symbol")],
                 underlying_name=destination_vault_state[(v, "underlying_name")],
-                denominated_in=Web3.toChecksumAddress(destination_vault_state[(v, "base_asset")]),
+                denominated_in=destination_vault_state[(v, "base_asset")],
                 destination_vault_decimals=(destination_vault_state[(v, "decimals")]),
             )
 
@@ -191,19 +193,16 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
 
             new_autopool_destinations.append(
                 AutopoolDestinations(
-                    destination_vault_address=Web3.toChecksumAddress(v),
+                    destination_vault_address=v,
                     chain_id=chain.chain_id,
                     autopool_vault_address=autopool_vault_address,
                 )
             )
 
-        destination_tokens = []
-        for dest in new_destination_rows:
-            v = dest.destination_vault_address
             for index, token_address in enumerate(destination_vault_state[(v, "underlyingTokens")]):
                 destination_tokens.append(
                     DestinationTokens(
-                        destination_vault_address=Web3.toChecksumAddress(v),
+                        destination_vault_address=v,
                         chain_id=chain.chain_id,
                         token_address=Web3.toChecksumAddress(token_address),
                         index=index,
@@ -273,11 +272,9 @@ def ensure_all_tokens_are_saved_in_db(token_addresses: list[str], chain: ChainDa
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import ETH_CHAIN
+    from mainnet_launch.constants import ETH_CHAIN, profile_function
 
-    some_tokens = ["0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF"]
-    ensure_all_tokens_are_saved_in_db(some_tokens, ETH_CHAIN)
+    # some_tokens = ["0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF"]
+    # ensure_all_tokens_are_saved_in_db(some_tokens, ETH_CHAIN)
 
-    # from mainnet_launch.constants import profile_function
-
-    # profile_function(ensure__destinations__tokens__and__destination_tokens_are_current)
+    profile_function(ensure__destinations__tokens__and__destination_tokens_are_current)

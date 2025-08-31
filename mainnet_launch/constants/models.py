@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from functools import cached_property
+import time
 
 from typing import cast
 import importlib
@@ -35,6 +36,25 @@ class ChainData:
             raise ValueError(f"No Web3 client configured for chain: {self.name}")
         return cast("Web3", clients[self.name])
 
+    # TODO, you may want to wrap this in a lock, not sure
+    def get_block_near_top(self) -> int:
+        """
+        Returns a block that is within 10 minutes of the current top block.
+
+        It is useful to cache this because we frequently need a "recent" block number, but don't care
+        if it is exactly the latest block.
+
+        """
+        now = time.time()
+        expiry = getattr(self, "_near_top_expiry", 0.0)
+        if now < expiry:
+            return getattr(self, "_near_top_block")  # may raise AttributeError if never set
+
+        block = int(self.client.eth.block_number)
+        object.__setattr__(self, "_near_top_block", block)
+        object.__setattr__(self, "_near_top_expiry", now + (60 * 10))
+        return block
+
 
 @dataclass(frozen=True)
 class AutopoolConstants:
@@ -50,6 +70,20 @@ class AutopoolConstants:
     base_asset_symbol: str
     start_display_date: str
     base_asset_decimals: int
+
+    def __post_init__(self):
+        if not Web3.isChecksumAddress(self.autopool_eth_addr):
+            raise ValueError(
+                f"{self.autopool_eth_addr} must be a checksum address should be {Web3.toChecksumAddress(self.autopool_eth_addr)=}"
+            )
+        if self.autopool_eth_strategy_addr and not Web3.isChecksumAddress(self.autopool_eth_strategy_addr):
+            raise ValueError(
+                f"{self.autopool_eth_strategy_addr} must be a checksum address should be {Web3.toChecksumAddress(self.autopool_eth_strategy_addr)=}"
+            )
+        if not Web3.isChecksumAddress(self.base_asset):
+            raise ValueError(
+                f"{self.base_asset} must be a checksum address should be {Web3.toChecksumAddress(self.base_asset)=}"
+            )
 
 
 @dataclass
