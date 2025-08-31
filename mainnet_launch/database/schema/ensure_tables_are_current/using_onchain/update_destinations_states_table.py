@@ -607,7 +607,8 @@ def ensure_destination_states_are_current():
         possible_blocks = build_blocks_to_use(chain)
         _add_new_destination_states_to_db(possible_blocks, chain)
 
-    _overwrite_bad_summary_states_rows()
+    _overwrite_bad_summary_states_rows()  # don't do this every time, only once. not certain yet on right pattern
+    # fast only .3 seconds
 
 
 if __name__ == "__main__":

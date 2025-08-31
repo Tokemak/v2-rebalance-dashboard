@@ -282,3 +282,5 @@ if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
 
     profile_function(ensure_rebalance_plans_table_are_current)
+
+    print_count_of_rebalance_plans_in_db()

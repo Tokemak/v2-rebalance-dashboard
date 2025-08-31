@@ -212,6 +212,8 @@ def _fetch_safe_and_backing_values(missing_blocks: list[int], tokens: list[Token
 
 
 def ensure_token_values_are_current():
+    # todo similar patterns, switch to threads as completed and per autopool, refactor to early exit and just do
+    # at a per autopool level
     for chain in ALL_CHAINS:
         autopools = [a for a in ALL_AUTOPOOLS_DATA_ON_CHAIN if a.chain == chain]
         if autopools:

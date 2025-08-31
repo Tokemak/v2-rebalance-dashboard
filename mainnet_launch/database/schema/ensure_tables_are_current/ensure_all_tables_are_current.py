@@ -3,6 +3,12 @@
 Top line scirpt that updates the database to the current time
 Run this, via a once a day lambda function (or as needed) to update the dashboard pulling from the db
 
+open questions:
+
+- Is there any way I can get a single boolean, (maybe for each autopool) that is:
+- autopool is current
+- that should save a lot of checks to see if we have all the needed blocks
+
 """
 
 from concurrent.futures import ThreadPoolExecutor
@@ -158,25 +164,25 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
     ensure_autopools_are_current()
     ensure__destinations__tokens__and__destination_tokens_are_current()
 
-    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()  # independent
-    ensure_chainlink_gas_costs_table_is_updated()  # idependent
-    ensure_autopool_fees_are_current()  # independent
+    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()
+    ensure_chainlink_gas_costs_table_is_updated()
+    ensure_autopool_fees_are_current()
 
-    ensure_incentive_token_swapped_events_are_current()  # fully independent
-    ensure_incentive_token_prices_are_current()  # fully independent
+    ensure_incentive_token_swapped_events_are_current()
+    ensure_incentive_token_prices_are_current()
 
     ensure_destination_underlying_deposits_are_current()  # depends on destinations
     ensure_destination_underlying_withdraw_are_current()  #  depends on destinations
 
-    ensure_destination_states_from_rebalance_plan_are_current()  # big,
-    ensure_destination_states_are_current()
-    ensure_destination_token_values_are_current()
-    ensure_autopool_destination_states_are_current()
-    ensure_autopool_states_are_current()
+    ensure_destination_states_from_rebalance_plan_are_current()  # big, 33 seconds, with just a few new plans
+    ensure_destination_states_are_current()  # .3 seconds
+    ensure_destination_token_values_are_current()  # 30 seconds not in parallel,
+    ensure_autopool_destination_states_are_current()  # maybe can be parrallel? 1.5 per autopool not in parallel
+    ensure_autopool_states_are_current()  # faster with threads
     ensure_token_values_are_current()
 
-    ensure_rebalance_plans_table_are_current()  # big
-    ensure_rebalance_events_are_current()
+    ensure_rebalance_plans_table_are_current()  # big, 23 seconds on empty, does not early exit properly
+    ensure_rebalance_events_are_current()  # slow, not optimized
 
     ensure_autopool_fees_are_current()
     ensure_incentive_token_swapped_events_are_current()

@@ -6,6 +6,14 @@ from multicall import Call
 import pandas as pd
 
 
+from mainnet_launch.constants import (
+    AutopoolConstants,
+    ChainData,
+    ALL_AUTOPOOLS,
+    WETH,
+    ROOT_PRICE_ORACLE,
+    SOLVER_ROOT_ORACLE,
+)
 from mainnet_launch.database.schema.full import (
     RebalancePlans,
     Destinations,
@@ -31,14 +39,9 @@ from mainnet_launch.data_fetching.tokemak_subgraph import fetch_autopool_rebalan
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions import (
     ensure_all_transactions_are_saved_in_db,
 )
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, WETH, SONIC_USD
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_states_table import (
     build_lp_token_spot_and_safe_price_calls,
-)
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destination_token_values_tables import (
-    _build_get_spot_price_in_eth_calls,
-    _build_get_spot_price_in_quote_calls,
 )
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopool_states import (
     _fetch_new_autopool_state_rows,
@@ -49,6 +52,49 @@ from mainnet_launch.database.schema.full import AutopoolDestinations, Destinatio
 
 # could you instead use? looking at the diff in destination vault total supply?
 # assumes that there cannot be two rebalances in the same block
+
+
+def _build_get_spot_price_in_eth_calls(chain: ChainData, destination_address_info_df: pd.DataFrame) -> list[Call]:
+    pool_token_addresses = destination_address_info_df[["pool", "token_address"]].drop_duplicates()
+    return [
+        Call(
+            ROOT_PRICE_ORACLE(chain),
+            ["getSpotPriceInEth(address,address)(uint256)", token_address, pool_address],
+            [((pool_address, token_address, "spot_price"), safe_normalize_with_bool_success)],
+        )
+        for (pool_address, token_address) in zip(pool_token_addresses["pool"], pool_token_addresses["token_address"])
+    ]
+
+
+def _build_get_spot_price_in_quote_calls(chain: ChainData, destination_address_info_df: pd.DataFrame) -> list[Call]:
+    # pricer_contract.functions.getSpotPriceInQuote(underlyingTokens[i], pool, quote).call({}, blockNo)
+    # note: this might need to be patched to include autopool.baseAsset -> 1.0
+    pool_token_addresses = destination_address_info_df[
+        ["pool", "token_address", "base_asset", "base_asset_decimals"]
+    ].drop_duplicates()
+    calls = []
+    for pool_address, token_address, base_asset, base_asset_decimals in zip(
+        pool_token_addresses["pool"],
+        pool_token_addresses["token_address"],
+        pool_token_addresses["base_asset"],
+        pool_token_addresses["base_asset_decimals"],
+    ):
+        if base_asset_decimals == 6:
+            cleaning_function = safe_normalize_6_with_bool_success
+        elif base_asset_decimals == 18:
+            cleaning_function = safe_normalize_with_bool_success
+        else:
+            raise ValueError("Unexpected Base Asset decimals")
+
+        calls.append(
+            Call(
+                SOLVER_ROOT_ORACLE(chain),
+                ["getSpotPriceInQuote(address,address,address)(uint256)", token_address, pool_address, base_asset],
+                [((pool_address, token_address, "spot_price"), cleaning_function)],
+            )
+        )
+
+    return calls
 
 
 def _connect_plans_to_rebalance_events(
@@ -118,6 +164,9 @@ def _load_destination_info_df(autopool: AutopoolConstants) -> pd.DataFrame:
 def _load_raw_rebalance_event_df(autopool: AutopoolConstants):
     """Gets the data from the subgraph"""
 
+    # TODO convert to sql, only fetch from subgraph based on where.
+    # query: get all rebalance events where the tx hash is not in (list)
+
     # these are dominating time costs
     rebalance_event_df = fetch_autopool_rebalance_events_from_subgraph(autopool)
 
@@ -169,9 +218,7 @@ def ensure_rebalance_events_are_current():
         rebalance_event_df["solver_address"] = rebalance_event_df["transactionHash"].map(tx_hash_to_to_address)
         new_rebalance_event_rows = add_lp_token_safe_and_spot_prices(rebalance_event_df, autopool)
 
-        new_autopool_state_rows = _fetch_new_autopool_state_rows(
-            [autopool], [int(b) for b in transaction_df["block"]], autopool.chain
-        )
+        new_autopool_state_rows = _fetch_new_autopool_state_rows(autopool, [int(b) for b in transaction_df["block"]])
 
         insert_avoid_conflicts(new_autopool_state_rows, AutopoolStates)
         insert_avoid_conflicts(new_rebalance_event_rows, RebalanceEvents)

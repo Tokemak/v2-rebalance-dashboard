@@ -1,8 +1,6 @@
 from multicall import Call
-import pandas as pd
 
 from mainnet_launch.database.schema.full import (
-    DestinationTokenValues,
     AutopoolDestinationStates,
     DestinationStates,
     AutopoolDestinations,
@@ -13,22 +11,20 @@ from mainnet_launch.database.schema.postgres_operations import (
     get_subset_not_already_in_column,
     merge_tables_as_df,
     TableSelector,
+    _exec_sql_and_cache,
 )
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
-    get_state_by_one_block,
     safe_normalize_with_bool_success,
     safe_normalize_6_with_bool_success,
 )
 from mainnet_launch.constants import (
-    ALL_CHAINS,
-    ChainData,
     ALL_AUTOPOOLS,
     AutopoolConstants,
 )
 
 
-def _determine_what_blocks_are_needed(autopool: AutopoolConstants) -> list[int]:
+def _determine_what_blocks_are_needed_old(autopool: AutopoolConstants) -> list[int]:
     blocks_expected_to_have = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -57,12 +53,38 @@ def _determine_what_blocks_are_needed(autopool: AutopoolConstants) -> list[int]:
     return [int(b) for b in blocks_to_fetch]
 
 
+def _determine_what_blocks_are_needed(autopool: AutopoolConstants) -> list[int]:
+    auto_addr = autopool.autopool_eth_addr
+    chain_id = autopool.chain.chain_id  # keep chain scoping explicit
+
+    sql = f"""
+        SELECT DISTINCT ds.block
+        FROM autopool_destinations AS ad
+        JOIN destination_states AS ds
+          ON ds.destination_vault_address = ad.destination_vault_address
+         AND ds.chain_id = ad.chain_id
+        WHERE ad.autopool_vault_address = '{auto_addr}'
+          AND ds.chain_id = {int(chain_id)}
+          AND NOT EXISTS (
+              SELECT 1
+              FROM autopool_destination_states AS ads
+              WHERE ads.autopool_vault_address = ad.autopool_vault_address
+                AND ads.chain_id = ds.chain_id
+                AND ads.block = ds.block
+          )
+        ORDER BY ds.block;
+    """
+
+    df = _exec_sql_and_cache(sql)
+    return [] if df.empty else df["block"].astype(int).tolist()
+
+
 def _fetch_and_insert_new_autopool_destination_states(autopool: AutopoolConstants):
     missing_blocks = _determine_what_blocks_are_needed(autopool)
     if len(missing_blocks) == 0:
         return
 
-    destination_info_df = merge_tables_as_df(
+    destination_info_df = merge_tables_as_df(  # TODO, use the view instead
         selectors=[
             TableSelector(
                 AutopoolDestinations,
@@ -164,6 +186,7 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import *
 
-    profile_function(ensure_autopool_destination_states_are_current)
+    # profile_function(ensure_autopool_destination_states_are_current)
+    profile_function(_fetch_and_insert_new_autopool_destination_states, BASE_USD)  # 3,3 seconds
 
 # _determine_what_blocks_are_needed(ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, ALL_CHAINS[0])
