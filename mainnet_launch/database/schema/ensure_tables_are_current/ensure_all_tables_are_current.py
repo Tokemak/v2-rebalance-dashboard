@@ -138,7 +138,6 @@ def _sequential_after_constants():
     ensure_rebalance_events_are_current()
 
 
-# I think this comes down to 167 seconds
 def ensure_database_is_current(echo_sql_to_console: bool = False):
     ENGINE.echo = echo_sql_to_console
     _ensure_chain_top_block_are_cached()
@@ -190,7 +189,7 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
 
 
 def main():
-    profile_function(ensure_database_is_current_slow_and_sequential, echo_sql_to_console=False)
+    profile_function(ensure_database_is_current, echo_sql_to_console=False)
 
 
 if __name__ == "__main__":
