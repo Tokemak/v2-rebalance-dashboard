@@ -1,215 +1,171 @@
-from dataclasses import dataclass
-import concurrent.futures
-
-
-from requests.exceptions import ReadTimeout, HTTPError, ChunkedEncodingError, ConnectionError
+import requests
 import pandas as pd
-import web3
+
+
+from web3._utils.events import get_event_data
 from web3.contract import Contract, ContractEvent
+from web3 import Web3
+from web3._utils.filters import construct_event_filter_params
+
 from mainnet_launch.constants import ChainData
 
 
-def _flatten_events(just_found_events: list[dict]) -> None:
-    """
-    If an emitted event has list args rename them to arg_name_1 ... arg_name_2
+def _rpc_post(url: str, payload: dict) -> dict:
+    headers = {"Content-Type": "application/json"}
+    r = requests.post(url, json=payload, headers=headers, timeout=30)
+    r.raise_for_status()
+    out = r.json()
+    if "error" in out:
+        raise ValueError(out["error"])
+    logs = out["result"]
 
-    This is because set and pandas don't work well with lists
-    eg:
-    AttributeDict(
-        {'provider': '0x8a9664EeB6d595cd5d6dbD7B44A4Fb19d99b2089',
-        'token_amounts': [156100153124040549569840, 4707055561829168550638],
-        'token_supply': 398334677422224108708620})
-
-    becomes
-
-    AttributeDict(
-        {'provider': '0x8a9664EeB6d595cd5d6dbD7B44A4Fb19d99b2089',
-        'token_amounts_0': 156100153124040549569840,
-        'token_amounts_1': 4707055561829168550638,
-        'token_supply': 398334677422224108708620}
-        )
-    """
-    cleaned_events = []
-    for raw_event_data in just_found_events:
-        event_data = {
-            "event": str(raw_event_data["event"]),
-            "block": int(raw_event_data["blockNumber"]),
-            "transaction_index": int(raw_event_data["transactionIndex"]),
-            "log_index": int(raw_event_data["logIndex"]),
-            "hash": str(raw_event_data["transactionHash"].hex()).lower(),
-        }
-        updated_args = {}
-        for arg_name, value in raw_event_data["args"].items():
-            if isinstance(value, list):
-                for position, value_in_position in enumerate(value):
-                    updated_args[f"{arg_name}_{position}"] = value_in_position
-            else:
-                updated_args[arg_name] = value
-
-        event_data.update(updated_args)
-        cleaned_events.append(event_data)
-
-    return cleaned_events
+    # required for inside of events.get_event_data
+    # topics are expected to be bytes, not hexstr
+    # eth_utils.event_abi_to_log_topic since that returns bytes
+    for log in logs:
+        log["topics"] = [bytes.fromhex(topic[2:]) for topic in log["topics"]]
+    return logs
 
 
-def _recursive_helper_get_all_events_within_range(
-    event: "web3.contract.ContractEvent",
+def _eth_getlogs_once(
+    rpc_url: str,
+    address: str | list[str] | None,
+    topics: list | None,
+    from_block_hex: str | None,
+    to_block_hex: str | None,
+) -> list[dict]:
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_getLogs",
+        "params": [
+            {
+                **({"address": address} if address else {}),
+                **({"topics": topics} if topics else {}),
+                **({"fromBlock": from_block_hex} if from_block_hex else {}),
+                **({"toBlock": to_block_hex} if to_block_hex else {}),
+            }
+        ],
+    }
+    return _rpc_post(rpc_url, payload)
+
+
+def _build_address_and_topics_for_event(
+    event: ContractEvent,
+    argument_filters: dict | None,
+    from_block_hex: str | None,
+    to_block_hex: str | None,
+):
+    event_abi = event._get_event_abi()
+    data_filters_set, filter_params = construct_event_filter_params(
+        event_abi=event_abi,
+        abi_codec=event.web3.codec,
+        address=Web3.toChecksumAddress(event.address),
+        argument_filters=argument_filters,
+        fromBlock=from_block_hex,
+        toBlock=to_block_hex,
+    )
+    return data_filters_set, filter_params
+
+
+def _recursive_getlogs(
+    event: ContractEvent,
+    rpc_url: str,
     start_block: int,
     end_block: int,
-    clean_found_events: list,
     argument_filters: dict | None,
+    cleaned_events_list: list,
 ):
-    """
-    Recursively fetch all the `event` events between start_block and end_block.
-    Immediately splits the range into smaller chunks on timeout or large response issues.
-    # is sequential and recursive, generally fast enough, but not insanely fast
-    """
-    try:
-        # Try fetching events in the given range
-        try:
-            event_filter = event.createFilter(
-                fromBlock=start_block, toBlock=end_block, argument_filters=argument_filters
-            )
-        except Exception as e:
-            raise e
-        just_found_events = event_filter.get_all_entries()
-        cleaned_events = _flatten_events(just_found_events)
-        clean_found_events.extend(cleaned_events)
 
-    except (TimeoutError, ValueError, ReadTimeout, HTTPError, ChunkedEncodingError, ConnectionError) as e:
-
-        if (e.args[0].get("code") == -32000) or (e.args[0].get("code") == -32600):
-            # for some fast chains (at sonic and base), but maybe others, asking alchemy for block to near the head
-            # raises a error
-            # so try again with a smaller top block
-            new_end_block = end_block - 500
-            print(f"{start_block=}, {end_block=}, {event=}, {e=}, {event.address=} {event.web3.eth.chain_id=}")
-
-            _recursive_helper_get_all_events_within_range(
-                event, start_block, new_end_block, clean_found_events, argument_filters
-            )
-            return
-
-        elif isinstance(e, ValueError) and e.args[0].get("code") != -32602:
-            print(
-                f"{start_block=}, {end_block=}, {event=}, {e=}, {type(e)=} {event.address=} {event.web3.eth.chain_id=}"
-            )
-            raise e
-
-        elif e.args[0].get("code") == -32602:
-            # otherwise cut the blocks in half and try again
-            # Timeout or "Log response size exceeded" error - split the range
-            mid = (start_block + end_block) // 2
-            if start_block == mid or mid + 1 > end_block:
-                # If the range is too small to split further, raise an exception
-                raise RuntimeError(f"Unable to fetch events for blocks {start_block}-{end_block}")
-
-            _recursive_helper_get_all_events_within_range(event, start_block, mid, clean_found_events, argument_filters)
-            _recursive_helper_get_all_events_within_range(
-                event, mid + 1, end_block, clean_found_events, argument_filters
-            )
+    return None
 
 
-def events_to_df(clean_found_events: list[dict]) -> pd.DataFrame:
-    if len(clean_found_events) == 0:
-        return pd.DataFrame(columns=["block", "transaction_index", "log_index", "hash"])
+def _decode_logs(event: ContractEvent, logs: list[dict]) -> list[dict]:
+    """Decode topics+data back to event dicts compatible with your _flatten_events."""
 
-    return pd.DataFrame.from_records(clean_found_events).sort_values(["block", "log_index"])
+    decoded = []
+    event_abi = event._get_event_abi()
+
+    for log in logs:
+        log_entry_data = get_event_data(event.web3.codec, event_abi, log)
+
+        flattened_log_args = {}
+        for arg_name, value in log_entry_data["args"].items():
+            if isinstance(value, list):
+                for position, value_in_position in enumerate(value):
+                    flattened_log_args[f"{arg_name}_{position}"] = value_in_position
+            else:
+                flattened_log_args[arg_name] = value
+
+        decoded.append(
+            {
+                "event": log_entry_data["event"],
+                "blockNumber": (int(log_entry_data["blockNumber"], 16)),
+                "transactionIndex": (int(log_entry_data["transactionIndex"], 16)),
+                "logIndex": int(log_entry_data["logIndex"], 16),
+                "transactionHash": log_entry_data["transactionHash"],
+                **flattened_log_args,
+            }
+        )
+
+    return decoded
 
 
 def fetch_events(
     event: ContractEvent,
     chain: ChainData,
-    start_block: int = 15091387,  # I don't like this start block
-    end_block: int = None,
+    start_block: int,
+    end_block: int | None = None,
     argument_filters: dict | None = None,
 ) -> pd.DataFrame:
     """
     Collect every `event` between start_block and end_block into a DataFrame.
     """
-    # -100 is to make sure that the block is properly indexed for alchemy
-    # not totally certain this is the fix
-    # be we get this error when using the current block for base
-
-    # after 32222436 exists
-    # 32222436 <class 'web3._utils.datatypes.DestinationVaultAdded'>
-    # {'code': -32000, 'message': 'One of the blocks specified in filter (fromBlock, toBlock or blockHash) cannot be found.'} <class 'ValueError'>
-    # this gives all the events up to -100 blocks for the current
 
     end_block = chain.get_block_near_top() if end_block is None else end_block
 
-    if end_block > start_block:
-        clean_found_events = []
-        _recursive_helper_get_all_events_within_range(
-            event, int(start_block), int(end_block), clean_found_events, argument_filters
-        )
-        event_df = events_to_df(clean_found_events)
-    else:
-        event_df = pd.DataFrame()
-
-    if len(event_df) == 0:
-        # make sure that the df returned has the expected columns
+    if end_block <= start_block:
+        # empty range: return typed empty frame
         event_field_names = [i["name"] for i in event._get_event_abi()["inputs"]]
-        event_df = pd.DataFrame(
-            columns=[*event_field_names, "event", "block", "transaction_index", "log_index", "hash"]
-        )
-        pass
+        return pd.DataFrame(columns=[*event_field_names, "event", "block", "transaction_index", "log_index", "hash"])
 
-    return event_df
+    from_block_hex, to_block_hex = hex(int(start_block)), hex(int(end_block))
 
+    data_filters_set, filter_params = _build_address_and_topics_for_event(
+        event, argument_filters, from_block_hex, to_block_hex
+    )
+    # not certain what this data_filters_set is for
 
-@dataclass
-class FetchEventParams:
-    event: ContractEvent
-    chain: ChainData
-    id: str
-    start_block: int = None
-    end_block: int = None
-    argument_filters: dict = None
+    logs = _eth_getlogs_once(
+        rpc_url=chain.client.provider.endpoint_uri,
+        address=filter_params["address"],
+        topics=filter_params["topics"],
+        from_block_hex=filter_params["fromBlock"],
+        to_block_hex=filter_params["toBlock"],
+    )
+    decoded_logs = _decode_logs(event, logs)
+    log_event_df = pd.DataFrame(decoded_logs)
 
-
-def fetch_many_events(events: list[FetchEventParams], num_threads: int = 16) -> dict[str, pd.DataFrame]:
-    """Fetch many events concurrently"""
-    results = {}
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
-        # Map each submitted task to its index in the events list.
-        future_to_id = {
-            executor.submit(
-                fetch_events,
-                event=ep.event,
-                chain=ep.chain,
-                start_block=ep.start_block,
-                end_block=ep.end_block,
-                argument_filters=ep.argument_filters,
-            ): ep.id
-            for ep in events
-        }
-        # Process each future as it completes.
-        for future in concurrent.futures.as_completed(future_to_id):
-            # fail on any error in fetch_events
-            id_key = future_to_id[future]
-            results[id_key] = future.result()
-
-    return results
-
-
-def get_each_event_in_contract(
-    contract: Contract, chain: ChainData, start_block: int = None, end_block: int = None
-) -> dict[str, pd.DataFrame]:
-    events_dict = dict()
-    for event in contract.events:
-        events_dict[event.event_name] = fetch_events(event, chain=chain, start_block=start_block, end_block=end_block)
-    return events_dict
+    return log_event_df
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import ETH_CHAIN, DOLA
+    from mainnet_launch.constants import WETH, ETH_CHAIN
     from mainnet_launch.abis import ERC_20_ABI
 
-    contract = ETH_CHAIN.client.eth.contract(address=DOLA(ETH_CHAIN), abi=ERC_20_ABI)
-    few_transfers_df = fetch_events(
-        contract.events.Transfer, chain=ETH_CHAIN, start_block=23227316 - 1, end_block=23227316 + 5
+    contract = ETH_CHAIN.client.eth.contract(address=WETH(ETH_CHAIN), abi=ERC_20_ABI)
+
+    transfer_df = fetch_events(
+        event=contract.events.Transfer,
+        chain=ETH_CHAIN,
+        start_block=10_000_000,
+        end_block=11_000_000,
     )
-    print(few_transfers_df.head())
-    pass
+    
+
+    transfer_df = fetch_events(
+        event=contract.events.Transfer,
+        chain=ETH_CHAIN,
+        start_block=23258223 - 10,
+        end_block=23258223,
+    )

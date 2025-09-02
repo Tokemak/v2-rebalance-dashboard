@@ -505,30 +505,30 @@ class AutopoolWithdrawalToken(Base):
 
 # not populated
 class AutopoolDeposit(Base):
-    __tablename__ = "autopool_deposit"
+    __tablename__ = "autopool_deposits"
 
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
     autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(primary_key=True)
+    log_index: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    block: Mapped[int] = mapped_column(primary_key=True)
 
     shares: Mapped[float] = mapped_column(nullable=False)
-    base_asset_amount: Mapped[float] = mapped_column(nullable=False)  # quantity of (WETH) or USDC or pxETH
+    amount: Mapped[float] = mapped_column(nullable=False)  # quantity of (WETH) or USDC or pxETH
 
     user: Mapped[str] = mapped_column(nullable=False)
-    nav_per_share: Mapped[str] = mapped_column(nullable=False)
+    official_nav_per_share: Mapped[str] = mapped_column(nullable=False)  # autopool.navPerShare() at the time of deposit
 
     __table_args__ = (
-        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
         ForeignKeyConstraint(
             ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
         ),
+        ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
     )
 
 
 # not populated
 class AutopoolWithdrawal(Base):
-    __tablename__ = "autopool_withdrawal"
+    __tablename__ = "autopool_withdrawals"
 
     autopool_vault_address: Mapped[str] = mapped_column(primary_key=True)
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
@@ -541,17 +541,31 @@ class AutopoolWithdrawal(Base):
     user: Mapped[str] = mapped_column(nullable=False)
     nav_per_share: Mapped[float] = mapped_column(nullable=False)
 
-    actualized_nav_per_share: Mapped[float] = mapped_column(
-        nullable=False
-    )  # the actual ratio of base asset amount / shares they got out
-    slippage: Mapped[float] = mapped_column(nullable=False)
+    # actualized_nav_per_share: Mapped[float] = mapped_column(
+    #     nullable=False
+    # )  # the actual ratio of base asset amount / shares they got out
+
+    # slippage: Mapped[float] = mapped_column(nullable=False)
 
     __table_args__ = (
-        ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),
         ForeignKeyConstraint(
             ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
         ),
     )
+
+
+class AutopoolTransfer(Base):
+    __tablename__ = "autopool_transfers"
+    # ERC20.Transfer events for Autopool shares moved between accounts
+
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    log_index: Mapped[int] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(nullable=False)
+
+    autopool_vault_address: Mapped[str] = mapped_column(nullable=False)
+    from_address: Mapped[str] = mapped_column(nullable=False)
+    to_address: Mapped[str] = mapped_column(nullable=False)
+    value: Mapped[float] = mapped_column(nullable=False)  # always in 1e18
 
 
 # not populated
