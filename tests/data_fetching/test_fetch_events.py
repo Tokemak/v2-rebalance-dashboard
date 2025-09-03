@@ -43,7 +43,7 @@ def test_fetch_transfers_on_each_autopool():
         transfer_df = fetch_events(
             contract.events.Transfer,
             chain=autopool.chain,
-            start_block=autopool.chain.get_block_near_top() - 3_000_000,
+            start_block=autopool.chain.block_autopool_first_deployed,
             end_block=autopool.chain.get_block_near_top(),
         )
 

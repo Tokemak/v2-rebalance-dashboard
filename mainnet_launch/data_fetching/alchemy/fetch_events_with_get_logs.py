@@ -3,13 +3,16 @@
 # don't add a silent parameter yet, shows where we are making redundent event fetches
 
 from enum import Enum
-
+import concurrent.futures
 import requests
 from web3 import Web3
 from web3.contract import ContractEvent
 from web3._utils.filters import construct_event_filter_params
 
-from mainnet_launch.constants import ChainData
+from mainnet_launch.constants import ChainData, SONIC_CHAIN
+
+
+MAX_SONIC_BLOCK_RANGE = 2_000_000
 
 
 class AchemyRequestStatus(Enum):
@@ -20,6 +23,7 @@ class AchemyRequestStatus(Enum):
 class AlchemyError(Enum):
     LOG_RESPONSE_SIZE_EXCEEDED = -32602
     RESPONSE_TOO_BIG_ERROR = -32008
+    SONIC_ONLY_ERROR = 503
 
 
 class AlchemyFetchEventsError(Exception):
@@ -30,7 +34,15 @@ def _rpc_post(url: str, payload: dict) -> tuple[dict, AchemyRequestStatus]:
     headers = {"Content-Type": "application/json"}
 
     r = requests.post(url, json=payload, headers=headers, timeout=30)
-    r.raise_for_status()
+    try:
+        r.raise_for_status()
+    except requests.HTTPError as e:
+        if (r.status_code == AlchemyError.SONIC_ONLY_ERROR.value) and r.url.startswith(
+            "https://sonic-mainnet.g.alchemy.com"
+        ):
+            return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
+        else:
+            raise AlchemyFetchEventsError(f"Non-retryable HTTP error {e} for payload {payload}")
     out = r.json()
 
     if "error" in out:
@@ -137,6 +149,45 @@ def _recursive_make_web3_getLogs_call(
             return
 
 
+def _special_case_for_sonic(
+    event: ContractEvent, chain: ChainData, start_block: int, end_block: int, argument_filters: dict
+) -> bool:
+    """we want to pre split the sonic large block, because it fails (sporadically at larger ranges)"""
+
+    new_start_and_end_blocks = []
+
+    for mid_point in range(start_block, end_block, MAX_SONIC_BLOCK_RANGE):
+        new_start_and_end_blocks.append([mid_point, mid_point + MAX_SONIC_BLOCK_RANGE - 1])
+
+    new_start_and_end_blocks[-1][1] = end_block
+
+    def _fetch_chunk(chunk_start_block: int, chunk_end_block: int) -> list[dict]:
+        local_raw_logs: list[dict] = []
+        print(f"Fetching pre split sonic chunk from {chunk_start_block} to {chunk_end_block}")
+        _recursive_make_web3_getLogs_call(
+            event=event,
+            chain=chain,
+            start_block=chunk_start_block,
+            end_block=chunk_end_block,
+            argument_filters=argument_filters,
+            global_raw_logs=local_raw_logs,
+        )
+        return local_raw_logs
+
+    global_raw_logs: list[dict] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as thread_pool_executor:
+        future_to_block_range = {
+            thread_pool_executor.submit(_fetch_chunk, start_block, end_block): (start_block, end_block)
+            for (start_block, end_block) in new_start_and_end_blocks
+        }
+        for future in concurrent.futures.as_completed(future_to_block_range):
+            chunk_logs = future.result()
+            if chunk_logs:
+                global_raw_logs.extend(chunk_logs)
+
+    return global_raw_logs
+
+
 def fetch_raw_event_logs(
     event: ContractEvent,
     chain: ChainData,
@@ -146,6 +197,24 @@ def fetch_raw_event_logs(
 ) -> list[dict]:
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
     end_block = chain.get_block_near_top() if end_block is None else end_block
+
+    if chain == SONIC_CHAIN:
+        raw_logs = _special_case_for_sonic(event, chain, start_block, end_block, argument_filters)
+        return raw_logs
+
     raw_logs = []
     _recursive_make_web3_getLogs_call(event, chain, start_block, end_block, argument_filters, raw_logs)
     return raw_logs
+
+
+if __name__ == "__main__":
+    mid_points = []
+
+    size = 500
+    for i in range(100, 300, size):
+        mid_points.append([i, (i + size) - 1])
+
+    mid_points[-1][1] = 300
+
+    for m in mid_points:
+        print(m)
