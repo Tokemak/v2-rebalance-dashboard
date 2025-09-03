@@ -68,7 +68,7 @@ def ensure_autopool_fees_are_current():
             start_block=highest_block_already_fetched[autopool.autopool_eth_addr] + 1,
         )
         cols = ["hash", "log_index", "event", "feeSink", "mintedShares"]
-
+        # new fetch events broke this, not sure why
         df = pd.concat([fee_collected_events_df[cols], periodic_fee_collected_events_df[cols]], ignore_index=True)
 
         df["mintedShares"] = df["mintedShares"].apply(lambda x: int(x) / 1e18)
@@ -107,4 +107,6 @@ def ensure_autopool_fees_are_current():
 
 
 if __name__ == "__main__":
-    profile_function(ensure_autopool_fees_are_current)
+
+    ensure_autopool_fees_are_current()
+    # profile_function(ensure_autopool_fees_are_current)
