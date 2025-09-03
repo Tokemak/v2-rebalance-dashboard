@@ -183,7 +183,7 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
     ensure_destination_token_values_are_current()  # 30 seconds not in parallel,
     ensure_autopool_destination_states_are_current()  # maybe can be parrallel? 1.5 per autopool not in parallel
     ensure_autopool_states_are_current()  # faster with threads
-    ensure_token_values_are_current()
+    ensure_token_values_are_current()  # 30 seconds not in parallel
 
     ensure_rebalance_plans_table_are_current()  # big, 23 seconds on empty, does not early exit properly
     ensure_rebalance_events_are_current()  # slow, not optimized
