@@ -57,35 +57,35 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
     ensure_rebalance_events_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_transactions_table_for_gas_costs import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_gas_costs.update_transactions_table_for_gas_costs import (
     update_tokemak_EOA_gas_costs_from_0,
     update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_chainlink_keeper_gas_costs_table import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_gas_costs.update_chainlink_keeper_gas_costs_table import (
     ensure_chainlink_gas_costs_table_is_updated,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_destination_underlying_deposited import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_destinations.update_destination_underlying_deposited import (
     ensure_destination_underlying_deposits_are_current,
 )
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_destination_underlying_withdraw import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_autopools.update_destination_underlying_withdraw import (
     ensure_destination_underlying_withdraw_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_autopool_fees import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_autopools.update_autopool_fees import (
     ensure_autopool_fees_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_incentive_token_sales import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_incentives.update_incentive_token_sales import (
     ensure_incentive_token_swapped_events_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_incentive_token_prices import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_incentives.update_incentive_token_prices import (
     ensure_incentive_token_prices_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_autopool_vault_token_transfers import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_autopools.update_autopool_vault_token_transfers import (
     ensure_autopool_transfers_are_current,
 )
 
