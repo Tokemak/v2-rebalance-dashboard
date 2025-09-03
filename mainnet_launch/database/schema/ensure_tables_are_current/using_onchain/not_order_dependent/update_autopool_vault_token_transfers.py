@@ -11,9 +11,11 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.upda
 )
 
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
+from mainnet_launch.constants import time_decorator
 
 
-def get_highest_already_fetched_autopool_transfer_block() -> dict[str, int]:
+@time_decorator
+def get_highest_already_fetched_autopool_transfer_block2() -> dict[str, int]:
     # TODO this can be made generic and moved to views.py
     query = """
         WITH autopool_transfers_block AS (
@@ -22,7 +24,7 @@ def get_highest_already_fetched_autopool_transfer_block() -> dict[str, int]:
                 transactions.block
             FROM autopool_transfers
             JOIN transactions
-              ON autopool_transfers.tx_hash = autopool_transfers.tx_hash
+              ON autopool_transfers.tx_hash = transactions.tx_hash
         )
         SELECT
             autopool_vault_address,
@@ -40,11 +42,34 @@ def get_highest_already_fetched_autopool_transfer_block() -> dict[str, int]:
     return highest_block_by_pool
 
 
-def ensure_autopool_transfers_are_current():
+@time_decorator
+def get_highest_already_fetched_autopool_transfer_block() -> dict[str, int]:
+    # TODO this can be made generic and moved to views.py
+    query = """
+            SELECT at.autopool_vault_address,
+                MAX(tx.block) AS max_block
+            FROM autopool_transfers AS at
+            JOIN transactions AS tx
+            ON tx.tx_hash  = at.tx_hash
+            GROUP BY at.autopool_vault_address;
+    """
+    df = _exec_sql_and_cache(query)
+    highest_block_by_pool = df.set_index("autopool_vault_address")["max_block"].to_dict() if not df.empty else {}
+
+    for autopool in ALL_AUTOPOOLS:
+        if autopool.autopool_eth_addr not in highest_block_by_pool:
+            # Default to the deploy block if no rows exist yet
+            highest_block_by_pool[autopool.autopool_eth_addr] = autopool.block_deployed
+    return highest_block_by_pool
+
+
+def _fetch_all_autopool_transfer_events() -> pd.DataFrame:
     highest_block_by_pool = get_highest_already_fetched_autopool_transfer_block()
+
     transfer_dfs: list[pd.DataFrame] = []
 
     for autopool in ALL_AUTOPOOLS:
+        print(autopool.name, autopool.chain.name)
         contract = autopool.chain.client.eth.contract(
             address=autopool.autopool_eth_addr,
             abi=AUTOPOOL_VAULT_ABI,
@@ -56,28 +81,37 @@ def ensure_autopool_transfers_are_current():
             start_block=highest_block_by_pool[autopool.autopool_eth_addr],
         )
 
+        if transfer_df.empty:
+            continue
+
         transfer_df["value"] = transfer_df["value"].apply(lambda x: int(x) / 1e18)  # always 1e18
         transfer_df["autopool_vault_address"] = autopool.autopool_eth_addr
         transfer_df["chain_id"] = autopool.chain.chain_id
         transfer_df["from_address"] = transfer_df["from"].apply(lambda x: Web3.toChecksumAddress(x))
         transfer_df["to_address"] = transfer_df["to"].apply(lambda x: Web3.toChecksumAddress(x))
 
-        if transfer_df.empty:
-            continue
         print(f"Fetched {len(transfer_df)} new Autopool transfers for {autopool.name} on {autopool.chain.name}")
         transfer_dfs.append(transfer_df)
 
     if len(transfer_dfs) == 0:
-        return  # early exit, nothing to do
+        print("no new transfer events, early exit")
+        return pd.DataFrame()  # early exit, nothing to do
 
-    all_df = pd.concat(transfer_dfs, ignore_index=True)
+    all_transfers_df = pd.concat(transfer_dfs, ignore_index=True)
+    return all_transfers_df
+
+
+def ensure_autopool_transfers_are_current():
+    all_transfers_df = _fetch_all_autopool_transfer_events()
+    if all_transfers_df.empty:
+        return
 
     for chain in ALL_CHAINS:
-        txs = list(all_df.loc[all_df["chain_id"] == chain.chain_id, "hash"].drop_duplicates())
+        txs = list(all_transfers_df.loc[all_transfers_df["chain_id"] == chain.chain_id, "hash"].drop_duplicates())
         if txs:
             ensure_all_transactions_are_saved_in_db(txs, chain)
 
-    new_rows = all_df.apply(
+    new_rows = all_transfers_df.apply(
         lambda r: AutopoolTransfer(
             tx_hash=r["hash"],
             log_index=r["log_index"],
@@ -94,4 +128,5 @@ def ensure_autopool_transfers_are_current():
 
 
 if __name__ == "__main__":
+    # 8 seconds on after current
     profile_function(ensure_autopool_transfers_are_current)

@@ -86,4 +86,5 @@ def decode_logs(event: ContractEvent, raw_logs: list[dict]) -> pd.DataFrame:
 
     df.rename(columns={"logIndex": "log_index", "transactionHash": "hash", "blockNumber": "block"}, inplace=True)
     df["hash"] = df["hash"].apply(lambda x: str.lower(x))
+    df.sort_values("block", inplace=True)
     return df

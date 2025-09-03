@@ -7,7 +7,7 @@ from web3 import Web3
 from mainnet_launch.database.schema.full import Transactions
 from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
 from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_subset_not_already_in_column
-from mainnet_launch.constants import ChainData, DEAD_ADDRESS
+from mainnet_launch.constants import ChainData, DEAD_ADDRESS, time_decorator
 from mainnet_launch.database.schema.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
@@ -65,6 +65,7 @@ def fetch_transaction_rows_bulk_from_alchemy(tx_hashes: list[str], chain: ChainD
     return all_found_transactions
 
 
+@time_decorator
 def ensure_all_transactions_are_saved_in_db(tx_hashes: list[str], chain: ChainData) -> None:
     """
     Idempotently ensure that all tx_hashes are saved in the Transactions table
@@ -73,18 +74,19 @@ def ensure_all_transactions_are_saved_in_db(tx_hashes: list[str], chain: ChainDa
     if not isinstance(tx_hashes, list):
         raise TypeError("tx_hashes must be a list")
 
-    tx_hashes = [h.lower() for h in tx_hashes]
+    local_tx_hashes = [h.lower() for h in tx_hashes]
 
+    # this is slow with 5k hashes,
     hashes_to_fetch = get_subset_not_already_in_column(
         Transactions,
         Transactions.tx_hash,
-        values=tx_hashes,
+        values=local_tx_hashes,
         where_clause=Transactions.chain_id == chain.chain_id,  # where not needed but (might) speed up query
     )
 
     if not hashes_to_fetch:
         return
-
+    print(f"Fetching {len(hashes_to_fetch)} new transactions for {chain.name}")
     new_transactions: list[Transactions] = fetch_transaction_rows_bulk_from_alchemy(hashes_to_fetch, chain)
 
     ensure_all_blocks_are_in_table([t.block for t in new_transactions], chain)

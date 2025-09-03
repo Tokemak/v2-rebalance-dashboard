@@ -201,6 +201,15 @@ def _to_python_list(values) -> list:
         return list(values)
 
 
+# TODO this is too slow, need a better pattern
+# crazy non linear increases
+# Inserted 6598 new transactions for base
+# ensure_all_transactions_are_saved_in_db took 188.5424 seconds.
+# Fetching 833 new transactions for sonic
+# Inserted 833 new transactions for sonic
+# ensure_all_transactions_are_saved_in_db took 8.7739 seconds.
+
+
 def get_subset_not_already_in_column(
     table: Base,
     column: InstrumentedAttribute,
