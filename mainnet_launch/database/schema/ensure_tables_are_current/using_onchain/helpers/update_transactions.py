@@ -1,8 +1,9 @@
+"""Helper to idempotently ensure that all transactions are saved in the Transactions table"""
+
 import numpy as np
 import requests
 import json
 
-from web3 import Web3
 
 from mainnet_launch.database.schema.full import Transactions
 from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table

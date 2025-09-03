@@ -36,7 +36,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_6_with_bool_success,
 )
 from mainnet_launch.data_fetching.tokemak_subgraph import fetch_autopool_rebalance_events_from_subgraph
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_transactions import (
     ensure_all_transactions_are_saved_in_db,
 )
 

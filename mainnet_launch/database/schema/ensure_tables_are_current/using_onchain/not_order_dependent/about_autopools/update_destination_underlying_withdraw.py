@@ -18,7 +18,7 @@ from mainnet_launch.database.schema.postgres_operations import (
 
 from mainnet_launch.data_fetching.get_events import fetch_many_events, FetchEventParams
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_transactions import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_transactions import (
     ensure_all_transactions_are_saved_in_db,
 )
 
