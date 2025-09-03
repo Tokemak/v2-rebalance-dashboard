@@ -22,7 +22,7 @@ from mainnet_launch.constants import (
     WETH,
 )
 
-from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
+from mainnet_launch.data_fetching.update_blocks import ensure_all_blocks_are_in_table
 from mainnet_launch.data_fetching.quotes.get_all_underlying_reserves import fetch_raw_amounts_by_destination
 
 from mainnet_launch.database.schema.postgres_operations import (

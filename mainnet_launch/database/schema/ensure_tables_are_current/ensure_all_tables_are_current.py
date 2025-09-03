@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from mainnet_launch.constants import ALL_CHAINS
 
 from mainnet_launch.database.schema.full import ENGINE
-from mainnet_launch.data_fetching.block_timestamp import ensure_blocks_is_current
+from mainnet_launch.data_fetching.update_blocks import ensure_blocks_is_current
 from mainnet_launch.constants import profile_function
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_tokens_and_autopoolDestinations_table import (

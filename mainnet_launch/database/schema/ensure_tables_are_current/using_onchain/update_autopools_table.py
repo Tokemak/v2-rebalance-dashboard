@@ -8,7 +8,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
     to_checksum_address_with_bool_success,
 )
-from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
+from mainnet_launch.data_fetching.update_blocks import ensure_all_blocks_are_in_table
 
 from mainnet_launch.database.schema.full import Autopools
 from mainnet_launch.database.schema.postgres_operations import (

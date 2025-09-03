@@ -28,7 +28,7 @@ from mainnet_launch.database.schema.postgres_operations import (
 )
 
 from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN
-from mainnet_launch.data_fetching.block_timestamp import (
+from mainnet_launch.data_fetching.update_blocks import (
     ensure_all_blocks_are_in_table,
     get_block_by_timestamp_etherscan,
 )

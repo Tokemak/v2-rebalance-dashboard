@@ -6,7 +6,7 @@ import json
 
 
 from mainnet_launch.database.schema.full import Transactions
-from mainnet_launch.data_fetching.block_timestamp import ensure_all_blocks_are_in_table
+from mainnet_launch.data_fetching.update_blocks import ensure_all_blocks_are_in_table
 from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_subset_not_already_in_column
 from mainnet_launch.constants import ChainData, DEAD_ADDRESS, time_decorator
 from mainnet_launch.database.schema.postgres_operations import (
