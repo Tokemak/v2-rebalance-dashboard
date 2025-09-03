@@ -85,4 +85,6 @@ def ensure_all_transactions_are_saved_in_db(tx_hashes: list[str], chain: ChainDa
     new_transactions: list[Transactions] = fetch_transaction_rows_bulk_from_alchemy(hashes_to_fetch, chain)
 
     ensure_all_blocks_are_in_table([t.block for t in new_transactions], chain)
-    insert_avoid_conflicts(new_transactions, Transactions, index_elements=[Transactions.tx_hash])
+    insert_avoid_conflicts(new_transactions, Transactions)
+    print(f'Inserted {len(new_transactions)} new transactions for {chain.name}')
+
