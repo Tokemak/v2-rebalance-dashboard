@@ -14,6 +14,7 @@ from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
 
 def get_highest_already_fetched_autopool_transfer_block() -> dict[str, int]:
+    # TODO this can be made generic and moved to views.py
     query = """
         WITH autopool_transfers_block AS (
             SELECT
@@ -30,13 +31,13 @@ def get_highest_already_fetched_autopool_transfer_block() -> dict[str, int]:
         GROUP BY autopool_vault_address;
     """
     df = _exec_sql_and_cache(query)
-    highest = df.set_index("autopool_vault_address")["max_block"].to_dict() if not df.empty else {}
+    highest_block_by_pool = df.set_index("autopool_vault_address")["max_block"].to_dict() if not df.empty else {}
 
     for autopool in ALL_AUTOPOOLS:
-        if autopool.autopool_eth_addr not in highest:
+        if autopool.autopool_eth_addr not in highest_block_by_pool:
             # Default to the deploy block if no rows exist yet
-            highest[autopool.autopool_eth_addr] = autopool.block_deployed
-    return highest
+            highest_block_by_pool[autopool.autopool_eth_addr] = autopool.block_deployed
+    return highest_block_by_pool
 
 
 def ensure_autopool_transfers_are_current():

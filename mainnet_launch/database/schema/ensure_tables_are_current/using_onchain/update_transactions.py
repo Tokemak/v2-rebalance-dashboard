@@ -76,7 +76,10 @@ def ensure_all_transactions_are_saved_in_db(tx_hashes: list[str], chain: ChainDa
     tx_hashes = [h.lower() for h in tx_hashes]
 
     hashes_to_fetch = get_subset_not_already_in_column(
-        Transactions, Transactions.tx_hash, values=tx_hashes, where_clause=Transactions.chain_id == chain.chain_id
+        Transactions,
+        Transactions.tx_hash,
+        values=tx_hashes,
+        where_clause=Transactions.chain_id == chain.chain_id,  # where not needed but (might) speed up query
     )
 
     if not hashes_to_fetch:
@@ -86,5 +89,4 @@ def ensure_all_transactions_are_saved_in_db(tx_hashes: list[str], chain: ChainDa
 
     ensure_all_blocks_are_in_table([t.block for t in new_transactions], chain)
     insert_avoid_conflicts(new_transactions, Transactions)
-    print(f'Inserted {len(new_transactions)} new transactions for {chain.name}')
-
+    print(f"Inserted {len(new_transactions)} new transactions for {chain.name}")
