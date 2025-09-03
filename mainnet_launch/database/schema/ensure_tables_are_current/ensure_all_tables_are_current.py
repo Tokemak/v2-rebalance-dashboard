@@ -85,6 +85,10 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
     ensure_incentive_token_prices_are_current,
 )
 
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.update_autopool_vault_token_transfers import (
+    ensure_autopool_transfers_are_current,
+)
+
 
 def _ensure_chain_top_block_are_cached():
     for chain in ALL_CHAINS:
@@ -119,6 +123,7 @@ def _fully_independent_update_functions():
     ensure_autopool_fees_are_current()
     ensure_incentive_token_swapped_events_are_current()
     ensure_incentive_token_prices_are_current()
+    ensure_autopool_transfers_are_current()
 
 
 def _independent_after_constants():
@@ -186,6 +191,11 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
     ensure_autopool_fees_are_current()
     ensure_incentive_token_swapped_events_are_current()
     ensure_incentive_token_prices_are_current()
+    ensure_autopool_transfers_are_current()
+
+
+def sequential_main():
+    profile_function(ensure_database_is_current_slow_and_sequential, echo_sql_to_console=False)
 
 
 def main():
