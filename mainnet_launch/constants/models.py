@@ -36,7 +36,6 @@ class ChainData:
             raise ValueError(f"No Web3 client configured for chain: {self.name}")
         return cast("Web3", clients[self.name])
 
-    # TODO, you may want to wrap this in a lock, not sure
     def get_block_near_top(self) -> int:
         """
         Returns a block that is within 10 minutes of the current top block.
@@ -51,6 +50,7 @@ class ChainData:
             return getattr(self, "_near_top_block")  # may raise AttributeError if never set
 
         block = int(self.client.eth.block_number)
+
         object.__setattr__(self, "_near_top_block", block)
         object.__setattr__(self, "_near_top_expiry", now + (60 * 10))
         return block
