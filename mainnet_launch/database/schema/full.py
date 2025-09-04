@@ -515,7 +515,10 @@ class AutopoolDeposit(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     shares: Mapped[float] = mapped_column(nullable=False)
-    amount: Mapped[float] = mapped_column(nullable=False)
+    assets: Mapped[float] = mapped_column(nullable=False)
+
+    sender: Mapped[str] = mapped_column(nullable=False)
+    owner: Mapped[str] = mapped_column(nullable=False)
 
     __table_args__ = (
         ForeignKeyConstraint(
@@ -533,7 +536,11 @@ class AutopoolWithdrawal(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     shares: Mapped[float] = mapped_column(nullable=False)
-    amount: Mapped[float] = mapped_column(nullable=False)
+    assets: Mapped[float] = mapped_column(nullable=False)
+
+    sender: Mapped[str] = mapped_column(nullable=False)
+    receiver: Mapped[str] = mapped_column(nullable=False)
+    owner: Mapped[str] = mapped_column(nullable=False)
 
     __table_args__ = (
         ForeignKeyConstraint(

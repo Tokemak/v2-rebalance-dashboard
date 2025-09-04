@@ -1,7 +1,7 @@
-# not tested
 import pandas as pd
-from web3 import Web3  # not strictly needed here, but kept for parity
+from web3 import Web3
 
+from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 from mainnet_launch.constants import ALL_AUTOPOOLS, ALL_CHAINS, profile_function
 from mainnet_launch.database.schema.full import AutopoolDeposit
 from mainnet_launch.database.schema.postgres_operations import _exec_sql_and_cache
@@ -10,9 +10,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
     ensure_all_transactions_are_saved_in_db,
     insert_avoid_conflicts,
 )
-
-from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
-from mainnet_launch.constants import time_decorator
 
 
 def get_highest_already_fetched_autopool_deposit_block() -> dict[str, int]:
@@ -68,12 +65,14 @@ def _fetch_all_autopool_deposit_events() -> pd.DataFrame:
         if deposit_df.empty:
             continue
 
-        deposit_df["amount"] = deposit_df["assets"].apply(lambda x: int(x) / (10**autopool.base_asset_decimals))
+        deposit_df["assets"] = deposit_df["assets"].apply(lambda x: int(x) / (10**autopool.base_asset_decimals))
         deposit_df["shares"] = deposit_df["shares"].apply(lambda x: int(x) / 1e18)
 
-        # Stamp autopool / chain metadata
         deposit_df["autopool_vault_address"] = autopool.autopool_eth_addr
         deposit_df["chain_id"] = autopool.chain.chain_id
+
+        deposit_df["sender"] = deposit_df["sender"].apply(lambda x: Web3.toChecksumAddress(x))
+        deposit_df["owner"] = deposit_df["owner"].apply(lambda x: Web3.toChecksumAddress(x))
 
         print(f"Fetched {len(deposit_df)} new Autopool deposits for {autopool.name} on {autopool.chain.name}")
         deposit_dfs.append(deposit_df)
@@ -110,7 +109,9 @@ def ensure_autopool_deposits_are_current():
             log_index=r["log_index"],
             chain_id=r["chain_id"],
             shares=r["shares"],
-            amount=r["amount"],
+            assets=r["assets"],
+            sender=r["sender"],
+            owner=r["owner"],
         ),
         axis=1,
     ).to_list()

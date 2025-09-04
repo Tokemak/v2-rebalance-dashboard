@@ -1,7 +1,7 @@
-# not tested
 import pandas as pd
-from web3 import Web3  # parity with deposits module
+from web3 import Web3
 
+from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 from mainnet_launch.constants import ALL_AUTOPOOLS, ALL_CHAINS, profile_function
 from mainnet_launch.database.schema.full import AutopoolWithdrawal
 from mainnet_launch.database.schema.postgres_operations import _exec_sql_and_cache
@@ -10,9 +10,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
     ensure_all_transactions_are_saved_in_db,
     insert_avoid_conflicts,
 )
-
-from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
-from mainnet_launch.constants import time_decorator
 
 
 def get_highest_already_fetched_autopool_withdrawal_block() -> dict[str, int]:
@@ -65,14 +62,16 @@ def _fetch_all_autopool_withdrawal_events() -> pd.DataFrame:
         if df.empty:
             continue
 
-        # Normalize numeric columns
-        # assets are in base-asset decimals; shares are 1e18
-        df["amount"] = df["assets"].apply(lambda x: int(x) / (10**ap.base_asset_decimals))
+        df["assets"] = df["assets"].apply(lambda x: int(x) / (10**ap.base_asset_decimals))
         df["shares"] = df["shares"].apply(lambda x: int(x) / 1e18)
 
         # Stamp autopool / chain metadata
         df["autopool_vault_address"] = ap.autopool_eth_addr
         df["chain_id"] = ap.chain.chain_id
+
+        df["sender"] = df["sender"].apply(lambda x: Web3.toChecksumAddress(x))
+        df["receiver"] = df["receiver"].apply(lambda x: Web3.toChecksumAddress(x))
+        df["owner"] = df["owner"].apply(lambda x: Web3.toChecksumAddress(x))
 
         print(f"Fetched {len(df)} new Autopool withdrawals for {ap.name} on {ap.chain.name}")
         out.append(df)
@@ -85,23 +84,15 @@ def _fetch_all_autopool_withdrawal_events() -> pd.DataFrame:
 
 
 def ensure_autopool_withdraws_are_current():
-    """
-    Orchestrates:
-    - fetch Withdraw events
-    - ensure their transactions exist
-    - bulk upsert rows into autopool_withdrawals (conflicts avoided)
-    """
     all_wd_df = _fetch_all_autopool_withdrawal_events()
     if all_wd_df.empty:
         return
 
-    # Ensure transactions are present per-chain
     for chain in ALL_CHAINS:
         txs = list(all_wd_df.loc[all_wd_df["chain_id"] == chain.chain_id, "hash"].drop_duplicates())
         if txs:
             ensure_all_transactions_are_saved_in_db(txs, chain)
 
-    # Build ORM rows
     new_rows = all_wd_df.apply(
         lambda r: AutopoolWithdrawal(
             autopool_vault_address=r["autopool_vault_address"],
@@ -109,7 +100,10 @@ def ensure_autopool_withdraws_are_current():
             log_index=r["log_index"],
             chain_id=r["chain_id"],
             shares=r["shares"],
-            amount=r["amount"],
+            assets=r["assets"],
+            sender=r["sender"],
+            receiver=r["receiver"],
+            owner=r["owner"],
         ),
         axis=1,
     ).to_list()
