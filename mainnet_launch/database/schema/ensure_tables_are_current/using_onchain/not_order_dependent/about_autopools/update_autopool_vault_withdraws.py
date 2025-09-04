@@ -84,7 +84,7 @@ def _fetch_all_autopool_withdrawal_events() -> pd.DataFrame:
     return pd.concat(out, ignore_index=True)
 
 
-def ensure_autopool_withdrawals_are_current():
+def ensure_autopool_withdraws_are_current():
     """
     Orchestrates:
     - fetch Withdraw events
@@ -118,4 +118,4 @@ def ensure_autopool_withdrawals_are_current():
 
 
 if __name__ == "__main__":
-    profile_function(ensure_autopool_withdrawals_are_current)
+    profile_function(ensure_autopool_withdraws_are_current)

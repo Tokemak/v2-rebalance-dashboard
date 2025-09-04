@@ -16,30 +16,20 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.orde
 )
 
 
+
 def _get_highest_swapped_event_already_fetched() -> dict:
     query = """
-        WITH swapped_events_with_blocks AS (
-            SELECT
-                its.tx_hash,
-                its.liquidation_row,
-                its.chain_id,
-                t.block
-            FROM
-                incentive_token_swapped AS its
-                JOIN transactions AS t
-                    ON t.tx_hash = its.tx_hash
-                    AND
-                    t.chain_id = its.chain_id
-        )
-        SELECT
-            liquidation_row,
-            chain_id,
-            MAX(block) AS max_block
-        FROM
-            swapped_events_with_blocks
-        GROUP BY
-            chain_id,
-            liquidation_row;
+    SELECT
+        incentive_token_swapped.liquidation_row,
+        incentive_token_swapped.chain_id,
+        MAX(transactions.block) AS max_block
+    FROM incentive_token_swapped
+    JOIN transactions
+        ON transactions.tx_hash = incentive_token_swapped.tx_hash
+    AND transactions.chain_id = incentive_token_swapped.chain_id
+    GROUP BY
+        incentive_token_swapped.chain_id,
+        incentive_token_swapped.liquidation_row;
     """
     highest_block_already_fetched = _exec_sql_and_cache(query)
     if highest_block_already_fetched.empty:
