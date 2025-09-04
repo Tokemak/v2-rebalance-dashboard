@@ -21,30 +21,30 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
 )
 from mainnet_launch.constants import profile_function
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_tokens_and_autopoolDestinations_table import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destinations_tokens_and_autopoolDestinations_table import (
     ensure__destinations__tokens__and__destination_tokens_are_current,
 )
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopools_table import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_autopools_table import (
     ensure_autopools_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_token_values_table import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_token_values_table import (
     ensure_token_values_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destination_token_values_tables import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destination_token_values_tables import (
     ensure_destination_token_values_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_destinations_states_table import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destinations_states_table import (
     ensure_destination_states_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopool_destination_states_table import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_autopool_destination_states_table import (
     ensure_autopool_destination_states_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.update_autopool_states import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_autopool_states import (
     ensure_autopool_states_are_current,
 )
 from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_destination_states_from_rebalance_plan import (
@@ -71,7 +71,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_destinations.update_destination_underlying_deposited import (
     ensure_destination_underlying_deposits_are_current,
 )
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_autopools.update_destination_underlying_withdraw import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_destinations.update_destination_underlying_withdraw import (
     ensure_destination_underlying_withdraw_are_current,
 )
 

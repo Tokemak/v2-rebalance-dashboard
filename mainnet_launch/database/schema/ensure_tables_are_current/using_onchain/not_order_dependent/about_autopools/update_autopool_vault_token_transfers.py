@@ -14,37 +14,7 @@ from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 from mainnet_launch.constants import time_decorator
 
 
-@time_decorator
-def get_highest_already_fetched_autopool_transfer_block2() -> dict[str, int]:
-    # TODO this can be made generic and moved to views.py
-    query = """
-        WITH autopool_transfers_block AS (
-            SELECT
-                autopool_transfers.autopool_vault_address,
-                transactions.block
-            FROM autopool_transfers
-            JOIN transactions
-              ON autopool_transfers.tx_hash = transactions.tx_hash
-        )
-        SELECT
-            autopool_vault_address,
-            MAX(block) AS max_block
-        FROM autopool_transfers_block
-        GROUP BY autopool_vault_address;
-    """
-    df = _exec_sql_and_cache(query)
-    highest_block_by_pool = df.set_index("autopool_vault_address")["max_block"].to_dict() if not df.empty else {}
-
-    for autopool in ALL_AUTOPOOLS:
-        if autopool.autopool_eth_addr not in highest_block_by_pool:
-            # Default to the deploy block if no rows exist yet
-            highest_block_by_pool[autopool.autopool_eth_addr] = autopool.block_deployed
-    return highest_block_by_pool
-
-
-@time_decorator
 def get_highest_already_fetched_autopool_transfer_block() -> dict[str, int]:
-    # TODO this can be made generic and moved to views.py
     query = """
             SELECT at.autopool_vault_address,
                 MAX(tx.block) AS max_block
@@ -60,6 +30,9 @@ def get_highest_already_fetched_autopool_transfer_block() -> dict[str, int]:
         if autopool.autopool_eth_addr not in highest_block_by_pool:
             # Default to the deploy block if no rows exist yet
             highest_block_by_pool[autopool.autopool_eth_addr] = autopool.block_deployed
+        else:
+            # Start from the next block after the highest already fetched
+            highest_block_by_pool[autopool.autopool_eth_addr] += 1
     return highest_block_by_pool
 
 
@@ -69,7 +42,6 @@ def _fetch_all_autopool_transfer_events() -> pd.DataFrame:
     transfer_dfs: list[pd.DataFrame] = []
 
     for autopool in ALL_AUTOPOOLS:
-        print(autopool.name, autopool.chain.name)
         contract = autopool.chain.client.eth.contract(
             address=autopool.autopool_eth_addr,
             abi=AUTOPOOL_VAULT_ABI,

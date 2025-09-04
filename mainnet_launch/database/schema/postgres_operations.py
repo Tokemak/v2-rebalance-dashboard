@@ -201,16 +201,40 @@ def _to_python_list(values) -> list:
         return list(values)
 
 
-# TODO this is too slow, need a better pattern
-# crazy non linear increases
-# Inserted 6598 new transactions for base
-# ensure_all_transactions_are_saved_in_db took 188.5424 seconds.
-# Fetching 833 new transactions for sonic
-# Inserted 833 new transactions for sonic
-# ensure_all_transactions_are_saved_in_db took 8.7739 seconds.
-
-
 def get_subset_not_already_in_column(
+    table: Base,
+    column: InstrumentedAttribute,
+    values,
+    where_clause: OperatorExpression | None = None,
+) -> list:
+    # set differece in python is still faster, than unnest generally,
+    # return get_subset_not_already_in_column_unnest(table, column, values, where_clause)
+    return get_subset_not_already_in_column_in_python(table, column, values, where_clause)
+
+
+def get_subset_not_already_in_column_in_python(
+    table: Base,
+    column: InstrumentedAttribute,
+    values,
+    where_clause: OperatorExpression | None = None,
+) -> list:
+
+    with Session.begin() as session:
+        where_sql = _where_clause_to_string(where_clause, session)
+
+        query = f"""SELECT {column.key}
+                FROM {table.__tablename__}
+                {where_sql}"""
+
+        rows = session.execute(text(query)).scalars().all()
+
+    existing_values = set(rows)
+    input_values = set(_to_python_list(values))
+    missing_values = input_values - existing_values
+    return list(missing_values)
+
+
+def get_subset_not_already_in_column_unnest(
     table: Base,
     column: InstrumentedAttribute,
     values,

@@ -19,23 +19,13 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
 
 def get_highest_already_fetched_autopool_fees_block() -> dict[str, int]:
     query = """
-
-        WITH autopool_block_fees AS (
         SELECT
-            autopool_fees.tx_hash,
-            autopool_fees.autopool_vault_address,
-            transactions.block
-
-        FROM autopool_fees
-        JOIN transactions
-            ON autopool_fees.tx_hash = transactions.tx_hash
-        )
-        
-        SELECT
-        autopool_vault_address,
-        MAX(block) AS max_block
-        FROM autopool_block_fees
-        GROUP BY autopool_vault_address;
+            af.autopool_vault_address,
+            MAX(tx.block) AS max_block
+        FROM autopool_fees AS af
+        JOIN transactions AS tx
+          ON tx.tx_hash = af.tx_hash
+        GROUP BY af.autopool_vault_address;
     """
 
     df = _exec_sql_and_cache(query)
@@ -44,6 +34,8 @@ def get_highest_already_fetched_autopool_fees_block() -> dict[str, int]:
         if autopool.autopool_eth_addr not in highest_block_already_fetched:
             # set default block to when it was deployed
             highest_block_already_fetched[autopool.autopool_eth_addr] = autopool.block_deployed
+        else:
+            highest_block_already_fetched[autopool.autopool_eth_addr] += 1
 
     return highest_block_already_fetched
 
@@ -67,15 +59,18 @@ def ensure_autopool_fees_are_current():
             chain=autopool.chain,
             start_block=highest_block_already_fetched[autopool.autopool_eth_addr] + 1,
         )
-        cols = ["hash", "log_index", "event", "feeSink", "mintedShares"]
-        # new fetch events broke this, not sure why
-        df = pd.concat([fee_collected_events_df[cols], periodic_fee_collected_events_df[cols]], ignore_index=True)
+        # cols = ["hash", "log_index", "event", "feeSink", "mintedShares"]
+
+        # df = pd.concat([fee_collected_events_df[cols], periodic_fee_collected_events_df[cols]], ignore_index=True)
+
+        df = pd.concat([fee_collected_events_df, periodic_fee_collected_events_df], ignore_index=True)
+        if df.empty:
+            continue
 
         df["mintedShares"] = df["mintedShares"].apply(lambda x: int(x) / 1e18)
         df["chain_id"] = autopool.chain.chain_id
         df["autopool_vault_address"] = autopool.autopool_eth_addr
-        if not df.empty:
-            new_fee_events.append(df)
+        new_fee_events.append(df)
 
     if len(new_fee_events) == 0:
         # early exit if no new fee events
@@ -108,5 +103,5 @@ def ensure_autopool_fees_are_current():
 
 if __name__ == "__main__":
 
-    ensure_autopool_fees_are_current()
-    # profile_function(ensure_autopool_fees_are_current)
+    # ensure_autopool_fees_are_current()
+    profile_function(ensure_autopool_fees_are_current)
