@@ -92,7 +92,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
 )
 
 
-
 # from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_autopools.update_autopool_fees import (
 #     ensure_autopool_fees_are_current,
 # )
@@ -213,7 +212,6 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
 
     ensure_incentive_token_swapped_events_are_current()
     ensure_incentive_token_prices_are_current()
-
 
     ensure_autopool_fees_are_current()
 
