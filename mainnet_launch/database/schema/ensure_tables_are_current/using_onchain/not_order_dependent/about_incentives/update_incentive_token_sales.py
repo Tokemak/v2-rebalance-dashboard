@@ -16,7 +16,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.orde
 )
 
 
-
 def _get_highest_swapped_event_already_fetched() -> dict:
     query = """
     SELECT
