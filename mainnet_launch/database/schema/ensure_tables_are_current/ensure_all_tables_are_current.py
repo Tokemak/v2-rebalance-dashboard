@@ -92,24 +92,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
 )
 
 
-# from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_autopools.update_autopool_fees import (
-#     ensure_autopool_fees_are_current,
-# )
-
-
-# from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_autopools.update_autopool_vault_token_transfers import (
-#     ensure_autopool_transfers_are_current,
-# )
-
-# from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_autopools.update_autopool_vault_deposits import (
-#     ensure_autopool_deposits_are_current,
-# )
-
-# from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_autopools.update_autopool_vault_withdraws import (
-#     ensure_autopool_withdraws_are_current,
-# )
-
-
 def _ensure_chain_top_block_are_cached():
     for chain in ALL_CHAINS:
         print(
@@ -230,3 +212,43 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# Line #      Hits         Time  Per Hit   % Time  Line Contents
+# ==============================================================
+#    167                                           def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = False):
+#    168         1          0.0      0.0      0.0      ENGINE.echo = echo_sql_to_console
+#    169         1          0.5      0.5      0.2      _ensure_chain_top_block_are_cached()
+#    170
+#    171         1         21.4     21.4      7.8      ensure_blocks_is_current()
+#    172         1          0.3      0.3      0.1      ensure_autopools_are_current()
+#    173         1         14.1     14.1      5.1      ensure__destinations__tokens__and__destination_tokens_are_current()
+#    174
+#    175         1         12.6     12.6      4.6      update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()
+#    176         1         10.5     10.5      3.8      ensure_chainlink_gas_costs_table_is_updated()
+#    177         1          6.7      6.7      2.4      ensure_autopool_fees_are_current()
+#    178
+#    179         1          6.9      6.9      2.5      ensure_incentive_token_swapped_events_are_current()
+#    180         1          1.9      1.9      0.7      ensure_incentive_token_prices_are_current()
+#    181
+#    182         1         10.5     10.5      3.8      ensure_destination_underlying_deposits_are_current()  # depends on destinations
+#    183         1          7.0      7.0      2.6      ensure_destination_underlying_withdraw_are_current()  #  depends on destinations
+#    184
+#    185         1         27.4     27.4     10.0      ensure_destination_states_from_rebalance_plan_are_current()  # big, 33 seconds, with just a few new plans
+#    186         1          2.3      2.3      0.8      ensure_destination_states_are_current()  # .3 seconds
+#    187         1          5.5      5.5      2.0      ensure_destination_token_values_are_current()  # 30 seconds not in parallel,
+#    188         1          8.3      8.3      3.0      ensure_autopool_destination_states_are_current()  # maybe can be parrallel? 1.5 per autopool not in parallel
+#    189         1          3.7      3.7      1.4      ensure_autopool_states_are_current()  # faster with threads
+#    190         1         14.1     14.1      5.2      ensure_token_values_are_current()  # 30 seconds not in parallel
+#    191
+#    192         1         22.5     22.5      8.2      ensure_rebalance_plans_table_are_current()  # big, 23 seconds on empty, does not early exit properly
+#    193         1         54.7     54.7     20.0      ensure_rebalance_events_are_current()  # slow, not optimized
+#    194
+#    195         1          3.9      3.9      1.4      ensure_incentive_token_swapped_events_are_current()
+#    196         1          0.3      0.3      0.1      ensure_incentive_token_prices_are_current()
+#    197
+#    198         1          6.7      6.7      2.4      ensure_autopool_fees_are_current()
+#    199
+#    200         1         16.7     16.7      6.1      ensure_autopool_transfers_are_current()
+#    201         1          9.6      9.6      3.5      ensure_autopool_deposits_are_current()
+#    202         1          6.0      6.0      2.2      ensure_autopool_withdraws_are_current()

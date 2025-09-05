@@ -13,6 +13,9 @@ with open(ABI_DIR / "AutopoolETH_abi_with_AutopoolFees_abi.json", "r") as fin:
 with open(ABI_DIR / "strategy_abi.json", "r") as fin:
     AUTOPOOL_ETH_STRATEGY_ABI = json.load(fin)
 
+with open(ABI_DIR / "tokemak_autopool_router.json", "r") as fin:
+    AUTOPOOL_ROUTER_ABI = json.load(fin)
+
 with open(ABI_DIR / "Tokemak_BalancerAuraDestinationVault_abi.json", "r") as fin:
     BALANCER_AURA_DESTINATION_VAULT_ABI = json.load(fin)
 
