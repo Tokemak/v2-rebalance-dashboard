@@ -19,6 +19,12 @@ with open(ABI_DIR / "tokemak_autopool_router.json", "r") as fin:
 with open(ABI_DIR / "Tokemak_BalancerAuraDestinationVault_abi.json", "r") as fin:
     BALANCER_AURA_DESTINATION_VAULT_ABI = json.load(fin)
 
+with open(ABI_DIR / "balancer_incentives_gauge_abi.json", "r") as fin:
+    BALANCER_INCENTIVES_GAUGE_ABI = json.load(fin)
+
+with open(ABI_DIR / "curve_incentive_gauge_abi.json", "r") as fin:
+    CURVE_INCENTIVES_GAUGE_ABI = json.load(fin)
+
 with open(ABI_DIR / "convex_base_reward_pool_abi.json", "r") as fin:
     BASE_REWARD_POOL_ABI = json.load(fin)
 

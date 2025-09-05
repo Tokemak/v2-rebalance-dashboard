@@ -11,6 +11,8 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
     insert_avoid_conflicts,
 )
 
+# TODO you need to add the navPerShare() at each withdraw event. TO get the user's slippage
+
 
 def get_highest_already_fetched_autopool_withdrawal_block() -> dict[str, int]:
     """
