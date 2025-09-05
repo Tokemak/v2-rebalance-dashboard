@@ -3,9 +3,7 @@ import logging
 
 import streamlit as st
 
-from mainnet_launch.database.schema.ensure_tables_are_current.update_on_streamlit_server import (
-    update_if_needed_on_streamlit_server,
-)
+
 from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit, STREAMLIT_MARKDOWN_HTML
 from mainnet_launch.constants import ALL_AUTOPOOLS
 from mainnet_launch.pages.page_functions import (

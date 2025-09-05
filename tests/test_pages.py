@@ -150,9 +150,22 @@ def verify_autopool_pages():
                 print(f"❌ Autopool page {page} failed: {e}")
 
 
+def verify_risk_metrics_pages():
+    """Verify all risk metrics pages (no autopool)."""
+    with ThreadPoolExecutor() as ex:
+        futures = {ex.submit(run_no_log, name, func): name for name, func in RISK_METRICS_FUNCTIONS.items()}
+        for future in tqdm(as_completed(futures), total=len(futures), desc="verifying risk metrics pages"):
+            page = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                print(f"❌ Risk Metrics page {page} failed: {e}")
+
+
 def verify_all_pages_work():
     verify_no_args_pages()
     verify_autopool_pages()
+    verify_risk_metrics_pages()
 
 
 def verify_all_pages_work_with_times():
