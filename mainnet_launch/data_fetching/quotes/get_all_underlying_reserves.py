@@ -124,13 +124,20 @@ def fetch_raw_amounts_by_destination(block: int, chain: ChainData) -> pd.DataFra
     )
     reserve_token_ownership_df = pd.DataFrame.from_records(raw_base_token_value_by_destination)
 
-    balancer_tokens_df = get_full_table_as_df(
-        Tokens, where_clause=(Tokens.chain_id == chain.chain_id) & (Tokens.name.contains("Balancer"))
-    )
+    tokens_df = get_full_table_as_df(Tokens)
+    token_address_to_symbol = tokens_df.set_index("token_address")["symbol"].to_dict()
+    balancer_tokens_df = tokens_df[
+        (tokens_df["symbol"].str.contains("BPT")) | (tokens_df["symbol"].str.contains("/"))
+    ].copy()
 
-    # exclude balancer pool tokens here
+    # exclude balancer pool tokens here composable stable pool tokens
     reserve_token_ownership_df = reserve_token_ownership_df[
         ~reserve_token_ownership_df["token_address"].isin(balancer_tokens_df["token_address"])
     ]
-    reserve_token_ownership_df = reserve_token_ownership_df[reserve_token_ownership_df["reserve_amount"] > 0]
+
+    reserve_token_ownership_df = reserve_token_ownership_df[reserve_token_ownership_df["reserve_amount"] > 0].copy()
+    reserve_token_ownership_df["token_symbol"] = reserve_token_ownership_df["token_address"].map(
+        token_address_to_symbol
+    )
+
     return reserve_token_ownership_df

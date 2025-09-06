@@ -37,19 +37,19 @@ from mainnet_launch.data_fetching.odos.fetch_quotes import (
 ERROR_LOG_FILE = "/Users/pb/Desktop/quote_log.txt"
 
 
-ATTEMPTS = 1  # 3
+ATTEMPTS = 3  # 3
 PERCENT_OWNERSHIP_THRESHOLD = 25
-
 STABLE_COINS_REFERENCE_QUANTITY = 10_000
 ETH_REFERENCE_QUANTITY = 5
 
 USD_SCALED_SIZES = [i * 200_000 for i in range(1, 11)]
-USD_SCALED_SIZES = [200_000]
 USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
-ETH_SCALED_SIZES = [i * 50 for i in range(1, 17)]
-USD_SCALED_SIZES = [50]
 
+ETH_SCALED_SIZES = [i * 50 for i in range(1, 17)]
 ETH_SCALED_SIZES.append(ETH_REFERENCE_QUANTITY)
+
+# ETH_SCALED_SIZES = [ETH_REFERENCE_QUANTITY]
+# USD_SCALED_SIZES = [STABLE_COINS_REFERENCE_QUANTITY]
 
 
 def _fetch_current_asset_exposure(
@@ -67,7 +67,9 @@ def _fetch_current_asset_exposure(
 
 def fetch_needed_context(chain: ChainData, block: int, valid_autopools: list[AutopoolConstants]):
     # TODO I suspect this duplicates work
-    unscaled_asset_exposure = _fetch_current_asset_exposure(chain, valid_autopools, block)
+    unscaled_asset_exposure = _fetch_current_asset_exposure(
+        chain, valid_autopools, block
+    )  # not this has a composable stablepool init
     percent_ownership_by_destination_df = fetch_readable_our_tvl_by_destination(chain, block)
 
     autopool_destinations = get_full_table_as_df(
@@ -238,12 +240,13 @@ def _extract_asset_exposure_rows(
     }
     new_asset_exposure_rows = []
     for token_address, scaled_amount in scaled_asset_exposure.items():
+
         asset_exposure = AssetExposure(
             block=block,
             chain_id=chain.chain_id,
             token_address=Web3.toChecksumAddress(token_address),
             reference_asset=base_asset(chain),
-            quantity=scaled_amount,
+            quantity=float(scaled_amount),
             quote_batch=highest_swap_quote_batch_id,
         )
         new_asset_exposure_rows.append(asset_exposure)
@@ -369,6 +372,7 @@ def fetch_and_save_current_swap_quotes():
     for chain in ALL_CHAINS:
         blocks = [r.block for r in new_asset_exposure_rows if r.chain_id == chain.chain_id]
         ensure_all_blocks_are_in_table(blocks, chain)
+
     insert_avoid_conflicts(
         new_asset_exposure_rows,
         AssetExposure,
@@ -390,6 +394,7 @@ def fetch_and_save_loop(seconds_delay: int, num_batches: int):
 
 
 if __name__ == "__main__":
-    fetch_and_save_loop(60 * 60, 24)
+    fetch_and_save_current_swap_quotes()
+    # fetch_and_save_loop(60 * 60, 24)
 
 # caffeinate -ims bash -c 'cd /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard && poetry run python mainnet_launch/database/schema/ensure_tables_are_current/using_3rd_party/estimate_exit_liquidity_from_quotes.py'

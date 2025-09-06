@@ -38,7 +38,7 @@ def _build_request_kwargs(
 ):
     json_payload = {
         "chainId": chain_id,
-        "inputTokens": [{"tokenAddress": token_in, "amount": unscaled_amount_in}],
+        "inputTokens": [{"tokenAddress": token_in, "amount": str(unscaled_amount_in)}],
         "outputTokens": [{"tokenAddress": token_out, "proportion": 1.0}],
         "compact": compact,
         "simple": simple,
@@ -92,7 +92,6 @@ def fetch_many_odos_raw_quotes(quote_requests: list[OdosQuoteRequest]) -> pd.Dat
     )
 
     flat_odos_responses = [_flatten_odos_response(r) for r in raw_odos_responses]
-
     df = pd.DataFrame.from_records(flat_odos_responses)
 
     return df
@@ -157,3 +156,23 @@ if __name__ == "__main__":
 
     pprint(quote_response)
     pass
+
+    many_quotes_df = fetch_many_odos_raw_quotes(
+        [
+            OdosQuoteRequest(
+                chain_id=ETH_CHAIN.chain_id,
+                token_in=WETH(ETH_CHAIN),
+                token_out="0x04C154b66CB340F3Ae24111CC767e0184Ed00Cc6",
+                unscaled_amount_in=str(int(1e18)),
+            ),
+            OdosQuoteRequest(
+                chain_id=ETH_CHAIN.chain_id,
+                token_in=DEAD_ADDRESS,
+                token_out="0x04C154b66CB340F3Ae24111CC767e0184Ed00Cc6",
+                unscaled_amount_in=str(int(1e18)),
+            ),
+        ]
+    )
+
+    print("\nMany quotes dataframe:")
+    print(many_quotes_df)

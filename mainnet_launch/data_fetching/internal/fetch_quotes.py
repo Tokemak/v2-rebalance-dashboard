@@ -62,9 +62,8 @@ def fetch_single_swap_quote_from_internal_api(
     unscaled_amount_in: int,
 ) -> dict:
     request_kwargs = _build_request_kwargs(chain_id, sell_token, buy_token, unscaled_amount_in)
-    make_single_request_to_3rd_party(request_kwargs=request_kwargs)
+    tokemak_response = make_single_request_to_3rd_party(request_kwargs=request_kwargs)
     clean_response = _process_quote_response(tokemak_response)
-    clean_response.update(request_kwargs["json"])
     return clean_response
 
 
