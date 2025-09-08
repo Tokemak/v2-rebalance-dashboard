@@ -136,40 +136,4 @@ def ensure_incentive_token_swapped_events_are_current() -> pd.DataFrame:
 
 if __name__ == "__main__":
 
-    # ensure_incentive_token_swapped_events_are_saved_in_db()
     profile_function(ensure_incentive_token_swapped_events_are_current)
-
-
-# Total time: 289.359 s
-# File: /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard/mainnet_launch/database/schema/ensure_tables_are_current/ensure_all_tables_are_current.py
-# Function: ensure_database_is_current_old at line 131
-
-# Line #      Hits         Time  Per Hit   % Time  Line Contents
-# ==============================================================
-#    131                                           def ensure_database_is_current_old(echo_sql_to_console: bool = False):
-#    132         1          0.0      0.0      0.0      ENGINE.echo = echo_sql_to_console
-#    133
-#    134         1         66.5     66.5     23.0      ensure_blocks_is_current()
-#    135         1          0.9      0.9      0.3      ensure_autopools_are_current()
-#    136         1         16.0     16.0      5.5      ensure__destinations__tokens__and__destination_tokens_are_current()
-#    137
-#    138         1          8.9      8.9      3.1      update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()  # independent
-#    139         1          5.3      5.3      1.8      ensure_chainlink_gas_costs_table_is_updated()  # idependent
-#    140         1          9.8      9.8      3.4      ensure_autopool_fees_are_current()  # independent
-#    141
-#    142         1          3.6      3.6      1.3      ensure_incentive_token_swapped_events_are_current()  # fully independent
-#    143         1          0.3      0.3      0.1      ensure_incentive_token_prices_are_current()  # fully independent
-#    144
-#    145         1          8.7      8.7      3.0      ensure_destination_underlying_deposits_are_current()  # depends on destinations
-#    146         1          8.3      8.3      2.9      ensure_destination_underlying_withdraw_are_current()  #  depends on destinations
-#    147
-#    148
-#    149         1         16.3     16.3      5.6      ensure_destination_states_from_rebalance_plan_are_current()  # big,
-#    150         1          2.2      2.2      0.8      ensure_destination_states_are_current()
-#    151         1         34.2     34.2     11.8      ensure_destination_token_values_are_current()
-#    152         1         20.5     20.5      7.1      ensure_autopool_destination_states_are_current()
-#    153         1         11.0     11.0      3.8      ensure_autopool_states_are_current()
-#    154         1         27.0     27.0      9.3      ensure_token_values_are_current()
-#    155
-#    156         1         17.1     17.1      5.9      ensure_rebalance_plans_table_are_current()  # big
-#    157         1         32.8     32.8     11.3      ensure_rebalance_events_are_current()

@@ -45,6 +45,10 @@ from mainnet_launch.app.marketing_app.marketing_pages.apr_and_tvl_by_destination
     fetch_and_render_autopool_apy_and_allocation_over_time,
 )
 
+from mainnet_launch.pages.risk_metrics.incentive_token_prices_acutal_vs_expected import (
+    render_actual_vs_expected_incentive_token_prices,
+)
+
 
 AUTOPOOL_CONTENT_FUNCTIONS = {
     "Key Metrics": fetch_and_render_key_metrics_data,
@@ -66,6 +70,7 @@ RISK_METRICS_FUNCTIONS = {
     "Tokemak Percent Ownership": fetch_and_render_our_percent_ownership_of_each_destination,
     # "Exit Liquidity Pools": fetch_and_render_exit_liqudity_pools,
     "Exit Liquidity Quotes": fetch_and_render_exit_liquidity_from_quotes,
+    "Incentive Token Sales (Actual and Expected Prices)": render_actual_vs_expected_incentive_token_prices,
 }
 
 MARKETING_CONTENT_FUNCTIONS = {
