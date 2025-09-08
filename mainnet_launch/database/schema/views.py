@@ -12,6 +12,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_df,
     TableSelector,
     Session,
+    _exec_sql_and_cache,
 )
 
 
@@ -252,6 +253,40 @@ def get_token_details_dict() -> tuple[dict, dict]:
     token_to_decimals = tokens_df.set_index(["token_address"])["decimals"].to_dict()
     token_to_symbol = tokens_df.set_index(["token_address"])["symbol"].to_dict()
     return token_to_decimals, token_to_symbol
+
+
+def get_incentive_token_sold_details() -> pd.DataFrame:
+    query = """SELECT
+        incentive_token_swapped.tx_hash,
+        incentive_token_swapped.log_index,
+        incentive_token_swapped.chain_id,
+        blocks.datetime,
+        incentive_token_sale_prices.third_party_price,
+        incentive_token_swapped.sell_amount,
+        incentive_token_swapped.buy_amount,
+        incentive_token_swapped.buy_amount_received,
+        sell_tokens.symbol AS sell,
+        buy_tokens.symbol  AS buy,
+        (incentive_token_swapped.buy_amount_received / NULLIF(incentive_token_swapped.sell_amount, 0)) AS actual_execution,
+        (incentive_token_swapped.buy_amount / NULLIF(incentive_token_swapped.sell_amount, 0))          AS worst_possible_execution
+        FROM incentive_token_swapped
+        LEFT JOIN incentive_token_sale_prices
+        ON incentive_token_sale_prices.tx_hash = incentive_token_swapped.tx_hash
+        AND incentive_token_sale_prices.log_index = incentive_token_swapped.log_index
+        LEFT JOIN tokens AS sell_tokens
+        ON sell_tokens.token_address = incentive_token_swapped.sell_token_address
+        AND sell_tokens.chain_id      = incentive_token_swapped.chain_id
+        LEFT JOIN tokens AS buy_tokens
+        ON buy_tokens.token_address  = incentive_token_swapped.buy_token_address
+        AND buy_tokens.chain_id       = incentive_token_swapped.chain_id
+        JOIN transactions
+        ON transactions.tx_hash = incentive_token_swapped.tx_hash
+        JOIN blocks
+        ON blocks.block = transactions.block
+        AND blocks.chain_id = transactions.chain_id
+    """
+    df = _exec_sql_and_cache(query)
+    return df
 
 
 if __name__ == "__main__":

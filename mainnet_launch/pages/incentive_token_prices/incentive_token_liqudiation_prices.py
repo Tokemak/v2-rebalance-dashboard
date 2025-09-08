@@ -1,273 +1,247 @@
+import datetime as dt
+from typing import Tuple
 import pandas as pd
-import streamlit as st
-from multicall import Call
-import plotly.subplots as sp
+import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, timedelta, timezone
-
-from mainnet_launch.data_fetching.get_state_by_block import (
-    get_raw_state_by_blocks,
-    get_state_by_one_block,
-    identity_with_bool_success,
-    safe_normalize_with_bool_success,
-)
-from mainnet_launch.database.database_operations import (
-    write_dataframe_to_table,
-    run_read_only_query,
-    get_earliest_block_from_table_with_chain,
-)
-from mainnet_launch.database.should_update_database import should_update_table
-
-from mainnet_launch.data_fetching.get_events import fetch_events
+import streamlit as st
 
 from mainnet_launch.constants import (
-    INCENTIVE_PRICING_STATS,
-    LIQUIDATION_ROW,
-    ROOT_PRICE_ORACLE,
-    ALL_CHAINS,
+    CHAIN_BASE_ASSET_GROUPS,
     ChainData,
+    TokemakAddress,
 )
-
-from mainnet_launch.abis import DESTINATION_DEBT_REPORTING_SWAPPED_ABI
-
-
-INCENTIVE_TOKEN_PRICES_TABLE_NAME = "INCENTIVE_TOKEN_PRICES_AT_LIQUIDATION"
+from mainnet_launch.database.schema.views import get_incentive_token_sold_details
 
 
-def _add_achieved_price_column(swapped_df: pd.DataFrame, token_address_to_decimals: dict):
-    swapped_df["normalized_sell_amount"] = swapped_df.apply(
-        lambda row: row["sellAmount"] / (10 ** token_address_to_decimals[row["sellTokenAddress"]]), axis=1
+# ---------- Helpers ----------
+def get_chain_base_options() -> list[Tuple[ChainData, TokemakAddress]]:
+    """
+    Return (chain, base_asset) tuples that are valid according to CHAIN_BASE_ASSET_GROUPS.
+    """
+    # keys are tuples (ChainData, base_asset_const)
+    return list(CHAIN_BASE_ASSET_GROUPS.keys())
+
+
+def format_chain_base_label(chain: ChainData, base: TokemakAddress) -> str:
+    """
+    Human-readable label for the (chain, base asset) combo.
+    """
+    # TokemakAddress has .name we can use
+    base_name = getattr(base, "name", "BASE_ASSET")
+    return f"{chain.name} • {base_name}"
+
+
+def _infer_min_max_dates(df: pd.DataFrame) -> tuple[dt.date, dt.date]:
+    """
+    Safely infer min/max dates from df['datetime'] or fallback to 'block' if needed.
+    """
+    if "datetime" in df.columns:
+        s = pd.to_datetime(df["datetime"], errors="coerce")
+        s = s.dropna()
+        if not s.empty:
+            return s.min().date(), s.max().date()
+
+    # Fallback: if no datetime, just pick a 90-day window ending today
+    today = dt.date.today()
+    return today - dt.timedelta(days=90), today
+
+
+def sidebar_selectors(df: pd.DataFrame) -> tuple[Tuple[ChainData, TokemakAddress], dt.date, dt.date]:
+    """
+    Render sidebar selectors for (chain, base) and date range.
+    """
+    st.sidebar.header("Filters")
+
+    options = get_chain_base_options()
+    options_labels = [format_chain_base_label(chain, base) for (chain, base) in options]
+    default_index = 0 if options else None
+    chosen_label = st.sidebar.selectbox("Chain • Base Asset", options_labels, index=default_index)
+    chosen_idx = options_labels.index(chosen_label)
+    chain, base = options[chosen_idx]
+
+    min_date, max_date = _infer_min_max_dates(df)
+    start_date, end_date = st.sidebar.date_input(
+        "Date range",
+        value=(min_date, max_date),
+        min_value=min_date,
+        max_value=max_date,
     )
 
-    swapped_df["normalized_buy_amount"] = swapped_df.apply(
-        lambda row: row["buyTokenAmountReceived"] / (10 ** token_address_to_decimals[row["buyTokenAddress"]]), axis=1
-    )
+    # Streamlit returns either a single date or a tuple depending on widget usage
+    if isinstance(start_date, tuple):
+        start_date, end_date = start_date
 
-    swapped_df["achieved_price"] = swapped_df.apply(
-        lambda row: row["normalized_buy_amount"] / row["normalized_sell_amount"], axis=1
-    )
+    # Safety: enforce ordering
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
 
-    return swapped_df
-
-
-def _fetch_oracle_price_df(swapped_df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
-    token_addresses = [*swapped_df["sellTokenAddress"].unique(), *swapped_df["buyTokenAddress"].unique()]
-    oracle_price_calls = [
-        Call(
-            ROOT_PRICE_ORACLE(chain),
-            ["getPriceInEth(address)(uint256)", addr],
-            [(addr, safe_normalize_with_bool_success)],
-        )
-        for addr in token_addresses
-    ]
-
-    blocks = swapped_df["block"].unique()
-    oracle_price_df = get_raw_state_by_blocks(oracle_price_calls, blocks, chain, include_block_number=True)
-    return oracle_price_df
+    return (chain, base), start_date, end_date
 
 
-def _fetch_incentive_calculator_price_df(swapped_df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
-    token_addresses = [*swapped_df["sellTokenAddress"].unique(), *swapped_df["buyTokenAddress"].unique()]
-
-    def _min_of_low_and_high_price(success, data):
-        if success:
-            fast, slow = data
-            return min(fast, slow) / 1e18
-        return None
-
-    oracle_price_calls = [
-        Call(
-            INCENTIVE_PRICING_STATS(chain),
-            ["getPrice(address,uint40)((uint256,uint256))", addr, 2 * 86400],  # 2 days of latency
-            [(addr, _min_of_low_and_high_price)],
-        )
-        for addr in token_addresses
-    ]
-
-    blocks = swapped_df["block"].unique()
-    incentive_calculator_price_df = get_raw_state_by_blocks(
-        oracle_price_calls, blocks, chain, include_block_number=True
-    )
-    return incentive_calculator_price_df
+def ensure_datetime_column(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Guarantee a 'datetime' column. If present but not datetime64, coerce.
+    If absent, just return df (we'll rely on a default range).
+    """
+    if "datetime" in df.columns:
+        if not pd.api.types.is_datetime64_any_dtype(df["datetime"]):
+            df = df.copy()
+            df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
+    return df
 
 
-def _fetch_reward_token_price_during_liquidation_from_external_source(
-    chain: ChainData, start_block: int
+def _token_symbol_match(token_value, target_symbol: str) -> bool:
+    """
+    Best-effort match for token symbols in df rows.
+    We assume df['sell'] and df['buy'] are human-readable symbols (e.g., 'USDC', 'WETH', 'AERO', ...).
+    """
+    if pd.isna(token_value):
+        return False
+    return str(token_value).upper() == str(target_symbol).upper()
+
+
+def filter_sales_df(
+    df: pd.DataFrame,
+    chain: ChainData,
+    base: TokemakAddress,
+    start: dt.date,
+    end: dt.date,
 ) -> pd.DataFrame:
-    contract = chain.client.eth.contract(LIQUIDATION_ROW(chain), abi=DESTINATION_DEBT_REPORTING_SWAPPED_ABI)
+    """
+    Filter sales:
+      - chain_id == chain.chain_id
+      - buy token symbol == base.name
+      - datetime in [start, end]
+    Compute price_diff_pct and build 'label' == 'sell -> buy'.
+    """
+    df = ensure_datetime_column(df)
 
-    swapped_df = fetch_events(contract.events.Swapped, chain=chain, start_block=start_block)
-    oracle_price_df = _fetch_oracle_price_df(swapped_df, chain)
-    incentive_calculator_price_df = _fetch_incentive_calculator_price_df(swapped_df, chain)
+    # Filter chain
+    out = df[df["chain_id"] == chain.chain_id].copy()
+    if out.empty:
+        return out
 
-    token_addresses = [*swapped_df["sellTokenAddress"].unique(), *swapped_df["buyTokenAddress"].unique()]
-    symbol_calls = [Call(addr, ["symbol()(string)"], [(addr, identity_with_bool_success)]) for addr in token_addresses]
-    token_address_to_symbol = get_state_by_one_block(symbol_calls, swapped_df["block"].max(), chain)
+    # Filter by datetime if present
+    if "datetime" in out.columns:
+        mask = (out["datetime"] >= pd.Timestamp(start)) & (out["datetime"] <= pd.Timestamp(end) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1))
+        out = out[mask].copy()
 
-    decimals_calls = [
-        Call(addr, ["decimals()(uint8)"], [(addr, identity_with_bool_success)]) for addr in token_addresses
-    ]
+    # Make the label; assume 'sell' and 'buy' are textual symbols
+    if "sell" in out.columns and "buy" in out.columns:
+        out["label"] = out.apply(lambda row: f"{row['sell']} -> {row['buy']}", axis=1)
+    else:
+        out["label"] = "Unknown pair"
 
-    token_address_to_decimals = get_state_by_one_block(decimals_calls, swapped_df["block"].max(), chain)
+    # Keep only sales where BUY token equals the selected base asset symbol
+    base_symbol = getattr(base, "name", "USDC")
+    if "buy" in out.columns:
+        out = out[out["buy"].apply(_token_symbol_match, args=(base_symbol,))].copy()
 
-    swapped_df = _add_achieved_price_column(swapped_df, token_address_to_decimals)
-
-    long_swapped_df = swapped_df[
-        ["block", "sellTokenAddress", "achieved_price", "normalized_sell_amount", "normalized_buy_amount"]
-    ].copy()
-
-    long_oracle_prices_df = pd.melt(
-        oracle_price_df,
-        id_vars=["block"],
-        var_name="sellTokenAddress",
-        value_name="oracle_price",
-    )
-
-    long_incentive_calculator_prices = pd.melt(
-        incentive_calculator_price_df,
-        id_vars=["block"],
-        var_name="sellTokenAddress",
-        value_name="incentive_calculator_price",
-    )
-
-    long_swapped_df = pd.merge(long_swapped_df, long_oracle_prices_df, on=["block", "sellTokenAddress"], how="left")
-    long_swapped_df = pd.merge(
-        long_swapped_df, long_incentive_calculator_prices, on=["block", "sellTokenAddress"], how="left"
-    )
-
-    timestamp_df = oracle_price_df.reset_index()[["timestamp", "block"]]
-
-    long_swapped_df = pd.merge(long_swapped_df, timestamp_df, on=["block"], how="left")
-    long_swapped_df["tokenSymbol"] = long_swapped_df["sellTokenAddress"].apply(lambda x: token_address_to_symbol[x])
-    long_swapped_df["chain"] = chain.name
-
-    return long_swapped_df
-
-
-def add_new_reward_token_swapped_events_to_table():
-    if should_update_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME):
-        for chain in ALL_CHAINS:
-            # TODO pick one name for these tables and dataframes and stick with it
-            highest_block_already_fetched = get_earliest_block_from_table_with_chain(
-                INCENTIVE_TOKEN_PRICES_TABLE_NAME, chain
-            )
-            new_swapped_events_df = _fetch_reward_token_price_during_liquidation_from_external_source(
-                chain, highest_block_already_fetched
-            )
-            write_dataframe_to_table(new_swapped_events_df, INCENTIVE_TOKEN_PRICES_TABLE_NAME)
-
-
-def make_histogram_subplots(df: pd.DataFrame, col: str, title: str):
-    # this makes sure that the charts are in the same order
-    sold_reward_tokens = sorted(list(df["tokenSymbol"].unique()))
-    num_cols = 3
-    num_rows = (len(sold_reward_tokens) // num_cols) + 1  # not certain on this math
-    fig = sp.make_subplots(
-        rows=num_rows,
-        cols=num_cols,
-        subplot_titles=sold_reward_tokens,
-        x_title="Percent Difference Achieved vs Expected",
-        y_title="Percent of Reward Liqudations",
-    )
-
-    bin_range = [df[col].min(), df[col].max()]
-    bin_range = [int(bin_range[0]) - 1, int(bin_range[1]) + 1]
-    bin_width = 1  # 1% width per bin
-
-    for i, token in enumerate(sold_reward_tokens):
-        token_series = df[df["tokenSymbol"] == token][col]
-        this_row = (i // num_rows) + 1
-        this_col = (i % num_cols) + 1
-
-        hist = go.Histogram(
-            histnorm="percent", x=token_series, xbins=dict(start=bin_range[0], end=bin_range[1], size=bin_width)
+    # Compute price diff pct
+    if {"actual_execution", "third_party_price"}.issubset(out.columns):
+        out["price_diff_pct"] = (
+            (pd.to_numeric(out["actual_execution"]) - pd.to_numeric(out["third_party_price"]))
+            / pd.to_numeric(out["third_party_price"])
+            * 100.0
         )
+    else:
+        out["price_diff_pct"] = pd.NA
 
-        fig.add_trace(hist, row=this_row, col=this_col)
-        fig.update_xaxes(range=bin_range, row=this_row, col=this_col, autorange=False)
+    # Drop nulls for the ECDF
+    out = out.dropna(subset=["price_diff_pct"])
+    return out
 
-    fig.update_layout(height=600, width=900, showlegend=False, title=title)
+
+def _apply_default_style(fig: go.Figure) -> None:
+    fig.update_traces(line=dict(width=3))
+    fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=40, b=80),
+        height=600,
+        width=1200,
+        font=dict(size=16),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        xaxis=dict(showgrid=True, gridcolor="lightgray", title="Price Diff vs 3rd Party (%)"),
+        yaxis=dict(showgrid=True, gridcolor="lightgray", title="ECDF"),
+        colorway=px.colors.qualitative.Set2,
+    )
+
+
+def ecdf_figure(filtered: pd.DataFrame, title: str) -> go.Figure:
+    fig = px.ecdf(
+        filtered,
+        x="price_diff_pct",
+        color="label",
+        title=title,
+        markers=True,
+    )
+    _apply_default_style(fig)
+    fig.add_vline(x=0, line_width=1, line_dash="dash", line_color="red")
     return fig
 
 
-def _get_only_some_incentive_tokens_prices(
-    chain: ChainData,
-    start_time: pd.Timestamp,
-) -> pd.DataFrame:
-    query = f"""
-    SELECT *
-    FROM {INCENTIVE_TOKEN_PRICES_TABLE_NAME}
-    WHERE chain = ?
-      AND timestamp > ?
-      AND incentive_calculator_price != 0;
+def summarize(filtered: pd.DataFrame) -> pd.DataFrame:
+    if filtered.empty:
+        return pd.DataFrame(columns=["label", "count", "p05", "p25", "p50", "p75", "p95", "mean"])
+    g = filtered.groupby("label")["price_diff_pct"]
+    out = pd.DataFrame({
+        "count": g.size(),
+        "p05": g.quantile(0.05),
+        "p25": g.quantile(0.25),
+        "p50": g.quantile(0.50),
+        "p75": g.quantile(0.75),
+        "p95": g.quantile(0.95),
+        "mean": g.mean(),
+    }).reset_index()
+    return out.sort_values(["label"]).reset_index(drop=True)
+
+
+# ---------- Page ----------
+@st.cache_data(show_spinner=False, ttl=60 * 10)
+def _load_sales_df() -> pd.DataFrame:
     """
-    formatted_start_time = start_time.strftime("%Y-%m-%d %H:%M:%S")
+    Cached fetch; the underlying view should already join the needed pieces.
+    """
+    df = get_incentive_token_sold_details()
+    return df
 
-    swapped_df = run_read_only_query(query, params=(chain.name, formatted_start_time))
 
-    swapped_df["incentive percent diff to achieved"] = (
-        100
-        * (swapped_df["incentive_calculator_price"] - swapped_df["achieved_price"])
-        / swapped_df["incentive_calculator_price"]
+def render_page():
+    st.title("Incentive Token Sales — Execution vs Third-Party Price (ECDF)")
+
+    df = _load_sales_df()
+
+    # UI
+    (chain, base), start_date, end_date = sidebar_selectors(df)
+    base_symbol = getattr(base, "name", "BASE")
+
+    st.caption(
+        f"Showing sales on **{chain.name}** into **{base_symbol}** between **{start_date}** and **{end_date}**."
     )
-    swapped_df["oracle percent diff to achieved"] = (
-        100 * (swapped_df["oracle_price"] - swapped_df["achieved_price"]) / swapped_df["oracle_price"]
-    )
-    return swapped_df
 
+    # Filtering
+    filtered = filter_sales_df(df, chain, base, start_date, end_date)
 
-def fetch_and_render_reward_token_achieved_vs_incentive_token_price():
+    if filtered.empty:
+        st.info("No sales found for the chosen filters.")
+        return
 
-    add_new_reward_token_swapped_events_to_table()
+    # Figure
+    fig_title = f"ECDF of Incentive Token Sales vs 3rd-Party Price — {chain.name} • {base_symbol}"
+    fig = ecdf_figure(filtered, fig_title)
+    st.plotly_chart(fig, use_container_width=True)
 
-    today = datetime.now(timezone.utc)
-    thirty_days_ago = today - timedelta(days=30)
-    year_ago = today - timedelta(days=365)
+    # Summary
+    with st.expander("Summary stats (by pair)"):
+        stats = summarize(filtered)
+        st.dataframe(stats, use_container_width=True)
 
-    for start_time in [thirty_days_ago, year_ago]:
-        for chain in ALL_CHAINS:
-            st.subheader(f"Since {start_time.strftime('%Y-%m-%d')} {chain.name} Achieved vs Expected Token Price")
-            chain_swapped_df = _get_only_some_incentive_tokens_prices(chain, start_time)
-            st.plotly_chart(
-                make_histogram_subplots(
-                    chain_swapped_df,
-                    col="incentive percent diff to achieved",
-                    title=f"{chain.name} Pecent Difference Between Incentive Calculator and Achieved",
-                ),
-                use_container_width=True,
-            )
-
-            st.plotly_chart(
-                make_histogram_subplots(
-                    chain_swapped_df,
-                    col="oracle percent diff to achieved",
-                    title=f"{chain.name} Pecent Difference Between Oracle and Achieved",
-                ),
-                use_container_width=True,
-            )
-
-    with st.expander("Description"):
-        st.write(
-            """
-            ## Achieved Price
-            - The actual ratio of tokens sold / WETH when selling reward tokens
-
-            ## Achieved vs Incentive Stats Price
-            - This metric uses the Incentive Stats contract to obtain the minimum of the fast and slow filtered incentive token prices.
-            - This provides a conservative estimate of the incentive token's value.
-            - Positive values indicate that we sold the incentive token for more than the Incentive Stats Price at that block. Eg there was price movement in our favor
-
-            ## Achieved vs Oracle Price
-            - This metric uses the Root Price Oracle to fetch the current price of the incentive token (typically via Chainlink)
-            - Positive values indicate that we sold the incentive token for more than the Oracle Price at that block. 
-            """
-        )
+    # Optional: show raw data
+    with st.expander("Raw filtered rows"):
+        show_cols = [c for c in ["datetime", "sell", "buy", "actual_execution", "third_party_price", "price_diff_pct", "label", "chain_id"] if c in filtered.columns]
+        st.dataframe(filtered.sort_values("datetime", ascending=False)[show_cols], use_container_width=True)
 
 
 if __name__ == "__main__":
-
-    from mainnet_launch.database.database_operations import drop_table
-
-    # drop_table(INCENTIVE_TOKEN_PRICES_TABLE_NAME)
-    # fetch_and_render_reward_token_achieved_vs_incentive_token_price()
-    add_new_reward_token_swapped_events_to_table()
+    render_page()
