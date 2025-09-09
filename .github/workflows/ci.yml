@@ -7,21 +7,33 @@ on:
     branches: [main]
 
 jobs:
-  lint-and-test:
+  black:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
-        run: |
-          pip install poetry
-          poetry install
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.3
 
-      - name: Run Black
-        run: poetry run black --diff --check .
+      - name: Cache Poetry and pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+            ./.venv
+          key: ${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-
+
+      # Only install the dev group that contains black; avoid full project deps
+      - name: Install black only
+        run: |
+          poetry install --only dev --no-interaction --no-ansi --no-root
+          poetry run black --diff --check .
