@@ -9,15 +9,6 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
-    env:
-      ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
-      AUTO_ETH_BUCKET: ${{ secrets.AUTO_ETH_BUCKET }}
-      BAL_ETH_BUCKET: ${{ secrets.BAL_ETH_BUCKET }}
-      AUTO_LRT_BUCKET: ${{ secrets.AUTO_LRT_BUCKET }}
-      BASE_ETH_BUCKET: ${{ secrets.BASE_ETH_BUCKET }}
-      DINERO_ETH_BUCKET: ${{ secrets.DINERO_ETH_BUCKET }}
-
-      
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -33,8 +24,4 @@ jobs:
           poetry install
 
       - name: Run Black
-        run: poetry run black --check .
-
-      # - name: Run Tests
-      #   run: poetry run pytest
-d
+        run: poetry run black --diff --check .
