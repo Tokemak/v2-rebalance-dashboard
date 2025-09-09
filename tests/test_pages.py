@@ -4,16 +4,31 @@ import os
 import subprocess
 import time
 import psutil
+import shutil
 import traceback
+import inspect
+from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
 
 from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit
 from mainnet_launch.constants import ALL_AUTOPOOLS, TEST_LOG_FILE_NAME, AutopoolConstants
-from mainnet_launch.pages.page_functions import CONTENT_FUNCTIONS, PAGES_WITHOUT_AUTOPOOL
+from mainnet_launch.pages.page_functions import (
+    AUTOPOOL_CONTENT_FUNCTIONS,
+    PROTOCOL_CONTENT_FUNCTIONS,
+    RISK_METRICS_FUNCTIONS,
+    MARKETING_CONTENT_FUNCTIONS,
+)
 
-from mainnet_launch.data_fetching.add_info_to_dataframes import initialize_tx_hash_to_gas_info_db
-from mainnet_launch.database.should_update_database import ensure_table_to_last_updated_exists, DB_FILE
 
-# run this with `$poetry run test-pages`
+# the chain specific functions are not easy to test
+# CONTENT_FUNCTIONS = {**AUTOPOOL_CONTENT_FUNCTIONS, **PROTOCOL_CONTENT_FUNCTIONS, **MARKETING_CONTENT_FUNCTIONS}
+
+print("RISK_METRICS_FUNCTIONS are not tested")
+
+for name, logger in logging.root.manager.loggerDict.items():
+    if "streamlit" in name:
+        logging.getLogger(name).disabled = True
 
 config_plotly_and_streamlit()
 
@@ -26,7 +41,6 @@ st.set_page_config(
 testing_logger = logging.getLogger("testing_logger")
 testing_logger.setLevel(logging.INFO)
 
-# Only add the handler if it doesn't already exist
 if not testing_logger.hasHandlers():
     handler = logging.FileHandler(TEST_LOG_FILE_NAME, mode="w")
     handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
@@ -34,87 +48,143 @@ if not testing_logger.hasHandlers():
     testing_logger.propagate = False
 
 
-def get_memory_usage():
-    process = psutil.Process()
-    mem_info = process.memory_info()
-    return mem_info.rss / (1024**2)
-
-
-def open_log_in_vscode(log_file):
-    if os.path.exists(log_file):
+def open_log_in_vscode(log_file: str):
+    if not os.path.exists(log_file):
         try:
-            subprocess.run(["code", log_file], check=True)
+            open(log_file, "w").close()
         except Exception as e:
-            testing_logger.error(f"Could not open log file in VS Code: {e}")
+            testing_logger.error(f"failed to create log file '{log_file}': {e}")
+            return
+
+    if shutil.which("code"):
+        cmd = ["code", "-r", log_file]
     else:
-        # Create the file if it doesn’t exist and then open it
-        open(log_file, "w").close()
-        subprocess.run(["code", log_file], check=True)
-
-
-def log_and_time_function(page_name, func, autopool: AutopoolConstants):
-    start_time = time.time()
+        cmd = ["open", "-a", "Visual Studio Code", log_file]
 
     try:
+        subprocess.run(cmd, check=True)
+    except Exception as e:
+        testing_logger.error(f"could not open log file in vs code: {e}")
+
+
+def build_no_args_page_tasks():
+    """Tasks for pages that take no autopool argument."""
+    return [(name, func) for name, func in {**PROTOCOL_CONTENT_FUNCTIONS, **MARKETING_CONTENT_FUNCTIONS}.items()]
+
+
+def build_autopool_tasks():
+    """Tasks for pages that take an autopool argument."""
+    return [(name, func, autopool) for name, func in AUTOPOOL_CONTENT_FUNCTIONS.items() for autopool in ALL_AUTOPOOLS]
+
+
+def _ensure_streamlit_ctx():
+    try:
+        ctx = get_script_run_ctx()
+        if ctx:
+            add_script_run_ctx(ctx)
+    except Exception:
+        pass
+
+
+def run_with_log(page_name, func, autopool=None):
+    start = time.time()
+    try:
+        sig = inspect.signature(func)
         if autopool is None:
             func()
         else:
-            func(autopool)
+            # pass autopool either as positional or keyword
+            if "autopool" in sig.parameters:
+                func(autopool=autopool)
+            else:
+                func(autopool)
     except Exception as e:
-        stack_trace = traceback.format_exc()
-
-        if autopool is None:
-            testing_logger.info(f"Function: {func.__name__} failed | Page: {page_name}")
-        else:
-            testing_logger.info(f"Function: {func.__name__} failed | Page: {page_name} | Autopool: {autopool.name}")
-
-        testing_logger.info(f"Exception: {e}")
-        testing_logger.info("Stack trace:\n" + stack_trace)
+        context = f" | autopool: {autopool.name}" if autopool else ""
+        testing_logger.info(f"function: {func.__name__} failed | page: {page_name}{context}")
+        testing_logger.info(f"exception: {e}")
+        testing_logger.info("stack trace:\n" + traceback.format_exc())
     finally:
-        time_taken = time.time() - start_time
+        elapsed = time.time() - start
+        context = f" | autopool: {autopool.name}" if autopool else ""
+        testing_logger.info(f"execution time: {elapsed:.2f}s | page: {page_name}{context}")
+
+
+def run_no_log(page_name, func, autopool=None):
+    _ensure_streamlit_ctx()
+    try:
+        # run normally
         if autopool is None:
-            testing_logger.info(f"Execution Time: {time_taken:.2f} seconds | Page: {page_name}")
+            func()
         else:
-            testing_logger.info(
-                f"Execution Time: {time_taken:.2f} seconds | Page: {page_name} | Autopool: {autopool.name}"
-            )
+            func(autopool=autopool) if "autopool" in inspect.signature(func).parameters else func(autopool)
+    except Exception:
+        # on error, open log and re-run to capture timing
+        open_log_in_vscode(TEST_LOG_FILE_NAME)
+        run_with_log(page_name, func, autopool)
+        raise
 
 
-def main():
+def verify_no_args_pages():
+    """Verify all protocol-wide pages (no autopool)."""
+    with ThreadPoolExecutor() as ex:
+        futures = {ex.submit(run_no_log, name, func): name for name, func in build_no_args_page_tasks()}
+        for future in tqdm(as_completed(futures), total=len(futures), desc="verifying protocol pages"):
+            page = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                print(f"❌ Protocol page {page} failed: {e}")
 
-    ensure_table_to_last_updated_exists()
-    initialize_tx_hash_to_gas_info_db()
+
+def verify_autopool_pages():
+    """Verify all autopool-specific pages (takes autopool)."""
+    with ThreadPoolExecutor() as ex:
+        futures = {
+            ex.submit(run_no_log, name, func, autopool): f"{name} [{autopool.name}]" for name, func, autopool in ()
+        }
+        for future in tqdm(as_completed(futures), total=len(futures), desc="verifying autopool pages"):
+            page = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                print(f"❌ Autopool page {page} failed: {e}")
+
+
+def verify_risk_metrics_pages():
+    """Verify all risk metrics pages (no autopool)."""
+    with ThreadPoolExecutor() as ex:
+        futures = {ex.submit(run_no_log, name, func): name for name, func in RISK_METRICS_FUNCTIONS.items()}
+        for future in tqdm(as_completed(futures), total=len(futures), desc="verifying risk metrics pages"):
+            page = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                print(f"❌ Risk Metrics page {page} failed: {e}")
+
+
+def verify_all_pages_work():
+    verify_no_args_pages()
+    verify_autopool_pages()
+    verify_risk_metrics_pages()
+
+
+def verify_all_pages_work_with_times():
     open_log_in_vscode(TEST_LOG_FILE_NAME)
 
-    autopools_to_check = ALL_AUTOPOOLS  # [BASE_ETH, AUTO_LRT]
-    testing_logger.info("First run of page view and caching")
+    for run_number in ["1st", "2nd"]:
+        start = time.time()
+        for page_name, func, autopool in build_autopool_tasks():
+            run_with_log(page_name, func, autopool)
 
-    start_time = time.time()
-    for page_name, func in CONTENT_FUNCTIONS.items():
-        if page_name in PAGES_WITHOUT_AUTOPOOL:
-            log_and_time_function(page_name, func, autopool=None)
-        else:
-            for autopool in autopools_to_check:
-                log_and_time_function(page_name, func, autopool=autopool)
+        for page_name, func in build_no_args_page_tasks():
+            run_with_log(page_name, func)
 
-    time_taken = time.time() - start_time
-    usage = get_memory_usage()
-    testing_logger.info(f"Fetched and Cached all pages {time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB")
-
-    testing_logger.info("Second run of page view and caching")
-
-    start_time = time.time()
-    for page_name, func in CONTENT_FUNCTIONS.items():
-        if page_name in PAGES_WITHOUT_AUTOPOOL:
-            log_and_time_function(page_name, func, autopool=None)
-        else:
-            for autopool in autopools_to_check:
-                log_and_time_function(page_name, func, autopool=autopool)
-
-    time_taken = time.time() - start_time
-    usage = get_memory_usage()
-    testing_logger.info(f"Fetched and Cached all pages {time_taken:.2f} seconds | Memory Usage: {usage:.2f} MB")
+        duration = time.time() - start
+        this_process_memory_usage_in_mb = psutil.Process().memory_info().rss / (1024**2)
+        print(
+            f"verify_all_pages_work_with_times() {run_number=} took {duration:.2f} seconds | memory usage: {this_process_memory_usage_in_mb:.2f} MB"
+        )
 
 
 if __name__ == "__main__":
-    main()
+    verify_all_pages_work_with_times()

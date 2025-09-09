@@ -1,3 +1,5 @@
+# deprecated
+
 import sqlite3
 from typing import Optional
 
@@ -10,6 +12,7 @@ from mainnet_launch.database.should_update_database import (
 )
 
 # TODO, make the timestamps cleaner by not handling them after reading the db but instead here.
+# todo remove this
 
 
 def convert_timestamps_to_iso(df: pd.DataFrame) -> pd.DataFrame:

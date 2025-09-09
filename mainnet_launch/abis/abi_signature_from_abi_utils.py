@@ -1,3 +1,15 @@
+from web3 import Web3
+
+
+def get_event_keccak_signature(event_signature: str) -> str:
+    """
+    Keccak-256(Transfer,address,address,uint256) = 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
+
+    that value is used as topic[0] in event logs
+    """
+    return Web3.keccak(text=event_signature).hex()
+
+
 def parse_type(param):
     """Recursively parse types, handling nested structs and arrays."""
     if param["type"] == "tuple":
@@ -45,3 +57,6 @@ def get_function_and_event_signatures_with_returns(abi_json):
         signatures.append(signature)
 
     return signatures
+
+
+# see https://medium.com/mycrypto/understanding-event-logs-on-the-ethereum-blockchain-f4ae7ba50378

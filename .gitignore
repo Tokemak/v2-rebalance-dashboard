@@ -4,6 +4,7 @@ __pycache__/
 .vscode/
 .venv/
 .pytest_cache/
+.DS_Store
 
 
 mainnet_launch/data_fetching/rebalance_plans/
@@ -14,3 +15,8 @@ production_usage.log
 test_pages.log
 
 working_data/
+mainnet_launch/app/to_toml.py
+
+mainnet_launch/data_fetching/quotes/local_quote_data/
+
+profiles/

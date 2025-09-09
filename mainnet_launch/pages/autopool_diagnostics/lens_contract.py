@@ -1,9 +1,16 @@
 from multicall import Call
 import pandas as pd
-from mainnet_launch.data_fetching.get_state_by_block import (
-    get_raw_state_by_blocks,
-)
+from web3 import Web3
+
+from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, get_state_by_one_block
 from mainnet_launch.constants import LENS_CONTRACT, ChainData
+from mainnet_launch.database.schema.full import (
+    Autopools,
+    Destinations,
+)
+from mainnet_launch.database.schema.postgres_operations import (
+    get_full_table_as_orm,
+)
 
 block_number = 20929842
 
@@ -26,7 +33,7 @@ def parse_autopool(autopool_data):
         "shutdownStatus": autopool_data[10],
         "rewarder": autopool_data[11],
         "strategy": autopool_data[12],
-        "totalSupply": autopool_data[13],
+        "totalSupply": autopool_data[13],  # useful for the autopool state
         "totalAssets": autopool_data[14],
         "totalIdle": autopool_data[15],
         "totalDebt": autopool_data[16],
@@ -119,6 +126,25 @@ def get_pools_and_destinations_call(chain: ChainData) -> Call:
     )
 
 
+def _extract_only_autopools_and_destinations(success, response) -> dict:
+    if success:
+        autopools_data, destinations_data = response
+
+        autopool_vault_address = [a[0] for a in autopools_data]
+        destination_vault_addresses = []
+        for destinations_list in destinations_data:
+            destination_vault_addresses.append([Web3.toChecksumAddress(d[0]) for d in destinations_list])
+        return {Web3.toChecksumAddress(a): d for a, d in zip(autopool_vault_address, destination_vault_addresses)}
+
+
+def get_pools_and_destinations_call_only_autopools_and_destinations(chain: ChainData) -> Call:
+    return Call(
+        LENS_CONTRACT(chain),
+        [GET_POOLS_AND_DESTINATIONS_SIGNATURE],
+        [["getPoolsAndDestinations", _extract_only_autopools_and_destinations]],
+    )
+
+
 def _clean_summary_stats_info(success, summary_stats):
     if success is True:
         summary = {
@@ -162,91 +188,177 @@ def build_proxyGetDestinationSummaryStats_call(
     )
 
 
-# I am leaning towards not to saving this. It is saved where it is needed in other tables
-
-
 def fetch_pools_and_destinations_df(chain: ChainData, blocks: list[int]) -> pd.DataFrame:
     calls = [get_pools_and_destinations_call(chain)]
     pools_and_destinations_df = get_raw_state_by_blocks(calls, blocks, chain=chain, include_block_number=True)
     return pools_and_destinations_df
 
-    # # Process and return results
 
-    # struct Autopool {
-    #     address poolAddress;
-    #     string name;
-    #     string symbol;
-    #     bytes32 vaultType;
-    #     address baseAsset;
-    #     uint256 streamingFeeBps;
-    #     uint256 periodicFeeBps;
-    #     bool feeHighMarkEnabled;
-    #     bool feeSettingsIncomplete;
-    #     bool isShutdown;
-    #     IAutopool.VaultShutdownStatus shutdownStatus;
-    #     address rewarder;
-    #     address strategy;
-    #     uint256 totalSupply;
-    #     uint256 totalAssets;
-    #     uint256 totalIdle;
-    #     uint256 totalDebt;
-    #     uint256 navPerShare;
-    # }
+def fetch_active_destinations_by_autopool_by_block(chain: ChainData, blocks: list[int]) -> pd.DataFrame:
+    calls = [get_pools_and_destinations_call_only_autopools_and_destinations(chain)]
+    pools_and_destinations_df = get_raw_state_by_blocks(calls, blocks, chain=chain, include_block_number=True)
+    return pools_and_destinations_df
 
-    # struct RewardToken {
-    #     address tokenAddress;
-    # }
 
-    # struct TokenAmount {
-    #     uint256 amount;
-    # }
+# maybe not the best spot for this, else where?
+def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks(
+    chain: ChainData, missing_blocks: list[int]
+) -> dict[str, list[Destinations]]:
+    all_destinations_orm: list[Destinations] = get_full_table_as_orm(
+        Destinations, where_clause=Destinations.chain_id == chain.chain_id
+    )
+    all_autopools_orm: list[Autopools] = get_full_table_as_orm(
+        Autopools, where_clause=Autopools.chain_id == chain.chain_id
+    )
 
-    # struct UnderlyingTokenValueHeld {
-    #     uint256 valueHeldInEth;
-    # }
+    raw_df = fetch_active_destinations_by_autopool_by_block(chain, missing_blocks)
 
-    # struct UnderlyingTokenAddress {
-    #     address tokenAddress;
-    # }
+    active_destinations_by_autopool_df = pd.DataFrame.from_records(raw_df["getPoolsAndDestinations"].values)
+    # make a bunch of summary stats calls
+    # split up by autopools to avoid max gas costs
+    autopool_to_all_ever_active_destinations: dict[str | list[Destinations]] = {}
+    for autopool in all_autopools_orm:
+        this_autopool_destinations = set()
+        all_ever_active_destinations = (
+            active_destinations_by_autopool_df[autopool.autopool_vault_address].dropna().values
+        )
+        for active_destinations_at_this_block in all_ever_active_destinations:
+            this_autopool_destinations.update(active_destinations_at_this_block)
 
-    # struct UnderlyingTokenSymbol {
-    #     string symbol;
-    # }
+        autopool_to_all_ever_active_destinations[autopool.autopool_vault_address] = [
+            d for d in all_destinations_orm if d.destination_vault_address in this_autopool_destinations
+        ]
+    return autopool_to_all_ever_active_destinations
 
-    # struct DestinationVault {
-    #     address vaultAddress;
-    #     string exchangeName;
-    #     uint256 totalSupply;
-    #     uint256 lastSnapshotTimestamp;
-    #     uint256 feeApr;
-    #     uint256 lastDebtReportTime;
-    #     uint256 minDebtValue;
-    #     uint256 maxDebtValue;
-    #     uint256 debtValueHeldByVault;
-    #     bool queuedForRemoval;
-    #     bool statsIncomplete;
-    #     bool isShutdown;
-    #     IDestinationVault.VaultShutdownStatus shutdownStatus;
-    #     uint256 autoPoolOwnsShares;
-    #     uint256 actualLPTotalSupply;
-    #     address dexPool;
-    #     address lpTokenAddress;
-    #     string lpTokenSymbol;
-    #     string lpTokenName;
-    #     uint256 statsSafeLPTotalSupply;
-    #     uint8 statsIncentiveCredits;
-    #     int256 compositeReturn;
-    #     RewardToken[] rewardsTokens;
-    #     UnderlyingTokenAddress[] underlyingTokens;
-    #     UnderlyingTokenSymbol[] underlyingTokenSymbols;
-    #     ILSTStats.LSTStatsData[] lstStatsData;
-    #     UnderlyingTokenValueHeld[] underlyingTokenValueHeld;
-    #     uint256[] reservesInEth;
-    #     uint40[] statsPeriodFinishForRewards;
-    #     uint256[] statsAnnualizedRewardAmounts;
-    # }
 
-    # struct Autopools {
-    #     Autopool[] autoPools;
-    #     DestinationVault[][] destinations;
-    # }
+def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks_address(
+    chain: ChainData, missing_blocks: list[int]
+) -> dict[str, list[str]]:
+    all_autopools_orm: list[Autopools] = get_full_table_as_orm(
+        Autopools, where_clause=Autopools.chain_id == chain.chain_id
+    )
+
+    raw_df = fetch_active_destinations_by_autopool_by_block(chain, missing_blocks)
+
+    active_destinations_by_autopool_df = pd.DataFrame.from_records(raw_df["getPoolsAndDestinations"].values)
+    # make a bunch of summary stats calls
+    # split up by autopools to avoid max gas costs
+    autopool_to_all_ever_active_destinations: dict[str | list[Destinations]] = {}
+    for autopool in all_autopools_orm:
+        this_autopool_destinations = set()
+        all_ever_active_destinations = (
+            active_destinations_by_autopool_df[autopool.autopool_vault_address].dropna().values
+        )
+        for active_destinations_at_this_block in all_ever_active_destinations:
+            this_autopool_destinations.update(active_destinations_at_this_block)
+
+        this_autopool_destinations = [
+            Web3.toChecksumAddress(destination_vault_address)
+            for destination_vault_address in this_autopool_destinations
+        ]
+        autopool_to_all_ever_active_destinations[autopool.autopool_vault_address] = this_autopool_destinations
+    return autopool_to_all_ever_active_destinations
+
+
+def get_full_destination_pools_and_destinations_at_one_block(chain: ChainData, block: int) -> dict:
+    calls = [get_pools_and_destinations_call(chain)]
+    return get_state_by_one_block(calls, block, chain)["getPoolsAndDestinations"]
+
+
+if __name__ == "__main__":
+
+    from mainnet_launch.constants import ETH_CHAIN, BASE_CHAIN
+
+    df = fetch_pools_and_destinations_df(BASE_CHAIN, [31133925])
+    data = df["getPoolsAndDestinations"].values[0]
+
+
+# it might be simpler, to run the collect at this block?
+
+# # Process and return results
+
+# struct Autopool {
+#     address poolAddress;
+#     string name;
+#     string symbol;
+#     bytes32 vaultType;
+#     address baseAsset;
+#     uint256 streamingFeeBps;
+#     uint256 periodicFeeBps;
+#     bool feeHighMarkEnabled;
+#     bool feeSettingsIncomplete;
+#     bool isShutdown;
+#     IAutopool.VaultShutdownStatus shutdownStatus;
+#     address rewarder;
+#     address strategy;
+#     uint256 totalSupply;
+#     uint256 totalAssets;
+#     uint256 totalIdle;
+#     uint256 totalDebt;
+#     uint256 navPerShare;
+# }
+
+# struct RewardToken {
+#     address tokenAddress;
+# }
+
+# struct TokenAmount {
+#     uint256 amount;
+# }
+
+# struct UnderlyingTokenValueHeld {
+#     uint256 valueHeldInEth;
+# }
+
+# struct UnderlyingTokenAddress {
+#     address tokenAddress;
+# }
+
+# struct UnderlyingTokenSymbol {
+#     string symbol;
+# }
+
+# struct DestinationVault {
+#     address vaultAddress;
+#     string exchangeName;
+#     uint256 totalSupply;
+#     uint256 lastSnapshotTimestamp;
+#     uint256 feeApr;
+#     uint256 lastDebtReportTime;
+#     uint256 minDebtValue;
+#     uint256 maxDebtValue;
+#     uint256 debtValueHeldByVault;
+#     bool queuedForRemoval;
+#     bool statsIncomplete;
+#     bool isShutdown;
+#     IDestinationVault.VaultShutdownStatus shutdownStatus;
+#     uint256 autoPoolOwnsShares;
+#     uint256 actualLPTotalSupply;
+#     address dexPool;
+#     address lpTokenAddress;
+#     string lpTokenSymbol;
+#     string lpTokenName;
+#     uint256 statsSafeLPTotalSupply;
+#     uint8 statsIncentiveCredits;
+#     int256 compositeReturn;
+#     RewardToken[] rewardsTokens;
+#     UnderlyingTokenAddress[] underlyingTokens;
+#     UnderlyingTokenSymbol[] underlyingTokenSymbols;
+#     ILSTStats.LSTStatsData[] lstStatsData;
+#     UnderlyingTokenValueHeld[] underlyingTokenValueHeld;
+#     uint256[] reservesInEth;
+#     uint40[] statsPeriodFinishForRewards;
+#     uint256[] statsAnnualizedRewardAmounts;
+# }
+
+# struct Autopools {
+#     Autopool[] autoPools;
+#     DestinationVault[][] destinations;
+# }
+
+
+# if __name__ == "__main__":
+
+
+#     a = df.values[0]
+#     pass

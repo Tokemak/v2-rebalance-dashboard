@@ -1,77 +1,317 @@
-import plotly.express as px
-import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st
 import psutil
-import os
-import datetime
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, timezone
+
+from mainnet_launch.constants import AutopoolConstants
+from mainnet_launch.database.schema.full import AutopoolStates, Blocks, RebalanceEvents, RebalancePlans
+from mainnet_launch.database.schema.postgres_operations import (
+    merge_tables_as_df,
+    get_highest_value_in_field_where,
+    TableSelector,
+)
 
 
-from mainnet_launch.constants import AutopoolConstants, PRODUCTION_LOG_FILE_NAME, STARTUP_LOG_FILE
-from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
-from mainnet_launch.pages.key_metrics.fetch_nav_per_share import fetch_nav_per_share
-from mainnet_launch.pages.autopool_diagnostics.fetch_destination_summary_stats import fetch_destination_summary_stats
-from mainnet_launch.destinations import get_destination_details
+from mainnet_launch.database.schema.views import (
+    fetch_autopool_destination_state_df,
+    get_latest_rebalance_event_datetime_for_autopool,
+)
+
+
+def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFrame:
+    nav_per_share_df = merge_tables_as_df(
+        [
+            TableSelector(
+                table=AutopoolStates,
+                select_fields=[
+                    AutopoolStates.nav_per_share,
+                    AutopoolStates.total_nav,
+                    AutopoolStates.autopool_vault_address,
+                ],
+                join_on=None,
+            ),
+            TableSelector(
+                table=Blocks,
+                select_fields=Blocks.datetime,
+                join_on=(AutopoolStates.chain_id == Blocks.chain_id) & (AutopoolStates.block == Blocks.block),
+            ),
+        ],
+        where_clause=(Blocks.datetime > autopool.start_display_date)
+        & (AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr),
+        order_by=Blocks.datetime,
+    )
+
+    nav_per_share_df = nav_per_share_df.set_index("datetime").resample("1d").last()
+    nav_per_share_df.columns = [autopool.name, "NAV", "autopool_vault_address"]
+
+    nav_per_share_df["30_day_difference"] = nav_per_share_df[autopool.name].diff(periods=30)
+    nav_per_share_df["30_day_annualized_return"] = (
+        (nav_per_share_df["30_day_difference"] / nav_per_share_df[autopool.name].shift(30)) * (365 / 30) * 100
+    )
+    nav_per_share_df["7_day_difference"] = nav_per_share_df[autopool.name].diff(periods=7)
+    nav_per_share_df["7_day_annualized_return"] = (
+        (nav_per_share_df["7_day_difference"] / nav_per_share_df[autopool.name].shift(7)) * (365 / 7) * 100
+    )
+    nav_per_share_df["daily_return"] = nav_per_share_df[autopool.name].pct_change()
+    nav_per_share_df["7_day_MA_return"] = nav_per_share_df["daily_return"].rolling(window=7).mean()
+    nav_per_share_df["7_day_MA_annualized_return"] = nav_per_share_df["7_day_MA_return"] * 365 * 100
+    nav_per_share_df["30_day_MA_return"] = nav_per_share_df["daily_return"].rolling(window=30).mean()
+    nav_per_share_df["30_day_MA_annualized_return"] = nav_per_share_df["30_day_MA_return"] * 365 * 100
+    return nav_per_share_df
 
 
 def fetch_key_metrics_data(autopool: AutopoolConstants):
-    blocks = build_blocks_to_use(autopool.chain)
+    nav_per_share_df = fetch_nav_per_share_and_total_nav(autopool)
+    destination_state_df = fetch_autopool_destination_state_df(autopool)
 
-    nav_per_share_df = fetch_nav_per_share(autopool)
+    safe_tvl_by_destination = (
+        destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_safe_value"]]
+        .sum()
+        .reset_index()
+        .pivot(values="autopool_implied_safe_value", index="datetime", columns="readable_name")
+    ).fillna(0)
 
-    compositeReturn_out_df = fetch_destination_summary_stats(autopool, "compositeReturn")
-    priceReturn_df = fetch_destination_summary_stats(autopool, "priceReturn")
+    backing_tvl_by_destination = (
+        destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_backing_value"]]
+        .sum()
+        .reset_index()
+        .pivot(values="autopool_implied_backing_value", index="datetime", columns="readable_name")
+    ).fillna(0)
 
-    pricePerShare_df = fetch_destination_summary_stats(autopool, "pricePerShare")
-    ownedShares_df = fetch_destination_summary_stats(autopool, "ownedShares")
-    allocation_df = pricePerShare_df * ownedShares_df
-    total_nav_series = allocation_df.sum(axis=1)
+    total_safe_tvl = safe_tvl_by_destination.sum(axis=1)
+    total_backing_tvl = backing_tvl_by_destination.sum(axis=1)
+    price_return_series = 100 * (total_backing_tvl - total_safe_tvl) / total_backing_tvl
 
-    baseApr_df = fetch_destination_summary_stats(autopool, "baseApr")
-    feeApr_df = fetch_destination_summary_stats(autopool, "feeApr")
-    incentiveApr_df = fetch_destination_summary_stats(autopool, "incentiveApr")
+    portion_allocation_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl, axis=0)
 
-    # exclude the current day so to not compute the APR of half days
-    now_utc = datetime.datetime.now(datetime.timezone.utc)
-    first_minute_of_current_day = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+    max_apr_by_destination = (
+        destination_state_df.groupby(["datetime", "readable_name"])[["unweighted_expected_apr"]]
+        .max()
+        .reset_index()
+        .pivot(values="unweighted_expected_apr", index="datetime", columns="readable_name")
+    )
 
-    for df in [
+    expected_return_series = (
+        (max_apr_by_destination * portion_allocation_by_destination_df).sum(axis=1).resample("1d").last()
+    )
+
+    total_nav_series = nav_per_share_df["NAV"]
+    highest_block_and_datetime = (
+        destination_state_df[["block", "datetime"]].sort_values("block", ascending=True).iloc[-1]
+    )
+
+    return (
         nav_per_share_df,
-        compositeReturn_out_df,
-        priceReturn_df,
-        pricePerShare_df,
-        ownedShares_df,
-        allocation_df,
-    ]:
-        df = df[df.index < first_minute_of_current_day].copy()
-
-    portion_df = allocation_df.div(total_nav_series, axis=0)
-
-    uwcr_df = 100 * (baseApr_df + feeApr_df + incentiveApr_df)
-    uwcr_df["Expected_Return"] = (uwcr_df.fillna(0) * portion_df.fillna(0)).sum(axis=1)
-
-    key_metric_data = {
-        "nav_per_share_df": nav_per_share_df,
-        "uwcr_df": uwcr_df,
-        "allocation_df": allocation_df,
-        "compositeReturn_df": compositeReturn_out_df,
-        "total_nav_df": total_nav_series,
-        "priceReturn_df": priceReturn_df,
-        "blocks": blocks,
-    }
-    return key_metric_data
+        total_nav_series,
+        expected_return_series,
+        portion_allocation_by_destination_df,
+        highest_block_and_datetime,
+        price_return_series,
+    )
 
 
-def get_memory_usage():
-    process = psutil.Process()
-    mem_info = process.memory_info()
-    return mem_info.rss / (1024**2)
+def _compute_percent_deployed(
+    portion_allocation_by_destination_df: pd.DataFrame, autopool: AutopoolConstants
+) -> tuple[float, float]:
+
+    idle_yesterday = portion_allocation_by_destination_df[f"{autopool.name} (tokemak)"].iloc[-2]
+    idle_today = portion_allocation_by_destination_df[f"{autopool.name} (tokemak)"].iloc[-1]
+    return round(100 - (100 * idle_today), 2), round(100 - (100 * idle_yesterday), 2)
+
+
+def _render_top_level_stats(
+    nav_per_share_df,
+    expected_return_series,
+    portion_allocation_by_destination_df,
+    autopool,
+    latest_rebalance_event_datetime,
+):
+    def _fmt_dt(dt):
+        return dt.strftime("%m-%d %H:%M") if dt else "—"
+
+    def _simple_timedelta(td):
+        secs = int(td.total_seconds())
+        days, secs = divmod(secs, 86400)
+        hours, secs = divmod(secs, 3600)
+        minutes, secs = divmod(secs, 60)
+        if days > 0:
+            return f"{days}d {hours}h ago"
+        elif hours > 0:
+            return f"{hours}h ago"
+        elif minutes > 0:
+            return f"{minutes}m ago"
+        else:
+            return f"{secs}s ago"
+
+    now = datetime.now(timezone.utc)
+
+    # Row 1
+    r1c1, r1c2, r1c3 = st.columns(3)
+    r1c1.metric(
+        "30-day Rolling APY (%)",
+        round(nav_per_share_df["30_day_annualized_return"].iloc[-1], 2),
+        _diffReturn(nav_per_share_df["30_day_annualized_return"]),
+    )
+    r1c2.metric(
+        "30-day MA APY (%)",
+        round(nav_per_share_df["30_day_MA_annualized_return"].iloc[-1], 2),
+        _diffReturn(nav_per_share_df["30_day_MA_annualized_return"]),
+    )
+    r1c3.metric(
+        "7-day Rolling APY (%)",
+        round(nav_per_share_df["7_day_annualized_return"].iloc[-1], 2),
+        _diffReturn(nav_per_share_df["7_day_annualized_return"]),
+    )
+
+    # Row 2
+    r2c1, r2c2, r2c3 = st.columns(3)
+    r2c1.metric(
+        "7-day MA APY (%)",
+        round(nav_per_share_df["7_day_MA_annualized_return"].iloc[-1], 2),
+        _diffReturn(nav_per_share_df["7_day_MA_annualized_return"]),
+    )
+
+    percent_deployed_today, percent_deployed_yesterday = _compute_percent_deployed(
+        portion_allocation_by_destination_df, autopool
+    )
+
+    r2c2.metric(
+        "Expected Annual Return (%)",
+        round(expected_return_series.iloc[-1], 2),
+        _diffReturn(expected_return_series),
+    )
+    r2c3.metric(
+        "Percent Deployed",
+        round(percent_deployed_today, 2),
+        round(percent_deployed_today - percent_deployed_yesterday, 2),
+    )
+
+    # Row 3
+    r3c1, r3c2, r3c3 = st.columns(3)
+    # r3c1.metric(
+    #     "Latest Rebalance Plan",
+    #     _simple_timedelta(now - latest_rebalance_plan_datetime_generated),
+    # )
+
+    r3c1.metric(
+        "Time Since Last Rebalance",
+        _simple_timedelta(now - latest_rebalance_event_datetime),
+    )
+
+    r3c2.metric(" ", " ", " ")  # Spacer to complete the 3x3 grid
+    r3c3.metric(" ", " ", " ")
+
+
+def _render_top_level_charts(
+    nav_per_share_df, autopool: AutopoolConstants, total_nav_series, expected_return_series, price_return_series
+):
+    nav_per_share_fig = _apply_default_style(px.line(nav_per_share_df, y=autopool.name, title="NAV Per Share"))
+    price_return_fig = _apply_default_style(
+        px.line(price_return_series, title="Autopool Estimated Price Return (%)", labels={"value": "Price Return (%)"})
+    )
+    price_return_fig.update_traces(showlegend=False)
+
+    nav_fig = _apply_default_style(
+        px.line(total_nav_series, title="Total NAV", labels={"value": autopool.base_asset_symbol})
+    )
+    nav_fig.update_traces(showlegend=False)
+
+    annualized_30d_return_fig = _apply_default_style(
+        px.line(nav_per_share_df, y="30_day_annualized_return", title="30-day Annualized Return (%)")
+    )
+    annualized_7d_return_fig = _apply_default_style(
+        px.line(nav_per_share_df, y="7_day_annualized_return", title="7-day Rolling Annualized Return (%)")
+    )
+
+    annualized_7d_ma_return_fig = _apply_default_style(
+        px.line(nav_per_share_df, y="7_day_MA_annualized_return", title="7-day MA Annualized Return (%)")
+    )
+    annualized_30d_ma_return_fig = _apply_default_style(
+        px.line(nav_per_share_df, y="30_day_MA_annualized_return", title="30-day MA Annualized Return (%)")
+    )
+    uwcr_return_fig = _apply_default_style(
+        px.line(expected_return_series, title="Expected Annualized Return (%)", labels={"value": "Expected Return (%)"})
+    )
+    uwcr_return_fig.update_traces(showlegend=False)
+
+    st.markdown("<div style='margin: 7em 0;'></div>", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.plotly_chart(nav_per_share_fig, use_container_width=True)
+    with col2:
+        st.plotly_chart(nav_fig, use_container_width=True)
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.plotly_chart(annualized_30d_return_fig, use_container_width=True)
+    with col2:
+        st.plotly_chart(annualized_30d_ma_return_fig, use_container_width=True)
+    with col3:
+        st.plotly_chart(annualized_7d_return_fig, use_container_width=True)
+
+    st.markdown("<div style='margin: 7em 0;'></div>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.subheader("7-day MA Annualized Return (%)")
+        st.plotly_chart(annualized_7d_ma_return_fig, use_container_width=True)
+    with col2:
+        st.subheader("Expected Annualized Return (%)")
+        st.plotly_chart(uwcr_return_fig, use_container_width=True)
+    with col3:
+        st.subheader("Autopool Estimated Price Return")
+        st.plotly_chart(price_return_fig, use_container_width=True)
 
 
 def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
-    key_metric_data = fetch_key_metrics_data(autopool)
-    _show_key_metrics(key_metric_data, autopool)
-    st.write(f"Memory Usage: {get_memory_usage():.2f} MB")
+    (
+        nav_per_share_df,
+        total_nav_series,
+        expected_return_series,
+        portion_allocation_by_destination_df,
+        highest_block_and_datetime,
+        price_return_series,
+    ) = fetch_key_metrics_data(autopool)
+
+    latest_rebalance_event_datetime = get_latest_rebalance_event_datetime_for_autopool(autopool)
+    # autopool_price_return = 100 * (autopool_backing_value - autopool_safe_value) / autopool_backing_value
+    # weighted_price_return_series = _fetch_price_return(autopool)
+
+    st.header(f"{autopool.name} Key Metrics")
+
+    _render_top_level_stats(
+        nav_per_share_df,
+        expected_return_series,
+        portion_allocation_by_destination_df,
+        autopool,
+        latest_rebalance_event_datetime,
+    )
+    _render_top_level_charts(nav_per_share_df, autopool, total_nav_series, expected_return_series, price_return_series)
+
+    with st.expander("See explanation for Key Metrics"):
+        st.write(
+            """
+        - NAV per share: The Net Asset Value per share over time.
+        - NAV: The total Net Asset Value of the Autopool.
+        - 30-day and 7-day Annualized Returns: Percent annual return derived from NAV Per Share changes. 
+        - Expected Annualized Return: Projected percent annual return based on current allocations of the Autopool.
+        """
+        )
+
+    st.markdown(
+        f"""
+        **Highest Block Used**: `{highest_block_and_datetime.iloc[0]}`  
+        **Timestamp**: `{highest_block_and_datetime.iloc[1]}`  
+        **Chain**: `{autopool.chain.name}`
+        """
+    )
+
+    memory_used = psutil.Process().memory_info().rss / (1024**2)
+    st.write(f"Memory Usage: {memory_used:.2f} MB")
 
 
 def _apply_default_style(fig: go.Figure) -> None:
@@ -88,6 +328,7 @@ def _apply_default_style(fig: go.Figure) -> None:
         xaxis=dict(showgrid=True, gridcolor="lightgray"),
         yaxis=dict(showgrid=True, gridcolor="lightgray"),
     )
+    return fig
 
 
 def _diffReturn(x: list):
@@ -96,207 +337,14 @@ def _diffReturn(x: list):
     return round(x.iloc[-1] - x.iloc[-2], 4)
 
 
-def _get_percent_deployed(allocation_df: pd.DataFrame, autopool: AutopoolConstants) -> tuple[float, float]:
-
-    daily_allocation_df = allocation_df.resample("1D").last()
-    destinations = get_destination_details(autopool)
-    autopool_name = [dest.vault_name for dest in destinations if dest.vaultAddress == autopool.autopool_eth_addr][0]
-
-    tvl_according_to_allocation_df = float(daily_allocation_df.iloc[-1].sum())
-
-    tvl_in_idle = float(daily_allocation_df[autopool_name].iloc[-1])
-    percent_deployed_today = 100 * ((tvl_according_to_allocation_df - tvl_in_idle) / tvl_according_to_allocation_df)
-
-    tvl_according_to_allocation_df = float(daily_allocation_df.iloc[-2].sum())
-    tvl_in_idle = float(daily_allocation_df[autopool_name].iloc[-2])
-    percent_deployed_yesterday = 100 * ((tvl_according_to_allocation_df - tvl_in_idle) / tvl_according_to_allocation_df)
-
-    return round(percent_deployed_yesterday, 2), round(percent_deployed_today, 2)
-
-
-def _show_key_metrics(key_metric_data: dict[str, pd.DataFrame], autopool: AutopoolConstants):
-    st.header(f"{autopool.name} Key Metrics")
-    nav_per_share_df = key_metric_data["nav_per_share_df"]
-    uwcr_df = key_metric_data["uwcr_df"]
-    allocation_df = key_metric_data["allocation_df"]
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
-    col1.metric(
-        "30-day Rolling APY (%)",
-        round(nav_per_share_df["30_day_annualized_return"].iloc[-1], 2),
-        _diffReturn(nav_per_share_df["30_day_annualized_return"]),
-    )
-    col2.metric(
-        "30-day MA APY (%)",
-        round(nav_per_share_df["30_day_MA_annualized_return"].iloc[-1], 2),
-        _diffReturn(nav_per_share_df["30_day_MA_annualized_return"]),
-    )
-    col3.metric(
-        "7-day Rolling APY (%)",
-        round(nav_per_share_df["7_day_annualized_return"].iloc[-1], 2),
-        _diffReturn(nav_per_share_df["7_day_annualized_return"]),
-    )
-    col4.metric(
-        "7-day MA APY (%)",
-        round(nav_per_share_df["7_day_MA_annualized_return"].iloc[-1], 2),
-        _diffReturn(nav_per_share_df["7_day_MA_annualized_return"]),
-    )
-    col5.metric(
-        "Expected Annual Return (%)",
-        round(uwcr_df["Expected_Return"].iloc[-1], 2),
-        _diffReturn(uwcr_df["Expected_Return"]),
-    )
-
-    percent_deployed_yesterday, percent_deployed_today = _get_percent_deployed(allocation_df, autopool)
-
-    col6.metric(
-        "Percent Deployed", percent_deployed_today, round(percent_deployed_today - percent_deployed_yesterday, 2)
-    )
-
-    nav_per_share_fig = px.line(nav_per_share_df, y=autopool.name, title=" ")
-    _apply_default_style(nav_per_share_fig)
-    nav_per_share_fig.update_layout(yaxis_title="NAV Per Share")
-
-    # weighted price return
-    total_nav_series = key_metric_data["allocation_df"].sum(axis=1)
-    portion_df = key_metric_data["allocation_df"].div(total_nav_series, axis=0)
-    # multiply by 100 to get % value
-    wpReturn = (key_metric_data["priceReturn_df"].fillna(0) * portion_df.fillna(0)).sum(axis=1) * 100
-    wpReturn = wpReturn.resample("1D").last()
-    wpReturn = wpReturn.rename("wpr")
-    wpr_fig = px.line(wpReturn, y="wpr", title=" ")
-    _apply_default_style(wpr_fig)
-    wpr_fig.update_layout(yaxis_title="Autopool Estimated Price Return (%)")
-
-    total_nav_df = key_metric_data["total_nav_df"]
-
-    nav_fig = px.line(total_nav_df, title=" ")
-    _apply_default_style(nav_fig)
-    nav_fig.update_layout(yaxis_title="Total Nav")
-    nav_fig.update_layout(showlegend=False)
-
-    annualized_30d_return_fig = px.line(nav_per_share_df, y="30_day_annualized_return", title=" ")
-    _apply_default_style(annualized_30d_return_fig)
-    annualized_30d_return_fig.update_layout(yaxis_title="30-day Annualized Return (%)")
-
-    annualized_7d_return_fig = px.line(nav_per_share_df, y="7_day_annualized_return", title=" ")
-    _apply_default_style(annualized_7d_return_fig)
-    annualized_7d_return_fig.update_layout(yaxis_title="7-day Rolling Annualized Return (%)")
-
-    annualized_7d_ma_return_fig = px.line(nav_per_share_df, y="7_day_MA_annualized_return", title=" ")
-    _apply_default_style(annualized_7d_ma_return_fig)
-    annualized_7d_ma_return_fig.update_layout(yaxis_title="7-day MA Annualized Return (%)")
-
-    annualized_30d_ma_return_fig = px.line(nav_per_share_df, y="30_day_MA_annualized_return", title=" ")
-    _apply_default_style(annualized_30d_ma_return_fig)
-    annualized_30d_ma_return_fig.update_layout(yaxis_title="30-day MA Annualized Return (%)")
-
-    uwcr_return_fig = px.line(uwcr_df, y="Expected_Return", title=" ")
-    _apply_default_style(uwcr_return_fig)
-    uwcr_return_fig.update_layout(yaxis_title="Expected Annualized Return (%)")
-
-    # Insert gap
-    st.markdown("<div style='margin: 7em 0;'></div>", unsafe_allow_html=True)
-
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.subheader("NAV per share")
-        st.plotly_chart(nav_per_share_fig, use_container_width=True)
-    with col2:
-        st.subheader("NAV")
-        st.plotly_chart(nav_fig, use_container_width=True)
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.subheader("30-day Rolling Annualized Return (%)")
-        st.plotly_chart(annualized_30d_return_fig, use_container_width=True)
-    with col2:
-        st.subheader("30-day MA Annualized Return (%)")
-        st.plotly_chart(annualized_30d_ma_return_fig, use_container_width=True)
-    with col3:
-        st.subheader("7-day Rolling Annualized Return (%)")
-        st.plotly_chart(annualized_7d_return_fig, use_container_width=True)
-
-    # Insert gap
-    st.markdown("<div style='margin: 7em 0;'></div>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.subheader("7-day MA Annualized Return (%)")
-        st.plotly_chart(annualized_7d_ma_return_fig, use_container_width=True)
-    with col2:
-        st.subheader("Expected Annualized Return (%)")
-        st.plotly_chart(uwcr_return_fig, use_container_width=True)
-    with col3:
-        st.subheader("Autopool Estimated Price Return")
-        st.plotly_chart(wpr_fig, use_container_width=True)
-
-    with st.expander("See explanation for Key Metrics"):
-        st.write(
-            """
-        This section displays the key performance indicators for the Autopool:
-        - NAV per share: The Net Asset Value per share over time.
-        - NAV: The total Net Asset Value of the Autopool.
-        - 30-day and 7-day Annualized Returns: Percent annual return derived from NAV per share changes. 
-        - Expected Annualized Return: Projected percent annual return based on current allocations of the Autopool.
-        """
-        )
-    highest_block_used = max(key_metric_data["blocks"])
-    highest_timestamp = allocation_df.index.max()
-    st.markdown(
-        f"""
-        **Highest Block Used**: `{highest_block_used}`  
-        **Timestamp**: `{highest_timestamp}`  
-        **Chain**: `{autopool.chain.name}`
-        """
-    )
-    st.markdown("---")  # Add a horizontal line for separation
-
-    st.header("Download Logs")
-
-    render_download_production_button()
-    render_download_startup_log_button()
-
-
-def render_download_production_button():
-    if os.path.exists(PRODUCTION_LOG_FILE_NAME):
-        try:
-            with open(PRODUCTION_LOG_FILE_NAME, "r") as log_file:
-                log_content = log_file.read()
-
-            st.download_button(
-                label="📥 Download Log File",
-                data=log_content,
-                file_name=PRODUCTION_LOG_FILE_NAME,
-                mime="text/plain",
-                key="download_production_log",
-            )
-        except Exception as e:
-            st.error(f"An error occurred while reading the log file: {e}")
-    else:
-        st.warning("Log file not found. Please ensure that logging is properly configured.")
-
-
-def render_download_startup_log_button():
-    if os.path.exists(STARTUP_LOG_FILE):
-        try:
-            with open(STARTUP_LOG_FILE, "r") as log_file:
-                log_content = log_file.read()
-
-            st.download_button(
-                label="📥 Download Startup File",
-                data=log_content,
-                file_name="startup.txt",
-                mime="text/plain",
-                key="download_startup_log",
-            )
-        except Exception as e:
-            st.error(f"An error occurred while reading the log file: {e}")
-    else:
-        st.warning("Log file not found. Please ensure that logging is properly configured.")
-
-
 if __name__ == "__main__":
-    from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS, AUTO_ETH, BASE_ETH, DINERO_ETH
+    from mainnet_launch.constants import *
 
-    fetch_and_render_key_metrics_data(AUTO_ETH)
-    pass
+    fetch_and_render_key_metrics_data(SILO_USD)
+
+    # from mainnet_launch.app.profiler import profile_function
+
+    # # fetch_and_render_key_metrics_data(AUTO_ETH)
+
+    # # profile_function(fetch_and_render_key_metrics_data, AUTO_USD)
+    # pass

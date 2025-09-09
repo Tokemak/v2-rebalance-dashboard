@@ -19,6 +19,16 @@ python-dotenv = "^1.0.1"
 streamlit = "1.38.0"
 boto3 = "^1.35.29"
 psutil = "^6.0.0"
+sqlalchemy = "^2.0.40"
+asyncpg = "^0.30.0"
+greenlet = "^3.2.0"
+psycopg2-binary = "^2.9.10"
+sqlalchemy-schemadisplay = "^2.0"
+graphviz = "^0.20.3"
+statsmodels = "^0.14.4"
+tdqm = "^0.0.1"
+aiolimiter = "^1.2.1"
+line-profiler = "^5.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -31,4 +41,20 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-test-pages = "tests.test_pages:main"
+test-pages = "tests.test_pages:verify_all_pages_work"
+time-test-pages = "tests.test_pages:verify_all_pages_work_with_times"
+reset-dev-db = "mainnet_launch.database.database_branching_scripts:reset_dev_local_branch_to_match_production"
+
+
+
+# Quickly update the production database, use threads to go faster
+update-prod-db = "mainnet_launch.database.schema.ensure_tables_are_current.ensure_all_tables_are_current:main"
+
+# update the produciton database, one go at a time
+slow-update-prod-db = "mainnet_launch.database.schema.ensure_tables_are_current.ensure_all_tables_are_current:sequential_main"
+fetch-single-exit-quotes = "mainnet_launch.database.schema.ensure_tables_are_current.using_3rd_party.estimate_exit_liquidity_from_quotes:fetch_and_save_current_swap_quotes"
+
+app = "mainnet_launch.app.cli:app"
+marketing-app = "mainnet_launch.app.cli:marketing_app"
+export_config = "mainnet_launch.app.export_config:create_streamlit_secrets_from_env"
+

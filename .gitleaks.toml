@@ -1,0 +1,8 @@
+title = "Custom Gitleaks Config"
+description = "Exclude Ethereum public keys"
+
+[allowlist]
+  description = "Allow all Ethereum public keys (addresses)"
+  regexes = [
+    '''0x[a-fA-F0-9]{40}'''
+  ]

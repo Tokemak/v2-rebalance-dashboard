@@ -1,234 +1,256 @@
-import pandas as pd
-import plotly.graph_objects as go
-import streamlit as st
 import plotly.express as px
-from mainnet_launch.constants import (
-    AutopoolConstants,
-    STATS_CALCULATOR_REGISTRY,
-    ALL_CHAINS,
-    ROOT_PRICE_ORACLE,
-    ChainData,
-    ETH_CHAIN,
-)
-from mainnet_launch.data_fetching.get_events import fetch_events
-from mainnet_launch.data_fetching.add_info_to_dataframes import add_timestamp_to_df_with_block_column
-from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
+import pandas as pd
+import streamlit as st
+
+from mainnet_launch.constants import *
+from mainnet_launch.database.schema.full import *
+from mainnet_launch.database.schema.postgres_operations import *
 
 
-from mainnet_launch.database.database_operations import (
-    write_dataframe_to_table,
-    get_earliest_block_from_table_with_chain,
-    get_all_rows_in_table_by_chain,
-)
-from mainnet_launch.database.should_update_database import should_update_table
+# consider this as a view
+def _fetch_autopool_dest_token_table(autopool: AutopoolConstants) -> pd.DataFrame:
+    # can be replaced by the view
+    df = merge_tables_as_df(
+        selectors=[
+            TableSelector(
+                table=AutopoolDestinations,
+            ),
+            TableSelector(
+                table=Destinations,
+                select_fields=[Destinations.underlying_name, Destinations.exchange_name],
+                join_on=(
+                    (Destinations.destination_vault_address == AutopoolDestinations.destination_vault_address)
+                    & (Destinations.chain_id == AutopoolDestinations.chain_id)
+                ),
+            ),
+            TableSelector(
+                table=DestinationTokens,
+                select_fields=[
+                    DestinationTokens.token_address,
+                    DestinationTokens.index,
+                ],
+                join_on=(
+                    (DestinationTokens.destination_vault_address == AutopoolDestinations.destination_vault_address)
+                    & (DestinationTokens.chain_id == AutopoolDestinations.chain_id)
+                ),
+            ),
+            TableSelector(
+                table=Tokens,
+                select_fields=[
+                    Tokens.symbol,
+                ],
+                join_on=(
+                    (Tokens.chain_id == DestinationTokens.chain_id)
+                    & (Tokens.token_address == DestinationTokens.token_address)
+                ),
+            ),
+        ],
+        where_clause=(
+            (AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr)
+            & (AutopoolDestinations.chain_id == autopool.chain.chain_id)
+        ),
+    )
+    df["destination_readable_name"] = df["underlying_name"] + " (" + df["exchange_name"] + ") "
+    return df
 
-from mainnet_launch.abis import STATS_CALCULATOR_REGISTRY_ABI
 
-
-from multicall import Call
-from mainnet_launch.data_fetching.get_state_by_block import (
-    identity_with_bool_success,
-    get_raw_state_by_blocks,
-    get_state_by_one_block,
-    safe_normalize_with_bool_success,
-    build_blocks_to_use,
-)
-
-
-ASSET_BACKING_AND_PRICES = "ASSET_BACKING_AND_PRICES"
-
-
-def add_new_asset_oracle_and_discount_price_rows_to_table():
-    if should_update_table(ASSET_BACKING_AND_PRICES):
-        for chain in ALL_CHAINS:
-            # must add BASE as well purely for the support
-            highest_block_already_fetched = get_earliest_block_from_table_with_chain(ASSET_BACKING_AND_PRICES, chain)
-            asset_oracle_and_backing_df = _fetch_backing_and_oracle_price_df_from_external_source(
-                chain, highest_block_already_fetched
-            )
-            asset_oracle_and_backing_df["chain"] = chain.name
-            write_dataframe_to_table(asset_oracle_and_backing_df, ASSET_BACKING_AND_PRICES)
-
-
-def _fetch_lst_calc_addresses_df(chain: ChainData) -> pd.DataFrame:
-    # returns a dataframe of the LST address, LST.symbol, and LST calculator
-    # 3 total http calls total, fine not to have a table for htis
-    stats_calculator_registry_contract = chain.client.eth.contract(
-        STATS_CALCULATOR_REGISTRY(chain), abi=STATS_CALCULATOR_REGISTRY_ABI
+def _fetch_token_values(
+    autopool: AutopoolConstants, token_addresses: list[str], destination_vault_addresses: list[str]
+):
+    token_value_df = merge_tables_as_df(
+        selectors=[
+            TableSelector(table=DestinationTokenValues),
+            TableSelector(
+                table=TokenValues,
+                select_fields=[
+                    TokenValues.backing,
+                    TokenValues.safe_price,
+                ],
+                join_on=(
+                    (TokenValues.chain_id == DestinationTokenValues.chain_id)
+                    & (TokenValues.token_address == DestinationTokenValues.token_address)
+                    & (TokenValues.block == DestinationTokenValues.block)
+                ),
+            ),
+            TableSelector(
+                table=Blocks,
+                select_fields=[Blocks.datetime],
+                join_on=(Blocks.chain_id == TokenValues.chain_id) & (Blocks.block == TokenValues.block),
+            ),
+            TableSelector(
+                table=Tokens,
+                select_fields=[Tokens.symbol],
+                join_on=(Tokens.chain_id == TokenValues.chain_id) & (Tokens.token_address == TokenValues.token_address),
+            ),
+        ],
+        where_clause=(TokenValues.token_address.in_(token_addresses))
+        & (TokenValues.denominated_in == autopool.base_asset)
+        & (Blocks.datetime >= autopool.start_display_date)
+        & (DestinationTokenValues.destination_vault_address.in_(destination_vault_addresses)),
+    )
+    token_value_df["price_return"] = (
+        100 * (token_value_df["backing"] - token_value_df["safe_price"]) / token_value_df["backing"]
+    )
+    token_value_df["safe_spot_spread"] = (
+        100 * (token_value_df["spot_price"] - token_value_df["safe_price"]) / token_value_df["safe_price"]
     )
 
-    StatCalculatorRegistered = fetch_events(stats_calculator_registry_contract.events.StatCalculatorRegistered, chain)
+    return token_value_df
 
-    lstTokenAddress_calls = [
-        Call(
-            a,
-            ["lstTokenAddress()(address)"],
-            [(a, identity_with_bool_success)],
+
+def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame):
+
+    # Balancer Aave USDC-Aave GHO (balancerV3)
+    # Balancer Aave GHO-USR (balancerV3)
+    # have tiny maybe rounding differences, not sure why, TODO
+    # might have to do with pricing as USDC instead of aUSDC?
+    # not certain
+    # figure out why later
+    # eg {-0.08380000000000054, -0.08369999999999767}
+    # {-0.03901209374906236, -0.03731156658563722}
+    # {0.010102899532167506, 0.010202928240409647}
+
+    price_return_df = (
+        token_value_df[["datetime", "symbol", "price_return"]]
+        .drop_duplicates()
+        .pivot(index="datetime", columns="symbol", values="price_return")
+    )
+    st.plotly_chart(
+        px.scatter(price_return_df, title="All Time % Price Return (backing - safe) / safe "), use_container_width=True
+    )
+
+    safe_spot_spread_df = (
+        token_value_df.groupby(
+            [
+                "datetime",
+                "token_destination_readable_name",
+            ]
+        )[["safe_spot_spread"]]
+        .first()
+        .reset_index()
+        .pivot(index="datetime", columns="token_destination_readable_name", values="safe_spot_spread")
+    )
+
+    st.plotly_chart(
+        px.scatter(safe_spot_spread_df, title="All Time % 100 * (spot_price - safe) / safe"),
+        use_container_width=True,
+    )
+
+    with st.expander("(click here) Safe Spot Bps Spread Descriptive Stats"):
+        filter_text = st.text_input("Filter By Readable Name:", "")
+        cols = [c for c in safe_spot_spread_df.columns if filter_text in c]
+
+        mean_df, abs_mean_df, percentile_10_df, percentile_90_df = _compute_all_time_30_and_7_day_means(
+            safe_spot_spread_df[cols]
         )
-        for a in StatCalculatorRegistered["calculatorAddress"]
-    ]
+        st.markdown("10_000 * (spot - safe) / safe")
+        st.markdown("Positive Means Spot > Safe")
+        st.markdown("Negative Means Safe > Spot\n\n")
+        st.markdown("All values are in bps \n")
+        st.markdown("Mean")
+        st.dataframe(mean_df, use_container_width=True)
 
-    calculator_to_lst_address = get_state_by_one_block(
-        lstTokenAddress_calls, chain.client.eth.block_number, chain=chain
-    )
-    StatCalculatorRegistered["lst"] = StatCalculatorRegistered["calculatorAddress"].map(calculator_to_lst_address)
-    lst_calcs = StatCalculatorRegistered[~StatCalculatorRegistered["lst"].isna()].copy()
+        st.markdown("Absolute Mean")
+        st.dataframe(abs_mean_df, use_container_width=True)
 
-    symbol_calls = [
-        Call(
-            a,
-            ["symbol()(string)"],
-            [(a, identity_with_bool_success)],
-        )
-        for a in lst_calcs["lst"]
-    ]
-    calculator_to_lst_address = get_state_by_one_block(symbol_calls, chain.client.eth.block_number, chain=chain)
-    lst_calcs["symbol"] = lst_calcs["lst"].map(calculator_to_lst_address)
+        st.markdown("Bottom 10th Percentile")
+        st.dataframe(percentile_10_df, use_container_width=True)
 
-    return lst_calcs[["lst", "symbol", "calculatorAddress"]]
+        st.markdown("Top 90th Percentile")
+        st.dataframe(percentile_90_df, use_container_width=True)
 
-
-def _fetch_backing_and_oracle_price_df_from_external_source(chain: ChainData, start_block: int) -> pd.DataFrame:
-
-    lst_calcs = _fetch_lst_calc_addresses_df(chain)
-
-    token_symbols_to_ignore = ["OETH", "stETH", "eETH"]
-    # skip stETH and eETH because they are captured in wstETH and weETH
-    # skip OETH because we dropped it in October 2024,
-    lst_calcs = lst_calcs[~lst_calcs["symbol"].isin(token_symbols_to_ignore)].copy()
-
-    oracle_price_calls = [
-        Call(
-            ROOT_PRICE_ORACLE(chain),
-            ["getPriceInEth(address)(uint256)", lst],
-            [(f"{symbol}_oracle_price", safe_normalize_with_bool_success)],
-        )
-        for (lst, symbol) in zip(lst_calcs["lst"], lst_calcs["symbol"])
-    ]
-
-    backing_calls = [
-        Call(
-            calculatorAddress,
-            ["calculateEthPerToken()(uint256)"],
-            [(f"{symbol}_backing", safe_normalize_with_bool_success)],
-        )
-        for (calculatorAddress, symbol) in zip(lst_calcs["calculatorAddress"], lst_calcs["symbol"])
-    ]
-
-    blocks = build_blocks_to_use(chain, start_block=start_block)
-    wide_oracle_and_backing_df = get_raw_state_by_blocks(
-        [*oracle_price_calls, *backing_calls], blocks, chain, include_block_number=True
+    backing_df = (
+        token_value_df[["datetime", "symbol", "backing"]]
+        .drop_duplicates()
+        .pivot(index="datetime", columns="symbol", values="backing")
     )
 
-    long_oracle_and_backing_df = _raw_price_and_backing_data_to_long_format(wide_oracle_and_backing_df)
-    long_oracle_and_backing_df["percent_discount"] = 100 - (
-        100 * long_oracle_and_backing_df["oracle_price"] / long_oracle_and_backing_df["backing"]
+    safe_price_df = (
+        token_value_df[["datetime", "symbol", "safe_price"]]
+        .drop_duplicates()
+        .pivot(index="datetime", columns="symbol", values="safe_price")
     )
 
-    return long_oracle_and_backing_df
-
-
-def _raw_price_and_backing_data_to_long_format(wide_df: pd.DataFrame) -> pd.DataFrame:
-    # takes the wide dataframe and makes it long instead
-    # this is so that new LSTs can be added without breaking the table
-
-    # timestamp	                    symbol	backing	    oracle_price
-    # 0	2024-09-15 02:04:47+00:00	cbETH	1.081472	1.079332
-    # 1	2024-09-15 08:06:23+00:00	cbETH	1.081472	1.079332
-
-    backing_df = wide_df[[c for c in wide_df.columns if (("_backing" in c) or (c == "block"))]]
-    long_backing_df = backing_df.melt(id_vars=["block"], var_name="symbol", value_name="backing")
-    long_backing_df["symbol"] = long_backing_df["symbol"].apply(lambda x: str(x).replace("_backing", ""))
-
-    oracle_price_df = wide_df[[c for c in wide_df.columns if (("_oracle_price" in c) or (c == "block"))]]
-    long_oracle_price_df = oracle_price_df.melt(id_vars=["block"], var_name="symbol", value_name="oracle_price")
-    long_oracle_price_df["symbol"] = long_oracle_price_df["symbol"].apply(lambda x: str(x).replace("_oracle_price", ""))
-
-    long_df = pd.merge(long_backing_df, long_oracle_price_df, on=["block", "symbol"])
-    return long_df
-
-
-def _extract_backing_price_and_percent_discount_dfs(long_df: pd.DataFrame, chain: ChainData) -> pd.DataFrame:
-    # convert the long_df (as it is stored on disk) and converts it back into the wide format
-    # to use elsewhere
-    # timestamp	cbETH_backing	cbETH_oracle_price
-    # 2024-09-15 02:04:47+00:00	1.081472	1.079332
-    # 2024-09-15 08:06:23+00:00	1.081472	1.079332
-
-    # this does not maintain column order
-
-    long_df = add_timestamp_to_df_with_block_column(long_df, chain).reset_index()
-
-    long_df["percent_discount"] = 100 - (100 * long_df["oracle_price"] / long_df["backing"])
-
-    wide_backing_df = long_df[["timestamp", "symbol", "backing"]].pivot(
-        index="timestamp", columns="symbol", values="backing"
-    )
-    wide_oracle_price_df = long_df[["timestamp", "symbol", "oracle_price"]].pivot(
-        index="timestamp", columns="symbol", values="oracle_price"
-    )
-    wide_percent_discount_df = long_df[["timestamp", "symbol", "percent_discount"]].pivot(
-        index="timestamp", columns="symbol", values="percent_discount"
+    spot_price_df = (
+        token_value_df[["datetime", "token_destination_readable_name", "safe_price"]]
+        .drop_duplicates()
+        .pivot(index="datetime", columns="token_destination_readable_name", values="safe_price")
     )
 
-    wide_backing_df["WETH"] = 1
-    wide_oracle_price_df["WETH"] = 1
-    wide_percent_discount_df["WETH"] = 0
-
-    wide_backing_df["stETH"] = 1  # the definition of stETH
-    wide_oracle_price_df["WETH"] = 1
-    wide_oracle_price_df["stETH"] = wide_oracle_price_df["wstETH"] / wide_backing_df["wstETH"]
-    wide_percent_discount_df["WETH"] = 0
-    wide_percent_discount_df["stETH"] = wide_percent_discount_df["wstETH"]
-
-    return wide_backing_df, wide_oracle_price_df, wide_percent_discount_df
+    st.plotly_chart(px.line(spot_price_df, title="All Time Spot Price"), use_container_width=True)
+    st.plotly_chart(px.line(safe_price_df, title="All Time Safe Price"), use_container_width=True)
+    st.plotly_chart(px.line(backing_df, title="All Time Backing"), use_container_width=True)
 
 
-def fetch_and_render_asset_oracle_and_backing():
-    add_new_asset_oracle_and_discount_price_rows_to_table()
-    long_asset_oracle_and_backing_df = get_all_rows_in_table_by_chain(ASSET_BACKING_AND_PRICES, ETH_CHAIN)
-    # by default only show the price and discount data for Ethereum
-    # all the assets are on ethereum
-    wide_backing_df, wide_oracle_price_df, wide_percent_discount_df = _extract_backing_price_and_percent_discount_dfs(
-        long_asset_oracle_and_backing_df, ETH_CHAIN
+def _compute_all_time_30_and_7_day_means(safe_spot_spread_df: pd.DataFrame):
+    latest = pd.Timestamp.utcnow()
+    all_time_df = safe_spot_spread_df * 100
+    last_7_days_df = safe_spot_spread_df.loc[safe_spot_spread_df.index >= latest - pd.Timedelta(days=7)] * 100
+    last_30_days_df = safe_spot_spread_df.loc[safe_spot_spread_df.index >= latest - pd.Timedelta(days=30)] * 100
+
+    mean_df = pd.DataFrame(
+        {
+            "Average (All Time)": all_time_df.mean(),
+            "Average (Last 30 Days)": last_30_days_df.mean(),
+            "Average (Last 7 Days)": last_7_days_df.mean(),
+        }
     )
 
-    backing_figure = px.line(wide_backing_df, title="Backing", labels={"index": "Date", "value": "ETH"})
-    oracle_price_figure = px.line(wide_oracle_price_df, title="Oracle Price", labels={"index": "Date", "value": "ETH"})
-    percent_discount_figure = px.line(
-        wide_percent_discount_df, title="Percent Discount", labels={"index": "Date", "value": "Percent"}
+    abs_mean_df = pd.DataFrame(
+        {
+            "Absolute Average (All Time)": all_time_df.abs().mean(),
+            "Absolute Average (Last 30 Days)": last_30_days_df.abs().mean(),
+            "Absolute Average (Last 7 Days)": last_7_days_df.abs().mean(),
+        }
     )
 
-    st.header("Asset Backing, Oracle Price and Percent Discount")
-    st.plotly_chart(percent_discount_figure, use_container_width=True)
-    st.plotly_chart(oracle_price_figure, use_container_width=True)
-    st.plotly_chart(backing_figure, use_container_width=True)
+    percentile_10_df = pd.DataFrame(
+        {
+            "10th Percentile (All Time)": all_time_df.quantile(0.10),
+            "10th Percentile (Last 30 Days)": last_30_days_df.quantile(0.10),
+            "10th Percentile (Last 7 Days)": last_7_days_df.quantile(0.10),
+        }
+    )
 
-    with st.expander("Explanation"):
-        st.markdown(
-            """
-        ### Key Terms:
-        - **Oracle Price**: The "safe" value of an asset based on `RootPriceOracle.getPriceInEth()`.
-        - **Backing**: The underlying value of the asset on the consensus layer, based on `lstCalculator.calculateEthPerToken()`.
-        - **Percent Discount**: Calculated as:  
-        `100 - (100 * Oracle Price / Backing)`
+    percentile_90_df = pd.DataFrame(
+        {
+            "90th Percentile (All Time)": all_time_df.quantile(0.90),
+            "90th Percentile (Last 30 Days)": last_30_days_df.quantile(0.90),
+            "90th Percentile (Last 7 Days)": last_7_days_df.quantile(0.90),
+        }
+    )
 
-        ### Examples:
+    return mean_df, abs_mean_df, percentile_10_df, percentile_90_df
 
-        **Asset Trades at a Discount**  
-        - pxETH Oracle Price = `0.95`  
-        - pxETH Backing = `1`  
-        - Percent Discount = `100 - (100 * 0.95 / 1)` = **5% discount**
 
-        **Asset Trades at a Premium** 
-        - pxETH Oracle Price = `1.05`  
-        - pxETH Backing = `1`  
-        - Percent Discount = `100 - (100 * 1.05 / 1)` = **-5% discount** = **5% premium**
+def _render_underlying_token_spot_and_safe_prices(token_value_df: pd.DataFrame):
+    # TODO
+    pass
 
-        ---
-        """
-        )
+
+def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
+
+    autopool_destinations_df = _fetch_autopool_dest_token_table(autopool)
+
+    token_value_df = _fetch_token_values(
+        autopool,
+        autopool_destinations_df["token_address"].unique().tolist(),
+        autopool_destinations_df["destination_vault_address"].unique().tolist(),
+    )
+
+    token_value_df["destination_readable_name"] = token_value_df["destination_vault_address"].map(
+        autopool_destinations_df.set_index("destination_vault_address")["destination_readable_name"].to_dict()
+    )
+    token_value_df["underlying_name"] = token_value_df["destination_vault_address"].map(
+        autopool_destinations_df.set_index("destination_vault_address")["underlying_name"].to_dict()
+    )
+
+    token_value_df["token_destination_readable_name"] = (
+        token_value_df["symbol"] + "\t" + token_value_df["destination_readable_name"]
+    )
+
+    _render_component_token_safe_price_and_backing(token_value_df)
 
 
 if __name__ == "__main__":
-    fetch_and_render_asset_oracle_and_backing()
+    fetch_and_render_asset_discounts(BASE_USD)

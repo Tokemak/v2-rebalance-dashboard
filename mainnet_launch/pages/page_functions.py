@@ -1,8 +1,8 @@
 from mainnet_launch.pages.autopool_diagnostics.autopool_diagnostics_tab import (
     fetch_and_render_autopool_diagnostics_data,
 )
-from mainnet_launch.pages.autopool_exposure.destination_allocation_over_time import (
-    fetch_and_render_destination_allocation_over_time_data,
+from mainnet_launch.pages.autopool_exposure.allocation_over_time import (
+    fetch_and_render_asset_allocation_over_time,
 )
 from mainnet_launch.pages.autopool_crm.weighted_crm import (
     fetch_and_render_weighted_crm_data,
@@ -15,47 +15,65 @@ from mainnet_launch.pages.rebalance_events.rebalance_events import (
 )
 
 from mainnet_launch.pages.solver_diagnostics.solver_diagnostics import (
-    fetch_and_render_solver_diagnositics_data,
+    fetch_and_render_solver_diagnostics_data,
 )
 
 from mainnet_launch.pages.key_metrics.key_metrics import fetch_and_render_key_metrics_data
-from mainnet_launch.pages.gas_costs.keeper_network_gas_costs import (
-    fetch_and_render_keeper_network_gas_costs,
+from mainnet_launch.pages.gas_costs.gas_costs import (
+    fetch_and_render_gas_costs,
 )
-
-from mainnet_launch.pages.incentive_token_prices.incentive_token_liqudiation_prices import (
-    fetch_and_render_reward_token_achieved_vs_incentive_token_price,
-)
-
-from mainnet_launch.pages.protocol_level_profit_and_loss.protocol_level_profit import (
-    fetch_and_render_protocol_level_profit_and_loss_data,
-)
-
-from mainnet_launch.pages.expected_vs_actual_returns.expected_vs_actual_returns import (
-    fetch_and_render_actual_and_gross_and_projected_returns,
-)
-
 
 from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import (
-    fetch_and_render_asset_oracle_and_backing,
+    fetch_and_render_asset_discounts,
+)
+
+from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (
+    fetch_and_render_our_percent_ownership_of_each_destination,
+)
+
+# from mainnet_launch.pages.risk_metrics.estimate_exit_liquidity_from_pool_tvl import fetch_and_render_exit_liqudity_pools
+
+from mainnet_launch.pages.risk_metrics.render_exit_liquidity_batch import (
+    fetch_and_render_exit_liquidity_from_quotes,
+)
+
+from mainnet_launch.app.marketing_app.marketing_pages.autopool_cumulative_volume import (
+    fetch_and_render_cumulative_volume,
+)
+
+from mainnet_launch.app.marketing_app.marketing_pages.apr_and_tvl_by_destination_script import (
+    fetch_and_render_autopool_apy_and_allocation_over_time,
+)
+
+from mainnet_launch.pages.risk_metrics.incentive_token_prices_acutal_vs_expected import (
+    render_actual_vs_expected_incentive_token_prices,
 )
 
 
-# consider moving this elsewhere
-
-CONTENT_FUNCTIONS = {
+AUTOPOOL_CONTENT_FUNCTIONS = {
     "Key Metrics": fetch_and_render_key_metrics_data,
-    "Autopool Exposure": fetch_and_render_destination_allocation_over_time_data,
+    "Autopool Exposure": fetch_and_render_asset_allocation_over_time,
     "Autopool CRM": fetch_and_render_weighted_crm_data,
-    "Rebalance Events": fetch_and_render_rebalance_events_data,
-    "Autopool Diagnostics": fetch_and_render_autopool_diagnostics_data,
     "Destination Diagnostics": fetch_and_render_destination_apr_data,
-    "Solver Diagnostics": fetch_and_render_solver_diagnositics_data,
-    "Expected and Actual Returns": fetch_and_render_actual_and_gross_and_projected_returns,
-    "Gas Costs": fetch_and_render_keeper_network_gas_costs,
-    "Incentive Token Prices": fetch_and_render_reward_token_achieved_vs_incentive_token_price,
-    "Protocol Level Profit and Loss": fetch_and_render_protocol_level_profit_and_loss_data,
-    "Asset Discounts": fetch_and_render_asset_oracle_and_backing,
+    "Rebalance Events": fetch_and_render_rebalance_events_data,
+    "Asset Discounts": fetch_and_render_asset_discounts,
+    "Solver Diagnostics": fetch_and_render_solver_diagnostics_data,
 }
 
-PAGES_WITHOUT_AUTOPOOL = ["Gas Costs", "Incentive Token Prices", "Protocol Level Profit and Loss", "Asset Discounts"]
+
+PROTOCOL_CONTENT_FUNCTIONS = {
+    "Gas Costs": fetch_and_render_gas_costs,
+    # proift and loss
+}
+
+RISK_METRICS_FUNCTIONS = {
+    "Tokemak Percent Ownership": fetch_and_render_our_percent_ownership_of_each_destination,
+    # "Exit Liquidity Pools": fetch_and_render_exit_liqudity_pools,
+    "Exit Liquidity Quotes": fetch_and_render_exit_liquidity_from_quotes,
+    "Incentive Token Sales (Actual and Expected Prices)": render_actual_vs_expected_incentive_token_prices,
+}
+
+MARKETING_CONTENT_FUNCTIONS = {
+    "Cumulative Volume": fetch_and_render_cumulative_volume,
+    "APY and Allocation Over Time": fetch_and_render_autopool_apy_and_allocation_over_time,
+}
