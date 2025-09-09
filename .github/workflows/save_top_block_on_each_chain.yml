@@ -2,17 +2,14 @@ name: Save and Verify Top Blocks
 
 on:
   schedule:
-    # Runs every day at midnight UTC
     - cron: "0 0 * * *"
-  workflow_dispatch:  # Optional: allows manual run from Actions tab
+  workflow_dispatch:
 
 jobs:
   run-script:
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
-
     env:
       DOTENV_BLOB: ${{ secrets.CI_DOT_ENV_FILE }}
 
@@ -22,7 +19,27 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-          cache: "pip"
+
+      # Faster Poetry install than pip; no venv pollution
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.3
+          virtualenvs-create: true
+          virtualenvs-in-project: true  # puts venv at ./.venv so we can cache it
+          installer-parallel: true
+
+      # Cache BOTH the venv and Poetry's download cache.
+      - name: Cache virtualenv and Poetry cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./.venv
+            ~/.cache/pypoetry
+            ~/.cache/pip
+          key: ${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-
 
       - name: Write DOTENV_BLOB to .env
         shell: bash
@@ -30,11 +47,12 @@ jobs:
           umask 177
           printf '%s' "$DOTENV_BLOB" > .env
 
-      - name: Install dependencies
+      # If the venv was restored, this is essentially a no-op.
+      - name: Install dependencies (Poetry)
         run: |
           python -m pip install --upgrade pip
-          pip install poetry
-          poetry install --no-interaction --no-ansi
+          poetry install --no-interaction --no-ansi --no-root --sync
 
       - name: Run save_and_verify_top_blocks
-        run: poetry run python mainnet_launch/database/schema/ensure_tables_are_current/simple_save_current_block_number_to_db.py
+        run: |
+          poetry run python mainnet_launch/database/schema/ensure_tables_are_current/simple_save_current_block_number_to_db.py
