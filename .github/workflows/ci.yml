@@ -32,8 +32,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-
 
-      # Only install the dev group that contains black; avoid full project deps
       - name: Install Dev Dependencies
         run: |
           poetry install --only dev --no-interaction --no-ansi --no-root
+      - name: Run Black
+        run: |
           poetry run black --diff --check .
