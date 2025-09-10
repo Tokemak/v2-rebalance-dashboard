@@ -47,3 +47,6 @@ jobs:
 
       - name: poetry run update-prod-db
         run: poetry run update-prod-db
+
+      - name: poetry run test-pages
+        run: poetry run test-pages
