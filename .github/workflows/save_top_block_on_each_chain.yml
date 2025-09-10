@@ -45,5 +45,5 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --no-ansi
 
-      - name: Run update-prod-db script
+      - name: Run save top block script
         run: poetry run python mainnet_launch/database/schema/ensure_tables_are_current/simple_save_current_block_number_to_db.py

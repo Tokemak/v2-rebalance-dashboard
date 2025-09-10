@@ -45,5 +45,5 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --no-ansi
 
-      - name: Run save_and_verify_top_blocks
+      - name: poetry run update-prod-db
         run: poetry run update-prod-db
