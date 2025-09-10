@@ -83,7 +83,7 @@ def _ensure_one_chain_chainlink_gas_costs_is_updated(
     )
 
 
-def ensure_chainlink_gas_costs_table_is_updated() -> None:
+def ensure_chainlink_gas_costs_table_are_current() -> None:
     deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
     for chain in [ETH_CHAIN]:
         _ensure_one_chain_chainlink_gas_costs_is_updated(chain, chainlink_keepers_df)

@@ -98,7 +98,7 @@ def _from_address_to_highest_block_already_stored_in_db(chain: ChainData):
     return highest_block_already_seen
 
 
-def update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched():
+def ensure_tokemak_EOA_gas_costs_are_current():
     """Be certain to get all transactions from 0 to the current block for all deployers and service accounts.
 
     Is slower, but certain to get all transactions.
@@ -166,4 +166,4 @@ def update_tokemak_EOA_gas_costs_from_0():
 if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
 
-    profile_function(update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched)
+    profile_function(ensure_tokemak_EOA_gas_costs_are_current)

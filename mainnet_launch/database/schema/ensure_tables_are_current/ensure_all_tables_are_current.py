@@ -47,6 +47,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.orde
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_autopool_states import (
     ensure_autopool_states_are_current,
 )
+
 from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_destination_states_from_rebalance_plan import (
     ensure_destination_states_from_rebalance_plan_are_current,
 )
@@ -77,8 +78,8 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
 )
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_gas_costs import (
-    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched,
-    ensure_chainlink_gas_costs_table_is_updated,
+    ensure_tokemak_EOA_gas_costs_are_current,
+    ensure_chainlink_gas_costs_table_are_current,
 )
 
 
@@ -110,8 +111,8 @@ def _fully_independent_update_functions():
     currently running in order becuase the other parts are slow and even if this takes a bit longer, it doesn't matter
     """
 
-    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()
-    ensure_chainlink_gas_costs_table_is_updated()
+    ensure_tokemak_EOA_gas_costs_are_current()
+    ensure_chainlink_gas_costs_table_are_current()
     ensure_autopool_fees_are_current()
     ensure_incentive_token_swapped_events_are_current()
     ensure_incentive_token_prices_are_current()
@@ -162,8 +163,8 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
     ensure_autopools_are_current()
     ensure__destinations__tokens__and__destination_tokens_are_current()
 
-    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()
-    ensure_chainlink_gas_costs_table_is_updated()
+    ensure_tokemak_EOA_gas_costs_are_current()
+    ensure_chainlink_gas_costs_table_are_current()
     ensure_autopool_fees_are_current()
 
     ensure_incentive_token_swapped_events_are_current()
