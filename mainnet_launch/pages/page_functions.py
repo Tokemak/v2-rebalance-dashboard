@@ -1,41 +1,3 @@
-from mainnet_launch.pages.autopool.autopool_exposure.allocation_over_time import (
-    fetch_and_render_asset_allocation_over_time,
-)
-from mainnet_launch.pages.autopool.autopool_crm.weighted_crm import (
-    fetch_and_render_weighted_crm_data,
-)
-
-from mainnet_launch.pages.autopool.destination_diagnostics.destination_diagnostics import (
-    fetch_and_render_destination_apr_data,
-)
-
-from mainnet_launch.pages.autopool.rebalance_events.rebalance_events import (
-    fetch_and_render_rebalance_events_data,
-)
-
-from mainnet_launch.pages.autopool.solver_diagnostics.solver_diagnostics import (
-    fetch_and_render_solver_diagnostics_data,
-)
-
-from mainnet_launch.pages.autopool.key_metrics.key_metrics import fetch_and_render_key_metrics_data
-from mainnet_launch.pages.protocol_wide.gas_costs.gas_costs import (
-    fetch_and_render_gas_costs,
-)
-
-from mainnet_launch.pages.autopool.asset_discounts.fetch_and_render_asset_discounts import (
-    fetch_and_render_asset_discounts,
-)
-
-from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (
-    fetch_and_render_our_percent_ownership_of_each_destination,
-)
-
-# from mainnet_launch.pages.risk_metrics.estimate_exit_liquidity_from_pool_tvl import fetch_and_render_exit_liqudity_pools
-
-from mainnet_launch.pages.risk_metrics.render_exit_liquidity_batch import (
-    fetch_and_render_exit_liquidity_from_quotes,
-)
-
 from mainnet_launch.app.marketing_app.marketing_pages.autopool_cumulative_volume import (
     fetch_and_render_cumulative_volume,
 )
@@ -44,33 +6,11 @@ from mainnet_launch.app.marketing_app.marketing_pages.apr_and_tvl_by_destination
     fetch_and_render_autopool_apy_and_allocation_over_time,
 )
 
-from mainnet_launch.pages.risk_metrics.incentive_token_prices_acutal_vs_expected import (
-    render_actual_vs_expected_incentive_token_prices,
-)
 
+from mainnet_launch.pages.autopool import AUTOPOOL_CONTENT_FUNCTIONS
+from mainnet_launch.pages.risk_metrics import RISK_METRICS_FUNCTIONS
+from mainnet_launch.pages.protocol_wide import PROTOCOL_CONTENT_FUNCTIONS
 
-AUTOPOOL_CONTENT_FUNCTIONS = {
-    "Key Metrics": fetch_and_render_key_metrics_data,
-    "Autopool Exposure": fetch_and_render_asset_allocation_over_time,
-    "Autopool CRM": fetch_and_render_weighted_crm_data,
-    "Destination Diagnostics": fetch_and_render_destination_apr_data,
-    "Rebalance Events": fetch_and_render_rebalance_events_data,
-    "Asset Discounts": fetch_and_render_asset_discounts,
-    "Solver Diagnostics": fetch_and_render_solver_diagnostics_data,
-}
-
-
-PROTOCOL_CONTENT_FUNCTIONS = {
-    "Gas Costs": fetch_and_render_gas_costs,
-    # proift and loss
-}
-
-RISK_METRICS_FUNCTIONS = {
-    "Tokemak Percent Ownership": fetch_and_render_our_percent_ownership_of_each_destination,
-    # "Exit Liquidity Pools": fetch_and_render_exit_liqudity_pools,
-    "Exit Liquidity Quotes": fetch_and_render_exit_liquidity_from_quotes,
-    "Incentive Token Sales (Actual and Expected Prices)": render_actual_vs_expected_incentive_token_prices,
-}
 
 MARKETING_CONTENT_FUNCTIONS = {
     "Cumulative Volume": fetch_and_render_cumulative_volume,
