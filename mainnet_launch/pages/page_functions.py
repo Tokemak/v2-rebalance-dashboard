@@ -1,6 +1,6 @@
-from mainnet_launch.pages.autopool_diagnostics.autopool_diagnostics_tab import (
-    fetch_and_render_autopool_diagnostics_data,
-)
+# from mainnet_launch.pages.autopool_diagnostics.autopool_diagnostics_tab import (
+#     fetch_and_render_autopool_diagnostics_data,
+# )
 from mainnet_launch.pages.autopool_exposure.allocation_over_time import (
     fetch_and_render_asset_allocation_over_time,
 )

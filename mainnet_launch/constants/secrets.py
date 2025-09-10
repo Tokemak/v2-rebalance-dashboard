@@ -46,3 +46,7 @@ DB_FILE = DB_DIR / "autopool_dashboard.db"
 PRODUCTION_LOG_FILE_NAME = "production_usage.log"
 TEST_LOG_FILE_NAME = "test_pages.log"
 STARTUP_LOG_FILE = ROOT_DIR / "startup.csv"
+
+SEMAPHORE_LIMITS_FOR_MULTICALL = tuple(
+    int(x) for x in environ.get("SEMAPHORE_LIMITS_FOR_MULTICALL", "100,20,1").split(",")
+)

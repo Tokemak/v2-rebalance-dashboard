@@ -6,10 +6,15 @@ from web3 import Web3
 
 import nest_asyncio
 import asyncio
-from mainnet_launch.app.app_config import SEMAPHORE_LIMITS_FOR_MULTICALL
 
-
-from mainnet_launch.constants import ChainData, TokemakAddress, ALL_CHAINS, ETH_CHAIN, DEAD_ADDRESS
+from mainnet_launch.constants import (
+    ChainData,
+    TokemakAddress,
+    ALL_CHAINS,
+    ETH_CHAIN,
+    DEAD_ADDRESS,
+    SEMAPHORE_LIMITS_FOR_MULTICALL,
+)
 from mainnet_launch.database.schema.postgres_operations import _exec_sql_and_cache
 
 # needed to run these functions in a jupyter notebook
