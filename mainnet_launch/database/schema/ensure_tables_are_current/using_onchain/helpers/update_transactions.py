@@ -68,7 +68,6 @@ def fetch_transaction_rows_bulk_from_alchemy(tx_hashes: list[str], chain: ChainD
     return all_found_transactions
 
 
-@time_decorator
 def ensure_all_transactions_are_saved_in_db(tx_hashes: list[str], chain: ChainData) -> None:
     """
     Idempotently ensure that all tx_hashes are saved in the Transactions table
