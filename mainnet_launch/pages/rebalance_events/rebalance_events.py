@@ -103,7 +103,8 @@ def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
     # if we do think it should be lossless then
     # swap cost = spot value difference in solver
 
-    # todo I don't like this pattern
+    # TODO I don't like this pattern
+    # this is not robust, don't trust the spot slippage bips values
 
     autoUSD_lossless_move_names = [
         "autoUSD -> fUSDC",
