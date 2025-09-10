@@ -11,9 +11,4 @@ RISK_METRICS_FUNCTIONS = {
     "Incentive Token Sales (Actual and Expected Prices)": render_actual_vs_expected_incentive_token_prices,
 }
 
-__all__ = [
-    "fetch_and_render_our_percent_ownership_of_each_destination",
-    "fetch_and_render_exit_liquidity_from_quotes",
-    "render_actual_vs_expected_incentive_token_prices",
-    "RISK_METRICS_FUNCTIONS",
-]
+__all__ = ["RISK_METRICS_FUNCTIONS"]

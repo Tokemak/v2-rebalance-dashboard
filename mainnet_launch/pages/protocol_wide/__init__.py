@@ -9,9 +9,4 @@ PROTOCOL_CONTENT_FUNCTIONS = {
     # "Protocol Level Profit": fetch_and_render_protocol_level_profit,
 }
 
-__all__ = [
-    "fetch_and_render_gas_costs",
-    # "fetch_and_render_fees",
-    # "fetch_and_render_protocol_level_profit",
-    "PROTOCOL_CONTENT_FUNCTIONS",
-]
+__all__ = ["PROTOCOL_CONTENT_FUNCTIONS"]
