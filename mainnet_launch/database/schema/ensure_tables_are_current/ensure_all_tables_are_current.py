@@ -22,15 +22,9 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
     ensure_blocks_is_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_destination_states_from_rebalance_plan import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans import (
     ensure_destination_states_from_rebalance_plan_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_rebalance_plans import (
     ensure_rebalance_plans_table_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_rebalance_events import (
     ensure_rebalance_events_are_current,
 )
 
