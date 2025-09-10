@@ -6,7 +6,7 @@ from .solver_diagnostics.solver_diagnostics import fetch_and_render_solver_diagn
 from .key_metrics.key_metrics import fetch_and_render_key_metrics_data
 from .asset_discounts.fetch_and_render_asset_discounts import fetch_and_render_asset_discounts
 from .autopool_deposits_and_withdrawals.render_autopool_deposits_and_withdrawals import (
-    fetch_and_render_autopool_deposits_and_withdrawals,
+    fetch_and_render_autopool_deposit_and_withdrawals,
 )
 
 AUTOPOOL_CONTENT_FUNCTIONS = {
@@ -17,7 +17,7 @@ AUTOPOOL_CONTENT_FUNCTIONS = {
     "Rebalance Events": fetch_and_render_rebalance_events_data,
     "Asset Discounts": fetch_and_render_asset_discounts,
     "Solver Diagnostics": fetch_and_render_solver_diagnostics_data,
-    "User Deposits And Withdrawals": fetch_and_render_autopool_deposits_and_withdrawals,
+    "Base Asset Deposits And Withdrawals": fetch_and_render_autopool_deposit_and_withdrawals,
 }
 
 __all__ = ["AUTOPOOL_CONTENT_FUNCTIONS"]
