@@ -6,6 +6,7 @@ from mainnet_launch.app.marketing_app.marketing_pages.apr_and_tvl_by_destination
     fetch_and_render_autopool_apy_and_allocation_over_time,
 )
 
+
 from mainnet_launch.pages.autopool import AUTOPOOL_CONTENT_FUNCTIONS
 from mainnet_launch.pages.risk_metrics import RISK_METRICS_FUNCTIONS
 from mainnet_launch.pages.protocol_wide import PROTOCOL_CONTENT_FUNCTIONS
