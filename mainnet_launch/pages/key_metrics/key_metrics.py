@@ -14,7 +14,7 @@ from mainnet_launch.database.schema.postgres_operations import (
 )
 
 
-from mainnet_launch.database.schema.views import (
+from mainnet_launch.database.views import (
     fetch_autopool_destination_state_df,
     get_latest_rebalance_event_datetime_for_autopool,
 )

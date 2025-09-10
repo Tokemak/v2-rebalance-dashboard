@@ -16,7 +16,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     merge_tables_as_df,
     TableSelector,
 )
-from mainnet_launch.database.schema.views import get_all_autopool_destinations, fetch_autopool_destination_state_df
+from mainnet_launch.database.views import get_all_autopool_destinations, fetch_autopool_destination_state_df
 
 
 def _fetch_all_destination_lp_token_safe_value(autopool: AutopoolConstants) -> pd.DataFrame:

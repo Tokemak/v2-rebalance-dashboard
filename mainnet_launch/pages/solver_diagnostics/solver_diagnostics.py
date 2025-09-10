@@ -13,7 +13,7 @@ from mainnet_launch.database.schema.postgres_operations import (
     get_full_table_as_df,
 )
 
-from mainnet_launch.database.schema.views import (
+from mainnet_launch.database.views import (
     get_latest_rebalance_event_datetime_for_autopool,
 )
 

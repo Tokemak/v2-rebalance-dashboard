@@ -13,7 +13,7 @@ from mainnet_launch.constants import (
     LIQUIDATION_ROW2,
     LIQUIDATION_ROW,
 )
-from mainnet_launch.database.schema.views import get_incentive_token_sold_details
+from mainnet_launch.database.views import get_incentive_token_sold_details
 
 
 def pick_chain_base_and_n_days() -> tuple[ChainData, TokemakAddress, dt.date, dt.date]:
