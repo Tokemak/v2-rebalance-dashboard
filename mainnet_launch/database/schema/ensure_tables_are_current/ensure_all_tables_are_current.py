@@ -13,39 +13,13 @@ open questions:
 
 from concurrent.futures import ThreadPoolExecutor
 
-from mainnet_launch.constants import ALL_CHAINS
+from mainnet_launch.constants import ALL_CHAINS, profile_function
 
 from mainnet_launch.database.schema.full import ENGINE
+
+
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_blocks_is_current,
-)
-from mainnet_launch.constants import profile_function
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destinations_tokens_and_autopoolDestinations_table import (
-    ensure__destinations__tokens__and__destination_tokens_are_current,
-)
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_autopools_table import (
-    ensure_autopools_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_token_values_table import (
-    ensure_token_values_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destination_token_values_tables import (
-    ensure_destination_token_values_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destinations_states_table import (
-    ensure_destination_states_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_autopool_destination_states_table import (
-    ensure_autopool_destination_states_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_autopool_states import (
-    ensure_autopool_states_are_current,
 )
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_destination_states_from_rebalance_plan import (
@@ -58,6 +32,17 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_pl
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_rebalance_events import (
     ensure_rebalance_events_are_current,
+)
+
+
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent import (
+    ensure_autopool_destination_states_are_current,
+    ensure_autopool_states_are_current,
+    ensure_autopools_are_current,
+    ensure_destination_token_values_are_current,
+    ensure_destination_states_are_current,
+    ensure__destinations__tokens__and__destination_tokens_are_current,
+    ensure_token_values_are_current,
 )
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_incentives import (
