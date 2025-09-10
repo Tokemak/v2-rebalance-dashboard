@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from mainnet_launch.constants import AutopoolConstants
 from mainnet_launch.database.schema.full import AutopoolStates, Blocks, RebalanceEvents, RebalancePlans
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     merge_tables_as_df,
     get_highest_value_in_field_where,
     TableSelector,

@@ -15,7 +15,7 @@ from mainnet_launch.database.schema.full import (
 )
 
 
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     insert_avoid_conflicts,
     TableSelector,
     merge_tables_as_df,

@@ -13,7 +13,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
 )
 
 from mainnet_launch.database.schema.full import Autopools
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
 )

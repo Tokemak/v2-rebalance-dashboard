@@ -15,7 +15,7 @@ from mainnet_launch.constants import (
     DEAD_ADDRESS,
     SEMAPHORE_LIMITS_FOR_MULTICALL,
 )
-from mainnet_launch.database.schema.postgres_operations import _exec_sql_and_cache
+from mainnet_launch.database.postgres_operations import _exec_sql_and_cache
 
 # todo, refactor into a mulicall folder
 # needed to run these functions in a jupyter notebook

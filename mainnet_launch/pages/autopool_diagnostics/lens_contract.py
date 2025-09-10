@@ -8,7 +8,7 @@ from mainnet_launch.database.schema.full import (
     Autopools,
     Destinations,
 )
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     get_full_table_as_orm,
 )
 

@@ -5,7 +5,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
     ensure_all_blocks_are_in_table,
 )
 
-from mainnet_launch.database.schema.postgres_operations import get_highest_value_in_field_where
+from mainnet_launch.database.postgres_operations import get_highest_value_in_field_where
 from mainnet_launch.database.schema.full import Blocks
 
 

@@ -7,7 +7,7 @@ from mainnet_launch.constants import *
 
 from sqlalchemy import text
 from mainnet_launch.database.schema.full import *
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     merge_tables_as_df,
     get_full_table_as_df,
     TableSelector,

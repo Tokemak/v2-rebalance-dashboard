@@ -9,7 +9,7 @@ from mainnet_launch.database.schema.full import (
     Destinations,
     AutopoolDestinations,
 )
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     merge_tables_as_df,
     TableSelector,
 )

@@ -4,7 +4,7 @@ from time import sleep
 
 
 from mainnet_launch.constants import ChainData, ETH_CHAIN
-from mainnet_launch.database.schema.postgres_operations import simple_agg_by_one_table
+from mainnet_launch.database.postgres_operations import simple_agg_by_one_table
 from mainnet_launch.database.schema.full import Transactions
 from mainnet_launch.data_fetching.etherscan.get_transactions_etherscan import get_all_transactions_sent_by_eoa_address
 from web3 import Web3

@@ -10,7 +10,7 @@ from multicall import Call
 
 from mainnet_launch.constants import *
 from mainnet_launch.database.schema.full import Destinations, AutopoolDestinations
-from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
+from mainnet_launch.database.postgres_operations import get_full_table_as_df
 from mainnet_launch.data_fetching.get_state_by_block import identity_with_bool_success, get_state_by_one_block
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.exit_liquidity.update_total_usd_exit_liqudity import (
     fetch_percent_ownership_by_destination_from_destination_vaults,

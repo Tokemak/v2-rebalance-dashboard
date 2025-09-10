@@ -13,7 +13,7 @@ from mainnet_launch.constants import ETH_CHAIN, ChainData
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_gas_costs.update_transactions_table_for_gas_costs import (
     fetch_tokemak_address_constants_dfs,
 )
-from mainnet_launch.database.schema.postgres_operations import TableSelector, merge_tables_as_df
+from mainnet_launch.database.postgres_operations import TableSelector, merge_tables_as_df
 from mainnet_launch.database.schema.full import Blocks, ChainlinkGasCosts, Transactions
 
 

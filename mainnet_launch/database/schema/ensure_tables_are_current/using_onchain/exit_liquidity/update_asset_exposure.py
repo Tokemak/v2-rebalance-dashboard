@@ -26,7 +26,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
 from mainnet_launch.database.views import get_token_details_dict
 from mainnet_launch.data_fetching.quotes.get_all_underlying_reserves import fetch_raw_amounts_by_destination
 
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     insert_avoid_conflicts,
     get_full_table_as_orm,
     _exec_sql_and_cache,
