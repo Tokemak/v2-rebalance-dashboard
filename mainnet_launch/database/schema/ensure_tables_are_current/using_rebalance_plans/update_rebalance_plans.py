@@ -9,7 +9,7 @@ from web3 import Web3
 from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA, EURC
 from mainnet_launch.database.schema.full import RebalancePlans, Destinations, DexSwapSteps, Tokens
 
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     get_full_table_as_orm,
     insert_avoid_conflicts,
     get_subset_not_already_in_column,

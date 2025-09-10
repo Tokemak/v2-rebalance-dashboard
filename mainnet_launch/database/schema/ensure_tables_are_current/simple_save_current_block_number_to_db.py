@@ -1,9 +1,11 @@
+"""Minimal example to verify that we can connect alchemy, reads and writes to the database."""
+
 from mainnet_launch.constants import ALL_CHAINS, profile_function
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_all_blocks_are_in_table,
 )
 
-from mainnet_launch.database.schema.postgres_operations import get_highest_value_in_field_where
+from mainnet_launch.database.postgres_operations import get_highest_value_in_field_where
 from mainnet_launch.database.schema.full import Blocks
 
 

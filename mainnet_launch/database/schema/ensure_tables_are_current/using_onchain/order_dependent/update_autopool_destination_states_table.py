@@ -6,7 +6,7 @@ from mainnet_launch.database.schema.full import (
     AutopoolDestinations,
     Destinations,
 )
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
     merge_tables_as_df,

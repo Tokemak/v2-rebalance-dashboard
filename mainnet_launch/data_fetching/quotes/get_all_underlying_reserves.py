@@ -4,7 +4,8 @@ from web3 import Web3
 import pandas as pd
 from multicall import Call
 
-from mainnet_launch.pages.autopool_diagnostics.lens_contract import (
+# TODO move this
+from mainnet_launch.pages.autopool.autopool_diagnostics.lens_contract import (
     get_full_destination_pools_and_destinations_at_one_block,
 )
 from mainnet_launch.data_fetching.get_state_by_block import (
@@ -12,7 +13,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     identity_with_bool_success,
 )
 from mainnet_launch.database.schema.full import Tokens
-from mainnet_launch.database.schema.postgres_operations import get_full_table_as_df
+from mainnet_launch.database.postgres_operations import get_full_table_as_df
 from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, AutopoolConstants
 
 

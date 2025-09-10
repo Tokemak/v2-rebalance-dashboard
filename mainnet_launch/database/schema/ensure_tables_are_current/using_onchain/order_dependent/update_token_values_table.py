@@ -16,7 +16,7 @@ from mainnet_launch.abis import STATS_CALCULATOR_REGISTRY_ABI
 from mainnet_launch.data_fetching.get_events import fetch_events
 
 
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     get_full_table_as_orm,
     insert_avoid_conflicts,
     get_subset_not_already_in_column,

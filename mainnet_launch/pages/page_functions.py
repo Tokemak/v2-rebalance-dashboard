@@ -1,29 +1,28 @@
-from mainnet_launch.pages.autopool_diagnostics.autopool_diagnostics_tab import (
-    fetch_and_render_autopool_diagnostics_data,
-)
-from mainnet_launch.pages.autopool_exposure.allocation_over_time import (
+from mainnet_launch.pages.autopool.autopool_exposure.allocation_over_time import (
     fetch_and_render_asset_allocation_over_time,
 )
-from mainnet_launch.pages.autopool_crm.weighted_crm import (
+from mainnet_launch.pages.autopool.autopool_crm.weighted_crm import (
     fetch_and_render_weighted_crm_data,
 )
 
-from mainnet_launch.pages.destination_diagnostics.destination_diagnostics import fetch_and_render_destination_apr_data
+from mainnet_launch.pages.autopool.destination_diagnostics.destination_diagnostics import (
+    fetch_and_render_destination_apr_data,
+)
 
-from mainnet_launch.pages.rebalance_events.rebalance_events import (
+from mainnet_launch.pages.autopool.rebalance_events.rebalance_events import (
     fetch_and_render_rebalance_events_data,
 )
 
-from mainnet_launch.pages.solver_diagnostics.solver_diagnostics import (
+from mainnet_launch.pages.autopool.solver_diagnostics.solver_diagnostics import (
     fetch_and_render_solver_diagnostics_data,
 )
 
-from mainnet_launch.pages.key_metrics.key_metrics import fetch_and_render_key_metrics_data
-from mainnet_launch.pages.gas_costs.gas_costs import (
+from mainnet_launch.pages.autopool.key_metrics.key_metrics import fetch_and_render_key_metrics_data
+from mainnet_launch.pages.protocol_wide.gas_costs.gas_costs import (
     fetch_and_render_gas_costs,
 )
 
-from mainnet_launch.pages.asset_discounts.fetch_and_render_asset_discounts import (
+from mainnet_launch.pages.autopool.asset_discounts.fetch_and_render_asset_discounts import (
     fetch_and_render_asset_discounts,
 )
 

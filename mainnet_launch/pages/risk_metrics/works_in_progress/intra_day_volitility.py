@@ -10,7 +10,7 @@ import datetime
 from mainnet_launch.constants import *
 
 from mainnet_launch.database.schema.full import Destinations, AutopoolDestinations, Tokens, SwapQuote, AssetExposure
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     get_full_table_as_df,
     get_highest_value_in_field_where,
     _exec_sql_and_cache,

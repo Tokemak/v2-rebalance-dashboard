@@ -6,7 +6,7 @@ from mainnet_launch.abis import BALANCER_AURA_DESTINATION_VAULT_ABI
 from mainnet_launch.constants import ChainData, ALL_CHAINS
 
 from mainnet_launch.database.schema.full import Destinations, DestinationUnderlyingDeposited, Transactions
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     get_full_table_as_df,
     merge_tables_as_df,
     TableSelector,

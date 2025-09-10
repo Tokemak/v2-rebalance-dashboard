@@ -5,7 +5,7 @@ from mainnet_launch.data_fetching.internal.fetch_historical_prices import (
     fetch_many_prices_from_internal_api,
 )
 
-from mainnet_launch.database.schema.postgres_operations import _exec_sql_and_cache, insert_avoid_conflicts
+from mainnet_launch.database.postgres_operations import _exec_sql_and_cache, insert_avoid_conflicts
 from mainnet_launch.database.schema.full import IncentiveTokenPrices
 
 

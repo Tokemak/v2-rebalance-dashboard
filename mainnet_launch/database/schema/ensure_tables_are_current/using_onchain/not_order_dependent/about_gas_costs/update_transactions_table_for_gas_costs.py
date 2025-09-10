@@ -3,8 +3,8 @@ import pandas as pd
 from time import sleep
 
 
-from mainnet_launch.constants import ChainData, ETH_CHAIN, time_decorator
-from mainnet_launch.database.schema.postgres_operations import simple_agg_by_one_table
+from mainnet_launch.constants import ChainData, ETH_CHAIN
+from mainnet_launch.database.postgres_operations import simple_agg_by_one_table
 from mainnet_launch.database.schema.full import Transactions
 from mainnet_launch.data_fetching.etherscan.get_transactions_etherscan import get_all_transactions_sent_by_eoa_address
 from web3 import Web3
@@ -98,7 +98,7 @@ def _from_address_to_highest_block_already_stored_in_db(chain: ChainData):
     return highest_block_already_seen
 
 
-def update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched():
+def ensure_tokemak_EOA_gas_costs_are_current():
     """Be certain to get all transactions from 0 to the current block for all deployers and service accounts.
 
     Is slower, but certain to get all transactions.
@@ -166,4 +166,4 @@ def update_tokemak_EOA_gas_costs_from_0():
 if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
 
-    profile_function(update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched)
+    profile_function(ensure_tokemak_EOA_gas_costs_are_current)

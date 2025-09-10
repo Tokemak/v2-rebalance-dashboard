@@ -7,13 +7,15 @@ import pandas as pd
 import requests
 
 from mainnet_launch.database.schema.full import Blocks
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
 )
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, build_blocks_to_use
 
-from mainnet_launch.constants import ALL_CHAINS, ChainData, ETH_CHAIN, time_decorator, profile_function
+from mainnet_launch.constants import ALL_CHAINS, ChainData, ETH_CHAIN, profile_function
+
+# TODO convert this to use the 3rd party data fetching
 
 
 def add_blocks_from_dataframe_to_database(df: pd.DataFrame):

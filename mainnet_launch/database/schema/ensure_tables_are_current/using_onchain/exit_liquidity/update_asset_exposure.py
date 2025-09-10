@@ -17,41 +17,21 @@ from mainnet_launch.constants import (
     AutopoolConstants,
     ALL_AUTOPOOLS,
     ALL_CHAINS,
-    DOLA,
-    USDC,
-    WETH,
+    ALL_BASE_ASSETS,
 )
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_all_blocks_are_in_table,
 )
+from mainnet_launch.database.views import get_token_details_dict
 from mainnet_launch.data_fetching.quotes.get_all_underlying_reserves import fetch_raw_amounts_by_destination
 
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     insert_avoid_conflicts,
     get_full_table_as_orm,
     _exec_sql_and_cache,
 )
-from mainnet_launch.database.schema.full import AssetExposure, SwapQuote, Tokens
-
-# TODO getting the safe and spot prices here as well,
-# then you can compare the swaper with our oracles
-
-USD_REFERENCE_QUANTITY = 10_000
-ETH_REFERENCE_QUANTITY = 5
-
-STANDARD_USD_QUANTITIES = [USD_REFERENCE_QUANTITY, 35_000, 100_000, 200_000]
-STANDARD_ETH_QUANTITIES = [ETH_REFERENCE_QUANTITY, 100, 200]
-
-PORTIONS_TO_CHECK = [0.025, 0.05, 0.1, 0.25, 1]
-
-
-def _fetch_tokens_to_decimals(tokens: list[str], chain: ChainData) -> dict[str, int]:
-    tokens_orms: list[Tokens] = get_full_table_as_orm(
-        Tokens, where_clause=(Tokens.token_address.in_(tokens) & (Tokens.chain_id == chain.chain_id))
-    )
-    tokens_to_decimals = {t.token_address: t.decimals for t in tokens_orms}
-    return tokens_to_decimals
+from mainnet_launch.database.schema.full import AssetExposure
 
 
 def _fetch_asset_exposure(block: int, chain: ChainData, base_asset: TokemakAddress) -> list[AssetExposure]:
@@ -70,10 +50,7 @@ def _fetch_asset_exposure(block: int, chain: ChainData, base_asset: TokemakAddre
     reserve_df["reserve_amount"] = reserve_df["reserve_amount"].map(int)
     asset_exposure = reserve_df.groupby("token_address")["reserve_amount"].sum().to_dict()
 
-    tokens_to_decimals = _fetch_tokens_to_decimals(
-        tokens=list(asset_exposure.keys()),
-        chain=chain,
-    )
+    token_to_decimals, token_to_symbol = get_token_details_dict()
 
     asset_exposure_records = []
     for token_address, raw_quantity in asset_exposure.items():
@@ -87,11 +64,9 @@ def _fetch_asset_exposure(block: int, chain: ChainData, base_asset: TokemakAddre
                 reference_asset=base_asset,
                 token_address=token_address,
                 block=block,
-                quantity=raw_quantity / 10 ** tokens_to_decimals[token_address],
+                quantity=raw_quantity / 10 ** token_to_decimals[token_address],
             )
         )
-    # this is in raw (1e18 intstead of 1) for WETH
-    # raw_quantities
     return asset_exposure_records
 
 
@@ -105,7 +80,7 @@ def _write_asset_exposure_to_database(asset_exposure_records: list[AssetExposure
 def ensure_asset_exposure_is_current():
     for chain in ALL_CHAINS:
         all_asset_exposure_records = []
-        for base_asset in [DOLA, USDC, WETH]:
+        for base_asset in ALL_BASE_ASSETS:
             asset_exposure_records = _fetch_asset_exposure(
                 block=chain.get_block_near_top(),
                 chain=chain,
@@ -120,10 +95,6 @@ def ensure_asset_exposure_is_current():
 
 
 def fetch_latest_asset_exposure() -> pd.DataFrame:
-    # not totally certain on this apparoach, it is in plain sql,
-    # so it is brittle to changes in the schema
-    # but is is easy to read, keeping as is, as an expirement
-
     query = """
 WITH latest_blocks AS (
   SELECT

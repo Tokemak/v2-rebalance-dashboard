@@ -9,9 +9,9 @@ from mainnet_launch.database.schema.full import Transactions
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_all_blocks_are_in_table,
 )
-from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_subset_not_already_in_column
+from mainnet_launch.database.postgres_operations import insert_avoid_conflicts, get_subset_not_already_in_column
 from mainnet_launch.constants import ChainData, DEAD_ADDRESS, time_decorator
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
 )
@@ -68,7 +68,6 @@ def fetch_transaction_rows_bulk_from_alchemy(tx_hashes: list[str], chain: ChainD
     return all_found_transactions
 
 
-@time_decorator
 def ensure_all_transactions_are_saved_in_db(tx_hashes: list[str], chain: ChainData) -> None:
     """
     Idempotently ensure that all tx_hashes are saved in the Transactions table

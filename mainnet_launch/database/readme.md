@@ -1,4 +1,4 @@
-# DEPRECATED
+<!-- # DEPRECATED
 
 # Database Notes
 
@@ -134,4 +134,4 @@ This contains the table name and the last unix timestamp rows were added.
 
 Stores the gas price and gas used by a transaction by hash.
 
-gasCostInETH = gas_used * gas_price / 1e18 
+gasCostInETH = gas_used * gas_price / 1e18  -->

@@ -13,7 +13,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     to_checksum_address_with_bool_success,
 )
 from mainnet_launch.database.schema.full import Destinations, DestinationTokens, Tokens, AutopoolDestinations
-from mainnet_launch.database.schema.postgres_operations import insert_avoid_conflicts, get_subset_not_already_in_column
+from mainnet_launch.database.postgres_operations import insert_avoid_conflicts, get_subset_not_already_in_column
 
 
 # the reason why this is slow, is because it is inserting all of the destinations even if we have them

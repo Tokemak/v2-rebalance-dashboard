@@ -13,74 +13,34 @@ open questions:
 
 from concurrent.futures import ThreadPoolExecutor
 
-from mainnet_launch.constants import ALL_CHAINS
+from mainnet_launch.constants import ALL_CHAINS, profile_function
 
 from mainnet_launch.database.schema.full import ENGINE
+
+
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_blocks_is_current,
 )
-from mainnet_launch.constants import profile_function
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destinations_tokens_and_autopoolDestinations_table import (
-    ensure__destinations__tokens__and__destination_tokens_are_current,
-)
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_autopools_table import (
-    ensure_autopools_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_token_values_table import (
-    ensure_token_values_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destination_token_values_tables import (
-    ensure_destination_token_values_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destinations_states_table import (
-    ensure_destination_states_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_autopool_destination_states_table import (
-    ensure_autopool_destination_states_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_autopool_states import (
-    ensure_autopool_states_are_current,
-)
-from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_destination_states_from_rebalance_plan import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans import (
     ensure_destination_states_from_rebalance_plan_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_rebalance_plans import (
     ensure_rebalance_plans_table_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_rebalance_plans.update_rebalance_events import (
     ensure_rebalance_events_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_gas_costs.update_transactions_table_for_gas_costs import (
-    update_tokemak_EOA_gas_costs_from_0,
-    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched,
+
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent import (
+    ensure_autopool_destination_states_are_current,
+    ensure_autopool_states_are_current,
+    ensure_autopools_are_current,
+    ensure_destination_token_values_are_current,
+    ensure_destination_states_are_current,
+    ensure__destinations__tokens__and__destination_tokens_are_current,
+    ensure_token_values_are_current,
 )
 
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_gas_costs.update_chainlink_keeper_gas_costs_table import (
-    ensure_chainlink_gas_costs_table_is_updated,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_destinations.update_destination_underlying_deposited import (
-    ensure_destination_underlying_deposits_are_current,
-)
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_destinations.update_destination_underlying_withdraw import (
-    ensure_destination_underlying_withdraw_are_current,
-)
-
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_incentives.update_incentive_token_sales import (
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_incentives import (
     ensure_incentive_token_swapped_events_are_current,
-)
-
-from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_incentives.update_incentive_token_prices import (
     ensure_incentive_token_prices_are_current,
 )
 
@@ -89,6 +49,16 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
     ensure_autopool_deposits_are_current,
     ensure_autopool_transfers_are_current,
     ensure_autopool_withdraws_are_current,
+)
+
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_destinations import (
+    ensure_destination_underlying_deposits_are_current,
+    ensure_destination_underlying_withdraw_are_current,
+)
+
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_gas_costs import (
+    ensure_tokemak_EOA_gas_costs_are_current,
+    ensure_chainlink_gas_costs_table_are_current,
 )
 
 
@@ -120,8 +90,8 @@ def _fully_independent_update_functions():
     currently running in order becuase the other parts are slow and even if this takes a bit longer, it doesn't matter
     """
 
-    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()
-    ensure_chainlink_gas_costs_table_is_updated()
+    ensure_tokemak_EOA_gas_costs_are_current()
+    ensure_chainlink_gas_costs_table_are_current()
     ensure_autopool_fees_are_current()
     ensure_incentive_token_swapped_events_are_current()
     ensure_incentive_token_prices_are_current()
@@ -172,8 +142,8 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
     ensure_autopools_are_current()
     ensure__destinations__tokens__and__destination_tokens_are_current()
 
-    update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()
-    ensure_chainlink_gas_costs_table_is_updated()
+    ensure_tokemak_EOA_gas_costs_are_current()
+    ensure_chainlink_gas_costs_table_are_current()
     ensure_autopool_fees_are_current()
 
     ensure_incentive_token_swapped_events_are_current()

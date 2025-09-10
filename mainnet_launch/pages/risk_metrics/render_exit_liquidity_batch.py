@@ -9,7 +9,7 @@ from plotly.subplots import make_subplots
 from mainnet_launch.constants import *
 
 from mainnet_launch.database.schema.full import Tokens, SwapQuote, AssetExposure
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     get_full_table_as_df,
     _exec_sql_and_cache,
 )

@@ -22,7 +22,7 @@ from mainnet_launch.database.schema.full import (
     RebalanceEvents,
     Transactions,
 )
-from mainnet_launch.database.schema.postgres_operations import (
+from mainnet_launch.database.postgres_operations import (
     get_full_table_as_df,
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
