@@ -152,9 +152,9 @@
 #             """
 #         Top level metrics.
 
-#         - For Chainlink Keepers we pay (in LINK) the ETH cost of the transaction + a 20% premium. 
+#         - For Chainlink Keepers we pay (in LINK) the ETH cost of the transaction + a 20% premium.
 #         - We don't pay a premium for the Solver because it is in-house.
-#         - Currently Keeper transactions are set to execute at any gas price. 
+#         - Currently Keeper transactions are set to execute at any gas price.
 #         - We can set a max gas price here https://docs.chain.link/chainlink-automation/guides/gas-price-threshold
 #         - This max price can be updated frequently
 #         )
