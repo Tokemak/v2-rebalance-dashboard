@@ -12,9 +12,6 @@ from mainnet_launch.database.postgres_operations import (
     get_full_table_as_orm,
 )
 
-block_number = 20929842
-
-
 GET_POOLS_AND_DESTINATIONS_SIGNATURE = "getPoolsAndDestinations()(((address,string,string,bytes32,address,uint256,uint256,bool,bool,bool,uint8,address,address,uint256,uint256,uint256,uint256,uint256)[],(address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,bool,bool,bool,uint8,uint256,uint256,address,address,string,string,uint256,uint8,int256,(address)[],(address)[],(string)[],(uint256,uint256,int256,uint24[10],uint40)[],(uint256)[],uint256[],uint40[],uint256[])[][]))"
 
 
