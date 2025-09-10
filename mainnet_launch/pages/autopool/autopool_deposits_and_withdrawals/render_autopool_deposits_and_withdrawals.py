@@ -64,15 +64,19 @@ def _make_deposit_and_withdraw_figure(
         fig.update_layout(title=f"{autopool.name} No deposit/withdraw data", height=400)
         return fig
 
-    change_df = pd.merge(
-        deposit_df.rename(columns={"assets": "deposits"})['deposits'],
-        withdraw_df.rename(columns={"assets": "withdrawals"})['withdrawals'],
-        left_index=True,
-        right_index=True,
-        how="outer"
-    ).fillna(0).round(2)
-    change_df['withdrawals'] = -change_df['withdrawals']  # Make withdrawals negative for net change calculation
-            
+    change_df = (
+        pd.merge(
+            deposit_df.rename(columns={"assets": "deposits"})["deposits"],
+            withdraw_df.rename(columns={"assets": "withdrawals"})["withdrawals"],
+            left_index=True,
+            right_index=True,
+            how="outer",
+        )
+        .fillna(0)
+        .round(2)
+    )
+    change_df["withdrawals"] = -change_df["withdrawals"]  # Make withdrawals negative for net change calculation
+
     change_df = change_df.resample(f"{n_days}D").sum()
     change_df["net_change"] = change_df["deposits"] + change_df["withdrawals"]
 
