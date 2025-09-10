@@ -17,6 +17,7 @@ from mainnet_launch.constants import (
 )
 from mainnet_launch.database.schema.postgres_operations import _exec_sql_and_cache
 
+# todo, refactor into a mulicall folder
 # needed to run these functions in a jupyter notebook
 nest_asyncio.apply()
 

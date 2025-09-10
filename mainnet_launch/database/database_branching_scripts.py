@@ -6,6 +6,8 @@ import os
 from dotenv import load_dotenv
 import requests
 
+# not used, consider using later
+
 
 load_dotenv()
 

@@ -67,9 +67,7 @@ def _fetch_current_asset_exposure(
 
 def fetch_needed_context(chain: ChainData, block: int, valid_autopools: list[AutopoolConstants]):
     # TODO I suspect this duplicates work
-    unscaled_asset_exposure = _fetch_current_asset_exposure(
-        chain, valid_autopools, block
-    )  # not this has a composable stablepool init
+    unscaled_asset_exposure = _fetch_current_asset_exposure(chain, valid_autopools, block)
     percent_ownership_by_destination_df = fetch_readable_our_tvl_by_destination(chain, block)
 
     autopool_destinations = get_full_table_as_df(
