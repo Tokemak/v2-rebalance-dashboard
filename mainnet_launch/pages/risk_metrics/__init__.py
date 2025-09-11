@@ -18,7 +18,7 @@ RISK_METRICS_FUNCTIONS = {
 
 
 RISK_METRICS_FUNCTIONS_WITH_ARGS = {
-    # "Tokemak Percent Ownership": fetch_and_render_one_option_for_percent_ownership_by_destination,
+    "Tokemak Percent Ownership": fetch_and_render_one_option_for_percent_ownership_by_destination,
     "Toy render function": toy_render_function
 }
 
