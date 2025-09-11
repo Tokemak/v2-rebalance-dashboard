@@ -7,14 +7,17 @@ from mainnet_launch.abis import ERC_20_ABI
 from mainnet_launch.data_fetching.get_events import fetch_events
 
 
+@pytest.mark.integration
 def test_fetch_events_recusive_split():
     pass
 
 
+@pytest.mark.integration
 def test_fetch_events_no_events():
     pass
 
 
+@pytest.mark.integration
 def fetch_each_chain():
     # weth, - 1000 blocks on sonic, eth, base,
     # expect at least some transfers
@@ -33,6 +36,7 @@ def fetch_each_chain():
         # not sure why sonic works here, it doesn't work for autopool transfers
 
 
+@pytest.mark.integration
 def test_fetch_transfers_on_each_autopool():
     for autopool in ALL_AUTOPOOLS:
         contract = autopool.chain.client.eth.contract(
@@ -50,13 +54,11 @@ def test_fetch_transfers_on_each_autopool():
         print(transfer_df.shape, autopool.name)
 
 
+@pytest.mark.integration
 def test_fail_if_block_after_highest_block():
     pass
 
 
+@pytest.mark.integration
 def fetch_fail_on_end_block_less_than_start_block():
     pass
-
-
-if __name__ == "__main__":
-    test_fetch_transfers_on_each_autopool()

@@ -1,4 +1,4 @@
-from __future__ import annotations  # required for type hinting and pytest
+from __future__ import annotations
 
 import math
 import pandas as pd

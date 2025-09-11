@@ -6,6 +6,7 @@ from streamlit.testing.v1 import AppTest
 
 from mainnet_launch.constants import CHAIN_BASE_ASSET_GROUPS
 from mainnet_launch.pages.risk_metrics import RISK_METRICS_FUNCTIONS_WITH_ARGS
+import traceback
 
 
 # Optional: make Streamlit behave fully headless in CI
@@ -24,47 +25,23 @@ def _params():
             )
 
 
-@pytest.mark.integration
 @pytest.mark.parametrize("page_fn,kwargs", list(_params()))
 def test_risk_metrics_pages_render_without_error(page_fn, kwargs):
     """
     End-to-end smoke test: calling each risk-metrics page function with its
     (chain, base_asset, valid_autopools) args should not raise and should render something.
     """
-    # Run the Streamlit app function with kwargs
-    at = AppTest.from_function(page_fn, kwargs=kwargs).run()
+    try:
+        # Run the Streamlit app function with kwargs
+        at = AppTest.from_function(page_fn, kwargs=kwargs).run()
 
-    # Assert the app didn't crash
-    assert at.exception is None, f"Streamlit app raised: {at.exception}"
+        # Assert the app didn't crash
+        assert at.exception is None, f"Streamlit app raised: {at.exception}"
 
-    # Minimal sanity: expect at least one element rendered (markdown/text/plot/etc.)
-    # Accessing a broad container is safest across versions.
-    assert len(at.delta_generator._root_dg._queue) > 0, "Nothing was rendered to the page"
-
-
-# # tests/test_risk_metrics_pages_integration.py
-
-# import pytest
-# import streamlit as st
-
-# from streamlit.testing.v1 import AppTest
-
-# from mainnet_launch.constants import CHAIN_BASE_ASSET_GROUPS
-# from mainnet_launch.pages.risk_metrics import RISK_METRICS_FUNCTIONS_WITH_ARGS
-
-
-# def _risk_metrics_parameter_grid():
-#     for fn_name, page_fn in RISK_METRICS_FUNCTIONS_WITH_ARGS.items():
-#         for (chain, base_asset), valid_autopools in CHAIN_BASE_ASSET_GROUPS.items():
-#             test_label = f"{fn_name}-{chain.name}-{base_asset.name}"
-#             yield page_fn, chain, base_asset, valid_autopools, test_label
-
-
-# def main():
-#     for page_fn, chain, base_asset, valid_autopools, test_label in _risk_metrics_parameter_grid():
-#         st.write(f"Smoke test: {test_label}")
-#         page_fn(chain=chain, base_asset=base_asset, valid_autopools=valid_autopools)
-
-
-# if __name__ == "__main__":
-#     main()
+        # Minimal sanity: expect at least one element rendered (markdown/text/plot/etc.)
+        # Accessing a broad container is safest across versions.
+        assert len(at.delta_generator._root_dg._queue) > 0, "Nothing was rendered to the page"
+    except Exception as e:
+        # Print the entire stack trace for debugging
+        traceback.print_exc()
+        raise AssertionError(f"Test failed with error: {e}") from e
