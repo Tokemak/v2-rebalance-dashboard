@@ -35,5 +35,3 @@ def _param_generator():
 def test_risk_metrics_pages(fn_name, kwargs):
     """Smoke test: ensure each risk metrics page function runs without error."""
     _run_page(**kwargs, _fn_name=fn_name)
-
-

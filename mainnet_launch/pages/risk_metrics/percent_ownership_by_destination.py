@@ -209,12 +209,6 @@ def fetch_and_render_our_percent_ownership_of_each_destination():
     fetch_and_render_one_option_for_percent_ownership_by_destination(chain, base_asset, valid_autopools)
 
 
-def toy_render_function(chain: ChainData, base_asset: TokemakAddress, valid_autopools: list[AutopoolConstants]):
-    st.write(
-        f"Chain: {chain.name}, Base Asset: {base_asset.name}, Valid Autopools: {[a.name for a in valid_autopools]}"
-    )
-
-
 def fetch_and_render_one_option_for_percent_ownership_by_destination(
     chain: ChainData, base_asset: TokemakAddress, valid_autopools: list[AutopoolConstants]
 ):

@@ -62,7 +62,7 @@ export_config = "mainnet_launch.app.export_config:create_streamlit_secrets_from_
 markers = [
     "integration: marks tests that make external calls / slow integration tests"
 ]
-addopts = "-m \"not integration\""
+addopts = "-m 'not integration' -n auto -q --tb=short"
 # or equivalently:
 # addopts = '-m "not integration"'
 
