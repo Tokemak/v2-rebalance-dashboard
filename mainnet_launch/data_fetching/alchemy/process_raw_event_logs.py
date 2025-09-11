@@ -1,4 +1,5 @@
 # the dominating time cost is in the log decoding, not certain on the way to speed it up.
+from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor
 

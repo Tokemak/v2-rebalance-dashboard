@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import asyncio
 import aiohttp
 from datetime import datetime, timezone
 
 import pandas as pd
-from aiolimiter import AsyncLimiter
 
 from mainnet_launch.constants import ChainData, ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN
 from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import _run_async_safely, _get_json_with_retry

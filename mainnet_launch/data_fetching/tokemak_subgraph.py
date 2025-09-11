@@ -1,4 +1,5 @@
 """Helper methods to fetch data from the tokemak subgraph"""
+from __future__ import annotations
 
 from pprint import pprint
 
