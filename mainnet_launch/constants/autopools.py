@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 from .models import AutopoolConstants
 from .chains import ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN
 from .secrets import BUCKETS
