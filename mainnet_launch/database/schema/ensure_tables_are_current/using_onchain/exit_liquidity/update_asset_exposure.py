@@ -5,8 +5,6 @@ For each (chain, base asset) pair:
 2. Using our swapper API, get quotes for selling back to the base asset at various sizes.
 """
 
-
-
 import pandas as pd
 
 

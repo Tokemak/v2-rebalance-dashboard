@@ -1,6 +1,3 @@
-
-
-
 from .update_transactions_table_for_gas_costs import (
     update_tokemak_EOA_gas_costs_from_0,
     ensure_tokemak_EOA_gas_costs_are_current,

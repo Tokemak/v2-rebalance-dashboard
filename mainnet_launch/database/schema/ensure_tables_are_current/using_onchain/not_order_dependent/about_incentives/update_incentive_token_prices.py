@@ -1,5 +1,3 @@
-
-
 import pandas as pd
 
 from mainnet_launch.data_fetching.internal.fetch_historical_prices import (

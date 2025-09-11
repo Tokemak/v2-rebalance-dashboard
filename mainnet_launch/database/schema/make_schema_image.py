@@ -1,6 +1,3 @@
-
-
-
 import pydot
 from sqlalchemy_schemadisplay import create_schema_graph
 

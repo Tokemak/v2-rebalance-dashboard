@@ -5,9 +5,6 @@ Don't rely on this for perfect accuracy, it is using coingecko, etc for past pri
 
 """
 
-
-
-
 from dataclasses import dataclass
 
 import pandas as pd

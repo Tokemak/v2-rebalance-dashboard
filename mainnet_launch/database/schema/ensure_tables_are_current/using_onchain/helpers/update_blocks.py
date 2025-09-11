@@ -1,6 +1,3 @@
-
-
-
 from datetime import datetime, timedelta, timezone
 import threading
 import time

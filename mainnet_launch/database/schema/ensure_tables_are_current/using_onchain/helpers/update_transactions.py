@@ -1,7 +1,5 @@
 """Helper to idempotently ensure that all transactions are saved in the Transactions table"""
 
-
-
 import numpy as np
 import requests
 import json

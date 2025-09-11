@@ -1,5 +1,3 @@
-
-
 from .percent_ownership_by_destination import (
     fetch_and_render_our_percent_ownership_of_each_destination,
     fetch_and_render_one_option_for_percent_ownership_by_destination,

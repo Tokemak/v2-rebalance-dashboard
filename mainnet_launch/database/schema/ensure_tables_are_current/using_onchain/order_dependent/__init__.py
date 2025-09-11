@@ -1,6 +1,3 @@
-
-
-
 from .update_autopool_destination_states_table import ensure_autopool_destination_states_are_current
 from .update_autopool_states import ensure_autopool_states_are_current
 from .update_autopools_table import ensure_autopools_are_current

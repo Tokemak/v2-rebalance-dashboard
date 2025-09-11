@@ -1,5 +1,3 @@
-
-
 from multicall import Call
 
 from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS

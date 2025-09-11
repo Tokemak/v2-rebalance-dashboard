@@ -1,7 +1,5 @@
 """Minimal example to verify that we can connect alchemy, reads and writes to the database."""
 
-
-
 from mainnet_launch.constants import ALL_CHAINS, profile_function
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_all_blocks_are_in_table,

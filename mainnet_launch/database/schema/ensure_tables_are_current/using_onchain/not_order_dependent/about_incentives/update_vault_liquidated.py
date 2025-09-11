@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
 
-
 @dataclass
 class VaultLiquidated:
     """Reward tokens are sold for base asset. This at a per destiantion vault level"""

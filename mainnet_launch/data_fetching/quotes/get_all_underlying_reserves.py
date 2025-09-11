@@ -1,8 +1,5 @@
 """Get the reserves of an autopool at this block"""
 
-
-
-
 from web3 import Web3
 import pandas as pd
 from multicall import Call

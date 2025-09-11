@@ -1,7 +1,5 @@
 """Not exactly views but the same concept"""
 
-
-
 import pandas as pd
 
 

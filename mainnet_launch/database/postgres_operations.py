@@ -1,7 +1,5 @@
 """data access layer functions for postgres"""
 
-
-
 from dataclasses import dataclass
 import io
 import csv

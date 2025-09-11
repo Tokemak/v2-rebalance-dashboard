@@ -1,7 +1,5 @@
 """Holds internal functions to make marketing data"""
 
-
-
 import streamlit as st
 import time
 from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit, STREAMLIT_MARKDOWN_HTML

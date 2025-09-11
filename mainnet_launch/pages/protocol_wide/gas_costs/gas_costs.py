@@ -4,9 +4,6 @@ Display gas costs for Tokemak's EOA addresses and Chainlink keeper network trans
 Only looks at mainnet
 """
 
-
-
-
 import pandas as pd
 import plotly.express as px
 import streamlit as st

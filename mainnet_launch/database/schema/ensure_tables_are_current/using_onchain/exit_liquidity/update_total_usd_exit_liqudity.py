@@ -1,8 +1,5 @@
 """Not used. Using dex screener and coingecko, fetch the USD liquidty (in the other side) of found liquidity pools"""
 
-
-
-
 from web3 import Web3
 import pandas as pd
 import streamlit as st

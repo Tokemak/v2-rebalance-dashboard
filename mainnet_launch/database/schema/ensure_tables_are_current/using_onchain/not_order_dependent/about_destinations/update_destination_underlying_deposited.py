@@ -1,7 +1,5 @@
 """Assumes that all the destinations are in Destinations Table"""
 
-
-
 import pandas as pd
 
 from mainnet_launch.abis import BALANCER_AURA_DESTINATION_VAULT_ABI

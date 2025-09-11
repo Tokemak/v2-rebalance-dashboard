@@ -1,5 +1,3 @@
-
-
 import pandas as pd
 from multicall import Call
 from sqlalchemy import text, bindparam

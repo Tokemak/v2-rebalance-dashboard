@@ -11,9 +11,6 @@ open questions:
 
 """
 
-
-
-
 from concurrent.futures import ThreadPoolExecutor
 
 from mainnet_launch.constants import ALL_CHAINS, profile_function

@@ -1,7 +1,5 @@
 """Note: getLogs supports the same event from multiple contracts in one call, but this is not implemented here."""
 
-
-
 # don't add a silent parameter yet, shows where we are making redundent event fetches
 
 from enum import Enum

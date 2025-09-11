@@ -1,7 +1,5 @@
 """Helper methods to fetch data from the tokemak subgraph"""
 
-
-
 from pprint import pprint
 
 import requests
