@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 from mainnet_launch.app.marketing_app.marketing_pages.autopool_cumulative_volume import (
     fetch_and_render_cumulative_volume,
 )

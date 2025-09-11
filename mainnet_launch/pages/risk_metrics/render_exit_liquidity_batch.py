@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import plotly.express as px
 import streamlit as st
 import plotly.io as pio
