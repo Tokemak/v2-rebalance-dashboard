@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pandas as pd
 from multicall import Call
 from sqlalchemy import text, bindparam

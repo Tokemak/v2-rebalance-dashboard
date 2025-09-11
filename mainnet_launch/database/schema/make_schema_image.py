@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 import pydot
 from sqlalchemy_schemadisplay import create_schema_graph
 

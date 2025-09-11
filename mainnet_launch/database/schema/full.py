@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 from dataclasses import asdict
 from dotenv import load_dotenv
 from urllib.parse import urlparse

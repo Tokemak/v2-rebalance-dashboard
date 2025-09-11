@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .update_destination_states_from_rebalance_plan import ensure_destination_states_from_rebalance_plan_are_current
 from .update_rebalance_events import (
     ensure_rebalance_events_are_current,
