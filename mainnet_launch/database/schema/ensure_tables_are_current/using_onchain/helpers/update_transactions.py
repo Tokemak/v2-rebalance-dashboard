@@ -1,4 +1,5 @@
 """Helper to idempotently ensure that all transactions are saved in the Transactions table"""
+from __future__ import annotations
 
 import numpy as np
 import requests

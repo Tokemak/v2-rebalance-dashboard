@@ -5,9 +5,8 @@ For each (chain, base asset) pair:
 2. Using our swapper API, get quotes for selling back to the base asset at various sizes.
 """
 
-import asyncio
-import streamlit as st
-import plotly.express as px
+from __future__ import annotations
+
 import pandas as pd
 
 

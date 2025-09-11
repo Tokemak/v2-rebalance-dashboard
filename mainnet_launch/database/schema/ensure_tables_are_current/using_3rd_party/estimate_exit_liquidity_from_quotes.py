@@ -1,4 +1,7 @@
 # broken as of aug 26
+from __future__ import annotations
+
+
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 

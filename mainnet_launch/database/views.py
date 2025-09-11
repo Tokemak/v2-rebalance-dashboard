@@ -1,4 +1,5 @@
 """Not exactly views but the same concept"""
+from __future__ import annotations
 
 import pandas as pd
 

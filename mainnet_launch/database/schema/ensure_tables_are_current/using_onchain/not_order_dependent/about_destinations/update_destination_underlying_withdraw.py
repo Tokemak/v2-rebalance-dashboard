@@ -1,4 +1,5 @@
 """Assumes that all the destinations are in Destinations Table"""
+from __future__ import annotations
 
 # duplicates *much* code from mainnet_launch/database/schema/ensure_tables_are_current/using_onchain/update_destination_underlying_deposited.py
 

@@ -2,6 +2,9 @@
 # this can be ran in parellel to other update functions
 # 20 seconds from 0,
 # 12 seconds with no updates
+from __future__ import annotations
+
+
 
 import pandas as pd
 

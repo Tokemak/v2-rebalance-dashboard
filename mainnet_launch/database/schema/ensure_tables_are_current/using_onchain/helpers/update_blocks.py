@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 from datetime import datetime, timedelta, timezone
 import threading
 import time
