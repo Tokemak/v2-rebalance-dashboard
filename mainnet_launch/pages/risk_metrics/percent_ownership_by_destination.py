@@ -1,3 +1,5 @@
+from __future__ import annotations  # required for type hinting and pytest
+
 import math
 import pandas as pd
 import plotly.graph_objects as go
@@ -205,9 +207,19 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
 
 def fetch_and_render_our_percent_ownership_of_each_destination():
     st.subheader("Percent Ownership by Destination")
-
     chain, base_asset, valid_autopools = render_pick_chain_and_base_asset_dropdown()
+    fetch_and_render_one_option_for_percent_ownership_by_destination(chain, base_asset, valid_autopools)
 
+
+def toy_render_function(chain: ChainData, base_asset: TokemakAddress, valid_autopools: list[AutopoolConstants]):
+    st.write(
+        f"Chain: {chain.name}, Base Asset: {base_asset.name}, Valid Autopools: {[a.name for a in valid_autopools]}"
+    )
+
+
+def fetch_and_render_one_option_for_percent_ownership_by_destination(
+    chain: ChainData, base_asset: TokemakAddress, valid_autopools: list[AutopoolConstants]
+):
     with st.spinner(f"Fetching {chain.name} {base_asset.name} Percent Ownership By Destination..."):
         our_tvl_by_destination_df = fetch_readable_our_tvl_by_destination(chain, chain.get_block_near_top())
 
