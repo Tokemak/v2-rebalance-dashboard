@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 
 from .update_autopool_destination_states_table import ensure_autopool_destination_states_are_current

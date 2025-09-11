@@ -1,6 +1,6 @@
 """Get the reserves of an autopool at this block"""
 
-from __future__ import annotations
+
 
 
 from web3 import Web3

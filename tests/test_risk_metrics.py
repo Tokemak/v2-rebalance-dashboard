@@ -1,5 +1,5 @@
 # tests/test_risk_metrics_pages_integration.py
-from __future__ import annotations
+
 
 import os
 import pytest

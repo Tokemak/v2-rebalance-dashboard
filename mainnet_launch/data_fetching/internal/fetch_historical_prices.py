@@ -5,7 +5,7 @@ Don't rely on this for perfect accuracy, it is using coingecko, etc for past pri
 
 """
 
-from __future__ import annotations
+
 
 
 from dataclasses import dataclass

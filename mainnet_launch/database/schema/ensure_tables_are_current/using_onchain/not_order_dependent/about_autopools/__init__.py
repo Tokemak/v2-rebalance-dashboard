@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 
 from .update_autopool_fees import ensure_autopool_fees_are_current

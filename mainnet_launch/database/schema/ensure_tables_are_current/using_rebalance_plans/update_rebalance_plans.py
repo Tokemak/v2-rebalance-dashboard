@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 

@@ -1,6 +1,6 @@
 """data access layer functions for postgres"""
 
-from __future__ import annotations
+
 
 from dataclasses import dataclass
 import io

@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 import requests
 import pandas as pd
 from mainnet_launch.constants import ChainData, ETHERSCAN_API_KEY, ETHERSCAN_API_URL

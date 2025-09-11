@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 from .percent_ownership_by_destination import (
     fetch_and_render_our_percent_ownership_of_each_destination,
