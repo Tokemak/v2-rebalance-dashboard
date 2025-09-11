@@ -10,6 +10,7 @@ open questions:
 - that should save a lot of checks to see if we have all the needed blocks
 
 """
+
 from __future__ import annotations
 
 

@@ -1,4 +1,5 @@
 """Assumes that all the destinations are in Destinations Table"""
+
 from __future__ import annotations
 
 import pandas as pd

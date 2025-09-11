@@ -19,8 +19,8 @@ for GHO, we also need aGHO, because they are the same token, but have different 
 similar for scrvUSD, crvUSD 
 
 """
-from __future__ import annotations
 
+from __future__ import annotations
 
 
 from dataclasses import dataclass

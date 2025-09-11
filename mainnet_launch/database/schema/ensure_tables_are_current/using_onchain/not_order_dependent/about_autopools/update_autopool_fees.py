@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 
-
 import pandas as pd
 
 from mainnet_launch.constants import ALL_AUTOPOOLS, ALL_CHAINS, profile_function

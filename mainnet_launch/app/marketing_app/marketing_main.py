@@ -1,4 +1,5 @@
 """Holds internal functions to make marketing data"""
+
 from __future__ import annotations
 
 import streamlit as st

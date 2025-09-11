@@ -262,7 +262,7 @@
 
 #             ## Achieved vs Oracle Price
 #             - This metric uses the Root Price Oracle to fetch the current price of the incentive token (typically via Chainlink)
-#             - Positive values indicate that we sold the incentive token for more than the Oracle Price at that block. 
+#             - Positive values indicate that we sold the incentive token for more than the Oracle Price at that block.
 #             """
 #         )
 

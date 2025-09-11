@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from __future__ import annotations
 
 
-
 @dataclass
 class VaultLiquidated:
     """Reward tokens are sold for base asset. This at a per destiantion vault level"""

@@ -198,16 +198,16 @@
 #                 ## Key Metrics Explained
 
 #                 ### Gross Return
- 
+
 #                 - The *hypothetical* `n-day` annualized growth in NAV per share, calculated by removing Tokemak fees and rebalance costs.
 
-                
+
 #                 ### Annualized Change in Price Return
 #                 - The annualized change in the autopool weighted Price Return over an `n-day` period.
 
 #                 > Annualized Change in Price Return = (Change in Weighted Price Return over n days) x (365 / n)
 
-#                 - **Interpretation:**  
+#                 - **Interpretation:**
 #                 - A **positive** value indicates that the Price Return has increased (e.g., an increase in LST discounts causing assets to be valued lower).
 #                 - A **negative** value indicates a decrease in the Price Return (e.g., a decrease in LST discount causing asset values to increase).
 
@@ -220,9 +220,9 @@
 
 #                 - The is what the autopool APR *should* be if the `n-day` Rolling Average Composite Return Out was perfectly accurate and the change in price return fully captured the change in asset value.
 
-#                 The Solver makes rebalance decisions to exit a destination based on Composite Return Out. 
+#                 The Solver makes rebalance decisions to exit a destination based on Composite Return Out.
 
-#                 The price return of a destination is a relativly small factor of price return. It is not scaled at all. 
+#                 The price return of a destination is a relativly small factor of price return. It is not scaled at all.
 
 #                 """
 #         )
