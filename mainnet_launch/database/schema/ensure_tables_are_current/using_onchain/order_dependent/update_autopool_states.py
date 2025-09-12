@@ -41,7 +41,6 @@ def _fetch_new_autopool_state_rows(
             totalIdle, totalDebt, totalDebtMin, totalDebtMax = AssetBreakdown
             return int(totalIdle + totalDebt) / 1e6
 
-    calls = []
     if autopool.base_asset_decimals == 18:
         total_nav_cleaning_function = _extract_debt_plus_idle_18
         nav_per_share_cleaning_function = safe_normalize_with_bool_success
@@ -51,25 +50,23 @@ def _fetch_new_autopool_state_rows(
     else:
         raise ValueError(f"Unknown base asset {autopool.base_asset} for autopool {autopool.autopool_eth_addr}")
 
-    calls.extend(
-        [
-            Call(
-                autopool.autopool_eth_addr,
-                ["totalSupply()(uint256)"],
-                [((autopool.autopool_eth_addr, "total_shares"), safe_normalize_with_bool_success)],  # always 1e18
-            ),
-            Call(
-                autopool.autopool_eth_addr,
-                ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
-                [((autopool.autopool_eth_addr, "total_nav"), total_nav_cleaning_function)],
-            ),
-            Call(
-                autopool.autopool_eth_addr,
-                ["convertToAssets(uint256)(uint256)", int(1e18)],  # autopool shares are always in 1e18
-                [((autopool.autopool_eth_addr, "nav_per_share"), nav_per_share_cleaning_function)],
-            ),
-        ]
-    )
+    calls = [
+        Call(
+            autopool.autopool_eth_addr,
+            ["totalSupply()(uint256)"],
+            [((autopool.autopool_eth_addr, "total_shares"), safe_normalize_with_bool_success)],  # always 1e18
+        ),
+        Call(
+            autopool.autopool_eth_addr,
+            ["getAssetBreakdown()((uint256,uint256,uint256,uint256))"],
+            [((autopool.autopool_eth_addr, "total_nav"), total_nav_cleaning_function)],
+        ),
+        Call(
+            autopool.autopool_eth_addr,
+            ["convertToAssets(uint256)(uint256)", int(1e18)],  # autopool shares are always in 1e18
+            [((autopool.autopool_eth_addr, "nav_per_share"), nav_per_share_cleaning_function)],
+        ),
+    ]
 
     autopool_state_df = get_raw_state_by_blocks(calls, missing_blocks, autopool.chain, include_block_number=True)
 
@@ -78,9 +75,9 @@ def _fetch_new_autopool_state_rows(
             autopool_vault_address=autopool.autopool_eth_addr,
             block=int(row["block"]),
             chain_id=autopool.chain.chain_id,
-            total_shares=row[(autopool.autopool_eth_addr, "total_shares")],
-            total_nav=row[(autopool.autopool_eth_addr, "total_nav")],
-            nav_per_share=row[(autopool.autopool_eth_addr, "nav_per_share")],
+            total_shares=float(row[(autopool.autopool_eth_addr, "total_shares")]),
+            total_nav=float(row[(autopool.autopool_eth_addr, "total_nav")]),
+            nav_per_share=float(row[(autopool.autopool_eth_addr, "nav_per_share")]),
         ),
         axis=1,
     ).tolist()
@@ -97,7 +94,6 @@ def _fetch_and_insert_new_autopool_states(autopool: AutopoolConstants) -> None:
     insert_avoid_conflicts(
         new_autopool_states_rows,
         AutopoolStates,
-        index_elements=[AutopoolStates.autopool_vault_address, AutopoolStates.chain_id, AutopoolStates.block],
     )
 
 
