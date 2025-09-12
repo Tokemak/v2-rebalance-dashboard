@@ -13,31 +13,37 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.orde
 )
 
 
-def _get_blocks_in_withdrawals_not_in_states() -> pd.DataFrame:
+def _get_blocks_in_withdrawals_or_deposits_not_in_states() -> pd.DataFrame:
     query = """
-        SELECT DISTINCT
-            w.autopool_vault_address,
-            w.chain_id,
-            tx.block
-        FROM autopool_withdrawals AS w
-        JOIN transactions AS tx
-            ON tx.tx_hash = w.tx_hash
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM autopool_states AS s
-            WHERE s.autopool_vault_address = w.autopool_vault_address
-              AND s.chain_id = w.chain_id
-              AND s.block = tx.block
-        )
-        ORDER BY w.chain_id, w.autopool_vault_address, tx.block;
-    """
+            WITH events AS (
+                SELECT w.autopool_vault_address, w.chain_id, tx.block
+                FROM autopool_withdrawals AS w
+                JOIN transactions AS tx
+                ON tx.tx_hash = w.tx_hash
+
+                UNION
+
+                SELECT d.autopool_vault_address, d.chain_id, tx.block
+                FROM autopool_deposits AS d
+                JOIN transactions AS tx
+                ON tx.tx_hash = d.tx_hash
+            )
+            SELECT e.autopool_vault_address, e.chain_id, e.block
+            FROM events e
+            LEFT JOIN autopool_states AS s
+            ON s.autopool_vault_address = e.autopool_vault_address
+            AND s.chain_id = e.chain_id
+            AND s.block = e.block
+            WHERE s.autopool_vault_address IS NULL
+            ORDER BY e.chain_id, e.autopool_vault_address, e.block;
+        """
 
     df = _exec_sql_and_cache(query)
     return df
 
 
-def ensure_an_autopool_state_exists_for_each_autopool_withdrawal():
-    missing_blocks_df = _get_blocks_in_withdrawals_not_in_states()
+def ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit():
+    missing_blocks_df = _get_blocks_in_withdrawals_or_deposits_not_in_states()
 
     if missing_blocks_df.empty:
         return
@@ -60,4 +66,4 @@ def ensure_an_autopool_state_exists_for_each_autopool_withdrawal():
 
 
 if __name__ == "__main__":
-    profile_function(ensure_an_autopool_state_exists_for_each_autopool_withdrawal)
+    profile_function(ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit)

@@ -49,7 +49,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
     ensure_autopool_deposits_are_current,
     ensure_autopool_transfers_are_current,
     ensure_autopool_withdraws_are_current,
-    ensure_an_autopool_state_exists_for_each_autopool_withdrawal,
+    ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit,
 )
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_destinations import (
@@ -99,7 +99,7 @@ def _fully_independent_update_functions():
     ensure_autopool_transfers_are_current()
     ensure_autopool_deposits_are_current()
     ensure_autopool_withdraws_are_current()
-    ensure_an_autopool_state_exists_for_each_autopool_withdrawal()  # note: this has to happen after autopool_withdraws_are_current()
+    ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit()  # depends on autopool deposits and withdraws
 
 
 def _independent_after_constants():
