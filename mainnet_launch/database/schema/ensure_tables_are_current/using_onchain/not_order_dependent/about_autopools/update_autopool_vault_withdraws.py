@@ -11,8 +11,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
     insert_avoid_conflicts,
 )
 
-# TODO you need to add the navPerShare() at each withdraw event. TO get the user's slippage
-
 
 def get_highest_already_fetched_autopool_withdrawal_block() -> dict[str, int]:
     """
@@ -86,16 +84,16 @@ def _fetch_all_autopool_withdrawal_events() -> pd.DataFrame:
 
 
 def ensure_autopool_withdraws_are_current():
-    all_wd_df = _fetch_all_autopool_withdrawal_events()
-    if all_wd_df.empty:
+    all_withdraws_df = _fetch_all_autopool_withdrawal_events()
+    if all_withdraws_df.empty:
         return
 
     for chain in ALL_CHAINS:
-        txs = list(all_wd_df.loc[all_wd_df["chain_id"] == chain.chain_id, "hash"].drop_duplicates())
+        txs = list(all_withdraws_df.loc[all_withdraws_df["chain_id"] == chain.chain_id, "hash"].drop_duplicates())
         if txs:
             ensure_all_transactions_are_saved_in_db(txs, chain)
 
-    new_rows = all_wd_df.apply(
+    new_rows = all_withdraws_df.apply(
         lambda r: AutopoolWithdrawal(
             autopool_vault_address=r["autopool_vault_address"],
             tx_hash=r["hash"],
