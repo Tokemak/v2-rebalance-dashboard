@@ -101,17 +101,11 @@ def fetch_our_gas_costs_df() -> pd.DataFrame:
 
 
 def _pick_and_render_gas_used_and_gas_costs_charts(df: pd.DataFrame):
-    # lay out the inputs in two columns
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2 = st.columns([1, 1])
     with col1:
         breakdown = st.selectbox("Group by Expense", ["category", "label"])
     with col2:
         metric = st.selectbox("Metric", ["gas_cost_in_eth", "gas_used"])
-    with col3:
-        generate = st.button("Generate charts")
-
-    if not generate:
-        return  # don’t do anything until the button is pressed
 
     st.header(f"{metric.replace('_',' ').title()} grouped by {breakdown}")
 
