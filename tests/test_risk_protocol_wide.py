@@ -8,6 +8,7 @@ os.environ.setdefault("STREAMLIT_HEADLESS", "1")
 
 def _run_page(_fn_name: str):
     from mainnet_launch.pages.protocol_wide import PROTOCOL_CONTENT_FUNCTIONS as _fns
+
     fn = _fns[_fn_name]
     fn()
 

@@ -54,7 +54,7 @@ def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFra
     nav_per_share_df["7_day_annualized_return"] = (
         (nav_per_share_df["7_day_difference"] / nav_per_share_df[autopool.name].shift(7)) * (365 / 7) * 100
     )
-    nav_per_share_df["daily_return"] = nav_per_share_df[autopool.name].pct_change()
+    nav_per_share_df["daily_return"] = nav_per_share_df[autopool.name].pct_change(fill_method=None)
     nav_per_share_df["7_day_MA_return"] = nav_per_share_df["daily_return"].rolling(window=7).mean()
     nav_per_share_df["7_day_MA_annualized_return"] = nav_per_share_df["7_day_MA_return"] * 365 * 100
     nav_per_share_df["30_day_MA_return"] = nav_per_share_df["daily_return"].rolling(window=30).mean()
