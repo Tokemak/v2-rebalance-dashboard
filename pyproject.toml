@@ -42,9 +42,9 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-test-pages = "tests.test_pages:verify_all_pages_work"
-time-test-pages = "tests.test_pages:verify_all_pages_work_with_times"
-reset-dev-db = "mainnet_launch.database.database_branching_scripts:reset_dev_local_branch_to_match_production"
+# test-pages = "tests.test_pages:verify_all_pages_work"
+# time-test-pages = "tests.test_pages:verify_all_pages_work_with_times"
+# reset-dev-db = "mainnet_launch.database.database_branching_scripts:reset_dev_local_branch_to_match_production"
 
 # Quickly update the production database, use threads to go faster
 update-prod-db = "mainnet_launch.database.schema.ensure_tables_are_current.ensure_all_tables_are_current:main"
@@ -62,9 +62,8 @@ export_config = "mainnet_launch.app.export_config:create_streamlit_secrets_from_
 markers = [
     "integration: marks tests that make external calls / slow integration tests"
 ]
-addopts = "-m 'not integration' -n auto -q --tb=short"
-# or equivalently:
-# addopts = '-m "not integration"'
+addopts = "-m 'not integration' -n auto"
+
 
 # (optional but nice) ensure discovery points at your tests dir
 testpaths = ["tests"]
