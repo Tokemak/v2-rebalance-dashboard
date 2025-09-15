@@ -1,6 +1,7 @@
+"""Tests that none of the pages throw errors when run. Does not check that the content is correct."""
+
 import os
 import pytest
-import time
 
 from mainnet_launch.pages.protocol_wide import PROTOCOL_CONTENT_FUNCTIONS
 from mainnet_launch.pages.autopool import AUTOPOOL_CONTENT_FUNCTIONS
@@ -9,19 +10,6 @@ from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, CHAIN_BAS
 
 
 os.environ.setdefault("STREAMLIT_HEADLESS", "1")
-
-
-
-def with_duration(test_fn):
-    def wrapper(*args, record_property, **kwargs):
-        start = time.perf_counter()
-        try:
-            return test_fn(*args, record_property=record_property, **kwargs)
-        finally:
-            duration = time.perf_counter() - start
-            record_property("duration_seconds", duration)
-    return wrapper
-
 
 
 def _run_protocol_page(_fn_name: str):
@@ -41,7 +29,6 @@ def _protocol_params():
 
 
 @pytest.mark.parametrize("fn_name,kwargs", list(_protocol_params()))
-@with_duration
 def test_protocol_wide_pages(fn_name, kwargs):
     _run_protocol_page(**kwargs, _fn_name=fn_name)
 
@@ -64,7 +51,6 @@ def _autopool_params():
 
 
 @pytest.mark.parametrize("fn_name,kwargs", list(_autopool_params()))
-@with_duration
 def test_autopool_pages(fn_name, kwargs):
     _run_autopool_page(**kwargs, _fn_name=fn_name)
 
@@ -87,6 +73,5 @@ def _risk_metrics_params():
 
 
 @pytest.mark.parametrize("fn_name,kwargs", list(_risk_metrics_params()))
-@with_duration
 def test_risk_metrics_pages(fn_name, kwargs):
     _run_risk_metrics_page(**kwargs, _fn_name=fn_name)
