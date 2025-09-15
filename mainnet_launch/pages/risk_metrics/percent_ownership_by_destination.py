@@ -169,12 +169,6 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
                 labels.append(label)
                 vals.append(value)
 
-        for k, v in pie_chart_palette.items():
-            print(k, v)
-
-        for l in labels:
-            print(l)
-
         slice_colors = [pie_chart_palette[label] for label in labels]
 
         r = (idx // cols) + 1
