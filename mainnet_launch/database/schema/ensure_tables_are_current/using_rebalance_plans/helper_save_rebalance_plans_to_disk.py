@@ -1,7 +1,5 @@
-import json
 import time
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 
 import boto3
 from botocore import UNSIGNED

@@ -178,33 +178,29 @@ def identify_suspect_exit_liquidity_quotes(swap_quotes_df: pd.DataFrame) -> pd.D
     return limited_suspect_df
 
 
-def fetch_and_render_exit_liquidity_from_quotes() -> None:
-    st.subheader("Exit Liquidity Quotes")
+def _fetch_and_render_exit_liquidity_from_quotes(
+    chain: ChainData,
+    base_asset: TokemakAddress,
+    valid_autopools: list[AutopoolConstants],
+    quote_batch_number: int | None = None,
+) -> None:
+    if quote_batch_number is None:
+        quote_batch_number = _pick_a_quote_batch()
 
-    quote_batch_number = _pick_a_quote_batch()
-
-    default_chain, default_base_asset = ETH_CHAIN, WETH
+    st.subheader(
+        f"Suspect Exit Liquidity Pairs, Stable Coin Slippage > {STABLE_COINS_SLIPPAGE_WARNING_THESHOLD_BPS} bps or WETH Slippage > {WETH_SLIPPAGE_WARNING_THESHOLD_BPS} bps"
+    )
 
     asset_exposure_df, swap_quotes_df, suspect_exit_liqudity_assets_df = _load_quote_data(
-        default_chain, default_base_asset, quote_batch_number
+        chain, base_asset, quote_batch_number
     )
+    st.dataframe(suspect_exit_liqudity_assets_df, use_container_width=True, hide_index=True)
 
     if swap_quotes_df.empty:
         st.warning(
             f"No exit liquidity quotes found for the {chain.name} chain and {base_asset(chain)} base asset in batch {quote_batch_number}."
         )
         return
-
-    st.subheader(
-        f"Suspect Exit Liquidity Pairs, Stable Coin Slippage > {STABLE_COINS_SLIPPAGE_WARNING_THESHOLD_BPS} bps or WETH Slippage > {WETH_SLIPPAGE_WARNING_THESHOLD_BPS} bps"
-    )
-    st.dataframe(suspect_exit_liqudity_assets_df, use_container_width=True, hide_index=True)
-
-    chain, base_asset, _ = render_pick_chain_and_base_asset_dropdown()
-
-    asset_exposure_df, swap_quotes_df, suspect_exit_liqudity_assets_df = _load_quote_data(
-        chain, base_asset, quote_batch_number
-    )
 
     should_trim_slippage_graph = st.checkbox(
         "Trim Slippage Graphs to -50 bps to 100 bps",
@@ -223,6 +219,17 @@ def fetch_and_render_exit_liquidity_from_quotes() -> None:
         data=swap_quotes_df.to_csv(index=False).encode("utf-8"),
         file_name=f"exit_liquidity_quotes_{quote_batch_number}.csv",
         mime="text/csv",
+    )
+
+
+def fetch_and_render_exit_liquidity_from_quotes() -> None:
+    st.subheader("Exit Liquidity Quotes")
+
+    quote_batch_number = _pick_a_quote_batch()
+    chain, base_asset, _ = render_pick_chain_and_base_asset_dropdown()
+
+    _fetch_and_render_exit_liquidity_from_quotes(
+        chain, base_asset, valid_autopools=[], quote_batch_number=quote_batch_number
     )
 
 

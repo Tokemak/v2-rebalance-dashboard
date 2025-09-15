@@ -1,5 +1,4 @@
 from multicall import Call
-from web3 import Web3
 
 from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS
 

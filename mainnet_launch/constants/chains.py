@@ -56,7 +56,7 @@ for client in WEB3_CLIENTS.values():
     _add_retry_get_block_number(client, retries=4, backoff=0.5)
 
 
-ETH_CHAIN: ChainData = ChainData(
+ETH_CHAIN = ChainData(
     name="eth",
     block_autopool_first_deployed=20722908,
     chain_id=1,
@@ -65,7 +65,7 @@ ETH_CHAIN: ChainData = ChainData(
 )
 
 
-BASE_CHAIN: ChainData = ChainData(
+BASE_CHAIN = ChainData(
     name="base",
     block_autopool_first_deployed=21241103,
     chain_id=8453,
@@ -74,7 +74,7 @@ BASE_CHAIN: ChainData = ChainData(
 )
 
 
-SONIC_CHAIN: ChainData = ChainData(
+SONIC_CHAIN = ChainData(
     name="sonic",
     block_autopool_first_deployed=31593624,
     chain_id=146,

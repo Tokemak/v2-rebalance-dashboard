@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -12,7 +11,7 @@ ETHERSCAN_API_KEY = environ["ETHERSCAN_API_KEY"]
 ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 
 COINGECKO_API_KEY = environ["COINGECKO_API_KEY"]
-DEFAULT_GAS_LIMIT = 550000000
+DEFAULT_GAS_LIMIT = 550_000_000
 
 TOKEMAK_SUBGRAPH_URLS = {
     "eth": environ["TOKEMAK_ETHEREUM_SUBGRAPH_URL"],

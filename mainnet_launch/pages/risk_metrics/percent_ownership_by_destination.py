@@ -130,7 +130,7 @@ def _fetch_autopool_percent_ownership_of_each_destination(
 
 
 def _make_pie_chart_color_palette() -> dict[str, str]:
-    palette = px.colors.qualitative.Plotly
+    palette = px.colors.qualitative.Light24
     pie_chart_palette = {
         f"{autopool.name} Percent Ownership": color
         for autopool, color in zip(
@@ -169,10 +169,10 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
                 labels.append(label)
                 vals.append(value)
 
+        slice_colors = [pie_chart_palette[label] for label in labels]
+
         r = (idx // cols) + 1
         c = (idx % cols) + 1
-
-        slice_colors = [pie_chart_palette[label] for label in labels]
 
         if all([val > 2 for val in vals]):
             text_template = "%{percent:.1~%}"
@@ -205,9 +205,13 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
 
 def fetch_and_render_our_percent_ownership_of_each_destination():
     st.subheader("Percent Ownership by Destination")
-
     chain, base_asset, valid_autopools = render_pick_chain_and_base_asset_dropdown()
+    fetch_and_render_one_option_for_percent_ownership_by_destination(chain, base_asset, valid_autopools)
 
+
+def fetch_and_render_one_option_for_percent_ownership_by_destination(
+    chain: ChainData, base_asset: TokemakAddress, valid_autopools: list[AutopoolConstants]
+):
     with st.spinner(f"Fetching {chain.name} {base_asset.name} Percent Ownership By Destination..."):
         our_tvl_by_destination_df = fetch_readable_our_tvl_by_destination(chain, chain.get_block_near_top())
 
@@ -241,4 +245,5 @@ def _render_methodology():
 
 
 if __name__ == "__main__":
-    fetch_and_render_our_percent_ownership_of_each_destination()
+    valid_autopools = CHAIN_BASE_ASSET_GROUPS[(ETH_CHAIN, USDC)]
+    fetch_and_render_one_option_for_percent_ownership_by_destination(ETH_CHAIN, USDC, valid_autopools)

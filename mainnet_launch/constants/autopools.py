@@ -4,7 +4,7 @@ from .secrets import BUCKETS
 from .addresses import WETH, USDC, DOLA, EURC
 
 
-AUTO_ETH: AutopoolConstants = AutopoolConstants(
+AUTO_ETH = AutopoolConstants(
     "autoETH",
     "autoETH",
     autopool_eth_addr="0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56",
@@ -19,7 +19,7 @@ AUTO_ETH: AutopoolConstants = AutopoolConstants(
     base_asset_decimals=18,
 )
 
-BAL_ETH: AutopoolConstants = AutopoolConstants(
+BAL_ETH = AutopoolConstants(
     "balETH",
     "balETH",
     autopool_eth_addr="0x6dC3ce9C57b20131347FDc9089D740DAf6eB34c5",
@@ -34,7 +34,7 @@ BAL_ETH: AutopoolConstants = AutopoolConstants(
     base_asset_decimals=18,
 )
 
-AUTO_LRT: AutopoolConstants = AutopoolConstants(
+AUTO_LRT = AutopoolConstants(
     "autoLRT",
     "autoLRT",
     autopool_eth_addr="0xE800e3760FC20aA98c5df6A9816147f190455AF3",
@@ -49,7 +49,7 @@ AUTO_LRT: AutopoolConstants = AutopoolConstants(
     base_asset_decimals=18,
 )
 
-BASE_ETH: AutopoolConstants = AutopoolConstants(
+BASE_ETH = AutopoolConstants(
     "baseETH",
     "baseETH",
     autopool_eth_addr="0xAADf01DD90aE0A6Bb9Eb908294658037096E0404",
@@ -64,7 +64,7 @@ BASE_ETH: AutopoolConstants = AutopoolConstants(
     base_asset_decimals=18,
 )
 
-DINERO_ETH: AutopoolConstants = AutopoolConstants(
+DINERO_ETH = AutopoolConstants(
     "dineroETH",
     "dineroETH",
     autopool_eth_addr="0x35911af1B570E26f668905595dEd133D01CD3E5a",
@@ -79,7 +79,7 @@ DINERO_ETH: AutopoolConstants = AutopoolConstants(
     base_asset_decimals=18,
 )
 
-AUTO_USD: AutopoolConstants = AutopoolConstants(
+AUTO_USD = AutopoolConstants(
     "autoUSD",
     "autoUSD",
     autopool_eth_addr="0xa7569A44f348d3D70d8ad5889e50F78E33d80D35",
@@ -95,7 +95,7 @@ AUTO_USD: AutopoolConstants = AutopoolConstants(
 )
 
 
-BASE_USD: AutopoolConstants = AutopoolConstants(
+BASE_USD = AutopoolConstants(
     "baseUSD",
     "baseUSD",
     autopool_eth_addr="0x9c6864105AEC23388C89600046213a44C384c831",
@@ -111,7 +111,7 @@ BASE_USD: AutopoolConstants = AutopoolConstants(
 )
 
 
-AUTO_DOLA: AutopoolConstants = AutopoolConstants(
+AUTO_DOLA = AutopoolConstants(
     "autoDOLA",
     "autoDOLA",
     autopool_eth_addr="0x79eB84B5E30Ef2481c8f00fD0Aa7aAd6Ac0AA54d",
@@ -127,7 +127,7 @@ AUTO_DOLA: AutopoolConstants = AutopoolConstants(
 )
 
 
-SONIC_USD: AutopoolConstants = AutopoolConstants(
+SONIC_USD = AutopoolConstants(
     "sonicUSD",
     "sonicUSD",
     autopool_eth_addr="0xCb119265AA1195ea363D7A243aD56c73EA42Eb59",
@@ -145,7 +145,7 @@ SONIC_USD: AutopoolConstants = AutopoolConstants(
 
 # NEW, untested
 
-SILO_USD: AutopoolConstants = AutopoolConstants(
+SILO_USD = AutopoolConstants(
     "siloUSD",
     "siloUSD",
     autopool_eth_addr="0x408b6A3E2Daf288864968454AAe786a2A042Df36",
@@ -160,7 +160,7 @@ SILO_USD: AutopoolConstants = AutopoolConstants(
     base_asset_decimals=6,
 )
 
-SILO_ETH: AutopoolConstants = AutopoolConstants(
+SILO_ETH = AutopoolConstants(
     "siloETH",
     "siloETH",
     autopool_eth_addr="0x52F0D57Fb5D4780a37164f918746f9BD51c684a3",
@@ -205,11 +205,6 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
     SILO_ETH,
     BASE_EUR,
 ]
-
-NEW_AUTOPOOLS: list[AutopoolConstants] = [SILO_USD, SILO_ETH, BASE_EUR]
-
-NEW_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [SILO_USD, SILO_ETH, BASE_EUR]
-
 
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
 ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [

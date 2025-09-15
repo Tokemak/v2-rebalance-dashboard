@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 import pandas as pd
 
 from mainnet_launch.constants import *

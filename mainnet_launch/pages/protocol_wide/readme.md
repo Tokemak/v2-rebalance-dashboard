@@ -1,0 +1,1 @@
+These functions don't take any args

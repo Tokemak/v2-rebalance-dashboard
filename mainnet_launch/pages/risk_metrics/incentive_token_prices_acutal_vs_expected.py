@@ -10,10 +10,14 @@ from mainnet_launch.constants import (
     CHAIN_BASE_ASSET_GROUPS,
     ChainData,
     TokemakAddress,
+    AutopoolConstants,
     LIQUIDATION_ROW2,
     LIQUIDATION_ROW,
 )
 from mainnet_launch.database.views import get_incentive_token_sold_details
+
+
+INCENTIVE_TOKEN_N_DAYS_OPTIONS = [7, 14, 30, 60, 90, 180, 365]
 
 
 def pick_chain_base_and_n_days() -> tuple[ChainData, TokemakAddress, dt.date, dt.date]:
@@ -22,7 +26,7 @@ def pick_chain_base_and_n_days() -> tuple[ChainData, TokemakAddress, dt.date, dt
     label_map = {f"{c.name} {b.name}": (c, b) for (c, b) in options}
     chosen_label = st.selectbox("Chain • Base Asset", list(label_map.keys()))
     chain, base = label_map[chosen_label]
-    n_days = st.selectbox("Last N Days", [7, 14, 30, 60, 90], index=2)
+    n_days = st.selectbox("Last N Days", INCENTIVE_TOKEN_N_DAYS_OPTIONS, index=2)
 
     return chain, base, n_days
 
@@ -78,12 +82,10 @@ def _render_ecdfs(
         ],
     )
 
-    # First ECDF plot
-    fig1 = ecdf_figure(filtered_df, title=None)  # Remove title so we don't double up
+    fig1 = ecdf_figure(filtered_df, title=None)
     for trace in fig1.data:
         fig.add_trace(trace, row=1, col=1)
 
-    # Second ECDF plot
     fig2 = ecdf_figure(before_filtered_df, title=None)
     for trace in fig2.data:
         fig.add_trace(trace, row=1, col=2)
@@ -127,39 +129,29 @@ def _render_readme():
         st.markdown(f"Liquidation Row Addresses:\n\n {LIQUIDATION_ROW}\n\n{LIQUIDATION_ROW2}")
 
 
-def render_actual_vs_expected_incentive_token_prices():
-    st.title("Incentive Token Sales: Actual Price vs Offchain Price")
-
-    df = _load_sales_df()
-
-    chain, base, n_days = pick_chain_base_and_n_days()
-
+def _extract_filtered_dfs(chain: ChainData, base_asset: TokemakAddress, df: pd.DataFrame, n_days: int):
     today = dt.datetime.now(dt.timezone.utc).date()
     n_days_ago = today - dt.timedelta(days=n_days)
     n_days_ago_prior = today - dt.timedelta(days=n_days * 2)
 
-    st.caption(f"Showing sales on **{chain.name}** into **{base.name}** between **{n_days_ago}** and **{today}**.")
-
     filtered_df = df[
         (df["chain_id"] == chain.chain_id)
-        & (df["buy"] == base.name)
+        & (df["buy"] == base_asset.name)
         & (df["datetime"].dt.date >= n_days_ago)
         & (df["datetime"].dt.date <= today)
     ].copy()
 
     before_filtered_df = df[
         (df["chain_id"] == chain.chain_id)
-        & (df["buy"] == base.name)
+        & (df["buy"] == base_asset.name)
         & (df["datetime"].dt.date >= n_days_ago_prior)
         & (df["datetime"].dt.date <= n_days_ago)
     ].copy()
 
-    if filtered_df.empty:
-        st.info("No sales found for the chosen filters.")
-        return
+    return filtered_df, before_filtered_df
 
-    _render_ecdfs(filtered_df, before_filtered_df, chain, base, n_days)
-    _render_readme()
+
+def _render_tables(filtered_df: pd.DataFrame):
 
     with st.expander("Summary stats (by pair)"):
         stats_df = summarize(filtered_df)
@@ -167,6 +159,46 @@ def render_actual_vs_expected_incentive_token_prices():
 
     with st.expander("Raw filtered rows"):
         st.dataframe(filtered_df.sort_values("datetime", ascending=False), use_container_width=True)
+
+
+def _test_friendly_incentive_token_sales(
+    chain: ChainData, base_asset: TokemakAddress, valid_autopools: list[AutopoolConstants]
+):
+    # only for testing, not used in prod
+
+    df = _load_sales_df()
+    for n_days in INCENTIVE_TOKEN_N_DAYS_OPTIONS:
+        filtered_df, before_filtered_df = _extract_filtered_dfs(chain, base_asset, df, n_days)
+
+        if filtered_df.empty:
+            st.info("No sales found for the chosen filters.")
+            return
+
+        _render_ecdfs(filtered_df, before_filtered_df, chain, base_asset, n_days)
+        _render_readme()
+        _render_tables(filtered_df)
+
+
+def render_actual_vs_expected_incentive_token_prices():
+    st.title("Incentive Token Sales: Actual Price vs Offchain Price")
+
+    df = _load_sales_df()
+
+    chain, base_asset, n_days = pick_chain_base_and_n_days()
+
+    filtered_df, before_filtered_df = _extract_filtered_dfs(chain, base_asset, df, n_days)
+
+    st.caption(
+        f"Showing Incentive token sales on **{chain.name}** into **{base_asset.name}** between **{filtered_df.index.min()}** and **{filtered_df.index.max()}**."
+    )
+
+    if filtered_df.empty:
+        st.info("No incentive tokens found for the chosen filters.")
+        return
+
+    _render_ecdfs(filtered_df, before_filtered_df, chain, base_asset, n_days)
+    _render_readme()
+    _render_tables(filtered_df)
 
 
 if __name__ == "__main__":

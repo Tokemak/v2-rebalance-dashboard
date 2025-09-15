@@ -3,6 +3,7 @@
 # 20 seconds from 0,
 # 12 seconds with no updates
 
+
 import pandas as pd
 
 from mainnet_launch.constants import ALL_AUTOPOOLS, ALL_CHAINS, profile_function
