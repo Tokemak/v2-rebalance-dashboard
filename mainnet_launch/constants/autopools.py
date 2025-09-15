@@ -206,11 +206,6 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
     BASE_EUR,
 ]
 
-NEW_AUTOPOOLS: list[AutopoolConstants] = [SILO_USD, SILO_ETH, BASE_EUR]
-
-NEW_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [SILO_USD, SILO_ETH, BASE_EUR]
-
-
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
 ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [
     AUTO_USD,
