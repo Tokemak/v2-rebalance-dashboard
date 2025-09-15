@@ -180,7 +180,6 @@ def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.D
         r = (idx // cols) + 1
         c = (idx % cols) + 1
 
-
         if all([val > 2 for val in vals]):
             text_template = "%{percent:.1~%}"
         elif all([val > 0.99 for val in vals]):
