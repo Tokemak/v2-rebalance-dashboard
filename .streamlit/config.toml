@@ -4,3 +4,7 @@ base="light"
 
 [server]
 folderWatchBlacklist = [".git", "__pycache__", "mainnet_launch/data_fetching/rebalance_plans"]
+
+# we need this to avoid a streamlit community cloud rate limiting
+fileWatcherType = "poll" 
+runOnSave = false         
