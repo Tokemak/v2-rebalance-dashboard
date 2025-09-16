@@ -1,4 +1,4 @@
-name: Don't Break Production
+name: Fetch Exit Liquidity Swap Quotes
 
 on:
   workflow_dispatch: 
