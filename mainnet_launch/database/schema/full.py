@@ -15,14 +15,12 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 import uuid
 
-
 load_dotenv()
 
-# tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
+tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
 # tmpPostgres = urlparse(os.getenv("DEV_LOCAL_DATABASE_URL"))
 # tmpPostgres = urlparse(os.getenv("ADD_SONIC_DATABASE_URL"))
-tmpPostgres = urlparse(os.getenv("ADD_NEW_AUTOPOOLS_URL"))
-
+# tmpPostgres = urlparse(os.getenv("ADD_NEW_AUTOPOOLS_URL"))
 
 ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
@@ -700,12 +698,7 @@ Session = sessionmaker(bind=ENGINE)
 
 
 if __name__ == "__main__":
-    reflect_and_create()
-    # drop_and_full_rebuild_db()
+    # reflect_and_create()
+    drop_and_full_rebuild_db()
 
     pass
-
-
-# TODO consider adding a table that tracks updates, and how long the updates take,
-# maybe break it down more,
-# only if needed, don't add without a good reason
