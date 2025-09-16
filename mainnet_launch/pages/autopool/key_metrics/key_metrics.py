@@ -79,9 +79,27 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         .reset_index()
         .pivot(values="autopool_implied_backing_value", index="datetime", columns="readable_name")
     ).fillna(0)
+    # 2025 9 -1
+
+    # This appear to have backing drop down a huge amount for many destinations, some to 0 others to smaller percents 10ish percent
+    restricted = backing_tvl_by_destination.loc["2025-09-01":"2025-09-02"]
+    restricted_non_zero = restricted.loc[:, (restricted != 0).any(axis=0)]
+    non_zero_backing = restricted_non_zero[(restricted_non_zero != 0).any(axis=1)]
+
+    print(non_zero_backing)
+
+    restricted = safe_tvl_by_destination.loc["2025-09-01":"2025-09-02"]
+    restricted_non_zero = restricted.loc[:, (restricted != 0).any(axis=0)]
+    non_zero_safe = restricted_non_zero[(restricted_non_zero != 0).any(axis=1)]
+
+    print(non_zero_safe)
+    pass
+
+    # print the non zero values in backing_tvl_by_destination
+    # ignore the columns of 0s
 
     total_safe_tvl = safe_tvl_by_destination.sum(axis=1)
-    total_backing_tvl = backing_tvl_by_destination.sum(axis=1)
+    total_backing_tvl = backing_tvl_by_destination.sum(axis=1)  # backing is not correct
     price_return_series = 100 * (total_backing_tvl - total_safe_tvl) / total_backing_tvl
 
     portion_allocation_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl, axis=0)
@@ -340,7 +358,7 @@ def _diffReturn(x: list):
 if __name__ == "__main__":
     from mainnet_launch.constants import *
 
-    fetch_and_render_key_metrics_data(SILO_USD)
+    fetch_and_render_key_metrics_data(AUTO_ETH)
 
     # from mainnet_launch.app.profiler import profile_function
 
