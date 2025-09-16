@@ -36,9 +36,6 @@ from mainnet_launch.data_fetching.odos.fetch_quotes import (
 )
 
 
-ERROR_LOG_FILE = "/Users/pb/Desktop/quote_log.txt"
-
-
 ATTEMPTS = 3  # 3
 PERCENT_OWNERSHIP_THRESHOLD = 25
 STABLE_COINS_REFERENCE_QUANTITY = 10_000
@@ -49,9 +46,6 @@ USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
 
 ETH_SCALED_SIZES = [i * 50 for i in range(1, 17)]
 ETH_SCALED_SIZES.append(ETH_REFERENCE_QUANTITY)
-
-# ETH_SCALED_SIZES = [ETH_REFERENCE_QUANTITY]
-# USD_SCALED_SIZES = [STABLE_COINS_REFERENCE_QUANTITY]
 
 
 def _fetch_current_asset_exposure(
@@ -379,18 +373,13 @@ def fetch_and_save_current_swap_quotes():
     )
 
 
-def fetch_and_save_loop(seconds_delay: int, num_batches: int):
+def fetch_and_save_one_batch():
     global PERCENT_OWNERSHIP_THRESHOLD
-    for i in range(num_batches):
-        if i % 2 == 0:
-            PERCENT_OWNERSHIP_THRESHOLD = 50
-        else:
-            PERCENT_OWNERSHIP_THRESHOLD = 25
-
+    for new_threshold in [99, 50, 25]:
+        PERCENT_OWNERSHIP_THRESHOLD = new_threshold
         fetch_and_save_current_swap_quotes()
-        print(f"Batch {i + 1}/{num_batches} completed.")
-        print(f"Sleeping for {seconds_delay} seconds...")
-        time.sleep(seconds_delay)
+        print(f"Sleeping for {60 * 5} seconds...")
+        time.sleep(60 * 5)
 
 
 if __name__ == "__main__":
