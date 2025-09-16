@@ -19,6 +19,12 @@ from mainnet_launch.database.schema.full import Session, Base, ENGINE
 from mainnet_launch.constants import time_decorator
 
 
+class CustomPostgresOperationException(Exception):
+    """An error generated on the query side not by postgres"""
+
+    pass
+
+
 @dataclass
 class TableSelector:
     table: Base
@@ -42,7 +48,7 @@ def merge_tables_as_df(
     :returns: A pandas DataFrame containing the joined result.
     """
     if not selectors:
-        raise ValueError("At least one TableSelector is required")
+        raise CustomPostgresOperationException("At least one TableSelector is required")
     #
     with Session.begin() as session:
         dialect = session.get_bind().dialect
@@ -83,7 +89,7 @@ def merge_tables_as_df(
             compiled_order = order_by.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
             dir_upper = order.lower().upper()
             if dir_upper not in ("ASC", "DESC"):
-                raise ValueError("order must be 'asc' or 'desc'")
+                raise CustomPostgresOperationException("order must be 'asc' or 'desc'")
 
             sql += "ORDER BY\n"
             sql += f"    {compiled_order} {dir_upper}\n"
@@ -109,7 +115,7 @@ def insert_avoid_conflicts(
 
     if not new_rows:
         if expecting_rows:
-            raise ValueError("expecterd new rows here but found None")
+            raise CustomPostgresOperationException("expecterd new rows here but found None")
         else:
             return
 
@@ -252,7 +258,7 @@ def get_subset_not_already_in_column_unnest(
     sql_column_type = col.type.compile(dialect=postgresql.dialect()).upper()
 
     if sql_column_type.upper() not in ["TEXT", "VARCHAR", "INTEGER", "BIGINT", "NUMERIC", "FLOAT"]:
-        raise ValueError(f"Unsupported sql_column_type: {sql_column_type}")
+        raise CustomPostgresOperationException(f"Unsupported sql_column_type: {sql_column_type}")
 
     values = list(set(_to_python_list(values)))
     if not values:
@@ -294,6 +300,30 @@ def get_full_table_as_df(table: Base, where_clause: OperatorExpression | None = 
 
         df = pd.read_sql(sql, con=session.get_bind())
         return df
+
+
+def get_full_table_as_df_with_tx_hash(table: Base) -> pd.DataFrame:
+    """Fetch the full contents of a table (that has transaction hashes) along with the associated transaction datetime."""
+    if "tx_hash" not in [a.name for a in table.__table__.columns]:
+        raise CustomPostgresOperationException(f"Table {table.__tablename__} must have a 'tx_hash' column")
+
+    table_name = table.__table__.name
+    sql = f"""
+        SELECT
+        {table_name}.*,
+        blocks.datetime,
+        blocks.block
+    FROM {table_name}
+    JOIN transactions
+        ON {table_name}.tx_hash = transactions.tx_hash
+    JOIN blocks
+        ON transactions.block = blocks.block
+    AND transactions.chain_id = blocks.chain_id
+    ORDER BY blocks.datetime DESC;
+    """
+    df = _exec_sql_and_cache(sql)
+    df.set_index("datetime", inplace=True)
+    return df
 
 
 def get_subset_of_table_as_df(
@@ -385,7 +415,7 @@ def generic_merge_tables_as_df(
       where_clause        -- optional SQLAlchemy boolean expression for filtering
     """
     if len(left_join_columns) != len(right_join_columns):
-        raise ValueError("left_join_columns and right_join_columns must be the same length")
+        raise CustomPostgresOperationException("left_join_columns and right_join_columns must be the same length")
 
     left_table = left.__tablename__
     right_table = right.__tablename__
