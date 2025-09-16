@@ -50,7 +50,7 @@ from mainnet_launch.data_fetching.odos.fetch_quotes import (
 )
 
 
-USD_SCALED_SIZES = [i * 200_000 for i in range(1, 11)] 
+USD_SCALED_SIZES = [i * 200_000 for i in range(1, 11)]
 USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
 
 ETH_SCALED_SIZES = [i * 50 for i in range(1, 17)]  # 17
