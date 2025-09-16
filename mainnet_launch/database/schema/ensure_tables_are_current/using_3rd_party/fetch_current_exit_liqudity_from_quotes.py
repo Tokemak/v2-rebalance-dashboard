@@ -49,6 +49,7 @@ from mainnet_launch.data_fetching.odos.fetch_quotes import (
     THIRD_PARTY_SUCCESS_KEY,
 )
 
+
 USD_SCALED_SIZES = [i * 200_000 for i in range(1, 11)]
 USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
 
@@ -400,4 +401,4 @@ if __name__ == "__main__":
     fetch_and_save_current_swap_quotes(25)
     # fetch_and_save_loop(60 * 60, 24)
 
-# caffeinate -ims bash -c 'cd /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard && poetry run python mainnet_launch/database/schema/ensure_tables_are_current/using_3rd_party/estimate_exit_liquidity_from_quotes.py'
+# caffeinate -ims bash -c 'cd /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard && poetry run fetch-exit-liqudity-quotes'
