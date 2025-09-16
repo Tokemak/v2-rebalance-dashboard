@@ -50,10 +50,10 @@ from mainnet_launch.data_fetching.odos.fetch_quotes import (
 )
 
 
-USD_SCALED_SIZES = [i * 200_000 for i in range(1, 11)]
+USD_SCALED_SIZES = [i * 200_000 for i in range(1, 11)] 
 USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
 
-ETH_SCALED_SIZES = [i * 50 for i in range(1, 17)]
+ETH_SCALED_SIZES = [i * 50 for i in range(1, 17)]  # 17
 ETH_SCALED_SIZES.append(ETH_REFERENCE_QUANTITY)
 
 
@@ -86,6 +86,16 @@ def fetch_needed_context(chain: ChainData, block: int, valid_autopools: list[Aut
     return unscaled_asset_exposure, percent_ownership_by_destination_df
 
 
+def _determine_sizes_for_base_asset(base_asset: TokemakAddress) -> list[int]:
+    if base_asset.name == "WETH":
+        sizes = ETH_SCALED_SIZES
+    elif base_asset.name in ("USDC", "DOLA", "EURC"):
+        sizes = USD_SCALED_SIZES
+    else:
+        raise ValueError(f"Unexpected base asset: {base_asset.name}")
+    return sizes
+
+
 def _build_quote_requests_from_absolute_sizes(
     chain: ChainData,
     base_asset: TokemakAddress,
@@ -108,13 +118,7 @@ def _build_quote_requests_from_absolute_sizes(
         .tolist()
     )
 
-    match base_asset(chain):
-        case WETH(chain):
-            sizes = ETH_SCALED_SIZES
-        case USDC(chain) | DOLA(chain) | EURC(chain):
-            sizes = USD_SCALED_SIZES
-        case _:
-            raise ValueError(f"Unexpected base asset: {base_asset.name}")
+    sizes = _determine_sizes_for_base_asset(base_asset)
 
     for size in sizes:
         for token_address, _ in unscaled_asset_exposure.items():

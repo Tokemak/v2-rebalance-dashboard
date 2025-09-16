@@ -104,7 +104,7 @@ EURC = TokemakAddress(
     eth=DEAD_ADDRESS,
     base="0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42",
     sonic=DEAD_ADDRESS,
-    name="ERUC",
+    name="EURC",
 )
 
 

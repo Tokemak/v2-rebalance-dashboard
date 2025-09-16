@@ -51,7 +51,7 @@ update-prod-db = "mainnet_launch.database.schema.ensure_tables_are_current.ensur
 
 # update the produciton database, one function at a time
 slow-update-prod-db = "mainnet_launch.database.schema.ensure_tables_are_current.ensure_all_tables_are_current:sequential_main"
-fetch-exit-liqudity-quotes = "mainnet_launch.database.schema.ensure_tables_are_current.using_3rd_party.estimate_exit_liquidity_from_quotes:fetch_and_save_one_batch"
+fetch-exit-liqudity-quotes = "mainnet_launch.database.schema.ensure_tables_are_current.using_3rd_party.fetch_current_exit_liqudity_from_quotes:fetch_and_save_one_batch"
 
 app = "mainnet_launch.app.cli:app"
 marketing-app = "mainnet_launch.app.cli:marketing_app"
