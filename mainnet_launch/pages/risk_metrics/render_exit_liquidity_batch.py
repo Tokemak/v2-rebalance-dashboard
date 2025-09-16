@@ -15,10 +15,7 @@ from mainnet_launch.database.postgres_operations import (
 )
 
 from mainnet_launch.pages.risk_metrics.drop_down import render_pick_chain_and_base_asset_dropdown
-from mainnet_launch.database.schema.ensure_tables_are_current.using_3rd_party.estimate_exit_liquidity_from_quotes import (
-    STABLE_COINS_REFERENCE_QUANTITY,
-    ETH_REFERENCE_QUANTITY,
-)
+
 
 WETH_SLIPPAGE_WARNING_THESHOLD_BPS = 50
 STABLE_COINS_SLIPPAGE_WARNING_THESHOLD_BPS = 25

@@ -1,10 +1,24 @@
-# broken as of aug 26
-
+from concurrent.futures import ThreadPoolExecutor
+import time
 
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor
+from web3 import Web3
 
-from mainnet_launch.constants import *
+
+from mainnet_launch.constants import (
+    ALL_CHAINS,
+    STABLE_COINS_REFERENCE_QUANTITY,
+    ETH_REFERENCE_QUANTITY,
+    REQUESTS_PER_QUOTE,
+    CHAIN_BASE_ASSET_GROUPS,
+    ChainData,
+    TokemakAddress,
+    AutopoolConstants,
+    USDC,
+    DOLA,
+    EURC,
+    WETH,
+)
 from mainnet_launch.data_fetching.quotes.get_all_underlying_reserves import fetch_raw_amounts_by_destination
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_all_blocks_are_in_table,
@@ -35,12 +49,6 @@ from mainnet_launch.data_fetching.odos.fetch_quotes import (
     THIRD_PARTY_SUCCESS_KEY,
 )
 
-
-ATTEMPTS = 3  # 3
-PERCENT_OWNERSHIP_THRESHOLD = 25
-STABLE_COINS_REFERENCE_QUANTITY = 10_000
-ETH_REFERENCE_QUANTITY = 5
-
 USD_SCALED_SIZES = [i * 200_000 for i in range(1, 11)]
 USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
 
@@ -62,7 +70,6 @@ def _fetch_current_asset_exposure(
 
 
 def fetch_needed_context(chain: ChainData, block: int, valid_autopools: list[AutopoolConstants]):
-    # TODO I suspect this duplicates work
     unscaled_asset_exposure = _fetch_current_asset_exposure(chain, valid_autopools, block)
     percent_ownership_by_destination_df = fetch_readable_our_tvl_by_destination(chain, block)
 
@@ -84,6 +91,7 @@ def _build_quote_requests_from_absolute_sizes(
     unscaled_asset_exposure: dict[str, int],
     percent_ownership_by_destination_df: pd.DataFrame,
     token_df: pd.DataFrame,
+    percent_exclude_threshold: int,
 ) -> tuple[list[TokemakQuoteRequest], list[OdosQuoteRequest]]:
 
     token_to_decimal = token_df.set_index("token_address")["decimals"].to_dict()
@@ -93,20 +101,19 @@ def _build_quote_requests_from_absolute_sizes(
 
     poolBlacklist = (
         percent_ownership_by_destination_df[
-            percent_ownership_by_destination_df["percent_ownership"] > PERCENT_OWNERSHIP_THRESHOLD
+            percent_ownership_by_destination_df["percent_ownership"] > percent_exclude_threshold
         ]["pool_address"]
         .unique()
         .tolist()
     )
 
-    if base_asset(chain) == WETH(chain):
-        sizes = ETH_SCALED_SIZES
-    elif (
-        (base_asset(chain) == USDC(chain)) or (base_asset(chain) == DOLA(chain)) or (base_asset(chain) == EURC(chain))
-    ):  # add EURC here
-        sizes = USD_SCALED_SIZES
-    else:
-        raise ValueError(f"Unexpected base asset: {base_asset.name}")
+    match base_asset(chain):
+        case WETH(chain):
+            sizes = ETH_SCALED_SIZES
+        case USDC(chain) | DOLA(chain) | EURC(chain):
+            sizes = USD_SCALED_SIZES
+        case _:
+            raise ValueError(f"Unexpected base asset: {base_asset.name}")
 
     for size in sizes:
         for token_address, _ in unscaled_asset_exposure.items():
@@ -144,6 +151,7 @@ def _post_process_raw_tokemak_quote_response_df(
     token_df: pd.DataFrame,
     batch_id: int,
     base_asset: str,
+    percent_exclude_threshold: int,
 ) -> list[SwapQuote]:
     token_to_decimal = token_df.set_index("token_address")["decimals"].to_dict()
     raw_tokemak_quote_response_df = raw_tokemak_quote_response_df[
@@ -171,7 +179,7 @@ def _post_process_raw_tokemak_quote_response_df(
             datetime_received=row["datetime_received"],
             quote_batch=batch_id,
             base_asset=base_asset,
-            percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
+            percent_exclude_threshold=percent_exclude_threshold,
         )
         quotes.append(quote)
 
@@ -183,6 +191,7 @@ def _post_process_raw_odos_quote_response_df(
     token_df: pd.DataFrame,
     batch_id: int,
     base_asset: str,
+    percent_exclude_threshold: int,
 ) -> list[SwapQuote]:
     token_to_decimal = token_df.set_index("token_address")["decimals"].to_dict()
     quotes: list[SwapQuote] = []
@@ -213,7 +222,7 @@ def _post_process_raw_odos_quote_response_df(
             datetime_received=row["datetime_received"],
             quote_batch=batch_id,
             base_asset=base_asset,
-            percent_exclude_threshold=PERCENT_OWNERSHIP_THRESHOLD,
+            percent_exclude_threshold=percent_exclude_threshold,
         )
         quotes.append(quote)
 
@@ -248,7 +257,7 @@ def _extract_asset_exposure_rows(
     return new_asset_exposure_rows
 
 
-def _build_requests_and_asset_exposure_rows():
+def _build_requests_and_asset_exposure_rows(percent_exclude_threshold: int):
     highest_swap_quote_batch_id = get_highest_value_in_field_where(SwapQuote, SwapQuote.quote_batch, where_clause=None)
     if highest_swap_quote_batch_id is None:
         highest_swap_quote_batch_id = 0
@@ -279,14 +288,19 @@ def _build_requests_and_asset_exposure_rows():
         asset_expoosure_rows.extend(new_asset_exposure_rows)
 
         tokemak_requests, odos_requests = _build_quote_requests_from_absolute_sizes(
-            chain, base_asset, unscaled_asset_exposure, percent_ownership_by_destination_df, token_df
+            chain,
+            base_asset,
+            unscaled_asset_exposure,
+            percent_ownership_by_destination_df,
+            token_df,
+            percent_exclude_threshold,
         )
 
         all_tokemak_requests.extend(tokemak_requests)
         all_odos_requests.extend(odos_requests)
 
-    all_tokemak_requests = all_tokemak_requests * ATTEMPTS
-    all_odos_requests = all_odos_requests * ATTEMPTS
+    all_tokemak_requests = all_tokemak_requests * REQUESTS_PER_QUOTE
+    all_odos_requests = all_odos_requests * REQUESTS_PER_QUOTE
 
     return all_tokemak_requests, all_odos_requests, highest_swap_quote_batch_id, asset_expoosure_rows, token_df
 
@@ -315,6 +329,7 @@ def insert_new_batch_quotes(
     tokemak_quote_response_df: pd.DataFrame,
     token_df: pd.DataFrame,
     highest_swap_quote_batch_id: int,
+    percent_exclude_threshold: int,
 ):
     processed_quotes = []
 
@@ -335,10 +350,10 @@ def insert_new_batch_quotes(
         ].reset_index(drop=True)
 
         cleaned_odos_responses = _post_process_raw_odos_quote_response_df(
-            sub_odos_df, token_df, highest_swap_quote_batch_id, base_asset(chain)
+            sub_odos_df, token_df, highest_swap_quote_batch_id, base_asset(chain), percent_exclude_threshold
         )
         cleaned_tokemak_responses = _post_process_raw_tokemak_quote_response_df(
-            sub_tokemak_df, token_df, highest_swap_quote_batch_id, base_asset(chain)
+            sub_tokemak_df, token_df, highest_swap_quote_batch_id, base_asset(chain), percent_exclude_threshold
         )
 
         processed_quotes.extend(cleaned_odos_responses)
@@ -350,9 +365,9 @@ def insert_new_batch_quotes(
     )
 
 
-def fetch_and_save_current_swap_quotes():
+def fetch_and_save_current_swap_quotes(percent_exclude_threshold: int):
     all_tokemak_requests, all_odos_requests, highest_swap_quote_batch_id, new_asset_exposure_rows, token_df = (
-        _build_requests_and_asset_exposure_rows()
+        _build_requests_and_asset_exposure_rows(percent_exclude_threshold)
     )
     tokemak_quote_response_df, odos_quote_response_df = _fetch_all_quotes(all_tokemak_requests, all_odos_requests)
 
@@ -361,6 +376,7 @@ def fetch_and_save_current_swap_quotes():
         tokemak_quote_response_df=tokemak_quote_response_df,
         token_df=token_df,
         highest_swap_quote_batch_id=highest_swap_quote_batch_id,
+        percent_exclude_threshold=percent_exclude_threshold,
     )
 
     for chain in ALL_CHAINS:
@@ -374,16 +390,14 @@ def fetch_and_save_current_swap_quotes():
 
 
 def fetch_and_save_one_batch():
-    global PERCENT_OWNERSHIP_THRESHOLD
-    for new_threshold in [99, 50, 25]:
-        PERCENT_OWNERSHIP_THRESHOLD = new_threshold
-        fetch_and_save_current_swap_quotes()
+    for percent_ownership_threshold in [99, 50, 25]:
+        fetch_and_save_current_swap_quotes(percent_ownership_threshold)
         print(f"Sleeping for {60 * 5} seconds...")
         time.sleep(60 * 5)
 
 
 if __name__ == "__main__":
-    fetch_and_save_current_swap_quotes()
+    fetch_and_save_current_swap_quotes(25)
     # fetch_and_save_loop(60 * 60, 24)
 
 # caffeinate -ims bash -c 'cd /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard && poetry run python mainnet_launch/database/schema/ensure_tables_are_current/using_3rd_party/estimate_exit_liquidity_from_quotes.py'
