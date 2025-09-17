@@ -155,7 +155,7 @@ def fetch_all_time_cumulative_usd_volume() -> pd.DataFrame:
     return cumulaitive_volume_by_autopool, raw_df
 
 
-def fetch_and_render_cumulative_volume():
+def fetch_and_render_cumulative_volume() -> None:
     with st.spinner("Loading cumulative volume from rebalance events (~30 seconds)"):
         cumulative_volumne_by_autopool, raw_df = fetch_all_time_cumulative_usd_volume()
 

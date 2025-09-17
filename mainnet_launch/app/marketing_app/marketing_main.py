@@ -31,17 +31,17 @@ def main():
     )
 
     if category == CATEGORY_PROTOCOL:
-        selected_page = st.sidebar.radio("Protocol-wide", list(MARKETING_PAGES_WITH_AUTOPOOL_ARG.keys()))
+        selected_page = st.sidebar.radio("Protocol-wide", list(MARKETING_PAGES_WITH_NO_ARGS.keys()))
     elif category == CATEGORY_AUTOPOOL:
-        selected_page = st.sidebar.radio("Autopool Pages", list(MARKETING_PAGES_WITH_NO_ARGS.keys()))
+        selected_page = st.sidebar.radio("Autopool Pages", list(MARKETING_PAGES_WITH_AUTOPOOL_ARG.keys()))
         chosen_name = st.sidebar.radio("Select Autopool", [a.name for a in ALL_AUTOPOOLS])
         selected_autopool = {a.name: a for a in ALL_AUTOPOOLS}[chosen_name]
 
-    if selected_page:
-        if category == CATEGORY_PROTOCOL:
-            MARKETING_PAGES_WITH_NO_ARGS[selected_page]()
-        elif category == CATEGORY_AUTOPOOL:
-            MARKETING_PAGES_WITH_AUTOPOOL_ARG[selected_page](selected_autopool)
+
+    if category == CATEGORY_PROTOCOL:
+        MARKETING_PAGES_WITH_NO_ARGS[selected_page]()
+    elif category == CATEGORY_AUTOPOOL:
+        MARKETING_PAGES_WITH_AUTOPOOL_ARG[selected_page](selected_autopool)
 
 
 if __name__ == "__main__":
