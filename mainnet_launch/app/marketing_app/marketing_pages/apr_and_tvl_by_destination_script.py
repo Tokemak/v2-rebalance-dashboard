@@ -119,7 +119,7 @@ def _render_plots(autopool: AutopoolConstants, percent_tvl_by_destination: pd.Da
     )
 
 
-def _fetch_and_render_autopool_apy_and_allocation_over_time(autopool: AutopoolConstants) -> None:
+def _render_readme():
 
     with st.expander("Readme"):
         st.markdown(
@@ -148,29 +148,18 @@ def _fetch_and_render_autopool_apy_and_allocation_over_time(autopool: AutopoolCo
             """
         )
 
-    if st.button("Fetch and Render APY & Allocation Data (~15 seconds)"):
-        percent_tvl_by_destination, df = _fetch_APY_and_allocation_data(autopool)
-        _render_plots(autopool, percent_tvl_by_destination, df)
 
-        st.download_button(
-            label=f"Download {autopool.name} APY and Allocation Data",
-            data=df.to_csv(index=True).encode("utf-8"),
-            file_name=f"{autopool.name}_apy_and_allocation_over_time.csv",
-            mime="text/csv",
-        )
+def fetch_and_render_autopool_apy_and_allocation_over_time(autopool: AutopoolConstants) -> None:
+    _render_readme()
+    percent_tvl_by_destination, df = _fetch_APY_and_allocation_data(autopool)
+    _render_plots(autopool, percent_tvl_by_destination, df)
 
-
-def fetch_and_render_autopool_apy_and_allocation_over_time():
-    """Fetches and renders APY and allocation data for the given autopool."""
-
-    selected_name = st.selectbox(
-        "Pick an Autopool",
-        [a.name for a in ALL_AUTOPOOLS],
-        index=0,
-        key="autopool_choice",
+    st.download_button(
+        label=f"Download {autopool.name} APY and Allocation Data",
+        data=df.to_csv(index=True).encode("utf-8"),
+        file_name=f"{autopool.name}_apy_and_allocation_over_time.csv",
+        mime="text/csv",
     )
-    autopool = next(a for a in ALL_AUTOPOOLS if a.name == selected_name)
-    _fetch_and_render_autopool_apy_and_allocation_over_time(autopool)
 
 
 if __name__ == "__main__":
@@ -178,4 +167,4 @@ if __name__ == "__main__":
 
     for a in ALL_AUTOPOOLS:
         print(f"Fetching data for {a.name}")
-        _fetch_and_render_autopool_apy_and_allocation_over_time(a)
+        fetch_and_render_autopool_apy_and_allocation_over_time(a)
