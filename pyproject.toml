@@ -59,7 +59,9 @@ app = "mainnet_launch.app.cli:app"
 marketing-app = "mainnet_launch.app.cli:marketing_app"
 export-config = "mainnet_launch.app.export_config:create_streamlit_secrets_from_env"
 
-
 [tool.pytest.ini_options]
-addopts = "-n auto --durations=0"
+addopts = "-n auto --durations=0 -m 'not marketing'"
 testpaths = ["tests"]
+markers = [
+  "marketing: the slower marketing pages, don't change often"
+]
