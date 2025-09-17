@@ -159,10 +159,16 @@ def _build_backing_calls(tokens: list[Tokens], chain: ChainData) -> list[Call]:
         return []
 
     stats_calculator_registry_contract = chain.client.eth.contract(
-        STATS_CALCULATOR_REGISTRY(chain), abi=STATS_CALCULATOR_REGISTRY_ABI
+        STATS_CALCULATOR_REGISTRY(chain),
+        abi=STATS_CALCULATOR_REGISTRY_ABI,
     )
 
-    StatCalculatorRegistered = fetch_events(stats_calculator_registry_contract.events.StatCalculatorRegistered, chain)
+    # we do -1M blocks here because some of the stats calculators were registered before the main autopool
+    StatCalculatorRegistered = fetch_events(
+        stats_calculator_registry_contract.events.StatCalculatorRegistered,
+        chain,
+        start_block=chain.block_autopool_first_deployed - 1_000_000,
+    )
 
     lstTokenAddress_calls = [
         Call(

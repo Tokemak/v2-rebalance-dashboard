@@ -16,7 +16,6 @@ import pandas as pd
 
 
 from mainnet_launch.database.schema.full import Session, Base, ENGINE
-from mainnet_launch.constants import time_decorator
 
 
 class CustomPostgresOperationException(Exception):

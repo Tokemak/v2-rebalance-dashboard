@@ -67,18 +67,28 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     destination_state_df = fetch_autopool_destination_state_df(autopool)
 
     safe_tvl_by_destination = (
-        destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_safe_value"]]
-        .sum()
-        .reset_index()
-        .pivot(values="autopool_implied_safe_value", index="datetime", columns="readable_name")
-    ).fillna(0)
+        (
+            destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_safe_value"]]
+            .sum()
+            .reset_index()
+            .pivot(values="autopool_implied_safe_value", index="datetime", columns="readable_name")
+        )
+        .fillna(0)
+        .resample("1d")
+        .last()
+    )
 
     backing_tvl_by_destination = (
-        destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_backing_value"]]
-        .sum()
-        .reset_index()
-        .pivot(values="autopool_implied_backing_value", index="datetime", columns="readable_name")
-    ).fillna(0)
+        (
+            destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_backing_value"]]
+            .sum()
+            .reset_index()
+            .pivot(values="autopool_implied_backing_value", index="datetime", columns="readable_name")
+        )
+        .fillna(0)
+        .resample("1d")
+        .last()
+    )
 
     total_safe_tvl = safe_tvl_by_destination.sum(axis=1)
     total_backing_tvl = backing_tvl_by_destination.sum(axis=1)
@@ -87,15 +97,17 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     portion_allocation_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl, axis=0)
 
     max_apr_by_destination = (
-        destination_state_df.groupby(["datetime", "readable_name"])[["unweighted_expected_apr"]]
-        .max()
-        .reset_index()
-        .pivot(values="unweighted_expected_apr", index="datetime", columns="readable_name")
-    )
+        (
+            destination_state_df.groupby(["datetime", "readable_name"])[["unweighted_expected_apr"]]
+            .max()
+            .reset_index()
+            .pivot(values="unweighted_expected_apr", index="datetime", columns="readable_name")
+        )
+        .resample("1d")
+        .last()
+    )  # looks right
 
-    expected_return_series = (
-        (max_apr_by_destination * portion_allocation_by_destination_df).sum(axis=1).resample("1d").last()
-    )
+    expected_return_series = (max_apr_by_destination * portion_allocation_by_destination_df).sum(axis=1)
 
     total_nav_series = nav_per_share_df["NAV"]
     highest_block_and_datetime = (
@@ -340,7 +352,7 @@ def _diffReturn(x: list):
 if __name__ == "__main__":
     from mainnet_launch.constants import *
 
-    fetch_and_render_key_metrics_data(SILO_USD)
+    fetch_and_render_key_metrics_data(AUTO_ETH)
 
     # from mainnet_launch.app.profiler import profile_function
 

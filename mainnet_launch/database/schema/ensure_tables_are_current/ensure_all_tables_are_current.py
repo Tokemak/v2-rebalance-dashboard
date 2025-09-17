@@ -1,7 +1,7 @@
 """
 
-Top line scirpt that updates the database to the current time
-Run this, via a once a day lambda function (or as needed) to update the dashboard pulling from the db
+Top line script that updates the database to the current time
+Run this after midnight UTC via github actions to keep the database current
 
 open questions:
 
@@ -12,9 +12,7 @@ open questions:
 """
 
 from concurrent.futures import ThreadPoolExecutor
-
 from mainnet_launch.constants import ALL_CHAINS, profile_function
-
 from mainnet_launch.database.schema.full import ENGINE
 
 
@@ -151,27 +149,23 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
     ensure_incentive_token_swapped_events_are_current()
     ensure_incentive_token_prices_are_current()
 
-    ensure_destination_underlying_deposits_are_current()  # depends on destinations
-    ensure_destination_underlying_withdraw_are_current()  #  depends on destinations
+    ensure_destination_underlying_deposits_are_current()
+    ensure_destination_underlying_withdraw_are_current()
 
-    ensure_destination_states_from_rebalance_plan_are_current()  # big, 33 seconds, with just a few new plans
-    ensure_destination_states_are_current()  # .3 seconds
-    ensure_destination_token_values_are_current()  # 30 seconds not in parallel,
-    ensure_autopool_destination_states_are_current()  # maybe can be parrallel? 1.5 per autopool not in parallel
-    ensure_autopool_states_are_current()  # faster with threads
-    ensure_token_values_are_current()  # 30 seconds not in parallel
+    ensure_destination_states_from_rebalance_plan_are_current()
+    ensure_destination_states_are_current()
+    ensure_destination_token_values_are_current()
+    ensure_autopool_destination_states_are_current()
+    ensure_autopool_states_are_current()
+    ensure_token_values_are_current()
 
-    ensure_rebalance_plans_table_are_current()  # big, 23 seconds on empty, does not early exit properly
-    ensure_rebalance_events_are_current()  # slow, not optimized
-
-    ensure_incentive_token_swapped_events_are_current()
-    ensure_incentive_token_prices_are_current()
-
-    ensure_autopool_fees_are_current()
+    ensure_rebalance_plans_table_are_current()
+    ensure_rebalance_events_are_current()
 
     ensure_autopool_transfers_are_current()
     ensure_autopool_deposits_are_current()
     ensure_autopool_withdraws_are_current()
+    ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit()
 
 
 def sequential_main():
@@ -183,44 +177,43 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sequential_main()
 
 
 # Line #      Hits         Time  Per Hit   % Time  Line Contents
 # ==============================================================
-#    167                                           def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = False):
-#    168         1          0.0      0.0      0.0      ENGINE.echo = echo_sql_to_console
-#    169         1          0.5      0.5      0.2      _ensure_chain_top_block_are_cached()
-#    170
-#    171         1         21.4     21.4      7.8      ensure_blocks_is_current()
-#    172         1          0.3      0.3      0.1      ensure_autopools_are_current()
-#    173         1         14.1     14.1      5.1      ensure__destinations__tokens__and__destination_tokens_are_current()
-#    174
-#    175         1         12.6     12.6      4.6      update_tokemak_EOA_gas_costs_based_on_highest_block_already_fetched()
-#    176         1         10.5     10.5      3.8      ensure_chainlink_gas_costs_table_is_updated()
-#    177         1          6.7      6.7      2.4      ensure_autopool_fees_are_current()
-#    178
-#    179         1          6.9      6.9      2.5      ensure_incentive_token_swapped_events_are_current()
-#    180         1          1.9      1.9      0.7      ensure_incentive_token_prices_are_current()
-#    181
-#    182         1         10.5     10.5      3.8      ensure_destination_underlying_deposits_are_current()  # depends on destinations
-#    183         1          7.0      7.0      2.6      ensure_destination_underlying_withdraw_are_current()  #  depends on destinations
-#    184
-#    185         1         27.4     27.4     10.0      ensure_destination_states_from_rebalance_plan_are_current()  # big, 33 seconds, with just a few new plans
-#    186         1          2.3      2.3      0.8      ensure_destination_states_are_current()  # .3 seconds
-#    187         1          5.5      5.5      2.0      ensure_destination_token_values_are_current()  # 30 seconds not in parallel,
-#    188         1          8.3      8.3      3.0      ensure_autopool_destination_states_are_current()  # maybe can be parrallel? 1.5 per autopool not in parallel
-#    189         1          3.7      3.7      1.4      ensure_autopool_states_are_current()  # faster with threads
-#    190         1         14.1     14.1      5.2      ensure_token_values_are_current()  # 30 seconds not in parallel
-#    191
-#    192         1         22.5     22.5      8.2      ensure_rebalance_plans_table_are_current()  # big, 23 seconds on empty, does not early exit properly
-#    193         1         54.7     54.7     20.0      ensure_rebalance_events_are_current()  # slow, not optimized
-#    194
-#    195         1          3.9      3.9      1.4      ensure_incentive_token_swapped_events_are_current()
-#    196         1          0.3      0.3      0.1      ensure_incentive_token_prices_are_current()
-#    197
-#    198         1          6.7      6.7      2.4      ensure_autopool_fees_are_current()
-#    199
-#    200         1         16.7     16.7      6.1      ensure_autopool_transfers_are_current()
-#    201         1          9.6      9.6      3.5      ensure_autopool_deposits_are_current()
-#    202         1          6.0      6.0      2.2      ensure_autopool_withdraws_are_current()
+#    137                                           def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = False):
+#    138         1          0.0      0.0      0.0      ENGINE.echo = echo_sql_to_console
+#    139         1          0.4      0.4      0.0      _ensure_chain_top_block_are_cached()
+#    140
+#    141         1         49.9     49.9      1.5      ensure_blocks_is_current()
+#    142         1          0.3      0.3      0.0      ensure_autopools_are_current()
+#    143         1         14.0     14.0      0.4      ensure__destinations__tokens__and__destination_tokens_are_current()
+#    144
+#    145         1         14.8     14.8      0.5      ensure_tokemak_EOA_gas_costs_are_current()
+#    146         1         10.1     10.1      0.3      ensure_chainlink_gas_costs_table_are_current()
+#    147         1          7.9      7.9      0.2      ensure_autopool_fees_are_current()
+#    148
+#    149         1          4.0      4.0      0.1      ensure_incentive_token_swapped_events_are_current()
+#    150         1          0.3      0.3      0.0      ensure_incentive_token_prices_are_current()
+#    151
+#    152         1         11.9     11.9      0.4      ensure_destination_underlying_deposits_are_current()
+#    153         1          7.1      7.1      0.2      ensure_destination_underlying_withdraw_are_current()
+#    154
+#    155         1         22.5     22.5      0.7      ensure_destination_states_from_rebalance_plan_are_current()
+#    156         1          2.2      2.2      0.1      ensure_destination_states_are_current()
+#    157         1          4.0      4.0      0.1      ensure_destination_token_values_are_current()
+#    158         1          6.1      6.1      0.2      ensure_autopool_destination_states_are_current()
+#    159         1        267.9    267.9      8.2      ensure_autopool_states_are_current()
+#    160         1        107.1    107.1      3.3      ensure_token_values_are_current()
+#    161
+#    162         1        243.4    243.4      7.5      ensure_rebalance_plans_table_are_current()
+#    163         1       1657.8   1657.8     50.9      ensure_rebalance_events_are_current()
+#    164
+#    165         1        475.7    475.7     14.6      ensure_autopool_transfers_are_current()
+#    166         1         15.5     15.5      0.5      ensure_autopool_deposits_are_current()
+#    167         1         13.4     13.4      0.4      ensure_autopool_withdraws_are_current()
+#    168         1        321.6    321.6      9.9      ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit()
+
+# Profile written to: profiles/ensure_database_is_current_slow_and_sequential.txt
+# (mainnet-launch-py3.10) pb@Parkers-Mac-Studio v2-rebalance-dashboard %
