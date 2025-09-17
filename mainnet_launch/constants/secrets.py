@@ -5,8 +5,13 @@ from os import environ
 
 load_dotenv()
 
+if environ["WHICH_ALCHEMY_URL"] == "ANALYTICS_DEV2_ALCHEMY_URL":
+    ALCHEMY_URL = environ["ANALYTICS_DEV2_ALCHEMY_URL"]
+elif environ["WHICH_ALCHEMY_URL"] == "AUTOPOOL_DASHBOARD_CI_ALCHEMY_URL":
+    ALCHEMY_URL = environ["AUTOPOOL_DASHBOARD_CI_ALCHEMY_URL"]
+else:
+    raise ValueError(f"Unknown WHICH_ALCHEMY_URL value: {environ['WHICH_ALCHEMY_URL']}")
 
-ALCHEMY_URL = environ["ALCHEMY_URL"]
 ETHERSCAN_API_KEY = environ["ETHERSCAN_API_KEY"]
 ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 

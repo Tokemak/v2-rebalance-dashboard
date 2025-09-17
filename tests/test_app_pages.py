@@ -6,6 +6,7 @@ import pytest
 from mainnet_launch.pages.protocol_wide import PROTOCOL_CONTENT_FUNCTIONS
 from mainnet_launch.pages.autopool import AUTOPOOL_CONTENT_FUNCTIONS
 from mainnet_launch.pages.risk_metrics import RISK_METRICS_FUNCTIONS_WITH_ARGS
+
 from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, CHAIN_BASE_ASSET_GROUPS
 
 

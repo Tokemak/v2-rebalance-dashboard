@@ -17,6 +17,7 @@ jobs:
     env:
       DOTENV_BLOB: ${{ secrets.CI_DOT_ENV_FILE }}
       WHICH_DATABASE: MAIN_DATABASE_URL
+      WHICH_ALCHEMY_URL: AUTOPOOL_DASHBOARD_CI_ALCHEMY_URL
 
     steps:
       - uses: actions/checkout@v4
@@ -46,14 +47,13 @@ jobs:
           umask 177
           printf '%s\n' "$DOTENV_BLOB" > .env
 
-          # Fail if WHICH_DATABASE is already defined in the secret blob
-          if grep -q '^WHICH_DATABASE=' .env; then
-            echo "Error: WHICH_DATABASE should not be included in DOTENV_BLOB. Set it via the workflow env instead." >&2
-            exit 1
-          fi
-
-          # Explicitly set WHICH_DATABASE from the job's env
-          echo "WHICH_DATABASE=${WHICH_DATABASE}" >> .env
+          for VAR in WHICH_DATABASE WHICH_ALCHEMY_URL; do
+            if grep -q "^${VAR}=" .env; then
+              echo "Error: ${VAR} should not be included in DOTENV_BLOB. Set it via the workflow env instead." >&2
+              exit 1
+            fi
+            echo "${VAR}=${!VAR}" >> .env
+          done
 
       - name: Install dependencies
         run: poetry install --no-interaction --no-ansi
