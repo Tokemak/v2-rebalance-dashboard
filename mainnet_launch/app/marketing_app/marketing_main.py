@@ -37,7 +37,6 @@ def main():
         chosen_name = st.sidebar.radio("Select Autopool", [a.name for a in ALL_AUTOPOOLS])
         selected_autopool = {a.name: a for a in ALL_AUTOPOOLS}[chosen_name]
 
-
     if category == CATEGORY_PROTOCOL:
         MARKETING_PAGES_WITH_NO_ARGS[selected_page]()
     elif category == CATEGORY_AUTOPOOL:
