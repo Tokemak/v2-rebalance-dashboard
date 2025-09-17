@@ -1,0 +1,59 @@
+name: Update Production Database (Slow)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DOTENV_BLOB: ${{ secrets.CI_DOT_ENV_FILE }}
+      WHICH_DATABASE: MAIN_DATABASE_URL
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: snok/install-poetry@v1
+        with:
+          version: 1.8.3
+          virtualenvs-create: true
+          virtualenvs-in-project: true 
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ./.venv
+            ~/.cache/pypoetry
+          key: poetry-3.10-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            poetry-3.10-${{ runner.os }}-
+
+      - name: Create .env file from github secret blob and set WHICH_DATABASE
+        shell: bash
+        run: |
+          umask 177
+          printf '%s\n' "$DOTENV_BLOB" > .env
+
+          # Fail if WHICH_DATABASE is already defined in the secret blob
+          if grep -q '^WHICH_DATABASE=' .env; then
+            echo "Error: WHICH_DATABASE should not be included in DOTENV_BLOB. Set it via the workflow env instead." >&2
+            exit 1
+          fi
+
+          # Explicitly set WHICH_DATABASE from the job's env
+          echo "WHICH_DATABASE=${WHICH_DATABASE}" >> .env
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-ansi
+
+      - name: poetry run slow-update-prod-db 
+        run: poetry run slow-update-prod-db 
+
+      - name: poetry run pytest
+        run: poetry run pytest
