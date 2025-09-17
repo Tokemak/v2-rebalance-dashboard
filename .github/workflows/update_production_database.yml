@@ -56,7 +56,7 @@ jobs:
         run: poetry install --no-interaction --no-ansi
 
       - name: poetry run update-prod-db
-        run: poetry run update-prod-db
+        run: poetry run slow-update-prod-db 
 
       - name: poetry run pytest
         run: poetry run pytest
