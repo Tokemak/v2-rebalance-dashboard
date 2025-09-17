@@ -49,7 +49,7 @@ def ensure_autopools_are_current() -> None:
 
     for autopool in ALL_AUTOPOOLS:
         if autopool.autopool_eth_addr in autopools_not_in_table:
-            autopool_state_dict = _fetch_autopool_state_dicts([autopool], autopool.chain)
+            autopool_state_dict = _fetch_autopool_state_dicts([autopool.autopool_eth_addr], autopool.chain)
 
             new_autopool_row = Autopools(
                 autopool_vault_address=autopool.autopool_eth_addr,
