@@ -67,53 +67,47 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     destination_state_df = fetch_autopool_destination_state_df(autopool)
 
     safe_tvl_by_destination = (
-        destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_safe_value"]]
-        .sum()
-        .reset_index()
-        .pivot(values="autopool_implied_safe_value", index="datetime", columns="readable_name")
-    ).fillna(0)
+        (
+            destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_safe_value"]]
+            .sum()
+            .reset_index()
+            .pivot(values="autopool_implied_safe_value", index="datetime", columns="readable_name")
+        )
+        .fillna(0)
+        .resample("1d")
+        .last()
+    )
 
     backing_tvl_by_destination = (
-        destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_backing_value"]]
-        .sum()
-        .reset_index()
-        .pivot(values="autopool_implied_backing_value", index="datetime", columns="readable_name")
-    ).fillna(0)
-    # 2025 9 -1
-
-    # This appear to have backing drop down a huge amount for many destinations, some to 0 others to smaller percents 10ish percent
-    restricted = backing_tvl_by_destination.loc["2025-09-01":"2025-09-02"]
-    restricted_non_zero = restricted.loc[:, (restricted != 0).any(axis=0)]
-    non_zero_backing = restricted_non_zero[(restricted_non_zero != 0).any(axis=1)]
-
-    print(non_zero_backing)
-
-    restricted = safe_tvl_by_destination.loc["2025-09-01":"2025-09-02"]
-    restricted_non_zero = restricted.loc[:, (restricted != 0).any(axis=0)]
-    non_zero_safe = restricted_non_zero[(restricted_non_zero != 0).any(axis=1)]
-
-    print(non_zero_safe)
-    pass
-
-    # print the non zero values in backing_tvl_by_destination
-    # ignore the columns of 0s
+        (
+            destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_backing_value"]]
+            .sum()
+            .reset_index()
+            .pivot(values="autopool_implied_backing_value", index="datetime", columns="readable_name")
+        )
+        .fillna(0)
+        .resample("1d")
+        .last()
+    )
 
     total_safe_tvl = safe_tvl_by_destination.sum(axis=1)
-    total_backing_tvl = backing_tvl_by_destination.sum(axis=1)  # backing is not correct
+    total_backing_tvl = backing_tvl_by_destination.sum(axis=1)
     price_return_series = 100 * (total_backing_tvl - total_safe_tvl) / total_backing_tvl
 
     portion_allocation_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl, axis=0)
 
     max_apr_by_destination = (
-        destination_state_df.groupby(["datetime", "readable_name"])[["unweighted_expected_apr"]]
-        .max()
-        .reset_index()
-        .pivot(values="unweighted_expected_apr", index="datetime", columns="readable_name")
-    )
+        (
+            destination_state_df.groupby(["datetime", "readable_name"])[["unweighted_expected_apr"]]
+            .max()
+            .reset_index()
+            .pivot(values="unweighted_expected_apr", index="datetime", columns="readable_name")
+        )
+        .resample("1d")
+        .last()
+    )  # looks right
 
-    expected_return_series = (
-        (max_apr_by_destination * portion_allocation_by_destination_df).sum(axis=1).resample("1d").last()
-    )
+    expected_return_series = (max_apr_by_destination * portion_allocation_by_destination_df).sum(axis=1)
 
     total_nav_series = nav_per_share_df["NAV"]
     highest_block_and_datetime = (
