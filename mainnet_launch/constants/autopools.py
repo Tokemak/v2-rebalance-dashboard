@@ -143,8 +143,6 @@ SONIC_USD = AutopoolConstants(
 )
 
 
-# NEW, untested
-
 SILO_USD = AutopoolConstants(
     "siloUSD",
     "siloUSD",

@@ -166,8 +166,6 @@ def fetch_autopool_destination_state_df(autopool: AutopoolConstants) -> pd.DataF
     ] = destinations_df.loc[destinations_df["destination_vault_address"] == autopool.autopool_eth_addr]["owned_shares"]
 
     # of the total supply, how much do we own,
-    # note, I don't think this right, because of
-    # how (some) amount of lp tokens are not staked on convex or aura
     destinations_df["portion_owned"] = (
         destinations_df["owned_shares"] / destinations_df["underlying_token_total_supply"]
     )
