@@ -301,28 +301,70 @@ def get_full_table_as_df(table: Base, where_clause: OperatorExpression | None = 
         return df
 
 
-def get_full_table_as_df_with_tx_hash(table: Base) -> pd.DataFrame:
-    """Fetch the full contents of a table (that has transaction hashes) along with the associated transaction datetime."""
+def get_full_table_as_df_with_block(table: Base, where_clause: OperatorExpression | None = None) -> pd.DataFrame:
+    """Fetch the full contents of a table (that has block and chain_id) along with the associated block datetime.
+
+    Optionally filter with a SQLAlchemy where_clause.
+    """
+    column_names = [a.name for a in table.__table__.columns]
+    if not {"block", "chain_id"}.issubset(column_names):
+        raise CustomPostgresOperationException(
+            f"Table {table.__tablename__} must have both 'block' and 'chain_id' columns"
+        )
+
+    with Session.begin() as session:
+        where_sql = _where_clause_to_string(where_clause, session)
+
+        sql = text(
+            f"""
+            SELECT
+                {table.__tablename__}.*,
+                blocks.datetime
+            FROM {table.__tablename__}
+            JOIN blocks
+              ON {table.__tablename__}.block = blocks.block
+             AND {table.__tablename__}.chain_id = blocks.chain_id
+            {where_sql}
+            ORDER BY blocks.datetime DESC
+            """
+        )
+
+        df = pd.read_sql(sql, con=session.get_bind())
+        df.set_index("datetime", inplace=True)
+        return df
+
+
+def get_full_table_as_df_with_tx_hash(table: Base, where_clause: OperatorExpression | None = None) -> pd.DataFrame:
+    """Fetch the full contents of a table (that has transaction hashes) along with the associated transaction datetime.
+
+    Optionally filter with a SQLAlchemy where_clause.
+    """
     if "tx_hash" not in [a.name for a in table.__table__.columns]:
         raise CustomPostgresOperationException(f"Table {table.__tablename__} must have a 'tx_hash' column")
 
-    table_name = table.__table__.name
-    sql = f"""
-        SELECT
-        {table_name}.*,
-        blocks.datetime,
-        blocks.block
-    FROM {table_name}
-    JOIN transactions
-        ON {table_name}.tx_hash = transactions.tx_hash
-    JOIN blocks
-        ON transactions.block = blocks.block
-    AND transactions.chain_id = blocks.chain_id
-    ORDER BY blocks.datetime DESC;
-    """
-    df = _exec_sql_and_cache(sql)
-    df.set_index("datetime", inplace=True)
-    return df
+    with Session.begin() as session:
+        where_sql = _where_clause_to_string(where_clause, session)
+
+        sql = text(
+            f"""
+            SELECT
+                {table.__tablename__}.*,
+                blocks.datetime,
+                blocks.block
+            FROM {table.__tablename__}
+            JOIN transactions
+              ON {table.__tablename__}.tx_hash = transactions.tx_hash
+            JOIN blocks
+              ON transactions.block = blocks.block
+             AND transactions.chain_id = blocks.chain_id
+            {where_sql}
+            ORDER BY blocks.datetime DESC
+            """
+        )
+
+        df = pd.read_sql(sql, con=session.get_bind())
+        df.set_index("datetime", inplace=True)
+        return df
 
 
 def get_subset_of_table_as_df(

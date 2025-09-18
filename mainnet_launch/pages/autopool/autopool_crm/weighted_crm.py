@@ -1,6 +1,7 @@
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import numpy as np
 
 from mainnet_launch.constants import AutopoolConstants
 
@@ -15,6 +16,11 @@ from mainnet_launch.database.postgres_operations import (
     TableSelector,
 )
 
+# if it shows >50% APR the signal is likely wrong, so we replace it with NaN on the dispaly,
+# can see them in the destination diagnositics if needed
+
+MAX_EXPECTED_APR_THESHOLD = 50
+
 
 def fetch_and_render_weighted_crm_data(autopool: AutopoolConstants):
     composite_return_out_fig, composite_return_in_fig = _fetch_weighted_composite_return_df(autopool)
@@ -27,8 +33,8 @@ def fetch_and_render_weighted_crm_data(autopool: AutopoolConstants):
             f"""
             - Composite Return Out: `getDestinationSummaryStats()['compositeReturn']` for the destination with direction "out" and amount 0
             - Composite Return Out: `getDestinationSummaryStats()['compositeReturn']` for the destination with direction "out" and amount 0
-
-             - {autopool.name} Weighted Expected Return. Weights is the portion of TVL in the destination values, are Composite Return Out / In
+            - {autopool.name} Weighted Expected Return. Weights is the portion of TVL in the destination values, are Composite Return Out / In
+            
             """
         )
 
@@ -111,6 +117,8 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
         .resample("1D")
         .last()
     )
+
+    total_apr_out_df = total_apr_out_df.where(total_apr_out_df <= MAX_EXPECTED_APR_THESHOLD, np.nan)
     total_apr_out_df[f"{autopool.name} CR"] = (total_apr_out_df * portion_allocation_df).sum(axis=1)
 
     total_apr_in_df = (
@@ -120,6 +128,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
         .last()
     )
     total_apr_in_df[f"{autopool.name} CR"] = (total_apr_in_df * portion_allocation_df).sum(axis=1)
+    total_apr_in_df = total_apr_in_df.where(total_apr_in_df <= MAX_EXPECTED_APR_THESHOLD, np.nan)
 
     composite_return_out_fig = px.line(total_apr_out_df, title=f"{autopool.name} Composite Return Out")
 

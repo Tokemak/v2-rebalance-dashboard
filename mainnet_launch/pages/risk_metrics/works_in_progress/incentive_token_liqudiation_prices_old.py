@@ -36,7 +36,6 @@
 
 # INCENTIVE_TOKEN_PRICES_TABLE_NAME = "INCENTIVE_TOKEN_PRICES_AT_LIQUIDATION"
 
-
 # def _add_achieved_price_column(swapped_df: pd.DataFrame, token_address_to_decimals: dict):
 #     swapped_df["normalized_sell_amount"] = swapped_df.apply(
 #         lambda row: row["sellAmount"] / (10 ** token_address_to_decimals[row["sellTokenAddress"]]), axis=1

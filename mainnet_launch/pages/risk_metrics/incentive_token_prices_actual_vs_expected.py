@@ -55,7 +55,7 @@ def summarize(filtered_df: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values(["Total Base Asset Bought"], ascending=False).reset_index(drop=True).round(2)
 
 
-def ecdf_figure(filtered: pd.DataFrame, title: str) -> go.Figure:
+def _create_ecdf_figure(filtered: pd.DataFrame, title: str) -> go.Figure:
     fig = px.ecdf(
         filtered,
         x="price_diff_pct",
@@ -64,6 +64,12 @@ def ecdf_figure(filtered: pd.DataFrame, title: str) -> go.Figure:
         markers=True,
     )
     return fig
+
+
+def _render_incentive_token_sales_scatter_plot(filtered_df: pd.DataFrame) -> None:
+    fig = px.scatter(filtered_df, x="datetime", y="buy_amount", color="label", hover_data="price_diff_pct")
+    fig.update_layout(title="Incentive Token Sales Over", xaxis_title="Date", yaxis_title="Buy Amount")
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def _render_ecdfs(
@@ -82,11 +88,11 @@ def _render_ecdfs(
         ],
     )
 
-    fig1 = ecdf_figure(filtered_df, title=None)
+    fig1 = _create_ecdf_figure(filtered_df, title=None)
     for trace in fig1.data:
         fig.add_trace(trace, row=1, col=1)
 
-    fig2 = ecdf_figure(before_filtered_df, title=None)
+    fig2 = _create_ecdf_figure(before_filtered_df, title=None)
     for trace in fig2.data:
         fig.add_trace(trace, row=1, col=2)
 
@@ -161,24 +167,6 @@ def _render_tables(filtered_df: pd.DataFrame):
         st.dataframe(filtered_df.sort_values("datetime", ascending=False), use_container_width=True)
 
 
-def _test_friendly_incentive_token_sales(
-    chain: ChainData, base_asset: TokemakAddress, valid_autopools: list[AutopoolConstants]
-):
-    # only for testing, not used in prod
-
-    df = _load_sales_df()
-    for n_days in INCENTIVE_TOKEN_N_DAYS_OPTIONS:
-        filtered_df, before_filtered_df = _extract_filtered_dfs(chain, base_asset, df, n_days)
-
-        if filtered_df.empty:
-            st.info("No sales found for the chosen filters.")
-            return
-
-        _render_ecdfs(filtered_df, before_filtered_df, chain, base_asset, n_days)
-        _render_readme()
-        _render_tables(filtered_df)
-
-
 def render_actual_vs_expected_incentive_token_prices():
     st.title("Incentive Token Sales: Actual Price vs Offchain Price")
 
@@ -196,9 +184,29 @@ def render_actual_vs_expected_incentive_token_prices():
         st.info("No incentive tokens found for the chosen filters.")
         return
 
+    _render_incentive_token_sales_scatter_plot(filtered_df)
     _render_ecdfs(filtered_df, before_filtered_df, chain, base_asset, n_days)
     _render_readme()
     _render_tables(filtered_df)
+
+
+def testing_mock_incentive_token_sales_page(
+    chain: ChainData, base_asset: TokemakAddress, valid_autopools: list[AutopoolConstants]
+):
+    # only for testing, not used in prod
+
+    df = _load_sales_df()
+    for n_days in INCENTIVE_TOKEN_N_DAYS_OPTIONS:
+        filtered_df, before_filtered_df = _extract_filtered_dfs(chain, base_asset, df, n_days)
+
+        if filtered_df.empty:
+            st.info("No sales found for the chosen filters.")
+            return
+
+        _render_incentive_token_sales_scatter_plot(filtered_df)
+        _render_ecdfs(filtered_df, before_filtered_df, chain, base_asset, n_days)
+        _render_readme()
+        _render_tables(filtered_df)
 
 
 if __name__ == "__main__":

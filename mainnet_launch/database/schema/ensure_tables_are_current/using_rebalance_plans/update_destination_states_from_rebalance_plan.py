@@ -1,7 +1,3 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import boto3
-from botocore import UNSIGNED
-from botocore.config import Config
 from web3 import Web3
 import time
 import random
@@ -26,7 +22,7 @@ from mainnet_launch.database.postgres_operations import (
     TableSelector,
 )
 
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN
+from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, SILO_USD
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_all_blocks_are_in_table,
     get_block_by_timestamp_etherscan,
@@ -118,6 +114,7 @@ def _extract_destination_token_values(
                     quantity=int(raw_amount) / 1e18,  # note in the destination states, everything is in 1e18
                 )
             )
+            pass
 
     return new_destination_token_values
 
@@ -248,8 +245,9 @@ def ensure_destination_states_from_rebalance_plan_are_current():
 
     tokens_orm: list[Tokens] = get_full_table_as_orm(Tokens)
     tokens_address_to_decimals = {t.token_address: t.decimals for t in tokens_orm}
+    for autopool in [SILO_USD]:
 
-    for autopool in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN:
+        # for autopool in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN:
         solver_plan_paths_on_remote = fetch_all_solver_rebalance_plan_file_names(autopool, s3_client)
 
         this_autopool_destinations = list(autopool_vault_address_to_destinations[autopool.autopool_eth_addr])
@@ -339,4 +337,5 @@ def ensure_destination_states_from_rebalance_plan_are_current():
 if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
 
-    profile_function(ensure_destination_states_from_rebalance_plan_are_current)
+    # profile_function(ensure_destination_states_from_rebalance_plan_are_current)
+    ensure_destination_states_from_rebalance_plan_are_current()

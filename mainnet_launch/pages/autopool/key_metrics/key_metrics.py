@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 import psutil
 import plotly.express as px
+import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, timezone
 
@@ -18,6 +19,11 @@ from mainnet_launch.database.views import (
     fetch_autopool_destination_state_df,
     get_latest_rebalance_event_datetime_for_autopool,
 )
+
+# all price return values +- 10% replace with Nan, since they are likely bad data
+# if price return is ever +-10% we'll see it in the nav per share charts
+
+MAX_DISPLAY_PRICE_RETURN_PERCENT = 10
 
 
 def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFrame:
@@ -92,8 +98,14 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
 
     total_safe_tvl = safe_tvl_by_destination.sum(axis=1)
     total_backing_tvl = backing_tvl_by_destination.sum(axis=1)
+
     price_return_series = 100 * (total_backing_tvl - total_safe_tvl) / total_backing_tvl
 
+    price_return_series = price_return_series.where(
+        (price_return_series <= MAX_DISPLAY_PRICE_RETURN_PERCENT)
+        & (price_return_series >= -MAX_DISPLAY_PRICE_RETURN_PERCENT),
+        np.nan,
+    )
     portion_allocation_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl, axis=0)
 
     max_apr_by_destination = (
@@ -108,6 +120,9 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     )  # looks right
 
     expected_return_series = (max_apr_by_destination * portion_allocation_by_destination_df).sum(axis=1)
+    # replace all expected returns of 0 with NaN, since an autopool can't every have a 0% expceted return
+    # except with 100% idle only at the start
+    expected_return_series = expected_return_series.replace(0, np.nan)
 
     total_nav_series = nav_per_share_df["NAV"]
     highest_block_and_datetime = (
@@ -352,7 +367,7 @@ def _diffReturn(x: list):
 if __name__ == "__main__":
     from mainnet_launch.constants import *
 
-    fetch_and_render_key_metrics_data(AUTO_ETH)
+    fetch_and_render_key_metrics_data(BASE_ETH)
 
     # from mainnet_launch.app.profiler import profile_function
 

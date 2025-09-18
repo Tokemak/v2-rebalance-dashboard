@@ -12,6 +12,8 @@ from mainnet_launch.database.postgres_operations import (
     merge_tables_as_df,
     TableSelector,
     get_full_table_as_df,
+    get_full_table_as_df_with_block,
+    get_full_table_as_df_with_tx_hash,
 )
 from mainnet_launch.database.schema.full import (
     RebalanceEvents,
@@ -25,8 +27,73 @@ from mainnet_launch.database.schema.full import (
 )
 
 
-def fetch_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFrame:
-    return _load_full_rebalance_event_df(autopool)
+def _compute_turnover(
+    resample_frequency: str,
+    rebalance_df: pd.DataFrame,
+    state_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Group both frames by the same frequency and compute turnover = sum(safe_value_out) / mean(total_nav).
+    Returns a DataFrame with columns: safe_value_out, total_nav, turnover.
+    """
+    # Align on the same bins
+    end_of_period_safe_value_out = rebalance_df.groupby(pd.Grouper(freq=resample_frequency))["safe_value_out"].sum()
+    end_of_period_nav = state_df.groupby(pd.Grouper(freq=resample_frequency))["total_nav"].mean()
+
+    df = pd.concat([end_of_period_safe_value_out, end_of_period_nav], axis=1)
+    if df.empty:
+        return df
+
+    df = df.rename(columns={"safe_value_out": "safe_value_out", "total_nav": "total_nav"})
+    df = df.round(2)
+    df["turnover"] = df["safe_value_out"] / df["total_nav"]
+    return df
+
+
+def _render_turnover(autopool: AutopoolConstants) -> None:
+    """
+    Render turnover charts for the given autopool.
+
+    - Fetches:
+        * RebalanceEvents (via tx_hash join -> blocks.datetime)
+        * AutopoolStates (via block/chain_id join -> blocks.datetime)
+    - Resamples & aligns by:
+        * 'W-SUN' (weeks ending Sunday)
+        * 'ME' (month-end alias, mapped to pandas 'M')
+    - Displays bar charts with turnover and hover data for components.
+    """
+    # Fetch scoped data
+    rebalance_df = get_full_table_as_df_with_tx_hash(
+        RebalanceEvents,
+        where_clause=RebalanceEvents.autopool_vault_address == autopool.autopool_eth_addr,
+    )
+    state_df = get_full_table_as_df_with_block(
+        AutopoolStates,
+        where_clause=AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr,
+    )
+
+    # Quick sanity display if nothing to show
+    if rebalance_df.empty or state_df.empty:
+        st.info("No data available to compute turnover for this autopool.")
+        return
+
+    st.subheader(f"# Turnover — Total Safe Value Out / Average Total Nav {autopool.name}")
+    for freq in ["W-SUN", "ME"]:
+        df = _compute_turnover(freq, rebalance_df, state_df)
+
+        st.write(f"## Resample Frequency: {freq}")
+        if df.empty:
+            st.write("_No values for this period._")
+            continue
+
+        fig = px.bar(
+            df,
+            x=df.index,
+            y="turnover",
+            hover_data=["safe_value_out", "total_nav"],
+            title=f"Turnover Rate ({freq})",
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
 
 def _load_full_rebalance_event_df(autopool: AutopoolConstants) -> pd.DataFrame:
@@ -241,6 +308,7 @@ def make_expoded_box_plot(df: pd.DataFrame, col: str, resolution: str = "1W"):
 
 
 def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
+    _render_turnover(autopool)
     rebalance_df = _load_full_rebalance_event_df(autopool)
 
     rebalance_figures = _make_rebalance_events_plots(rebalance_df)
