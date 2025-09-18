@@ -8,7 +8,7 @@ from .render_exit_liquidity_batch import (
 )
 from .incentive_token_prices_actual_vs_expected import (
     render_actual_vs_expected_incentive_token_prices,
-    _test_friendly_incentive_token_sales,
+    testing_mock_incentive_token_sales_page,
 )
 
 
@@ -22,7 +22,7 @@ RISK_METRICS_FUNCTIONS = {
 
 RISK_METRICS_FUNCTIONS_WITH_ARGS = {
     "Tokemak Percent Ownership": fetch_and_render_one_option_for_percent_ownership_by_destination,
-    "Incentive Token Sales (Actual and Expected Prices)": _test_friendly_incentive_token_sales,
+    "Incentive Token Sales (Actual and Expected Prices)": testing_mock_incentive_token_sales_page,
     "Exit Liquidity Quotes": _fetch_and_render_exit_liquidity_from_quotes,
 }
 
