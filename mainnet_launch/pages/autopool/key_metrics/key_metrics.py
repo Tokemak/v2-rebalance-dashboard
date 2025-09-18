@@ -20,7 +20,10 @@ from mainnet_launch.database.views import (
     get_latest_rebalance_event_datetime_for_autopool,
 )
 
-MAX_DISPLAY_PRICE_RETURN_PERCENT = 10  # all price return values +- 10% replace with Nan, since they are likely bad data
+# all price return values +- 10% replace with Nan, since they are likely bad data
+# if price return is ever +-10% we'll see it in the nav per share charts
+
+MAX_DISPLAY_PRICE_RETURN_PERCENT = 10
 
 
 def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFrame:
