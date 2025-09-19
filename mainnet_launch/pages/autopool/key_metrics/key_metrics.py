@@ -69,8 +69,8 @@ def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFra
 
 
 def fetch_key_metrics_data(autopool: AutopoolConstants):
-    nav_per_share_df = fetch_nav_per_share_and_total_nav(autopool) # some values for arbUSD
-    destination_state_df = fetch_autopool_destination_state_df(autopool) #empty
+    nav_per_share_df = fetch_nav_per_share_and_total_nav(autopool)  # some values for arbUSD
+    destination_state_df = fetch_autopool_destination_state_df(autopool)  # empty
     # not certain why this is empty for arbUSD, but it is
     safe_tvl_by_destination = (
         (
