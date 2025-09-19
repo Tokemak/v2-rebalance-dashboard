@@ -69,9 +69,9 @@ def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFra
 
 
 def fetch_key_metrics_data(autopool: AutopoolConstants):
-    nav_per_share_df = fetch_nav_per_share_and_total_nav(autopool)
-    destination_state_df = fetch_autopool_destination_state_df(autopool)
-
+    nav_per_share_df = fetch_nav_per_share_and_total_nav(autopool) # some values for arbUSD
+    destination_state_df = fetch_autopool_destination_state_df(autopool) #empty
+    # not certain why this is empty for arbUSD, but it is
     safe_tvl_by_destination = (
         (
             destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_safe_value"]]
@@ -367,7 +367,7 @@ def _diffReturn(x: list):
 if __name__ == "__main__":
     from mainnet_launch.constants import *
 
-    fetch_and_render_key_metrics_data(BASE_ETH)
+    fetch_and_render_key_metrics_data(ARB_USD)
 
     # from mainnet_launch.app.profiler import profile_function
 
