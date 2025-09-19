@@ -245,9 +245,7 @@ def ensure_destination_states_from_rebalance_plan_are_current():
 
     tokens_orm: list[Tokens] = get_full_table_as_orm(Tokens)
     tokens_address_to_decimals = {t.token_address: t.decimals for t in tokens_orm}
-    for autopool in [SILO_USD]:
-
-        # for autopool in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN:
+    for autopool in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN:
         solver_plan_paths_on_remote = fetch_all_solver_rebalance_plan_file_names(autopool, s3_client)
 
         this_autopool_destinations = list(autopool_vault_address_to_destinations[autopool.autopool_eth_addr])

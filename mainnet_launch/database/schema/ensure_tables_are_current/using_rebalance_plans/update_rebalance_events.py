@@ -395,8 +395,9 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import *
 
+    _load_raw_rebalance_event_df(ARB_USD)
     # 50 seconds, need to make subgrapoh calls in parallel
-    # for each autopool
-    # thread pool executors
-    profile_function(_load_raw_rebalance_event_df, AUTO_ETH)
-    # profile_function(_load_raw_rebalance_event_df, BASE_ETH)
+    # # for each autopool
+    # # thread pool executors
+    # profile_function(_load_raw_rebalance_event_df, ARB_USD)
+    # # profile_function(_load_raw_rebalance_event_df, BASE_ETH)

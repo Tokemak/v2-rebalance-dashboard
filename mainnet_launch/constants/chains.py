@@ -15,14 +15,18 @@ base_client.middleware_onion.inject(geth_poa_middleware, layer=0)
 sonic_client = Web3(Web3.HTTPProvider(ALCHEMY_URL.replace("eth-mainnet", "sonic-mainnet")))
 sonic_client.middleware_onion.inject(geth_poa_middleware, layer=0)
 
+arbitrum_client = Web3(Web3.HTTPProvider(ALCHEMY_URL.replace("eth-mainnet", "arb-mainnet")))
+
 eth_client.eth._chain_id = lambda: 1
 base_client.eth._chain_id = lambda: 8453
 sonic_client.eth._chain_id = lambda: 146
+arbitrum_client.eth._chain_id = lambda: 42161
 
 WEB3_CLIENTS: dict[str, Web3] = {
     "eth": eth_client,
     "base": base_client,
     "sonic": sonic_client,
+    "arb": arbitrum_client,
 }
 
 
@@ -83,4 +87,13 @@ SONIC_CHAIN = ChainData(
 )
 
 
-ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN]
+ARBITRUM_CHAIN = ChainData(
+    name="arb",
+    block_autopool_first_deployed=377406050,
+    chain_id=42161,
+    start_unix_timestamp=1757439586,
+    tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["arb"],
+)
+
+
+ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN, ARBITRUM_CHAIN]

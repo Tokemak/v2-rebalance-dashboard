@@ -61,10 +61,12 @@ def run_query_with_paginate(
 
 
 def _fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
-    if autopool == SONIC_USD:
-        api_url = f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet2/api"
-    else:
-        api_url = f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api"
+
+    api_url = autopool.chain.tokemak_subgraph_url
+    # if autopool == SONIC_USD:
+    #     api_url = f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet2/api"
+    # else:
+    #     api_url = f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api"
 
     query = """
     query($autoEthAddress: String!, $first: Int!, $skip: Int!) {
@@ -166,7 +168,7 @@ def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH, SONIC_USD
+    from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH, SONIC_USD, ARB_USD
 
-    df = fetch_autopool_rebalance_events_from_subgraph(SONIC_USD)
+    df = fetch_autopool_rebalance_events_from_subgraph(ARB_USD)
     pass

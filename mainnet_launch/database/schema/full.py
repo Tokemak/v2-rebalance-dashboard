@@ -17,6 +17,7 @@ import uuid
 
 load_dotenv()
 
+
 which_database = os.getenv("WHICH_DATABASE")
 if which_database is None:
     raise ValueError("WHICH_DATABASE environment variable not set")
@@ -685,6 +686,11 @@ class DestinationUnderlyingWithdraw(Base):
 
 
 def drop_and_full_rebuild_db():
+    confirmation = input("Type 'delete_and_rebuild' to confirm dropping and rebuilding the database: ")
+    if confirmation != "delete_and_rebuild":
+        print("Operation canceled. The database was not modified.")
+        return
+
     meta = MetaData()
     meta.reflect(bind=ENGINE)
     meta.drop_all(bind=ENGINE)
@@ -704,7 +710,7 @@ Session = sessionmaker(bind=ENGINE)
 
 
 if __name__ == "__main__":
-    # reflect_and_create()
-    drop_and_full_rebuild_db()
+    reflect_and_create()
+    # drop_and_full_rebuild_db()
 
     pass

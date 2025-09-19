@@ -91,10 +91,11 @@ class TokemakAddress:
     eth: str
     base: str
     sonic: str
+    arb: str
     name: str
 
     def __post_init__(self):
-        for addr in [self.eth, self.base, self.sonic]:
+        for addr in [self.eth, self.base, self.sonic, self.arb]:
             if not Web3.isChecksumAddress(addr):
                 raise ValueError(f"{addr} must be a checksum address should be {Web3.toChecksumAddress(addr)=}")
 
@@ -114,11 +115,11 @@ class TokemakAddress:
             check_sum_address = Web3.toChecksumAddress(addr)
         except Exception:
             return False
-        return check_sum_address in [self.eth, self.base, self.sonic]
+        return check_sum_address in [self.eth, self.base, self.sonic, self.arb]
 
     def __hash__(self):
         """
         Hashes the address based on the Ethereum address.
         This is useful for caching and ensuring uniqueness.
         """
-        return hash(self.eth + self.base + self.sonic)
+        return hash(self.eth + self.base + self.sonic + self.arb)

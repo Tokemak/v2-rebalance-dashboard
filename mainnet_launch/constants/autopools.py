@@ -1,5 +1,5 @@
 from .models import AutopoolConstants
-from .chains import ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN
+from .chains import ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN, ARBITRUM_CHAIN
 from .secrets import BUCKETS
 from .addresses import WETH, USDC, DOLA, EURC
 
@@ -189,6 +189,22 @@ BASE_EUR = AutopoolConstants(
 )
 
 
+ARB_USD = AutopoolConstants(
+    "arbUSD",
+    "arbUSD",
+    autopool_eth_addr="0xf63b7F49B4f5Dc5D0e7e583Cfd79DC64E646320c",
+    autopool_eth_strategy_addr=None,
+    solver_rebalance_plans_bucket=BUCKETS["ARB_USD"],
+    chain=ARBITRUM_CHAIN,
+    base_asset=USDC(ARBITRUM_CHAIN),
+    block_deployed=377406050,
+    data_from_rebalance_plan=True,
+    base_asset_symbol="USDC",
+    start_display_date="9-09-2025",
+    base_asset_decimals=6,
+)
+
+
 ALL_AUTOPOOLS: list[AutopoolConstants] = [
     AUTO_ETH,
     BAL_ETH,
@@ -202,9 +218,11 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
     SILO_USD,
     SILO_ETH,
     BASE_EUR,
+    ARB_USD,
 ]
 
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
+
 ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [
     AUTO_USD,
     BASE_USD,
@@ -213,4 +231,5 @@ ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [
     SILO_USD,
     SILO_ETH,
     BASE_EUR,
+    ARB_USD,
 ]
