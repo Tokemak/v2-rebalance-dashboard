@@ -30,8 +30,16 @@ MULTICALL_V3 = TokemakAddress(
     eth="0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696",
     base="0xcA11bde05977b3631167028862bE2a173976CA11",
     sonic="0xcA11bde05977b3631167028862bE2a173976CA11",
+    arb="0x842eC2c7D803033Edf55E478F461FC547Bc54EB2",  # is mulitcall v2 but I don't think it matters
     name="multicall_v3",
 )
+
+# custom arbitrum multicall address is 0x842eC2c7D803033Edf55E478F461FC547Bc54EB2
+# the other one, when calling block.number will return the currnet block (on mainent) eg 22m, instead of
+# the current block on arbitrum eg ~380M
+
+# the standard multicall address 0xcA11bde05977b3631167028862bE2a173976CA11
+# gives the mainnet block number. that is not what we are looking for so we use the custom mulitcall v2 version
 
 
 def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):
@@ -62,6 +70,8 @@ def build_get_address_eth_balance_call(name: str, addr: str, chain: ChainData) -
 
 
 def _build_default_block_and_timestamp_calls(chain: ChainData):
+    # not correct for arbitrum, need to use the custom multicall address
+    # maybe use block.id? instead
     get_block_call = Call(
         MULTICALL_V3(chain),
         ["getBlockNumber()(uint256)"],
@@ -127,7 +137,7 @@ async def async_safe_get_raw_state_by_block(
 
     all_multicalls = [
         Multicall(
-            calls=[*calls, get_block_call, get_timestamp_call],
+            calls=[*calls, get_timestamp_call],
             block_id=int(block),
             _w3=ETH_CHAIN.client,
             require_success=False,
@@ -155,6 +165,7 @@ async def async_safe_get_raw_state_by_block(
                     # response: dict = await multicall.coroutine()
 
                     response = await multicall.fetch_outputs(multicall.calls)
+                    response.append({"block": multicall.block_id})
                     merged = {}
                     for d in response:
                         merged.update(d)
@@ -260,7 +271,7 @@ def build_blocks_to_use(chain: ChainData, start_block: int | None = None, end_bl
     """Returns the highest block for day on chain stored in the postgres db"""
 
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
-    end_block = 100_000_000 if end_block is None else end_block
+    end_block = 1_000_000_000 if end_block is None else end_block
 
     query = f"""SELECT DISTINCT ON (DATE_TRUNC('day', datetime))
         DATE_TRUNC('day', datetime) AS day,
