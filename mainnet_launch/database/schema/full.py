@@ -17,15 +17,20 @@ import uuid
 
 load_dotenv()
 
-which_database = os.getenv("WHICH_DATABASE")
-if which_database is None:
-    raise ValueError("WHICH_DATABASE environment variable not set")
-elif which_database == "MAIN_DATABASE_URL":
-    tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
-elif which_database == "MAIN_READ_REPLICA_DATABASE_URL":
-    tmpPostgres = urlparse(os.getenv("MAIN_READ_REPLICA_DATABASE_URL"))
-else:
-    raise ValueError(f"WHICH_DATABASE environment variable set to invalid value: {which_database}")
+
+# TEMP DURING TESTING
+
+tmpPostgres = urlparse(os.getenv("ADD_ARBITRUM_MAIN_DATABASE_FORK"))
+
+# which_database = os.getenv("WHICH_DATABASE")
+# if which_database is None:
+#     raise ValueError("WHICH_DATABASE environment variable not set")
+# elif which_database == "MAIN_DATABASE_URL":
+#     tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
+# elif which_database == "MAIN_READ_REPLICA_DATABASE_URL":
+#     tmpPostgres = urlparse(os.getenv("MAIN_READ_REPLICA_DATABASE_URL"))
+# else:
+#     raise ValueError(f"WHICH_DATABASE environment variable set to invalid value: {which_database}")
 
 
 ENGINE = create_engine(
@@ -685,6 +690,11 @@ class DestinationUnderlyingWithdraw(Base):
 
 
 def drop_and_full_rebuild_db():
+    confirmation = input("Type 'delete_and_rebuild' to confirm dropping and rebuilding the database: ")
+    if confirmation != "delete_and_rebuild":
+        print("Operation canceled. The database was not modified.")
+        return
+
     meta = MetaData()
     meta.reflect(bind=ENGINE)
     meta.drop_all(bind=ENGINE)
@@ -704,7 +714,7 @@ Session = sessionmaker(bind=ENGINE)
 
 
 if __name__ == "__main__":
-    # reflect_and_create()
-    drop_and_full_rebuild_db()
+    reflect_and_create()
+    # drop_and_full_rebuild_db()
 
     pass
