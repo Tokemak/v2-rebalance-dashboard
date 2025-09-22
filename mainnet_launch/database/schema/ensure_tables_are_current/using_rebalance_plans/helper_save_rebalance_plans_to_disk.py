@@ -6,6 +6,7 @@ from botocore import UNSIGNED
 from botocore.config import Config
 
 from mainnet_launch.constants import WORKING_DATA_DIR, ALL_AUTOPOOLS, AutopoolConstants
+from tqdm import tqdm
 
 
 # assumes AutopoolConstants is already imported from your constants module
@@ -54,9 +55,9 @@ def download_local_rebalance_plans(autopools: list[AutopoolConstants], max_worke
                         return
                     time.sleep((2**attempt) / 2)
 
-        # download missing files in parallel
+        # download missing files in parallel with progress bar
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            executor.map(download, keys_to_fetch)
+            list(tqdm(executor.map(download, keys_to_fetch), total=len(keys_to_fetch), desc=f"Downloading {autopool.name}"))
 
 
 if __name__ == "__main__":
