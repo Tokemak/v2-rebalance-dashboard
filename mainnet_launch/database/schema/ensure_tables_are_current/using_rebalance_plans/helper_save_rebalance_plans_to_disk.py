@@ -1,5 +1,6 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
+import json
 
 import boto3
 from botocore import UNSIGNED
@@ -59,6 +60,16 @@ def download_local_rebalance_plans(autopools: list[AutopoolConstants], max_worke
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             list(tqdm(executor.map(download, keys_to_fetch), total=len(keys_to_fetch), desc=f"Downloading {autopool.name}"))
 
+
+def fetch_one_plan(    autopool:AutopoolConstants, plan_path:str) -> dict:
+    s3_client = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+    
+    response = s3_client.get_object(
+        Bucket=autopool.solver_rebalance_plans_bucket,
+        Key=plan_path,
+    )
+    body = response["Body"].read().decode("utf-8")
+    return json.loads(body)
 
 if __name__ == "__main__":
     download_local_rebalance_plans(ALL_AUTOPOOLS)
