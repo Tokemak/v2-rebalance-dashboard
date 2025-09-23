@@ -79,8 +79,8 @@ def fetch_a_bunch_of_quotes(
         dfs.append(df)
 
         full_df = pd.concat(dfs)
-        full_df.to_csv("15_min_auto_usd_combinations2.csv", index=True)
-        print(f"wrote {len(full_df)} rows to 15_min_auto_usd_combinations2.csv")
+        full_df.to_csv("15_min_auto_usd_combinations3.csv", index=True)
+        print(f"wrote {len(full_df)} rows to 15_min_auto_usd_combinations3.csv")
 
         if i < n_batches - 1:
             print(f"waiting {second_wait_between_batches} seconds before next batch")
@@ -130,15 +130,14 @@ def main():
                         )
                     )
 
-
     fetch_a_bunch_of_quotes(
         tokemak_quote_requests,
         token_address_to_decimals,
         token_address_to_symbol,
-        second_wait_between_batches=60 * 15,
+        second_wait_between_batches=60 * 30,
         rate_limit_max_rate=8,
         rate_limit_time_period=10,
-        n_batches=10,
+        n_batches=20,
     )
 
 
