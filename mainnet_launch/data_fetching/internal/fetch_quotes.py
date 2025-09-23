@@ -23,7 +23,7 @@ def _build_request_kwargs(chain_id: int, token_in: str, token_out: str, unscaled
     json_payload = {
         "chainId": chain_id,
         "systemName": "gen3",
-        "slippageBps": 5000,
+        "slippageBps": 3.5,  # 5000
         "taker": DEAD_ADDRESS,
         "sellToken": token_in,
         "buyToken": token_out,
@@ -44,7 +44,7 @@ def _build_request_kwargs(chain_id: int, token_in: str, token_out: str, unscaled
 
 def _process_quote_response(response: dict) -> dict:
     if response[THIRD_PARTY_SUCCESS_KEY]:
-        fields_to_keep = ["buyAmount", "aggregatorName", "datetime_received", THIRD_PARTY_SUCCESS_KEY]
+        fields_to_keep = ["buyAmount", "minBuyAmount", "aggregatorName", "datetime_received", THIRD_PARTY_SUCCESS_KEY]
         cleaned_data = {a: response[a] for a in fields_to_keep}
         request_kwargs = response["request_kwargs"]
         json_payload = request_kwargs.pop("json")
@@ -68,7 +68,7 @@ def fetch_single_swap_quote_from_internal_api(
 
 
 def fetch_many_swap_quotes_from_internal_api(
-    quote_requests: list[TokemakQuoteRequest],
+    quote_requests: list[TokemakQuoteRequest], rate_limit_max_rate: int = 8, rate_limit_time_period: int = 10
 ) -> pd.DataFrame:
     requests_kwargs = []
     for quote_request in quote_requests:
@@ -85,7 +85,9 @@ def fetch_many_swap_quotes_from_internal_api(
     # 1 /2  per second
     # not relaly sure here
     raw_responses = make_many_requests_to_3rd_party(
-        rate_limit_max_rate=8, rate_limit_time_period=10, requests_kwargs=requests_kwargs
+        rate_limit_max_rate=rate_limit_max_rate,
+        rate_limit_time_period=rate_limit_time_period,
+        requests_kwargs=requests_kwargs,
     )
 
     flat_responses = [_process_quote_response(r) for r in raw_responses]
