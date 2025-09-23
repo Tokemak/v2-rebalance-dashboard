@@ -66,24 +66,25 @@ def fetch_a_bunch_of_quotes(
     n_batches=10,
 ):
 
-    random.shuffle(tokemak_quote_requests)
-
     dfs = []
     for i in range(n_batches):
+        random.shuffle(tokemak_quote_requests)  # important to not have spurious relationships because of sizing
         df = fetch_many_swap_quotes_from_internal_api(
             tokemak_quote_requests,
             rate_limit_max_rate=rate_limit_max_rate,
             rate_limit_time_period=rate_limit_time_period,
         )
         df = tidy_up_quotes(df, token_address_to_decimals, token_address_to_symbol)
+        df["batch_id"] = i
         dfs.append(df)
+
+        full_df = pd.concat(dfs)
+        full_df.to_csv("15_min_auto_usd_combinations2.csv", index=True)
+        print(f"wrote {len(full_df)} rows to 15_min_auto_usd_combinations2.csv")
+
         if i < n_batches - 1:
             print(f"waiting {second_wait_between_batches} seconds before next batch")
             time.sleep(second_wait_between_batches)
-
-        full_df = pd.concat(dfs)
-        full_df.to_csv("15_min_auto_usd_combinations.csv", index=True)
-        print(f"wrote {len(full_df)} rows to 15_min_auto_usd_baskets.csv")
 
 
 def main():
@@ -129,6 +130,7 @@ def main():
                         )
                     )
 
+
     fetch_a_bunch_of_quotes(
         tokemak_quote_requests,
         token_address_to_decimals,
@@ -136,7 +138,7 @@ def main():
         second_wait_between_batches=60 * 15,
         rate_limit_max_rate=8,
         rate_limit_time_period=10,
-        n_batches=2,
+        n_batches=10,
     )
 
 
