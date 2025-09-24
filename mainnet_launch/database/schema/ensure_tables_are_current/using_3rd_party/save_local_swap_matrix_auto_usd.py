@@ -38,6 +38,10 @@ from mainnet_launch.data_fetching.internal.fetch_quotes import (
 
 
 def tidy_up_quotes(df: pd.DataFrame, token_address_to_decimals: dict, token_address_to_symbol: dict) -> pd.DataFrame:
+    df["buyAmount"] = df["buyAmount"].fillna(0)
+    df["minBuyAmount"] = df["minBuyAmount"].fillna(0)
+    df["sellAmount"] = df["sellAmount"].fillna(0)
+
     df["buy_amount_norm"] = df.apply(
         lambda row: int(row["buyAmount"]) / 10 ** token_address_to_decimals[row["buyToken"]], axis=1
     )
@@ -79,8 +83,8 @@ def fetch_a_bunch_of_quotes(
         dfs.append(df)
 
         full_df = pd.concat(dfs)
-        full_df.to_csv("15_min_auto_usd_combinations3.csv", index=True)
-        print(f"wrote {len(full_df)} rows to 15_min_auto_usd_combinations3.csv")
+        full_df.to_csv("15_min_auto_usd_combinations4.csv", index=True)
+        print(f"wrote {len(full_df)} rows to 15_min_auto_usd_combinations4.csv")
 
         if i < n_batches - 1:
             print(f"waiting {second_wait_between_batches} seconds before next batch")
@@ -137,7 +141,7 @@ def main():
         second_wait_between_batches=60 * 30,
         rate_limit_max_rate=8,
         rate_limit_time_period=10,
-        n_batches=20,
+        n_batches=50,
     )
 
 
