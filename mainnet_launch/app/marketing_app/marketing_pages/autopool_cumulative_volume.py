@@ -95,7 +95,7 @@ def get_mainnet_rebalance_volumne_df():
 def get_base_rebalance_volume_df():
     df = get_rebalance_volumne_raw_data(BASE_CHAIN)
 
-    # TODO need to includ ERC here as well
+    # TODO need to include ERC here as well
     calls = [
         Call(
             ROOT_PRICE_ORACLE(BASE_CHAIN),

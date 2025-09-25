@@ -163,6 +163,50 @@ def get_block_by_timestamp_defi_llama(unix_timestamp: int, chain: ChainData, clo
             raise
 
 
+_alchemy_semaphore = threading.BoundedSemaphore(100)
+
+
+def get_block_by_timestamp_alchemy(unix_timestamp: int, chain: ChainData, closest: str) -> int:
+    """
+    Fetch the block closest to the given UNIX timestamp using Alchemy Data API.
+    If `closest=="before"`, returns the block at or immediately before the timestamp.
+    If `closest=="after"`, returns the first block strictly after the timestamp.
+
+    Environment:
+      - ALCHEMY_API_KEY        : your Alchemy API key (required)
+      - ALCHEMY_DATA_APP       : your Data API app slug / name (default: 'docs-demo')
+      - ALCHEMY_DATA_API_URL   : override base URL (default: 'https://api.g.alchemy.com/data/v1')
+    """
+    api_key = os.getenv("ALCHEMY_API_KEY")
+
+    url = f"https://api.g.alchemy.com/data/v1/{api_key}/utility/blocks/by-timestamp"
+
+    direction = "AFTER" if str(closest).lower() == "after" else "BEFORE"
+
+    headers = {"Authorization": api_key}
+    params = {
+        "networks": chain.alchemy_network_enum,
+        "timestamp": unix_timestamp,
+        "direction": direction,
+    }
+
+    with _alchemy_semaphore:
+        for attempt in range(4):
+            try:
+                resp = requests.get(url, headers=headers, params=params, timeout=12)
+                resp.raise_for_status()
+                data = resp.json()["data"]
+
+                return int(data[0]["block"]["number"])
+
+            except (requests.RequestException, ValueError, KeyError) as e:
+                if attempt < 3:
+                    time.sleep(1 + 2**attempt)
+                    continue
+                # Final fallback: try DeFi Llama (you already have this util).
+                return get_block_by_timestamp_defi_llama(unix_timestamp, chain, closest)
+
+
 def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData) -> None:
     blocks_to_add = get_subset_not_already_in_column(
         table=Blocks, column=Blocks.block, values=blocks, where_clause=Blocks.chain_id == chain.chain_id

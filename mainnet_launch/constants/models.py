@@ -16,6 +16,9 @@ class ChainData:
     start_unix_timestamp: int
     tokemak_subgraph_url: str
 
+    # see https://dashboard.alchemy.com/chains
+    alchemy_network_enum: str
+
     def __hash__(self):
         return self.chain_id
 
