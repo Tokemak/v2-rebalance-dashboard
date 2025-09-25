@@ -83,7 +83,7 @@ def fetch_a_bunch_of_quotes(
         dfs.append(df)
 
         full_df = pd.concat(dfs)
-        full_df.to_csv("15_min_auto_usd_combinations4.csv", index=True)
+        full_df.to_csv("15_min_auto_usd_combinations6.csv", index=True)
         print(f"wrote {len(full_df)} rows to 15_min_auto_usd_combinations4.csv")
 
         if i < n_batches - 1:
