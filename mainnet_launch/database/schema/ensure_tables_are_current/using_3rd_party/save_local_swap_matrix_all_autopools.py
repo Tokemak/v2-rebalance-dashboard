@@ -33,7 +33,14 @@ def get_autopool_possible_assets(autopool: AutopoolConstants):
 
     select chain_id, token_address, symbol, name, decimals from tokens where tokens.token_address in (select token_address from this_autopool_asset_tokens)"""
 
-    return _exec_sql_and_cache(query)
+    df = _exec_sql_and_cache(query)
+
+    if autopool == AUTO_ETH:
+        other_df = _exec_sql_and_cache(AUTO_LRT)
+        df = pd.concat([df, other_df]).drop_duplicates().reset_index(drop=True)
+
+    return df
+    
 
 
 def fetch_and_save_autopool_swap_matrix_quotes(autopool: AutopoolConstants):
@@ -95,7 +102,7 @@ def main():
     # not sure why arb USD fails, it shouldn't
     # the rest are redundent, there is only one extra asset that justifices inlucidng autoLRT
     # can push into autoETH if needed
-    bad_autopools = [BASE_EUR, SILO_ETH, SONIC_USD, BAL_ETH, DINERO_ETH, ARB_USD, SILO_USD]
+    bad_autopools = [BASE_EUR, SILO_ETH, SONIC_USD, BAL_ETH, DINERO_ETH, ARB_USD, SILO_USD, AUTO_LRT]
 
     while True:
         for autopool in ALL_AUTOPOOLS:
