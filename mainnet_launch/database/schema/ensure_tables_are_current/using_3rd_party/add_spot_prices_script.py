@@ -39,20 +39,25 @@ def _fetch_on_chain_spot_prices(row: pd.Series) -> dict:
         row_as_dict["found_timestamp"] = found_timestamp.timestamp
         row_as_dict["prices_success"] = True
     except Exception as e:
-        print('failed a row', type(e), str(e))
+        print("failed a row", type(e), str(e))
         pass
         row_as_dict = row.to_dict()
         row_as_dict["prices_success"] = False
 
     return row_as_dict
 
+
 if __name__ == "__main__":
 
-    df = pd.read_csv("mainnet_launch/database/schema/ensure_tables_are_current/using_3rd_party/combined_swap_quotes.csv")
+    df = pd.read_csv(
+        "mainnet_launch/database/schema/ensure_tables_are_current/using_3rd_party/combined_swap_quotes.csv"
+    )
     df["unix_timestamp"] = df["datetime_received"].apply(lambda x: int(pd.to_datetime(x, utc=True).timestamp()))
 
     with ThreadPoolExecutor(max_workers=50) as executor:
-        results = list(tqdm(executor.map(_fetch_on_chain_spot_prices, [row for _, row in df.iterrows()]), total=len(df)))
+        results = list(
+            tqdm(executor.map(_fetch_on_chain_spot_prices, [row for _, row in df.iterrows()]), total=len(df))
+        )
 
     results_df = pd.DataFrame(results)
     results_df.to_csv("swap_qutoes_with_prices.csv", index=False)

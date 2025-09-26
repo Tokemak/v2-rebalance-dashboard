@@ -1,13 +1,18 @@
+import time
+import random
+import pandas as pd
+
 from mainnet_launch.constants import *
 
 from mainnet_launch.database.postgres_operations import (
     _exec_sql_and_cache,
 )
 
-
-import time
-import random
-import pandas as pd
+from mainnet_launch.data_fetching.internal.fetch_quotes import (
+    fetch_many_swap_quotes_from_internal_api,
+    TokemakQuoteRequest,
+    THIRD_PARTY_SUCCESS_KEY,
+)
 
 
 def get_autopool_possible_assets(autopool: AutopoolConstants):
@@ -31,99 +36,28 @@ def get_autopool_possible_assets(autopool: AutopoolConstants):
     return _exec_sql_and_cache(query)
 
 
-from mainnet_launch.data_fetching.internal.fetch_quotes import (
-    fetch_many_swap_quotes_from_internal_api,
-    TokemakQuoteRequest,
-)
+def fetch_and_save_autopool_swap_matrix_quotes(autopool: AutopoolConstants):
+    autopool_save_name = WORKING_DATA_DIR / f"{autopool.name}_full_swap_matrix.csv"
+    autopool_assets = get_autopool_possible_assets(autopool)
 
-
-def tidy_up_quotes(df: pd.DataFrame, token_address_to_decimals: dict, token_address_to_symbol: dict) -> pd.DataFrame:
-    df["buyAmount"] = df["buyAmount"].fillna(0)
-    df["minBuyAmount"] = df["minBuyAmount"].fillna(0)
-    df["sellAmount"] = df["sellAmount"].fillna(0)
-
-    df["buy_amount_norm"] = df.apply(
-        lambda row: int(row["buyAmount"]) / 10 ** token_address_to_decimals[row["buyToken"]], axis=1
-    )
-    df["min_buy_amount_norm"] = df.apply(
-        lambda row: float(row["minBuyAmount"]) / 10 ** token_address_to_decimals[row["buyToken"]], axis=1
-    )
-    df["sell_amount_norm"] = df.apply(
-        lambda row: int(row["sellAmount"]) / 10 ** token_address_to_decimals[row["sellToken"]], axis=1
+    print(
+        f'Autopool {autopool.name} has {len(autopool_assets)} possible assets: {", ".join(autopool_assets["symbol"].unique())}'
     )
 
-    df["buy_amount_price"] = df.apply(lambda row: row["buy_amount_norm"] / row["sell_amount_norm"], axis=1)
-    df["min_buy_amount_price"] = df.apply(lambda row: row["min_buy_amount_norm"] / row["sell_amount_norm"], axis=1)
-    df["buy_symbol"] = df.apply(lambda row: token_address_to_symbol[row["buyToken"]], axis=1)
-    df["sell_symbol"] = df.apply(lambda row: token_address_to_symbol[row["sellToken"]], axis=1)
-    df["label"] = df["sell_symbol"] + " -> " + df["buy_symbol"]
-    return df
-
-
-def fetch_a_bunch_of_quotes(
-    tokemak_quote_requests: list[TokemakQuoteRequest],
-    token_address_to_decimals: dict,
-    token_address_to_symbol: dict,
-    second_wait_between_batches: int = 60 * 15,
-    rate_limit_max_rate=8,
-    rate_limit_time_period=10,
-    n_batches=10,
-):
-
-    dfs = []
-    for i in range(n_batches):
-        random.shuffle(tokemak_quote_requests)  # important to not have spurious relationships because of sizing
-        df = fetch_many_swap_quotes_from_internal_api(
-            tokemak_quote_requests,
-            rate_limit_max_rate=rate_limit_max_rate,
-            rate_limit_time_period=rate_limit_time_period,
-        )
-        df = tidy_up_quotes(df, token_address_to_decimals, token_address_to_symbol)
-        df["batch_id"] = i
-        dfs.append(df)
-
-        full_df = pd.concat(dfs)
-        full_df.to_csv("15_min_auto_usd_combinations6.csv", index=True)
-        print(f"wrote {len(full_df)} rows to 15_min_auto_usd_combinations4.csv")
-
-        if i < n_batches - 1:
-            print(f"waiting {second_wait_between_batches} seconds before next batch")
-            time.sleep(second_wait_between_batches)
-
-
-def main():
-    autoUSD_assets = get_autopool_possible_assets(AUTO_USD)
-    erc4626_asset_symbols = [
-        "waEthUSDC",
-        "sUSDS",
-        "sFRAX",
-        "sUSDe",
-        "sfrxUSD",
-        "scrvUSD",
-        "waEthUSDT",
-        "waEthLidoGHO",
-        "sDAI",
-        "frxUSD",
-    ]
-    # in theory we can derive these prices from the other prices + an on-chain call
-    # FRAX is 1:1 with frxUSD, FRAX is more liquid, it shouldn't matter but using FRAX instead
-    primary_autoUSD_assets = autoUSD_assets[~autoUSD_assets["symbol"].isin(erc4626_asset_symbols)].copy()
-    # it is required to reduce down to only the primary assets and then use the erc4626 method to get quanity in that assets
-
-    token_address_to_symbol = primary_autoUSD_assets.set_index("token_address")["symbol"].to_dict()
-    token_address_to_decimals = primary_autoUSD_assets.set_index("token_address")["decimals"].to_dict()
-
-    sizes = [50_000, 100_000, 150_000, 200_000, 250_000]
+    if autopool.base_asset in [DOLA(autopool.chain), USDC(autopool.chain), EURC(autopool.chain)]:
+        sizes = [50_000, 100_000, 150_000, 200_000, 250_000]
+    else:
+        sizes = [5, 25, 50, 75, 100]
 
     tokemak_quote_requests = []
 
     for size in sizes:
         for chain_id, token_address1, decimals in zip(
-            primary_autoUSD_assets["chain_id"],
-            primary_autoUSD_assets["token_address"],
-            primary_autoUSD_assets["decimals"],
+            autopool_assets["chain_id"],
+            autopool_assets["token_address"],
+            autopool_assets["decimals"],
         ):
-            for token_address2 in primary_autoUSD_assets["token_address"]:
+            for token_address2 in autopool_assets["token_address"]:
                 if token_address1 != token_address2:
                     tokemak_quote_requests.append(
                         TokemakQuoteRequest(
@@ -134,15 +68,42 @@ def main():
                         )
                     )
 
-    fetch_a_bunch_of_quotes(
+    random.shuffle(tokemak_quote_requests)
+    quote_df = fetch_many_swap_quotes_from_internal_api(
         tokemak_quote_requests,
-        token_address_to_decimals,
-        token_address_to_symbol,
-        second_wait_between_batches=60 * 30,
         rate_limit_max_rate=8,
         rate_limit_time_period=10,
-        n_batches=50,
     )
+    quote_df["autopool_name"] = autopool.name
+
+    print("fetched quotes")
+    print(quote_df[THIRD_PARTY_SUCCESS_KEY].value_counts())
+
+    prior_df = pd.read_csv(autopool_save_name) if autopool_save_name.exists() else None
+
+    if prior_df is not None:
+        full_df = pd.concat([prior_df, quote_df])
+    else:
+        full_df = quote_df
+
+    full_df.to_csv(autopool_save_name, index=False)
+
+    print(f"Saved a total {len(full_df)} quotes to {autopool_save_name} {len(quote_df)} new")
+
+
+def main():
+    # not sure why arb USD fails, it shouldn't
+    # the rest are redundent, there is only one extra asset that justifices inlucidng autoLRT
+    # can push into autoETH if needed
+    bad_autopools = [BASE_EUR, SILO_ETH, SONIC_USD, BAL_ETH, DINERO_ETH, ARB_USD, SILO_USD]
+
+    while True:
+        for autopool in ALL_AUTOPOOLS:
+            if autopool not in bad_autopools:
+                print(f"Fetching quotes for {autopool.name}")
+                fetch_and_save_autopool_swap_matrix_quotes(autopool)
+                print("sleeping 5 minutes")
+                time.sleep(60 * 5)
 
 
 if __name__ == "__main__":

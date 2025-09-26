@@ -23,7 +23,7 @@ def _build_request_kwargs(chain_id: int, token_in: str, token_out: str, unscaled
     json_payload = {
         "chainId": chain_id,
         "systemName": "gen3",
-        "slippageBps": 3.5,  # 5000
+        "slippageBps": 5000,  # 5000, just don't trust minBuyAmount with this slippage value
         "taker": DEAD_ADDRESS,
         "sellToken": token_in,
         "buyToken": token_out,
