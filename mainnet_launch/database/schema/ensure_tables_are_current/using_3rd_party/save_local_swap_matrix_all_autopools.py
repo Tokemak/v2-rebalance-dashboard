@@ -100,10 +100,14 @@ def main():
     while True:
         for autopool in ALL_AUTOPOOLS:
             if autopool not in bad_autopools:
-                print(f"Fetching quotes for {autopool.name}")
-                fetch_and_save_autopool_swap_matrix_quotes(autopool)
-                print("sleeping 5 minutes")
-                time.sleep(60 * 5)
+                try:
+                    print(f"Fetching quotes for {autopool.name}")
+                    fetch_and_save_autopool_swap_matrix_quotes(autopool)
+                    print("sleeping 5 minutes")
+                    time.sleep(60 * 5)
+                except Exception as e:
+                    print(f"Error fetching quotes for {autopool.name}, skipping. Error: {e}")
+                    time.sleep(60 * 5)
 
 
 if __name__ == "__main__":

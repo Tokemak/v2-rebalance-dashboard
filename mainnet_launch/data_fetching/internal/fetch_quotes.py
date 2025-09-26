@@ -52,7 +52,14 @@ def _process_quote_response(response: dict) -> dict:
         cleaned_data.update(request_kwargs)
         return cleaned_data
     else:
-        return response
+        fields_to_keep = ["buyAmount", "minBuyAmount", "aggregatorName", "datetime_received", THIRD_PARTY_SUCCESS_KEY]
+        cleaned_data = {a: None for a in fields_to_keep}
+        cleaned_data[THIRD_PARTY_SUCCESS_KEY] = False
+        request_kwargs = response["request_kwargs"]
+        json_payload = request_kwargs.pop("json")
+        cleaned_data.update(json_payload)
+        cleaned_data.update(request_kwargs)
+        return cleaned_data
 
 
 def fetch_single_swap_quote_from_internal_api(
