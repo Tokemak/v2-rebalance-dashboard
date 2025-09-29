@@ -123,9 +123,15 @@ async def _make_many_requests_async(rate_limiter: AsyncLimiter, requests_kwargs:
         results: list[dict] = [None] * len(tasks)
         desc = f"Fetching 3rd-party data from {requests_kwargs[0].get('url', '')}"
 
-        for fut in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc=desc):
-            i, res = await fut
-            results[i] = res
+        if rate_limiter.max_rate > 1:
+            for fut in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc=desc):
+                i, res = await fut
+                results[i] = res
+        else:
+            # the same just don't use tdqm
+            for fut in asyncio.as_completed(tasks):
+                i, res = await fut
+                results[i] = res
 
         return results
 
