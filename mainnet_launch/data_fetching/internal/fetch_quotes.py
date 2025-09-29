@@ -89,8 +89,8 @@ def fetch_many_swap_quotes_from_internal_api(
         )
 
     # no real idea here
-    # 1 /2  per second
-    # not relaly sure here
+    # 1-2  per second
+    # not really sure here
     raw_responses = make_many_requests_to_3rd_party(
         rate_limit_max_rate=rate_limit_max_rate,
         rate_limit_time_period=rate_limit_time_period,
