@@ -92,10 +92,17 @@ class TokemakAddress:
     base: str
     sonic: str
     arb: str
-    name: str
+    plasma: str = "0x000000000000000000000000000000000000dEaD"  # temporary only
+    name: str = "need a name here"
+
+    def _get_all_chains(self) -> list[str]:
+        """
+        Returns a list of chain names associated with this TokemakAddress.
+        """
+        return [self.eth, self.base, self.sonic, self.arb, self.plasma]
 
     def __post_init__(self):
-        for addr in [self.eth, self.base, self.sonic, self.arb]:
+        for addr in self._get_all_chains():
             if not Web3.isChecksumAddress(addr):
                 raise ValueError(f"{addr} must be a checksum address should be {Web3.toChecksumAddress(addr)=}")
 
@@ -115,11 +122,11 @@ class TokemakAddress:
             check_sum_address = Web3.toChecksumAddress(addr)
         except Exception:
             return False
-        return check_sum_address in [self.eth, self.base, self.sonic, self.arb]
+        return check_sum_address in self._get_all_chains()
 
     def __hash__(self):
         """
         Hashes the address based on the Ethereum address.
         This is useful for caching and ensuring uniqueness.
         """
-        return hash(self.eth + self.base + self.sonic + self.arb)
+        return hash("".join(self._get_all_chains()))

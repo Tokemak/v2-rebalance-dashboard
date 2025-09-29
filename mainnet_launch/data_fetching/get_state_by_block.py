@@ -31,6 +31,7 @@ MULTICALL_V3 = TokemakAddress(
     base="0xcA11bde05977b3631167028862bE2a173976CA11",
     sonic="0xcA11bde05977b3631167028862bE2a173976CA11",
     arb="0x842eC2c7D803033Edf55E478F461FC547Bc54EB2",  # is mulitcall v2 but I don't think it matters
+    plasma="0x5d6b0f5335ec95cD2aB7E52f2A0750dd86502435",  # using the mainnet one for now HuskeyInterfaceMulticall, not certain here on the address
     name="multicall_v3",
 )
 
