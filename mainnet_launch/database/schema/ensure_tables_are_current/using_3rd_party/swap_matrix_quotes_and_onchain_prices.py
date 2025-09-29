@@ -194,9 +194,12 @@ def main():
             _fetch_on_chain_spot_prices = build_fetch_on_chain_spot_prices_function(autopool)
 
             def process_request(tokemak_quote_request):
-                return fetch_swap_matrix_quotes_and_prices(_fetch_on_chain_spot_prices, tokemak_quote_request)
+                time.sleep(1)
+                data = fetch_swap_matrix_quotes_and_prices(_fetch_on_chain_spot_prices, tokemak_quote_request)
+                return data
 
-            with ThreadPoolExecutor(max_workers=20) as executor:
+            max_workers = 10
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 quote_responses = list(
                     tqdm(
                         executor.map(process_request, tokemak_quote_requests),
@@ -206,7 +209,8 @@ def main():
                 )
             quote_df = pd.DataFrame.from_records(quote_responses)
             quote_df["autopool_name"] = autopool.name
-            print(autopool.name + "-" * 10)
+            quote_df["max_workers"] = max_workers
+            print(autopool.name + "-" * 60)
             print(quote_df[THIRD_PARTY_SUCCESS_KEY].value_counts())
             autopool_save_name = swap_matrix_data2 / f"{autopool.name}_full_swap_matrix_with_prices.csv"
 
@@ -223,4 +227,8 @@ def main():
 
 
 if __name__ == "__main__":
+    print("hello_world")
     main()
+
+
+# caffeinate -i bash -c "cd /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard && poetry run python mainnet_launch/database/schema/ensure_tables_are_current/using_3rd_party/swap_matrix_quotes_and_onchain_prices.py"
