@@ -186,48 +186,48 @@ def main():
     swap_matrix_data2 = WORKING_DATA_DIR / "swap_matrix_prices2"
     swap_matrix_data2.mkdir(parents=True, exist_ok=True)
 
-    # while True:
-    for autopool in ALL_AUTOPOOLS:
-        if autopool not in bad_autopools:
-            tokemak_quote_requests = build_quotes(autopool)
+    while True:
+        for autopool in ALL_AUTOPOOLS:
+            if autopool not in bad_autopools:
+                tokemak_quote_requests = build_quotes(autopool)
 
-            _fetch_on_chain_spot_prices = build_fetch_on_chain_spot_prices_function(autopool)
+                _fetch_on_chain_spot_prices = build_fetch_on_chain_spot_prices_function(autopool)
 
-            def process_request(tokemak_quote_request):
-                time.sleep(1)
-                data = fetch_swap_matrix_quotes_and_prices(_fetch_on_chain_spot_prices, tokemak_quote_request)
-                return data
+                def process_request(tokemak_quote_request):
+                    time.sleep(1)
+                    data = fetch_swap_matrix_quotes_and_prices(_fetch_on_chain_spot_prices, tokemak_quote_request)
+                    return data
 
-            max_workers = 10
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                quote_responses = list(
-                    tqdm(
-                        executor.map(process_request, tokemak_quote_requests),
-                        total=len(tokemak_quote_requests),
-                        desc=f"Fetching quotes for {autopool.name}",
+                max_workers = 10
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    quote_responses = list(
+                        tqdm(
+                            executor.map(process_request, tokemak_quote_requests),
+                            total=len(tokemak_quote_requests),
+                            desc=f"Fetching quotes for {autopool.name}",
+                        )
                     )
-                )
-            quote_df = pd.DataFrame.from_records(quote_responses)
-            quote_df["autopool_name"] = autopool.name
-            quote_df["max_workers"] = max_workers
-            print(autopool.name + "-" * 60)
-            print(quote_df[THIRD_PARTY_SUCCESS_KEY].value_counts())
-            autopool_save_name = swap_matrix_data2 / f"{autopool.name}_full_swap_matrix_with_prices.csv"
+                quote_df = pd.DataFrame.from_records(quote_responses)
+                quote_df["autopool_name"] = autopool.name
+                quote_df["max_workers"] = max_workers
+                print(autopool.name + "-" * 60)
+                print(quote_df[THIRD_PARTY_SUCCESS_KEY].value_counts())
+                autopool_save_name = swap_matrix_data2 / f"{autopool.name}_full_swap_matrix_with_prices.csv"
 
-            prior_df = pd.read_csv(autopool_save_name, low_memory=False) if autopool_save_name.exists() else None
+                prior_df = pd.read_csv(autopool_save_name, low_memory=False) if autopool_save_name.exists() else None
 
-            if prior_df is not None:
-                full_df = pd.concat([prior_df, quote_df])
-            else:
-                full_df = quote_df
+                if prior_df is not None:
+                    full_df = pd.concat([prior_df, quote_df])
+                else:
+                    full_df = quote_df
 
-            full_df.to_csv(autopool_save_name, index=False)
-
-            print(f"Saved a total {len(full_df)} quotes to {autopool_save_name} {len(quote_df)} new")
+                full_df.to_csv(autopool_save_name, index=False)
+                print("- -" * 100)
+                print(f"Saved a total {len(full_df)} quotes to {autopool_save_name} {len(quote_df)} new")
 
 
 if __name__ == "__main__":
-    print("hello_world")
+    # print("hello_world")
     main()
 
 
