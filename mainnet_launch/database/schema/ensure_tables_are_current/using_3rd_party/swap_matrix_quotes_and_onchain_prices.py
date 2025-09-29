@@ -179,6 +179,7 @@ def build_quotes(autopool: AutopoolConstants) -> list[TokemakQuoteRequest]:
     return tokemak_quote_requests
 
 
+@time_decorator
 def main():
     bad_autopools = [BASE_EUR, SILO_ETH, SONIC_USD, BAL_ETH, DINERO_ETH, ARB_USD, SILO_USD, AUTO_LRT, ARB_USD]
 
@@ -188,7 +189,7 @@ def main():
     # while True:
     for autopool in ALL_AUTOPOOLS:
         if autopool not in bad_autopools:
-            tokemak_quote_requests = build_quotes(autopool)[:100]
+            tokemak_quote_requests = build_quotes(autopool)
 
             _fetch_on_chain_spot_prices = build_fetch_on_chain_spot_prices_function(autopool)
 
