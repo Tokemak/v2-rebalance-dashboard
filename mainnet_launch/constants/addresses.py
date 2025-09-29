@@ -107,6 +107,7 @@ STATS_CALCULATOR_REGISTRY = TokemakAddress(
 
 ## BASE ASSETS
 
+
 WETH = TokemakAddress(
     eth="0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
     base="0x4200000000000000000000000000000000000006",
@@ -121,8 +122,17 @@ USDC = TokemakAddress(
     base="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     sonic="0x29219dd400f2Bf60E5a23d13Be72B486D4038894",
     arb="0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-    plasma="0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb",
+    plasma=DEAD_ADDRESS,  # not certain if this is USDC?
     name="USDC",
+)
+
+USDT = TokemakAddress(
+    eth=DEAD_ADDRESS,
+    base=DEAD_ADDRESS,
+    sonic=DEAD_ADDRESS,
+    arb=DEAD_ADDRESS,
+    plasma="0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb",
+    name="USDT",
 )
 
 DOLA = TokemakAddress(

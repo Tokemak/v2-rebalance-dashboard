@@ -32,6 +32,8 @@ from mainnet_launch.constants import (
     DOLA,
     EURC,
     ALL_AUTOPOOLS_DATA_ON_CHAIN,
+    ALL_AUTOPOOLS,
+    AutopoolConstants,
 )
 
 
@@ -39,28 +41,25 @@ def build_lp_token_spot_and_safe_price_calls(
     destination_addresses: list[str],
     lp_token_addresses: list[str],
     pool_addresses: list[str],
-    chain: ChainData,
-    base_asset: str,
+    autopool: AutopoolConstants,
 ) -> list[Call]:
-
-    if base_asset in USDC or base_asset in EURC:
-        base_asset_decimals = 6
-    elif base_asset in WETH or base_asset in DOLA:
-        base_asset_decimals = 18
-    else:
-        raise ValueError("Unexpected base_asset", base_asset)
 
     def _handle_getRangePricesLP(success, args):
         if success:
             spotPriceInQuote, safePriceInQuote, isSpotSafe = args
-            lp_token_spot_price = spotPriceInQuote / (10**base_asset_decimals)
-            lp_token_safe_price = safePriceInQuote / (10**base_asset_decimals)
+            lp_token_spot_price = spotPriceInQuote / (10**autopool.base_asset_decimals)
+            lp_token_safe_price = safePriceInQuote / (10**autopool.base_asset_decimals)
             return (lp_token_spot_price, lp_token_safe_price)
 
     return [
         Call(
-            ROOT_PRICE_ORACLE(chain),
-            ["getRangePricesLP(address,address,address)((uint256,uint256,uint256))", lp_token, pool, base_asset],
+            ROOT_PRICE_ORACLE(autopool.chain),
+            [
+                "getRangePricesLP(address,address,address)((uint256,uint256,uint256))",
+                lp_token,
+                pool,
+                autopool.base_asset,
+            ],
             [((destination, "lp_token_spot_and_safe"), _handle_getRangePricesLP)],
         )
         for destination, lp_token, pool in zip(destination_addresses, lp_token_addresses, pool_addresses)
@@ -79,6 +78,8 @@ def _fetch_lp_token_spot_prices(
 
     lp_token_spot_prices_calls = []
 
+    autopool_vault_address_to_autopool = {a.autopool_eth_addr: a for a in ALL_AUTOPOOLS}
+
     for autopool_vault_address in autopool_to_all_ever_active_destinations.keys():
         this_autopool_active_destinations: list[Destinations] = [
             dest
@@ -86,14 +87,15 @@ def _fetch_lp_token_spot_prices(
             if dest.destination_vault_address in autopool_to_all_ever_active_destinations[autopool_vault_address]
         ]
 
-        base_asset = [a.base_asset for a in autopool_orm if a.autopool_vault_address == autopool_vault_address][0]
-
         destination_vault_addresses = [dest.destination_vault_address for dest in this_autopool_active_destinations]
         lp_token_addresses = [dest.underlying for dest in this_autopool_active_destinations]
         pool_addresses = [dest.pool for dest in this_autopool_active_destinations]
 
         calls = build_lp_token_spot_and_safe_price_calls(
-            destination_vault_addresses, lp_token_addresses, pool_addresses, chain, base_asset
+            destination_vault_addresses,
+            lp_token_addresses,
+            pool_addresses,
+            autopool_vault_address_to_autopool[autopool_vault_address],
         )
         lp_token_spot_prices_calls.extend(calls)
 

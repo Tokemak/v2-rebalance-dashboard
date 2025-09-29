@@ -92,8 +92,8 @@ class TokemakAddress:
     base: str
     sonic: str
     arb: str
-    plasma: str = "0x000000000000000000000000000000000000dEaD"  # temporary only
-    name: str = "need a name here"
+    plasma: str
+    name: str
 
     def _get_all_chains(self) -> list[str]:
         """

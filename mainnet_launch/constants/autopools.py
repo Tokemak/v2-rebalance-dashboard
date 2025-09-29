@@ -1,7 +1,7 @@
 from .models import AutopoolConstants
-from .chains import ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN, ARBITRUM_CHAIN, PLASMA_CHAIN
+from .chains import *
 from .secrets import BUCKETS
-from .addresses import WETH, USDC, DOLA, EURC
+from .addresses import *
 
 
 AUTO_ETH = AutopoolConstants(
@@ -207,14 +207,14 @@ ARB_USD = AutopoolConstants(
 PLASMA_USD = AutopoolConstants(
     "plasmaUSD",
     "plasmaUSD",
-    autopool_eth_addr="0x7BEA14E8B5b8693D74a451bAbEcbcD34c6Ebe83D",
+    autopool_eth_addr="0x4Ec8f8b0F144ce1fa280B84F01Df9e353e83EC80",
     autopool_eth_strategy_addr=None,
     solver_rebalance_plans_bucket=BUCKETS["PLASMA_USD"],
     chain=PLASMA_CHAIN,
-    base_asset=USDC(PLASMA_CHAIN),
+    base_asset=USDT(PLASMA_CHAIN),
     block_deployed=1385809,
     data_from_rebalance_plan=True,
-    base_asset_symbol="USDC",
+    base_asset_symbol="USDT",
     start_display_date="09-20-2025",
     base_asset_decimals=6,
 )
