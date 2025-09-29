@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 import concurrent.futures
+import random
 
 from aiolimiter import AsyncLimiter
 from aiohttp.client_exceptions import (
@@ -55,7 +56,7 @@ async def _get_json_with_retry(
                     async with session.request(**request_kwargs, timeout=120) as resp:
                         if resp.status == 429:
                             print("Rate limit exceeded, retrying...")
-                            await asyncio.sleep(60)
+                            await asyncio.sleep(60 + (random.random() * 30))
                             continue
 
                         try:
