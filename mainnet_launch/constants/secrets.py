@@ -23,6 +23,7 @@ TOKEMAK_SUBGRAPH_URLS = {
     "base": environ["TOKEMAK_BASE_SUBGRAPH_URL"],
     "sonic": environ["TOKEMAK_SONIC_SUBGRAPH_URL"],
     "arb": environ["TOKEMAK_ARBITRUM_SUBGRAPH_URL"],
+    "plasma": environ["TOKEMAK_PLASMA_SUBGRAPH_URL"],
 }
 
 BUCKETS = {
@@ -39,6 +40,7 @@ BUCKETS = {
     "SILO_USD": environ["SILO_USD_BUCKET"],
     "SILO_ETH": environ["SILO_ETH_BUCKET"],
     "ARB_USD": environ["ARB_USD_BUCKET"],
+    "PLASMA_USD": environ["PLASMA_USD_BUCKET"],
 }
 
 

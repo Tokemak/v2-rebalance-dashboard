@@ -17,16 +17,21 @@ sonic_client.middleware_onion.inject(geth_poa_middleware, layer=0)
 
 arbitrum_client = Web3(Web3.HTTPProvider(ALCHEMY_URL.replace("eth-mainnet", "arb-mainnet")))
 
+plasma_client = Web3(Web3.HTTPProvider(ALCHEMY_URL.replace("eth-mainnet", "plasma-mainnet")))
+
 eth_client.eth._chain_id = lambda: 1
 base_client.eth._chain_id = lambda: 8453
 sonic_client.eth._chain_id = lambda: 146
 arbitrum_client.eth._chain_id = lambda: 42161
+plasma_client.eth._chain_id = lambda: 9745
+
 
 WEB3_CLIENTS: dict[str, Web3] = {
     "eth": eth_client,
     "base": base_client,
     "sonic": sonic_client,
     "arb": arbitrum_client,
+    "plasma": plasma_client,
 }
 
 
@@ -100,4 +105,13 @@ ARBITRUM_CHAIN = ChainData(
 )
 
 
-ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN, ARBITRUM_CHAIN]
+PLASMA_CHAIN = ChainData(
+    name="plasma",
+    block_autopool_first_deployed=1385809,
+    chain_id=9745,
+    start_unix_timestamp=1758314669,
+    tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["plasma"],
+)
+
+
+ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN, ARBITRUM_CHAIN, PLASMA_CHAIN]

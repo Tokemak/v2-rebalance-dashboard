@@ -5,7 +5,7 @@ import pandas as pd
 from web3 import Web3
 
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA, EURC
+from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA, EURC, USDT
 from mainnet_launch.database.schema.full import RebalancePlans, Destinations, DexSwapSteps, Tokens
 
 from mainnet_launch.database.postgres_operations import (
@@ -85,7 +85,7 @@ def _extract_spot_values(rebalance_test: dict, autopool: AutopoolConstants):
     elif autopool.base_asset in WETH:
         spot_value_out_key = "outSpotETH"
         min_amount_in_spot_value_key = "inSpotETH"
-    elif (autopool.base_asset in DOLA) or (autopool.base_asset in EURC):
+    elif (autopool.base_asset in DOLA) or (autopool.base_asset in EURC) or (autopool.base_asset in USDT):
         spot_value_out_key = "outSpotQuote"
         min_amount_in_spot_value_key = "inSpotQuote"
     else:
