@@ -151,7 +151,7 @@ def fetch_swap_matrix_quotes_and_prices(
 
 def build_quotes(autopool: AutopoolConstants) -> list[TokemakQuoteRequest]:
     autopool_assets = get_autopool_possible_assets(autopool)
-    if autopool.base_asset in [DOLA(autopool.chain), USDC(autopool.chain), EURC(autopool.chain)]:
+    if autopool.base_asset in [DOLA(autopool.chain), USDC(autopool.chain), EURC(autopool.chain), USDT(autopool.chain)]:
         sizes = [50_000, 100_000, 150_000, 200_000, 250_000]
     else:
         sizes = [5, 25, 50, 75, 100]

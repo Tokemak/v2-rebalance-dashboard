@@ -111,6 +111,7 @@ PLASMA_CHAIN = ChainData(
     chain_id=9745,
     start_unix_timestamp=1758314669,
     tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["plasma"],
+    alchemy_network_enum="plasma-mainnet",
 )
 
 
