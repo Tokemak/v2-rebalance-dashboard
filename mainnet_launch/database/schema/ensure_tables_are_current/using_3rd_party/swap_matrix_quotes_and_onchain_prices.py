@@ -152,9 +152,9 @@ def fetch_swap_matrix_quotes_and_prices(
 def build_quotes(autopool: AutopoolConstants) -> list[TokemakQuoteRequest]:
     autopool_assets = get_autopool_possible_assets(autopool)
     if autopool.base_asset in [DOLA(autopool.chain), USDC(autopool.chain), EURC(autopool.chain), USDT(autopool.chain)]:
-        sizes = [50_000, 100_000, 150_000, 200_000, 250_000]
+        sizes = [50_000, 100_000, 150_000, 200_000]
     else:
-        sizes = [5, 25, 50, 75, 100]
+        sizes = [50, 100, 150, 200]
 
     tokemak_quote_requests = []
 
@@ -187,18 +187,17 @@ def main():
     swap_matrix_data2.mkdir(parents=True, exist_ok=True)
 
     while True:
-        for autopool in ALL_AUTOPOOLS:
+        for autopool in [AUTO_ETH, AUTO_USD]: # then add the base one seperate
             if autopool not in bad_autopools:
                 tokemak_quote_requests = build_quotes(autopool)
 
                 _fetch_on_chain_spot_prices = build_fetch_on_chain_spot_prices_function(autopool)
 
                 def process_request(tokemak_quote_request):
-                    time.sleep(1)
                     data = fetch_swap_matrix_quotes_and_prices(_fetch_on_chain_spot_prices, tokemak_quote_request)
                     return data
 
-                max_workers = 10
+                max_workers = 20
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
                     quote_responses = list(
                         tqdm(
