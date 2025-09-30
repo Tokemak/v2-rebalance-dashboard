@@ -138,7 +138,7 @@ def _recursive_make_web3_getLogs_call(
         else:
             mid_block = (start_block + end_block) // 2
             print(
-                f"Retryable failure when fetching logs for {event} "
+                f"Retryable failure when fetching logs for {event} on {chain.name=}"
                 f"from {start_block:,} to {end_block:,} "
                 f"({end_block - start_block + 1:,} blocks), splitting into:\n"
                 f"  - {start_block:,} to {mid_block:,} ({mid_block - start_block + 1:,} blocks)\n"

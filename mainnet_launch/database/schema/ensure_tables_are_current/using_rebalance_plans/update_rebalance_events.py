@@ -292,8 +292,7 @@ def _fetch_values_in_and_out(autopool: AutopoolConstants, rebalance_event_row: p
         ],
         lp_token_addresses=[rebalance_event_row["tokenInAddress"], rebalance_event_row["tokenOutAddress"]],
         pool_addresses=[rebalance_event_row["poolInAddress"], rebalance_event_row["poolOutAddress"]],
-        chain=autopool.chain,
-        base_asset=autopool.base_asset,
+        autopool=autopool,
     )
     state = get_state_by_one_block(calls, int(rebalance_event_row["blockNumber"]), chain=autopool.chain)
 

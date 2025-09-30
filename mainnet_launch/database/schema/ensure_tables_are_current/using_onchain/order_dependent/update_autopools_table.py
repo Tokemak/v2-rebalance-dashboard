@@ -68,6 +68,8 @@ def ensure_autopools_are_current() -> None:
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import profile_function
 
-    profile_function(ensure_autopools_are_current)
+    ensure_autopools_are_current()
+    # from mainnet_launch.constants import profile_function
+
+    # profile_function(ensure_autopools_are_current)

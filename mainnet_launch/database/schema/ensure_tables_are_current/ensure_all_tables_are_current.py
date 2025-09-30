@@ -177,8 +177,9 @@ def main():
 
 
 if __name__ == "__main__":
-    sequential_main()
+    main()
 
+    # ensure_database_is_current_slow_and_sequential()
 
 # Line #      Hits         Time  Per Hit   % Time  Line Contents
 # ==============================================================

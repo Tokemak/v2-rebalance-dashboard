@@ -84,7 +84,7 @@ def ensure_blocks_is_current():
         ]
         highest_block_of_each_day_to_add = []
         for last_second_of_day in seconds_to_get:
-            block_before = get_block_by_timestamp_etherscan(last_second_of_day, chain, closest="before")
+            block_before = get_block_by_timestamp_defi_llama(last_second_of_day, chain, closest="before")
             highest_block_of_each_day_to_add.append(block_before)
 
         ensure_all_blocks_are_in_table(highest_block_of_each_day_to_add, chain)
