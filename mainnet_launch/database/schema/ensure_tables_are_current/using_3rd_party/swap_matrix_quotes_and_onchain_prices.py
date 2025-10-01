@@ -209,6 +209,7 @@ def main():
                 quote_df = pd.DataFrame.from_records(quote_responses)
                 quote_df["autopool_name"] = autopool.name
                 quote_df["max_workers"] = max_workers
+                quote_df["extra_info"] = "includeSources only Odos"
                 print(autopool.name + "-" * 60)
                 print(quote_df[THIRD_PARTY_SUCCESS_KEY].value_counts())
                 autopool_save_name = swap_matrix_data2 / f"{autopool.name}_full_swap_matrix_with_prices.csv"
