@@ -187,7 +187,7 @@ def main():
     swap_matrix_data2.mkdir(parents=True, exist_ok=True)
 
     while True:
-        for autopool in [AUTO_ETH, AUTO_USD]: # then add the base one seperate
+        for autopool in [AUTO_ETH, AUTO_USD]:  # then add the base one seperate
             if autopool not in bad_autopools:
                 tokemak_quote_requests = build_quotes(autopool)
 
