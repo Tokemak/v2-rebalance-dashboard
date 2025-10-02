@@ -58,3 +58,7 @@ STARTUP_LOG_FILE = ROOT_DIR / "startup.csv"
 SEMAPHORE_LIMITS_FOR_MULTICALL = tuple(
     int(x) for x in environ.get("SEMAPHORE_LIMITS_FOR_MULTICALL", "100,20,1").split(",")
 )
+
+AUTOPOOL_DASHBOARD_UPDATES_SLACK_WEBHOOK_URL = environ.get(
+    "AUTOPOOL_DASHBOARD_UPDATES_SLACK_WEBHOOK_URL", "https://hooks.slack.com/services/XXX/YYY/ZZZ"
+)
