@@ -153,10 +153,10 @@ def build_quotes(autopool: AutopoolConstants) -> list[TokemakQuoteRequest]:
     autopool_assets = get_autopool_possible_assets(autopool)
     if autopool.base_asset in [DOLA(autopool.chain), USDC(autopool.chain), EURC(autopool.chain), USDT(autopool.chain)]:
         sizes = [50_000, 100_000, 150_000, 200_000]
-        sizes = [100_000]  # just for faster testing
+        # sizes = [100_000]  # just for faster testing
     else:
         sizes = [50, 100, 150, 200]
-        sizes = [100]  # just for faster testing
+        # sizes = [100]  # just f÷or faster testing
 
     tokemak_quote_requests = []
 
@@ -190,7 +190,7 @@ def main():
 
     while True:
         for autopool in [AUTO_ETH, AUTO_USD]:  # then add the base one seperate
-            if autopool not in bad_autopools:
+            for _ in range(3):  # do each autopool 3 times, so that they are close to each other
                 tokemak_quote_requests = build_quotes(autopool)
 
                 _fetch_on_chain_spot_prices = build_fetch_on_chain_spot_prices_function(autopool)
