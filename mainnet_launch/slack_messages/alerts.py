@@ -1,23 +1,23 @@
 import argparse
 
+
+from blockkit import Message, MarkdownText, Section
 import requests
-from blockkit import Message, MarkdownText
-from mainnet_launch.constants import AUTOPOOL_DASHBOARD_UPDATES_SLACK_WEBHOOK_URL
 
 
-def send_slack_message_via_webhook(
-    success: bool,
-    action_name: str,
-    action_url: str,
-):
+from mainnet_launch.constants import V2_DASHBOARD_NOTIFS_WEBHOOK_URL
+
+
+def send_slack_message_about_github_action_status(success: bool, action_name: str, action_url: str):
     emoji = "✅" if success else "❌"
-    message = Message(
-        blocks=[
-            MarkdownText(text=f"{emoji} | {action_name} | [see action]({action_url})"),
-        ]
-    )
 
-    requests.post(AUTOPOOL_DASHBOARD_UPDATES_SLACK_WEBHOOK_URL, json=message.model_dump_json())
+    payload = Message(
+        blocks=[Section(text=MarkdownText(text=f"{emoji} | {action_name} | <{action_url}| see action> "))]
+    ).build()
+
+    resp = requests.post(V2_DASHBOARD_NOTIFS_WEBHOOK_URL, json=payload, timeout=10)
+    # We want a run time failure if this fails to see in the github action logs
+    resp.raise_for_status()
 
 
 def cli():
@@ -28,8 +28,4 @@ def cli():
     args = parser.parse_args()
 
     success = args.success.lower() == "success"
-    send_slack_message_via_webhook(success, args.action_name, args.github_actions_url)
-
-
-if __name__ == "__main__":
-    cli()
+    send_slack_message_about_github_action_status(success, args.action_name, args.github_actions_url)
