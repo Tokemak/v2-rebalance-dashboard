@@ -62,7 +62,7 @@ export-config = "mainnet_launch.app.export_config:create_streamlit_secrets_from_
 
 
 # slack notifications
-slack-alert = "mainnet_launch.slack_messages.alerts:cli"
+slack-alert = "mainnet_launch.slack_messages.alerts:post_github_action_status"
 
 [tool.pytest.ini_options]
 addopts = "-n auto --durations=0 -m 'not marketing'"

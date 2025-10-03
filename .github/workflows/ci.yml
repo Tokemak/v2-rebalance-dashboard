@@ -65,4 +65,18 @@ jobs:
       - name: poetry run pytest
         run: poetry run pytest
 
+      - name: Compute run URL and status
+        if: ${{ always() }}
+        run: |
+          echo "RUN_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+          echo "STATUS=${{ job.status }}" >> $GITHUB_ENV
+
+      - name: Notify Slack (always)
+        if: ${{ always() }}
+        run: |
+          poetry run slack-alert \
+            --success "${{ env.STATUS }}" \
+            --action-name "${{ github.workflow }}" \
+            --github-actions-url "${{ env.RUN_URL }}"
+
 

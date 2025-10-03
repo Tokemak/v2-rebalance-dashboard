@@ -8,11 +8,13 @@ import requests
 from mainnet_launch.constants import V2_DASHBOARD_NOTIFS_WEBHOOK_URL
 
 
-def send_slack_message_about_github_action_status(success: bool, action_name: str, action_url: str):
+def _send_slack_message_about_github_action_status(success: bool, action_name: str, action_url: str):
     emoji = "✅" if success else "❌"
+    # todo add proximate cause here,
+    # and time taken
 
     payload = Message(
-        blocks=[Section(text=MarkdownText(text=f"{emoji} | {action_name} | <{action_url}| see action> "))]
+        blocks=[Section(text=MarkdownText(text=f"{emoji} | {action_name} | <{action_url}|see action logs> "))]
     ).build()
 
     resp = requests.post(V2_DASHBOARD_NOTIFS_WEBHOOK_URL, json=payload, timeout=10)
@@ -20,7 +22,7 @@ def send_slack_message_about_github_action_status(success: bool, action_name: st
     resp.raise_for_status()
 
 
-def cli():
+def post_github_action_status():
     parser = argparse.ArgumentParser(description="Send a Slack message about a GitHub Action result.")
     parser.add_argument("--success", required=True, help="Job status: 'success' or anything else.")
     parser.add_argument("--action-name", required=True, help="GitHub workflow name")
@@ -28,4 +30,4 @@ def cli():
     args = parser.parse_args()
 
     success = args.success.lower() == "success"
-    send_slack_message_about_github_action_status(success, args.action_name, args.github_actions_url)
+    _send_slack_message_about_github_action_status(success, args.action_name, args.github_actions_url)
