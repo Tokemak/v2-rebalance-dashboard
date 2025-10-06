@@ -29,7 +29,8 @@ def _build_request_kwargs(chain_id: int, token_in: str, token_out: str, unscaled
         "buyToken": token_out,
         "sellAmount": str(unscaled_amount_in),
         "includeSources": "",
-        "excludeSources": "Bebop,Lifi",
+        # "excludeSources":'', # "Bebop,Lifi",
+        'excludeSources': 'Bebop,Lifi',  # these two seem to cause issues sometimes
         "sellAll": True,
         "timeoutMS": 20000,  # 20 seconds?, default was 5 seconds
     }

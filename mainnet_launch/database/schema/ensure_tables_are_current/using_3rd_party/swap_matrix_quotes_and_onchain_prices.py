@@ -156,7 +156,7 @@ def build_quotes(autopool: AutopoolConstants) -> list[TokemakQuoteRequest]:
         # sizes = [100_000]  # just for faster testing
     else:
         sizes = [50, 100, 150, 200]
-        # sizes = [100]  # just f÷or faster testing
+        # sizes = [100]  # just for faster testing
 
     tokemak_quote_requests = []
 
@@ -177,7 +177,7 @@ def build_quotes(autopool: AutopoolConstants) -> list[TokemakQuoteRequest]:
                         )
                     )
 
-    random.shuffle(tokemak_quote_requests)
+    # random.shuffle(tokemak_quote_requests)
     return tokemak_quote_requests
 
 
@@ -213,8 +213,8 @@ def main():
                 quote_df["autopool_name"] = autopool.name
                 quote_df["max_workers"] = max_workers
                 quote_df["extra_info"] = "includeSources only Odos"
-                print(autopool.name + "-" * 60)
-                print(quote_df[THIRD_PARTY_SUCCESS_KEY].value_counts())
+                # print(autopool.name + "-" * 60)
+                # print(quote_df[THIRD_PARTY_SUCCESS_KEY].value_counts())
                 autopool_save_name = swap_matrix_data2 / f"{autopool.name}_full_swap_matrix_with_prices.csv"
 
                 prior_df = pd.read_csv(autopool_save_name, low_memory=False) if autopool_save_name.exists() else None
