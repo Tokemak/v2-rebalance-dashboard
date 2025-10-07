@@ -19,6 +19,7 @@ load_dotenv()
 
 
 which_database = os.getenv("WHICH_DATABASE")
+
 if which_database is None:
     raise ValueError("WHICH_DATABASE environment variable not set")
 elif which_database == "MAIN_DATABASE_URL":
