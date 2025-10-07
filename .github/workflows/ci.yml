@@ -1,10 +1,10 @@
-name: Don't Break Production
+name: Passes Tests and Linting
 
 on:
   pull_request:
     branches: [main]
     types: [opened] 
-  workflow_dispatch: # manual trigger
+  workflow_dispatch:
 
 concurrency:
   group: pr-${{ github.event.pull_request.number || github.ref }}
@@ -23,60 +23,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+      - name: Setup Poetry env and install dependencies
+        uses: ./.github/actions/setup-env
 
-      - uses: snok/install-poetry@v1
-        with:
-          version: 1.8.3
-          virtualenvs-create: true
-          virtualenvs-in-project: true  
-
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ./.venv
-            ~/.cache/pypoetry
-          key: poetry-3.10-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            poetry-3.10-${{ runner.os }}-
-
-      - name: Create .env file from github secret blob and set WHICH_DATABASE
-        shell: bash
-        run: |
-          umask 177
-          printf '%s\n' "$DOTENV_BLOB" > .env
-
-          for VAR in WHICH_DATABASE WHICH_ALCHEMY_URL; do
-            if grep -q "^${VAR}=" .env; then
-              echo "Error: ${VAR} should not be included in DOTENV_BLOB. Set it via the workflow env instead." >&2
-              exit 1
-            fi
-            echo "${VAR}=${!VAR}" >> .env
-          done
-        
-      - name: Install dependencies
-        run: poetry install --no-interaction --no-ansi
+      - name: Create .env from DOTENV_BLOB and append WHICH_* vars
+        uses: ./.github/actions/dotenv-from-blob
         
       - name: poetry run linter
         run: poetry run black --diff --check .
 
       - name: poetry run pytest
         run: poetry run pytest
-
-      - name: Compute run URL and status
+      
+      - name: Post Slack Status Message
         if: ${{ always() }}
-        run: |
-          echo "RUN_URL=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
-          echo "STATUS=${{ job.status }}" >> $GITHUB_ENV
-
-      - name: Notify Slack (always)
-        if: ${{ always() }}
-        run: |
-          poetry run slack-alert \
-            --success "${{ env.STATUS }}" \
-            --action-name "${{ github.workflow }}" \
-            --github-actions-url "${{ env.RUN_URL }}"
-
-
+        uses: ./.github/actions/post-slack-message

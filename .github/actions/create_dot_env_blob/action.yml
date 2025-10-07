@@ -1,0 +1,19 @@
+name: "Create .env from DOTENV_BLOB"
+description: "Write DOTENV_BLOB to .env for python-dotenv"
+inputs:
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+          umask 177
+          printf '%s\n' "$DOTENV_BLOB" > .env
+
+          for VAR in WHICH_DATABASE WHICH_ALCHEMY_URL; do
+            if grep -q "^${VAR}=" .env; then
+              echo "Error: ${VAR} should not be included in DOTENV_BLOB. Set it via the workflow env instead." >&2
+              exit 1
+            fi
+            echo "${VAR}=${!VAR}" >> .env
+          done

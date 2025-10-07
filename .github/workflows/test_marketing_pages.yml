@@ -23,45 +23,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+      - name: Setup Poetry env and install dependencies
+        uses: ./.github/actions/setup-env
 
-      - uses: snok/install-poetry@v1
-        with:
-          version: 1.8.3
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ./.venv
-            ~/.cache/pypoetry
-          key: poetry-3.10-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            poetry-3.10-${{ runner.os }}-
-
-      - name: Create .env file from github secret blob and set WHICH_DATABASE
-        shell: bash
-        run: |
-          umask 177
-          printf '%s\n' "$DOTENV_BLOB" > .env
-
-          for VAR in WHICH_DATABASE WHICH_ALCHEMY_URL; do
-            if grep -q "^${VAR}=" .env; then
-              echo "Error: ${VAR} should not be included in DOTENV_BLOB. Set it via the workflow env instead." >&2
-              exit 1
-            fi
-            echo "${VAR}=${!VAR}" >> .env
-          done
-          
-      - name: Install dependencies
-        run: poetry install --no-interaction --no-ansi
+      - name: Create .env from DOTENV_BLOB and append WHICH_* vars
+        uses: ./.github/actions/dotenv-from-blob
 
       - name: Lint
         run: poetry run black --diff --check .
 
       - name: Run ONLY marketing page tests
-        # Overrides the default -m 'not marketing' in addopts
         run: poetry run pytest -m marketing

@@ -1,0 +1,13 @@
+name: "Notify Slack (poetry slack-alert)"
+description: "Sends a Slack alert using `poetry run slack-alert` that posts a simple success, action name, url"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Send Slack alert
+      shell: bash
+      run: |
+        poetry run slack-alert \
+          --success "${{ job.status }}" \
+          --action-name "${{ github.workflow }}" \
+          --github-actions-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
