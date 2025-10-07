@@ -87,6 +87,7 @@ def ensure_chainlink_gas_costs_table_are_current() -> None:
     deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
     for chain in [ETH_CHAIN]:
         _ensure_one_chain_chainlink_gas_costs_is_updated(chain, chainlink_keepers_df)
+    pass
 
 
 if __name__ == "__main__":
@@ -95,4 +96,6 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import profile_function
 
-    profile_function(_ensure_one_chain_chainlink_gas_costs_is_updated, ETH_CHAIN, chainlink_keepers_df)
+    # profile_function(_ensure_one_chain_chainlink_gas_costs_is_updated, ETH_CHAIN, chainlink_keepers_df)
+
+    ensure_chainlink_gas_costs_table_are_current()

@@ -13,9 +13,17 @@ from mainnet_launch.database.postgres_operations import (
 )
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, build_blocks_to_use
 
-from mainnet_launch.constants import ALL_CHAINS, ChainData, ETH_CHAIN, profile_function
+from mainnet_launch.constants import *
 
 # TODO convert this to use the 3rd party data fetching
+
+CHAIN_TO_DEFI_LLAMA_SLUG = {
+    ETH_CHAIN: "ethereum",
+    BASE_CHAIN: "base",
+    SONIC_CHAIN: "sonic",
+    ARBITRUM_CHAIN: "arbitrum",
+    PLASMA_CHAIN: "plasma",
+}
 
 
 def add_blocks_from_dataframe_to_database(df: pd.DataFrame):
@@ -133,11 +141,7 @@ def get_block_by_timestamp_defi_llama(unix_timestamp: int, chain: ChainData, clo
     If `closest=="before"`, returns the block at or immediately before the timestamp.
     If `closest=="after"`, returns one greater than that block (i.e. the next block).
     """
-    if chain == ETH_CHAIN:
-        chain_slug = "ethereum"
-    else:
-        chain_slug = chain.name
-
+    chain_slug = CHAIN_TO_DEFI_LLAMA_SLUG[chain]
     url = f"https://coins.llama.fi/block/{chain_slug}/{unix_timestamp}"
 
     for attempt in range(4):
