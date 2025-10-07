@@ -27,7 +27,7 @@ jobs:
         uses: ./.github/actions/setup_env
 
       - name: Create .env from DOTENV_BLOB and append WHICH_* vars
-        uses: ./.github/actions/dotenv_from_blob
+        uses: ./.github/actions/create_dot_env_blob
         
       - name: poetry run linter
         run: poetry run black --diff --check .
