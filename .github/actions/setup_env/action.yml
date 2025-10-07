@@ -1,5 +1,6 @@
 name: "Setup Python + Poetry and install deps"
 description: "Sets up Python, installs Poetry, restores cache, and runs 'poetry install'."
+
 inputs:
   python_version:
     description: "Python version for actions/setup-python"
@@ -13,6 +14,7 @@ inputs:
     description: "Extra args for 'poetry install'"
     default: "--no-interaction --no-ansi"
     required: false
+
 runs:
   using: "composite"
   steps:

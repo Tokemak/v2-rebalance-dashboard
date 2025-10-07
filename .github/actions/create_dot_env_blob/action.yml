@@ -1,6 +1,6 @@
 name: "Create .env from DOTENV_BLOB"
 description: "Write DOTENV_BLOB to .env for python-dotenv"
-inputs:
+
 runs:
   using: "composite"
   steps:
