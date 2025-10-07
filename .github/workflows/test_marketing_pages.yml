@@ -24,10 +24,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Poetry env and install dependencies
-        uses: ./.github/actions/setup-env
+        uses: ./.github/actions/setup_env
 
       - name: Create .env from DOTENV_BLOB and append WHICH_* vars
-        uses: ./.github/actions/dotenv-from-blob
+        uses: ./.github/actions/dotenv_from_blob
 
       - name: Lint
         run: poetry run black --diff --check .
