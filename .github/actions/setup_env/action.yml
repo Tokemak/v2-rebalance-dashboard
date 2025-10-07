@@ -1,0 +1,45 @@
+name: "Setup Python + Poetry and install deps"
+description: "Sets up Python, installs Poetry, restores cache, and runs 'poetry install'."
+
+inputs:
+  python_version:
+    description: "Python version for actions/setup-python"
+    default: "3.10"
+    required: false
+  poetry_version:
+    description: "Poetry version for snok/install-poetry"
+    default: "1.8.3"
+    required: false
+  install_args:
+    description: "Extra args for 'poetry install'"
+    default: "--no-interaction --no-ansi"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python_version }}
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: ${{ inputs.poetry_version }}
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+
+    - name: Cache venv and Poetry cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ./.venv
+          ~/.cache/pypoetry
+        key: poetry-${{ inputs.python_version }}-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          poetry-${{ inputs.python_version }}-${{ runner.os }}-
+
+    - name: Install dependencies
+      shell: bash
+      run: poetry install ${{ inputs.install_args }}
