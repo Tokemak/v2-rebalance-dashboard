@@ -261,7 +261,7 @@ def render_slippage_scatter_plots(
 
     if base_asset.name == "WETH":
         dashed_line_slippage_threshold = WETH_SLIPPAGE_WARNING_THESHOLD_BPS
-    elif base_asset.name in ["USDC", "DOLA"]:
+    elif base_asset.name in ["USDC", "DOLA", 'USDT', 'EURC']:
         dashed_line_slippage_threshold = STABLE_COINS_SLIPPAGE_WARNING_THESHOLD_BPS
 
     median_df = swap_quotes_df.groupby(["label", "scaled_amount_in"])["slippage_bps"].median().reset_index()
