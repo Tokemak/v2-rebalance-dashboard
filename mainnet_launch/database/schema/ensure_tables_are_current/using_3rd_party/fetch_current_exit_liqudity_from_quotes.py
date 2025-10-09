@@ -14,10 +14,6 @@ from mainnet_launch.constants import (
     ChainData,
     TokemakAddress,
     AutopoolConstants,
-    USDC,
-    DOLA,
-    EURC,
-    WETH,
 )
 from mainnet_launch.data_fetching.quotes.get_all_underlying_reserves import fetch_raw_amounts_by_destination
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
@@ -53,7 +49,7 @@ from mainnet_launch.data_fetching.odos.fetch_quotes import (
 USD_SCALED_SIZES = [i * 200_000 for i in range(1, 11)]
 USD_SCALED_SIZES.append(STABLE_COINS_REFERENCE_QUANTITY)
 
-ETH_SCALED_SIZES = [i * 50 for i in range(1, 17)]  # 17
+ETH_SCALED_SIZES = [i * 50 for i in range(1, 17)]
 ETH_SCALED_SIZES.append(ETH_REFERENCE_QUANTITY)
 
 
@@ -89,7 +85,7 @@ def fetch_needed_context(chain: ChainData, block: int, valid_autopools: list[Aut
 def _determine_sizes_for_base_asset(base_asset: TokemakAddress) -> list[int]:
     if base_asset.name == "WETH":
         sizes = ETH_SCALED_SIZES
-    elif base_asset.name in ("USDC", "DOLA", "EURC"):
+    elif base_asset.name in ("USDC", "DOLA", "EURC", "USDT"):
         sizes = USD_SCALED_SIZES
     else:
         raise ValueError(f"Unexpected base asset: {base_asset.name}")
@@ -341,9 +337,8 @@ def insert_new_batch_quotes(
     odos_quote_response_df = odos_quote_response_df[odos_quote_response_df[THIRD_PARTY_SUCCESS_KEY]].copy()
     odos_quote_response_df = odos_quote_response_df.dropna(subset=["inTokens", "outTokens"])
 
-    for k, _ in CHAIN_BASE_ASSET_GROUPS.items():
-        chain, base_asset = k
-        # this breaks some how
+    for chain, base_asset in CHAIN_BASE_ASSET_GROUPS.keys():
+
         sub_odos_df = odos_quote_response_df[
             (odos_quote_response_df["chainId"] == chain.chain_id)
             & (odos_quote_response_df["outTokens"].apply(lambda x: Web3.toChecksumAddress(x)) == base_asset(chain))
