@@ -1,7 +1,7 @@
 from mainnet_launch.database.schema.ensure_tables_are_current.using_3rd_party.swap_matrix_quotes_and_onchain_prices import (
     build_quotes,
-    build_fetch_on_chain_spot_prices_function, 
-    fetch_swap_matrix_quotes_and_prices
+    build_fetch_on_chain_spot_prices_function,
+    fetch_swap_matrix_quotes_and_prices,
 )
 from mainnet_launch.constants import PLASMA_USD, ARB_USD
 
@@ -9,15 +9,12 @@ from mainnet_launch.constants import PLASMA_USD, ARB_USD
 tokemak_quote_requests = build_quotes(PLASMA_USD)
 
 
-requests = [a for a in tokemak_quote_requests if  a.token_out == PLASMA_USD.base_asset]
+requests = [a for a in tokemak_quote_requests if a.token_out == PLASMA_USD.base_asset]
 
 # tokemak_quote_requests = sorted(tokemak_quote_requests, key=lambda x: x.scaled_amount_in)
 _fetch_on_chain_spot_prices = build_fetch_on_chain_spot_prices_function(PLASMA_USD)
 
 a = fetch_swap_matrix_quotes_and_prices(_fetch_on_chain_spot_prices, requests[0])
-
-
-
 
 
 # plasma fails if I exclude bebop and lifi

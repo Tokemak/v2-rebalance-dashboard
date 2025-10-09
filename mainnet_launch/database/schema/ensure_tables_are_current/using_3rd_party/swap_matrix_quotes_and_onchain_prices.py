@@ -3,7 +3,6 @@ import random
 import pandas as pd
 from multicall import Call
 
-from aiolimiter import AsyncLimiter
 from tqdm import tqdm
 from mainnet_launch.constants import *
 from concurrent.futures import ThreadPoolExecutor
@@ -72,6 +71,7 @@ def get_autopool_possible_assets(autopool: AutopoolConstants):
     select chain_id, token_address, symbol, name, decimals from tokens where tokens.token_address in (select token_address from this_autopool_asset_tokens)"""
         )
         df = pd.concat([df, other_df]).drop_duplicates().reset_index(drop=True)
+
     return df
 
 
@@ -140,13 +140,12 @@ def fetch_swap_matrix_quotes_and_prices(
         buy_token=tokemak_quote_request.token_out,
         unscaled_amount_in=tokemak_quote_request.unscaled_amount_in,
     )
-
-    if not one_quote_response[THIRD_PARTY_SUCCESS_KEY]:
-        return one_quote_response
-
-    else:
+    if one_quote_response[THIRD_PARTY_SUCCESS_KEY]:
         one_quote_response_with_prices = _fetch_on_chain_spot_prices_function(one_quote_response)
         return one_quote_response_with_prices
+
+    else:
+        return one_quote_response
 
 
 def build_quotes(autopool: AutopoolConstants) -> list[TokemakQuoteRequest]:
@@ -177,13 +176,48 @@ def build_quotes(autopool: AutopoolConstants) -> list[TokemakQuoteRequest]:
                         )
                     )
 
-    # random.shuffle(tokemak_quote_requests)
     return tokemak_quote_requests
 
 
-@time_decorator
+def make_all_requests() -> list[TokemakQuoteRequest]:
+    all_requests = []
+    for autopool in ALL_AUTOPOOLS:
+
+        this_autopool_requests = build_quotes(autopool)
+        for req in this_autopool_requests:
+            req.associated_autopool = autopool
+
+        all_requests.extend(this_autopool_requests)
+
+    autopool_to_fetch_on_chain_spot_prices_function = {
+        autopool: build_fetch_on_chain_spot_prices_function(autopool) for autopool in ALL_AUTOPOOLS
+    }
+
+    def process_request(tokemak_quote_request: TokemakQuoteRequest):
+        time.sleep(1)
+        data = fetch_swap_matrix_quotes_and_prices(
+            autopool_to_fetch_on_chain_spot_prices_function[tokemak_quote_request.associated_autopool],
+            tokemak_quote_request,
+        )
+        return data
+    
+    
+    max_workers = 10
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        quote_responses = list(
+            tqdm(
+                executor.map(process_request, tokemak_quote_requests),
+                total=len(tokemak_quote_requests),
+                desc=f"Fetching quotes for {autopool.name}",
+            )
+        )
+
+
+    return all_requests
+
+
 def main():
-    bad_autopools = [BASE_EUR, SILO_ETH, SONIC_USD, BAL_ETH, DINERO_ETH, ARB_USD, SILO_USD, AUTO_LRT, ARB_USD]
+    # bad_autopools = [BASE_EUR, SILO_ETH, SONIC_USD, BAL_ETH, DINERO_ETH, ARB_USD, SILO_USD, AUTO_LRT, ARB_USD]
 
     swap_matrix_data2 = WORKING_DATA_DIR / "swap_matrix_prices2"
     swap_matrix_data2.mkdir(parents=True, exist_ok=True)

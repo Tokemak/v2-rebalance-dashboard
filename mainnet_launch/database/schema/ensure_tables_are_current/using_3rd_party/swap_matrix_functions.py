@@ -31,10 +31,9 @@ def load_swap_matrix_with_prices_data():
         "label",
         "safe_value_slippage_bps",
         "long_label",
-
     ]
     return df.reset_index(drop=True)
-    return df[interesting_columns].reset_index(drop=True)
+    # return df[interesting_columns].reset_index(drop=True)
 
 
 def add_actual_prices(df: pd.DataFrame) -> pd.DataFrame:
@@ -60,8 +59,3 @@ def add_actual_prices(df: pd.DataFrame) -> pd.DataFrame:
     )
     df["long_label"] = df["label"] + " " + df["sell_amount_norm"].astype(int).astype(str)
     return df
-
-
-# df = load_swap_matrix_with_prices_data()
-# # df = df[df["datetime_received"] >= pd.Timestamp("2025-09-30 18:00:00", tz="UTC")].copy().reset_index(drop=True)
-# df = df[df["excludeSources"] == "Bebop,Lifi"].reset_index(drop=True)
