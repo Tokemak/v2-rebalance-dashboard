@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 
-from mainnet_launch.constants import DEAD_ADDRESS, ChainData
+from mainnet_launch.constants import DEAD_ADDRESS, ChainData, AutopoolConstants
 from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
     make_many_requests_to_3rd_party,
     make_single_request_to_3rd_party,
@@ -18,23 +18,35 @@ class TokemakQuoteRequest:
     token_out: str
     unscaled_amount_in: str
 
+    includeSources: str = ""
+    excludeSources: str = "Bebop,Lifi"
+    slippageBps: int = 5000
+
     associated_autopool: AutopoolConstants = None
 
 
-def _build_request_kwargs(chain_id: int, token_in: str, token_out: str, unscaled_amount_in: str):
+def fetch_single_swap_quote_from_internal_api(
+    tokemak_quote_request: TokemakQuoteRequest,
+) -> dict:
+    request_kwargs = _build_request_kwargs(tokemak_quote_request)
+    tokemak_response = make_single_request_to_3rd_party(request_kwargs=request_kwargs)
+    clean_response = _process_quote_response(tokemak_response)
+    return clean_response
+
+
+def _build_request_kwargs(tokemak_quote_request: TokemakQuoteRequest) -> dict:
     json_payload = {
-        "chainId": chain_id,
+        "chainId": tokemak_quote_request.chain_id,
         "systemName": "gen3",
-        "slippageBps": 5000,  # 5000, just don't trust minBuyAmount with this slippage value
+        "slippageBps": tokemak_quote_request.slippageBps,
         "taker": DEAD_ADDRESS,
-        "sellToken": token_in,
-        "buyToken": token_out,
-        "sellAmount": str(unscaled_amount_in),
-        "includeSources": "",
-        # "excludeSources":'', # "Bebop,Lifi",
-        "excludeSources": "Bebop,Lifi",  # these two seem to cause issues sometimes
+        "sellToken": tokemak_quote_request.token_in,
+        "buyToken": tokemak_quote_request.token_out,
+        "sellAmount": tokemak_quote_request.unscaled_amount_in,
+        "includeSources": tokemak_quote_request.includeSources,
+        "excludeSources": tokemak_quote_request.excludeSources,
         "sellAll": True,
-        "timeoutMS": 20000,  # 20 seconds?, default was 5 seconds
+        "timeoutMS": 20000,
     }
 
     requests_kwargs = {
@@ -65,31 +77,12 @@ def _process_quote_response(response: dict) -> dict:
         return cleaned_data
 
 
-def fetch_single_swap_quote_from_internal_api(
-    chain_id: int,
-    sell_token: str,
-    buy_token: str,
-    unscaled_amount_in: int,
-) -> dict:
-    request_kwargs = _build_request_kwargs(chain_id, sell_token, buy_token, unscaled_amount_in)
-    tokemak_response = make_single_request_to_3rd_party(request_kwargs=request_kwargs)
-    clean_response = _process_quote_response(tokemak_response)
-    return clean_response
-
-
 def fetch_many_swap_quotes_from_internal_api(
     quote_requests: list[TokemakQuoteRequest], rate_limit_max_rate: int = 8, rate_limit_time_period: int = 10
 ) -> pd.DataFrame:
     requests_kwargs = []
-    for quote_request in quote_requests:
-        requests_kwargs.append(
-            _build_request_kwargs(
-                quote_request.chain_id,
-                quote_request.token_in,
-                quote_request.token_out,
-                quote_request.unscaled_amount_in,
-            )
-        )
+    for tokemak_quote_request in quote_requests:
+        requests_kwargs.append(_build_request_kwargs(tokemak_quote_request=tokemak_quote_request))
 
     # no real idea here
     # 1-2  per second

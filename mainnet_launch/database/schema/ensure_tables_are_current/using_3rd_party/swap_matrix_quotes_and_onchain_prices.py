@@ -12,12 +12,10 @@ from mainnet_launch.database.postgres_operations import (
 )
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
-    get_block_by_timestamp_defi_llama,
     get_block_by_timestamp_alchemy,
 )
 
 from mainnet_launch.data_fetching.internal.fetch_quotes import (
-    fetch_many_swap_quotes_from_internal_api,
     fetch_single_swap_quote_from_internal_api,
     TokemakQuoteRequest,
     THIRD_PARTY_SUCCESS_KEY,
@@ -135,10 +133,7 @@ def fetch_swap_matrix_quotes_and_prices(
     _fetch_on_chain_spot_prices_function, tokemak_quote_request: TokemakQuoteRequest
 ) -> dict:
     one_quote_response = fetch_single_swap_quote_from_internal_api(
-        chain_id=tokemak_quote_request.chain_id,
-        sell_token=tokemak_quote_request.token_in,  # sell token == buy token
-        buy_token=tokemak_quote_request.token_out,
-        unscaled_amount_in=tokemak_quote_request.unscaled_amount_in,
+        tokemak_quote_request
     )
     if one_quote_response[THIRD_PARTY_SUCCESS_KEY]:
         one_quote_response_with_prices = _fetch_on_chain_spot_prices_function(one_quote_response)
@@ -151,11 +146,11 @@ def fetch_swap_matrix_quotes_and_prices(
 def build_quotes(autopool: AutopoolConstants) -> list[TokemakQuoteRequest]:
     autopool_assets = get_autopool_possible_assets(autopool)
     if autopool.base_asset in [DOLA(autopool.chain), USDC(autopool.chain), EURC(autopool.chain), USDT(autopool.chain)]:
-        sizes = [50_000, 100_000, 150_000, 200_000]
-        # sizes = [100_000]  # just for faster testing
+        # sizes = [50_000, 100_000, 150_000, 200_000]
+        sizes = [100_000]  # just for faster testing
     else:
-        sizes = [50, 100, 150, 200]
-        # sizes = [100]  # just for faster testing
+        # sizes = [50, 100, 150, 200]
+        sizes = [100]  # just for faster testing
 
     tokemak_quote_requests = []
 
@@ -178,8 +173,7 @@ def build_quotes(autopool: AutopoolConstants) -> list[TokemakQuoteRequest]:
 
     return tokemak_quote_requests
 
-
-def make_all_requests() -> list[TokemakQuoteRequest]:
+def fetch_and_save_deduplicated_swap_matrix() -> pd.DataFrame:
     all_requests = []
     for autopool in ALL_AUTOPOOLS:
 
@@ -193,28 +187,60 @@ def make_all_requests() -> list[TokemakQuoteRequest]:
         autopool: build_fetch_on_chain_spot_prices_function(autopool) for autopool in ALL_AUTOPOOLS
     }
 
-    def process_request(tokemak_quote_request: TokemakQuoteRequest):
+    def process_request(tokemak_quote_request: TokemakQuoteRequest) -> dict:
         time.sleep(1)
+        this_autopool: AutopoolConstants = tokemak_quote_request.associated_autopool
         data = fetch_swap_matrix_quotes_and_prices(
             autopool_to_fetch_on_chain_spot_prices_function[tokemak_quote_request.associated_autopool],
             tokemak_quote_request,
         )
+        data["autopool_name"] = this_autopool.name
         return data
-    
-    
+
+    unique_tokemak_quote_requests = {
+        (
+            r.chain_id,
+            r.token_in,
+            r.token_out,
+            r.unscaled_amount_in,
+            r.associated_autopool.name if r.associated_autopool is not None else "",
+        ): r
+        for r in all_requests
+    }
+
+    unique_tokemak_quote_requests = list(unique_tokemak_quote_requests.values())
+
     max_workers = 10
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         quote_responses = list(
             tqdm(
-                executor.map(process_request, tokemak_quote_requests),
-                total=len(tokemak_quote_requests),
-                desc=f"Fetching quotes for {autopool.name}",
+                executor.map(process_request, unique_tokemak_quote_requests),
+                total=len(unique_tokemak_quote_requests),
+                desc=f"Fetching quotes tokemak quote requests",
             )
         )
 
+    all_quote_responses_df = pd.DataFrame.from_records(quote_responses)
+    all_quote_responses_df["max_workers"] = max_workers
 
-    return all_requests
+    swap_matrix_data2 = WORKING_DATA_DIR / "swap_matrix_prices2"
+    _create_or_concat_and_save_df(all_quote_responses_df, swap_matrix_data2 / f"all_autopools_full_swap_matrix_with_prices2.csv")
+    return all_quote_responses_df
 
+
+def _create_or_concat_and_save_df(
+    new_df: pd.DataFrame, save_path: Path
+) -> pd.DataFrame:
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    prior_df = pd.read_csv(save_path, low_memory=False) if save_path.exists() else None
+    if prior_df is not None:
+        full_df = pd.concat([prior_df, new_df], ignore_index=True).drop_duplicates()
+    else:
+        full_df = new_df
+
+    full_df.to_csv(save_path, index=False)
+    
 
 def main():
     # bad_autopools = [BASE_EUR, SILO_ETH, SONIC_USD, BAL_ETH, DINERO_ETH, ARB_USD, SILO_USD, AUTO_LRT, ARB_USD]
@@ -246,7 +272,7 @@ def main():
                 quote_df = pd.DataFrame.from_records(quote_responses)
                 quote_df["autopool_name"] = autopool.name
                 quote_df["max_workers"] = max_workers
-                quote_df["extra_info"] = "includeSources only Odos"
+                # quote_df["extra_info"] = "includeSources only Odos"
                 # print(autopool.name + "-" * 60)
                 # print(quote_df[THIRD_PARTY_SUCCESS_KEY].value_counts())
                 autopool_save_name = swap_matrix_data2 / f"{autopool.name}_full_swap_matrix_with_prices.csv"
@@ -265,7 +291,8 @@ def main():
 
 if __name__ == "__main__":
     # print("hello_world")
-    main()
+    # 30 minutes estimated for just one size
+    fetch_and_save_deduplicated_swap_matrix() # 20 minutes with size == 100 ETH and 100k stable
 
 
 # caffeinate -i bash -c "cd /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard && poetry run python mainnet_launch/database/schema/ensure_tables_are_current/using_3rd_party/swap_matrix_quotes_and_onchain_prices.py"
