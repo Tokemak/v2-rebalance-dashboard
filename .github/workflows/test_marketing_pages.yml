@@ -34,3 +34,8 @@ jobs:
 
       - name: Run ONLY marketing page tests
         run: poetry run pytest -m marketing
+
+      - name: Post Slack Status Message
+        if: ${{ always() }}
+        uses: ./.github/actions/post_slack_message
+        

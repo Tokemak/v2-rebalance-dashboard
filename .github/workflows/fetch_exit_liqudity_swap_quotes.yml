@@ -30,6 +30,10 @@ jobs:
 
       - name: Run fetch exit liquidity quotes script
         run: poetry run fetch-exit-liqudity-quotes
+
+      - name: Post Slack Status Message
+        if: ${{ always() }}
+        uses: ./.github/actions/post_slack_message
         
 
 
