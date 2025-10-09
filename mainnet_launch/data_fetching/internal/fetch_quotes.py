@@ -30,7 +30,7 @@ def fetch_single_swap_quote_from_internal_api(
 ) -> dict:
     request_kwargs = _build_request_kwargs(tokemak_quote_request)
     tokemak_response = make_single_request_to_3rd_party(request_kwargs=request_kwargs)
-    clean_response = _process_quote_response(tokemak_response)
+    clean_response = _process_tokemak_response(tokemak_response)
     return clean_response
 
 
@@ -47,6 +47,7 @@ def _build_request_kwargs(tokemak_quote_request: TokemakQuoteRequest) -> dict:
         "excludeSources": tokemak_quote_request.excludeSources,
         "sellAll": True,
         "timeoutMS": 20000,
+        "returnAll": True,
     }
 
     requests_kwargs = {
@@ -57,24 +58,69 @@ def _build_request_kwargs(tokemak_quote_request: TokemakQuoteRequest) -> dict:
     return requests_kwargs
 
 
-def _process_quote_response(response: dict) -> dict:
-    if response[THIRD_PARTY_SUCCESS_KEY]:
-        fields_to_keep = ["buyAmount", "minBuyAmount", "aggregatorName", "datetime_received", THIRD_PARTY_SUCCESS_KEY]
-        cleaned_data = {a: response[a] for a in fields_to_keep}
-        request_kwargs = response["request_kwargs"]
-        json_payload = request_kwargs.pop("json")
-        cleaned_data.update(json_payload)
-        cleaned_data.update(request_kwargs)
-        return cleaned_data
+def _flatten_all_quotes(tokemak_response: dict) -> dict:
+    """Get the buy amount min buy amount and succeeded for each quote source"""
+    all_quotes = tokemak_response.get("fullQuoteDetails", {}).get("allQuotes", [])
+    other_quotes = {}
+    for minimal_quote in all_quotes:
+        other_quotes[f'{minimal_quote["name"]}_buyAmount'] = minimal_quote["buyAmount"]
+        other_quotes[f'{minimal_quote["name"]}_succeeded'] = minimal_quote["succeeded"]
+        other_quotes[f'{minimal_quote["name"]}_minBuyAmount'] = minimal_quote["minBuyAmount"]
+
+    return other_quotes
+
+
+def _extract_request_kwargs(tokemak_response: dict) -> dict:
+    """Extract the request kwargs from the dict"""
+    request_kwargs = tokemak_response["request_kwargs"]
+    json_payload = request_kwargs.pop("json")
+    request_kwargs.update(json_payload)
+    return request_kwargs
+
+
+def _extract_top_level_keys(response: dict) -> dict:
+    top_level_keys = [
+        "3rd_party_response_success",
+        "aggregatorName",
+        "asyncSwapper",
+        "buyAmount",
+        "datetime_received",
+        "expiration",
+        "internal",
+        "minBuyAmount",
+    ]
+
+    return {k: response.get(k) for k in top_level_keys}
+
+
+def _handle_successful_tokemak_request(tokemak_response: dict) -> dict:
+    processed = {}
+    processed.update(_extract_top_level_keys(tokemak_response))
+    processed.update(_flatten_all_quotes(tokemak_response))
+    processed.update(_extract_request_kwargs(tokemak_response))
+    return processed
+
+
+def _extract_invalid_response_top_level_keys(response: dict) -> dict:
+    expected_keys = ["3rd_party_response_success", "body", "datetime_received", "headers", "status", "url"]
+
+    return {k: response.get(k) for k in expected_keys}
+
+
+def _handle_failed_tokemak_request(tokemak_response: dict) -> dict:
+    """Process a failed tokemak response into a flat dict"""
+    processed = {}
+    processed.update(_extract_invalid_response_top_level_keys(tokemak_response))
+    processed.update(_extract_request_kwargs(tokemak_response))
+    return processed
+
+
+def _process_tokemak_response(tokemak_response: dict) -> dict:
+    """Process the tokemak response into a flat dict"""
+    if tokemak_response[THIRD_PARTY_SUCCESS_KEY]:
+        return _handle_successful_tokemak_request(tokemak_response)
     else:
-        fields_to_keep = ["buyAmount", "minBuyAmount", "aggregatorName", "datetime_received", THIRD_PARTY_SUCCESS_KEY]
-        cleaned_data = {a: None for a in fields_to_keep}
-        cleaned_data[THIRD_PARTY_SUCCESS_KEY] = False
-        request_kwargs = response["request_kwargs"]
-        json_payload = request_kwargs.pop("json")
-        cleaned_data.update(json_payload)
-        cleaned_data.update(request_kwargs)
-        return cleaned_data
+        return _handle_failed_tokemak_request(tokemak_response)
 
 
 def fetch_many_swap_quotes_from_internal_api(
@@ -93,7 +139,7 @@ def fetch_many_swap_quotes_from_internal_api(
         requests_kwargs=requests_kwargs,
     )
 
-    flat_responses = [_process_quote_response(r) for r in raw_responses]
+    flat_responses = [_process_tokemak_response(r) for r in raw_responses]
     return pd.DataFrame.from_records(flat_responses)
 
 
@@ -129,13 +175,29 @@ if __name__ == "__main__":
     from mainnet_launch.constants import *
 
     tokemak_response = fetch_single_swap_quote_from_internal_api(
-        chain_id=ETH_CHAIN.chain_id,
-        sell_token=WETH(ETH_CHAIN),
-        buy_token="0x04C154b66CB340F3Ae24111CC767e0184Ed00Cc6",
-        unscaled_amount_in=str(int(10000e18)),
+        TokemakQuoteRequest(
+            chain_id=ETH_CHAIN.chain_id,
+            token_in=WETH(ETH_CHAIN),
+            token_out="0x04C154b66CB340F3Ae24111CC767e0184Ed00Cc6",
+            unscaled_amount_in=str(int(10000e18)),
+        )
     )
 
     from pprint import pprint
 
     pprint(tokemak_response)
+    print("-" * 100)
+
+    bad_response = fetch_single_swap_quote_from_internal_api(
+        TokemakQuoteRequest(
+            chain_id=ETH_CHAIN.chain_id,
+            token_in=WETH(ETH_CHAIN),
+            token_out=DEAD_ADDRESS,
+            unscaled_amount_in=str(int(10000e18)),
+        )
+    )
+
+    from pprint import pprint
+
+    pprint(bad_response)
     pass
