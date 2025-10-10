@@ -262,8 +262,7 @@ def _create_or_concat_and_save_df(new_df: pd.DataFrame, save_path: Path) -> pd.D
 
 
 if __name__ == "__main__":
-    # 16 minutes
-    fetch_and_save_deduplicated_swap_matrix()  # 20 minutes with size == 100 ETH and 100k stable
-
+    while True:
+        fetch_and_save_deduplicated_swap_matrix() # 1 hour each
 
 # caffeinate -i bash -c "cd /Users/pb/Documents/Github/Tokemak/v2-rebalance-dashboard && poetry run python mainnet_launch/database/schema/ensure_tables_are_current/using_3rd_party/swap_matrix_quotes_and_onchain_prices.py"
