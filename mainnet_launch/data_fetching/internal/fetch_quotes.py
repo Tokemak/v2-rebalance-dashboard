@@ -14,9 +14,6 @@ from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
 import requests
 
 
-
-
-
 @dataclass
 class TokemakQuoteRequest:
     chain_id: int
@@ -42,11 +39,14 @@ def fetch_single_swap_quote_from_internal_api(
     return clean_response
 
 
-def naive_post(request_kwargs:dict):
+def naive_post(request_kwargs: dict):
     from pprint import pprint
+
     pprint(request_kwargs)
 
-    r = requests.post(request_kwargs["url"], json=request_kwargs["json"], headers={"Accept": "application/json"}, timeout=20)
+    r = requests.post(
+        request_kwargs["url"], json=request_kwargs["json"], headers={"Accept": "application/json"}, timeout=20
+    )
 
     from pprint import pprint
 
@@ -56,7 +56,7 @@ def naive_post(request_kwargs:dict):
     print("content-length:", r.headers.get("content-length"))
     print("raw-bytes-len:", len(r.content))
     print("first-200-bytes:", r.content[:200])
-    
+
     pass  # don’t decode yet
     # a = response.text
 
@@ -70,7 +70,7 @@ def _build_request_kwargs(tokemak_quote_request: TokemakQuoteRequest) -> dict:
         "chainId": tokemak_quote_request.chain_id,
         "systemName": "gen3",
         "slippageBps": tokemak_quote_request.slippageBps,
-        "taker": "0x8b4334d4812c530574bd4f2763fcd22de94a969b", # just can't be the dead address, is treasury
+        "taker": "0x8b4334d4812c530574bd4f2763fcd22de94a969b",  # just can't be the dead address, is treasury
         "sellToken": tokemak_quote_request.token_in,
         "buyToken": tokemak_quote_request.token_out,
         "sellAmount": tokemak_quote_request.unscaled_amount_in,
@@ -87,7 +87,6 @@ def _build_request_kwargs(tokemak_quote_request: TokemakQuoteRequest) -> dict:
         "json": json_payload,
     }
     return requests_kwargs
-
 
 
 def _flatten_all_quotes(tokemak_response: dict) -> dict:

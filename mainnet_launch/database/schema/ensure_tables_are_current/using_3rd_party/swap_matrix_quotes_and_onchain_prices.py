@@ -28,6 +28,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
 )
 
+
 def get_autopool_possible_assets(autopool: AutopoolConstants):
     query = f"""
     
@@ -209,10 +210,6 @@ def fetch_and_save_deduplicated_swap_matrix() -> pd.DataFrame:
 
     unique_tokemak_quote_requests = _build_all_tokemak_quote_requests()
 
-    unique_tokemak_quote_requests = [
-        r for r in unique_tokemak_quote_requests if r.chain_id != ETH_CHAIN.chain_id
-    ]
-
     autopool_to_fetch_on_chain_spot_prices_function = {
         autopool: build_fetch_on_chain_spot_prices_function(autopool) for autopool in ALL_AUTOPOOLS
     }
@@ -261,7 +258,6 @@ def _create_or_concat_and_save_df(new_df: pd.DataFrame, save_path: Path) -> pd.D
     print("- -" * 100)
     print(f"Saved a total {len(full_df)} quotes to {save_path} {len(new_df)} new")
     print(new_df[THIRD_PARTY_SUCCESS_KEY].value_counts())
-
 
 
 if __name__ == "__main__":

@@ -39,7 +39,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 if __name__ == "__main__":
     unique_tokemak_quote_requests = _build_all_tokemak_quote_requests()
 
-    plasma_requests = [r for r in unique_tokemak_quote_requests if r.chain_id == PLASMA_CHAIN  .chain_id]
+    plasma_requests = [r for r in unique_tokemak_quote_requests if r.chain_id == PLASMA_CHAIN.chain_id]
     plasma_requests = plasma_requests[:5]
 
     autopool_to_fetch_on_chain_spot_prices_function = {

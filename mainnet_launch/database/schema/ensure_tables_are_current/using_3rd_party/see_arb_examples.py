@@ -95,14 +95,13 @@ undefined%
 # usdc  on arb 0xaf88d065e77c8cC2239327C5EDb3A432268e5831
 
 
-
 # a balancer pool we support on arbitrum
 # [[0x7F6501d3B98eE91f9b9535E4b0ac710Fb0f9e0bc]
 # [0xa6D12574eFB239FC1D2099732bd8b5dC6306897F]
 # [0xD089B4cb88Dacf4e27be869A00e9f7e2E3C18193]]
 
 
-#0x87d60A3b39658842dc75c1C65E0870F1131c4f02 new taker (random address)
+# 0x87d60A3b39658842dc75c1C65E0870F1131c4f02 new taker (random address)
 
 
 # why does this wokr, but the other doesn't
@@ -153,12 +152,7 @@ works
 """
 
 
-
-
 # sell uSDC works
-
-
-
 
 
 """
@@ -192,15 +186,14 @@ curl -sS -X POST 'https://swaps-pricing.tokemaklabs.com/swap-quote-v2' \
 # 3     42161  0x498Bf2B1e120FeD3ad3D42EA2165E9b73f99C1e5  crvUSD  Curve.Fi USD Stablecoin        18
 
 
-
-arb_USDC = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831'
-arb_GHO = '0x7dfF72693f6A4149b17e7C6314655f6A9F7c8B33'
-arb_USDT0 ='0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9'
-arb_crvUSD = '0x498Bf2B1e120FeD3ad3D42EA2165E9b73f99C1e5'
+arb_USDC = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
+arb_GHO = "0x7dfF72693f6A4149b17e7C6314655f6A9F7c8B33"
+arb_USDT0 = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"
+arb_crvUSD = "0x498Bf2B1e120FeD3ad3D42EA2165E9b73f99C1e5"
 
 arb_assets = [arb_USDC, arb_GHO, arb_USDT0, arb_crvUSD]
 
-for b, in arb_assets:
+for (b,) in arb_assets:
     for s in arb_assets:
         if b != s:
             print("buy", b, "sell", s)
@@ -224,12 +217,6 @@ curl -sS -X POST 'https://swaps-pricing.tokemaklabs.com/swap-quote-v2' \
     "returnAll": true
   }'
 """
-
-
-
-
-
-
 
 
 ## testing
