@@ -11,6 +11,12 @@ from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
 )
 
 
+import requests
+
+
+
+
+
 @dataclass
 class TokemakQuoteRequest:
     chain_id: int
@@ -29,9 +35,34 @@ def fetch_single_swap_quote_from_internal_api(
     tokemak_quote_request: TokemakQuoteRequest,
 ) -> dict:
     request_kwargs = _build_request_kwargs(tokemak_quote_request)
+
+    # tokemak_response_naive = naive_post(request_kwargs=request_kwargs)
     tokemak_response = make_single_request_to_3rd_party(request_kwargs=request_kwargs)
     clean_response = _process_tokemak_response(tokemak_response)
     return clean_response
+
+
+def naive_post(request_kwargs:dict):
+    from pprint import pprint
+    pprint(request_kwargs)
+
+    r = requests.post(request_kwargs["url"], json=request_kwargs["json"], headers={"Accept": "application/json"}, timeout=20)
+
+    from pprint import pprint
+
+    print("status:", r.status_code, r.reason)
+    print("ct:", r.headers.get("content-type"))
+    print("content-encoding:", r.headers.get("content-encoding"))
+    print("content-length:", r.headers.get("content-length"))
+    print("raw-bytes-len:", len(r.content))
+    print("first-200-bytes:", r.content[:200])
+    
+    pass  # don’t decode yet
+    # a = response.text
+
+    # pprint(request_kwargs)
+    # data = response.json()
+    # return data
 
 
 def _build_request_kwargs(tokemak_quote_request: TokemakQuoteRequest) -> dict:
@@ -39,7 +70,7 @@ def _build_request_kwargs(tokemak_quote_request: TokemakQuoteRequest) -> dict:
         "chainId": tokemak_quote_request.chain_id,
         "systemName": "gen3",
         "slippageBps": tokemak_quote_request.slippageBps,
-        "taker": DEAD_ADDRESS,
+        "taker": "0x8b4334d4812c530574bd4f2763fcd22de94a969b", # just can't be the dead address, is treasury
         "sellToken": tokemak_quote_request.token_in,
         "buyToken": tokemak_quote_request.token_out,
         "sellAmount": tokemak_quote_request.unscaled_amount_in,
@@ -56,6 +87,7 @@ def _build_request_kwargs(tokemak_quote_request: TokemakQuoteRequest) -> dict:
         "json": json_payload,
     }
     return requests_kwargs
+
 
 
 def _flatten_all_quotes(tokemak_response: dict) -> dict:

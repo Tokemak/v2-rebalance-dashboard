@@ -204,6 +204,7 @@ ARB_USD = AutopoolConstants(
     base_asset_decimals=6,
 )
 
+
 PLASMA_USD = AutopoolConstants(
     "plasmaUSD",
     "plasmaUSD",
