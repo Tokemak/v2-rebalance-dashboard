@@ -1,10 +1,43 @@
-# """Makes external calls, don't run as part of regular tests."""
+import pytest
+from mainnet_launch.constants import *
+from mainnet_launch.abis import ERC_20_ABI
 
-# import pytest
-# from mainnet_launch.constants import *
-# from mainnet_launch.abis import ERC_20_ABI
+from mainnet_launch.data_fetching.get_events import fetch_events
 
-# from mainnet_launch.data_fetching.get_events import fetch_events
+
+@pytest.mark.integration
+def test_fetch_plasma_events():
+    plasmaUSD_contract = PLASMA_USD.autopool_eth_addr
+    transfer_df = fetch_events(
+        event=PLASMA_USD.chain.client.eth.contract(address=plasmaUSD_contract, abi=ERC_20_ABI).events.Transfer,
+        chain=PLASMA_USD.chain,
+        start_block=PLASMA_USD.chain.block_autopool_first_deployed,
+        end_block=PLASMA_USD.chain.get_block_near_top(),
+    )
+
+    assert transfer_df.shape[0] > 0
+
+
+# if __name__ == "__main__":
+# test_fetch_plasma_events()
+
+
+# def fetch_each_chain():
+#     # weth, - 1000 blocks on sonic, eth, base,
+#     # expect at least some transfers
+
+#     for chain in PLASMA_CHAIN:
+
+#         contract = chain.client.eth.contract(address=WETH(chain), abi=ERC_20_ABI)
+
+#         transfer_df = fetch_events(
+#             event=contract.events.Transfer,
+#             chain=chain,
+#             start_block=chain.block_autopool_first_deployed,
+#             end_block=chain.block_autopool_first_deployed + 100,
+#         )
+# print(transfer_df.shape, chain.name)
+# # not sure why sonic works here, it doesn't work for autopool transfers
 
 
 # @pytest.mark.integration
@@ -15,25 +48,6 @@
 # @pytest.mark.integration
 # def test_fetch_events_no_events():
 #     pass
-
-
-# @pytest.mark.integration
-# def fetch_each_chain():
-#     # weth, - 1000 blocks on sonic, eth, base,
-#     # expect at least some transfers
-
-#     for chain in ALL_CHAINS:
-
-#         contract = chain.client.eth.contract(address=WETH(chain), abi=ERC_20_ABI)
-
-#         transfer_df = fetch_events(
-#             event=contract.events.Transfer,
-#             chain=chain,
-#             start_block=chain.block_autopool_first_deployed,
-#             end_block=chain.block_autopool_first_deployed + 100,
-#         )
-#         print(transfer_df.shape, chain.name)
-#         # not sure why sonic works here, it doesn't work for autopool transfers
 
 
 # @pytest.mark.integration

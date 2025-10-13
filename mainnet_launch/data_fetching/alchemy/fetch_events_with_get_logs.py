@@ -9,10 +9,10 @@ from web3 import Web3
 from web3.contract import ContractEvent
 from web3._utils.filters import construct_event_filter_params
 
-from mainnet_launch.constants import ChainData, SONIC_CHAIN
+from mainnet_launch.constants import ChainData, SONIC_CHAIN, PLASMA_CHAIN
 
 
-MAX_SONIC_BLOCK_RANGE = 2_000_000
+PRE_SPLIT_BLOCK_CHUNK_SIZE = {PLASMA_CHAIN: 100_000, SONIC_CHAIN: 2_000_000}
 
 
 class AchemyRequestStatus(Enum):
@@ -34,6 +34,7 @@ def _rpc_post(url: str, payload: dict) -> tuple[dict, AchemyRequestStatus]:
     headers = {"Content-Type": "application/json"}
 
     r = requests.post(url, json=payload, headers=headers, timeout=30)
+    status = r.status_code
     try:
         r.raise_for_status()
     except requests.HTTPError as e:
@@ -42,7 +43,7 @@ def _rpc_post(url: str, payload: dict) -> tuple[dict, AchemyRequestStatus]:
         ):
             return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
         else:
-            raise AlchemyFetchEventsError(f"Non-retryable HTTP error {e} for payload {payload}")
+            raise AlchemyFetchEventsError(f"Non-retryable HTTP error {e} for payload {payload=}")
     out = r.json()
 
     if "error" in out:
@@ -111,7 +112,7 @@ def _recursive_make_web3_getLogs_call(
     """
     if end_block <= start_block:
         # not certain here on if this is the desired behavior
-        raise AlchemyFetchEventsError(f"{end_block=} must be greater than {start_block=}")
+        raise AlchemyFetchEventsError(f"{end_block:,} must be greater than {start_block:,}")
 
     filter_params = _build_address_and_topics_for_event(event, argument_filters, hex(start_block), hex(end_block))
 
@@ -133,7 +134,7 @@ def _recursive_make_web3_getLogs_call(
     elif status == AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN:
         if start_block == end_block:
             raise AlchemyFetchEventsError(
-                f"Retryable failure when fetching logs for {event} where end block and start block are both {start_block}"
+                f"Retryable failure when fetching logs for {event} where end block and start block are both {start_block:,}"
             )
         else:
             mid_block = (start_block + end_block) // 2
@@ -149,21 +150,21 @@ def _recursive_make_web3_getLogs_call(
             return
 
 
-def _special_case_for_sonic(
-    event: ContractEvent, chain: ChainData, start_block: int, end_block: int, argument_filters: dict
+def _fetch_events_with_pre_split(
+    event: ContractEvent, chain: ChainData, start_block: int, end_block: int, argument_filters: dict, split_size: int
 ) -> bool:
     """we want to pre split the sonic large block, because it fails (sporadically at larger ranges)"""
 
     new_start_and_end_blocks = []
 
-    for mid_point in range(start_block, end_block, MAX_SONIC_BLOCK_RANGE):
-        new_start_and_end_blocks.append([mid_point, mid_point + MAX_SONIC_BLOCK_RANGE - 1])
+    for mid_point in range(start_block, end_block, split_size):
+        new_start_and_end_blocks.append([mid_point, mid_point + split_size - 1])
 
     new_start_and_end_blocks[-1][1] = end_block
 
     def _fetch_chunk(chunk_start_block: int, chunk_end_block: int) -> list[dict]:
         local_raw_logs: list[dict] = []
-        print(f"Fetching pre split sonic chunk from {chunk_start_block} to {chunk_end_block}")
+        print(f"Fetching pre split {chain.name} chunk from {chunk_start_block:,} to {chunk_end_block:,}")
         _recursive_make_web3_getLogs_call(
             event=event,
             chain=chain,
@@ -198,23 +199,12 @@ def fetch_raw_event_logs(
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
     end_block = chain.get_block_near_top() if end_block is None else end_block
 
-    if chain == SONIC_CHAIN:
-        raw_logs = _special_case_for_sonic(event, chain, start_block, end_block, argument_filters)
+    if chain in [PLASMA_CHAIN, SONIC_CHAIN]:
+        raw_logs = _fetch_events_with_pre_split(
+            event, chain, start_block, end_block, argument_filters, split_size=PRE_SPLIT_BLOCK_CHUNK_SIZE[chain]
+        )
         return raw_logs
 
     raw_logs = []
     _recursive_make_web3_getLogs_call(event, chain, start_block, end_block, argument_filters, raw_logs)
     return raw_logs
-
-
-if __name__ == "__main__":
-    mid_points = []
-
-    size = 500
-    for i in range(100, 300, size):
-        mid_points.append([i, (i + size) - 1])
-
-    mid_points[-1][1] = 300
-
-    for m in mid_points:
-        print(m)

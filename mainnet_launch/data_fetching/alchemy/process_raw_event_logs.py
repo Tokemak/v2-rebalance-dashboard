@@ -1,6 +1,5 @@
 # the dominating time cost is in the log decoding, not certain on the way to speed it up.
 
-
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
@@ -31,11 +30,8 @@ def _flatten_args(args: dict) -> dict:
 
 
 def _worker_decode_chunk(args) -> list[dict]:
-    """
-    Runs in a separate process. Decodes a *chunk* of logs to amortize process/pickle overhead.
-    """
     abi, logs_chunk = args
-    codec = Web3().codec  # lightweight; avoids pickling the original codec # according to chat
+    codec = Web3().codec
     decoded = []
 
     for log in logs_chunk:
@@ -57,15 +53,11 @@ def _worker_decode_chunk(args) -> list[dict]:
 
 
 def decode_logs(event: ContractEvent, raw_logs: list[dict]) -> pd.DataFrame:
-    """
-    Parallel CPU-bound decode using ProcessPoolExecutor with *batched* tasks.
-    Preserves input order within each chunk; we concatenate in chunk order.
-    """
     if len(raw_logs) > 0:
         abi = event._get_event_abi()
 
-        # For small inputs, avoid multiprocessing overhead altogether.
         if len(raw_logs) < 5000:
+            # don't split if no too many logs
             results = _worker_decode_chunk((abi, raw_logs))
         else:
             max_workers = 4

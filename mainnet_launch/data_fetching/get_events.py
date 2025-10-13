@@ -58,9 +58,7 @@ def fetch_many_events(events: list[FetchEventParams], num_threads: int = 16) -> 
             ): ep.id
             for ep in events
         }
-        # Process each future as it completes.
         for future in concurrent.futures.as_completed(future_to_id):
-            # fail on any error in fetch_events
             id_key = future_to_id[future]
             results[id_key] = future.result()
 
