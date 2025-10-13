@@ -1,0 +1,5 @@
+from mainnet_launch.constants import V2_DASHBOARD_NOTIFS_WEBHOOK_URL
+
+import requests
+
+def post_slack_message(pww

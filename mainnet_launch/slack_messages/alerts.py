@@ -1,12 +1,7 @@
 import argparse
 
 
-from blockkit import Message, MarkdownText, Section
-import requests
-
-
-from mainnet_launch.constants import V2_DASHBOARD_NOTIFS_WEBHOOK_URL
-
+czcz
 
 def _send_slack_message_about_github_action_status(success: bool, action_name: str, action_url: str):
     emoji = "✅" if success else "❌"
@@ -31,3 +26,4 @@ def post_github_action_status():
 
     success = args.success.lower() == "success"
     _send_slack_message_about_github_action_status(success, args.action_name, args.github_actions_url)
+ccc
