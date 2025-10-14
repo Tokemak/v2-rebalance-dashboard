@@ -1,17 +1,10 @@
 import argparse
 
 
-from blockkit import Message, MarkdownText, Section
-import requests
-
-
-from mainnet_launch.constants import V2_DASHBOARD_NOTIFS_WEBHOOK_URL
-
-
 def _send_slack_message_about_github_action_status(success: bool, action_name: str, action_url: str):
     emoji = "✅" if success else "❌"
     # todo add proximate cause here,
-    # and time taken
+    # and time takenTRT
 
     payload = Message(
         blocks=[Section(text=MarkdownText(text=f"{emoji} | {action_name} | <{action_url}|see action logs> "))]
