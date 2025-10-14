@@ -242,8 +242,12 @@ def main():
 
     st.title("Swap Matrix Analysis")
     df = load_df()
+    return
 
     filtered_df = render_filters(df)
+    
+    with st.expander("See raw data table"):
+        st.dataframe(filtered_df)
 
     diff_df = _build_diff_df(
         filtered_df,
