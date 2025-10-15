@@ -9,7 +9,6 @@ def _send_slack_message_about_github_action_status(success: bool, action_name: s
     emoji = "✅" if success else "❌"
     # todo add proximate cause here,
     # and time taken
-
     message = Message(
         blocks=[Section(text=MarkdownText(text=f"{emoji} | {action_name} | <{action_url}|see action logs> "))]
     )

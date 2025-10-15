@@ -466,6 +466,39 @@ class IncentiveTokenSwapped(Base):
         ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
     )
 
+# maybe destinationVault
+
+# function claimRewards
+
+# maybe destinationVault.RewardsClaimed
+# RewardsClaimed (address[] tokensClaimed, uint256[] amountsClaimed)View Source
+
+
+# see 506 on 
+# https://etherscan.io/tx/0x21e2d57c830511885384e70d0d7c6e1db70e870050a6e4966ee10005e3476024#eventlog
+class ClaimVaultRewards(Base):
+    tx_hash: Mapped[str] = mapped_column(primary_key=True)
+    log_index: Mapped[int] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)  
+
+    token_address: Mapped[str] = mapped_column(primary_key=True)
+    amount_claimed: Mapped[float] = mapped_column(primary_key=True) 
+
+    destination_vault_address: Mapped[str] = mapped_column(nullable=False)
+
+    # every token has to be in tokens, but not every token has to be in destination_tokens
+    __table_args__ = (
+        ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
+        ForeignKeyConstraint(
+            ["destination_vault_address", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ), 
+        ForeignKeyConstraint(["tx_hash", "chain_id"], ["transactions.tx_hash", "transactions.chain_id"]),
+    )
+
+    # I think you get this by looking at the RewardsClaimed events for each destination vault.
+
+
 
 class IncentiveTokenPrices(Base):
     __tablename__ = "incentive_token_sale_prices"
