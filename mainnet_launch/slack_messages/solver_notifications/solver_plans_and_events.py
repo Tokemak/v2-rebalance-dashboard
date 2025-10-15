@@ -5,8 +5,8 @@ from blockkit import Message, Section, Button, Confirm, MarkdownText
 
 from mainnet_launch.database.postgres_operations import _exec_sql_and_cache
 
-# something about 
-# diff between last proposed rebalance and last rebalance event 
+# something about
+# diff between last proposed rebalance and last rebalance event
 
 
 def pick_emoji(days: float) -> str:
@@ -18,6 +18,7 @@ def pick_emoji(days: float) -> str:
         return "🟠"  # orange
     else:
         return "🔴"  # red
+
 
 def _get_autopools_without_a_plan_in_the_last_n_days(n_days: int):
     query = """
@@ -35,9 +36,15 @@ def _get_autopools_without_a_plan_in_the_last_n_days(n_days: int):
     """
 
     df = _exec_sql_and_cache(query)
-    df['time_since_plan_generated'] = pd.Timestamp.now(tz="UTC").floor('min') - df["plan_generated_time"].dt.floor('min')
-    df = df[df["time_since_plan_generated"] >   pd.Timedelta(days=n_days)].reset_index().sort_values('time_since_plan_generated')
-    return df[['autopool_symbol', 'time_since_plan_generated']]
+    df["time_since_plan_generated"] = pd.Timestamp.now(tz="UTC").floor("min") - df["plan_generated_time"].dt.floor(
+        "min"
+    )
+    df = (
+        df[df["time_since_plan_generated"] > pd.Timedelta(days=n_days)]
+        .reset_index()
+        .sort_values("time_since_plan_generated")
+    )
+    return df[["autopool_symbol", "time_since_plan_generated"]]
 
 
 def _get_autopools_without_a_rebalance_event_in_the_last_n_days(n_days: int):
@@ -58,11 +65,15 @@ def _get_autopools_without_a_rebalance_event_in_the_last_n_days(n_days: int):
     """
 
     df = _exec_sql_and_cache(query)
-    df['time_since_rebalance_event'] = (pd.Timestamp.now(tz="UTC").floor('min') - df["last_rebalance_time"].dt.floor('min'))
-    df = df[df["time_since_rebalance_event"] >   pd.Timedelta(days=n_days)].reset_index().sort_values('time_since_rebalance_event')
-    return df[['autopool_symbol', 'time_since_rebalance_event']]
-
-
+    df["time_since_rebalance_event"] = pd.Timestamp.now(tz="UTC").floor("min") - df["last_rebalance_time"].dt.floor(
+        "min"
+    )
+    df = (
+        df[df["time_since_rebalance_event"] > pd.Timedelta(days=n_days)]
+        .reset_index()
+        .sort_values("time_since_rebalance_event")
+    )
+    return df[["autopool_symbol", "time_since_rebalance_event"]]
 
 
 def _df_to_blockkit_markdown_table(df: pd.DataFrame) -> str:
@@ -70,14 +81,9 @@ def _df_to_blockkit_markdown_table(df: pd.DataFrame) -> str:
     df_in_markdown = df.to_markdown(index=False)
     message = Message(
         blocks=[
-            Section(
-                text=MarkdownText(text=f"```{df_in_markdown}```")
-            ),
+            Section(text=MarkdownText(text=f"```{df_in_markdown}```")),
         ]
     )
-
-
-
 
 
 def _get_autopools_without_a_proposed_rebalance_in_the_last_n_days(n_days: int):
@@ -99,12 +105,16 @@ def _get_autopools_without_a_proposed_rebalance_in_the_last_n_days(n_days: int):
             autopools.symbol
     """
     df = _exec_sql_and_cache(query)
-    df['time_since_plan_generated'] = pd.Timestamp.now(tz="UTC").floor('min') - df["plan_generated_time"].dt.floor('min')
-    df = df[df["time_since_plan_generated"] >   pd.Timedelta(days=n_days)].reset_index().sort_values('time_since_plan_generated')
+    df["time_since_plan_generated"] = pd.Timestamp.now(tz="UTC").floor("min") - df["plan_generated_time"].dt.floor(
+        "min"
+    )
+    df = (
+        df[df["time_since_plan_generated"] > pd.Timedelta(days=n_days)]
+        .reset_index()
+        .sort_values("time_since_plan_generated")
+    )
 
-    return df[['autopool_symbol', 'time_since_plan_generated']]
-    
-
+    return df[["autopool_symbol", "time_since_plan_generated"]]
 
 
 if __name__ == "__main__":
@@ -113,9 +123,7 @@ if __name__ == "__main__":
 
     message = Message(
         blocks=[
-            Section(
-                text=MarkdownText(text=f"```{df_in_markdown}```")
-            ),
+            Section(text=MarkdownText(text=f"```{df_in_markdown}```")),
         ]
     )
 
@@ -124,7 +132,6 @@ if __name__ == "__main__":
     # print(_get_autopools_without_a_rebalance_event_in_the_last_n_days(2))
 
     # print(_get_autopools_without_a_proposed_rebalance_in_the_last_n_days(2))
-
 
     # not sure if I want this
     # add later if at all

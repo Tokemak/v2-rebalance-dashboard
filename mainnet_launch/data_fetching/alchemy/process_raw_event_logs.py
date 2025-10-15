@@ -77,7 +77,18 @@ def decode_logs(event: ContractEvent, raw_logs: list[dict]) -> pd.DataFrame:
         event_field_names = [i["name"] for i in event._get_event_abi()["inputs"]]
         return pd.DataFrame(columns=[*event_field_names, *EXPECTED_EVENT_FIELD_NAMES])
 
-    df.rename(columns={"logIndex": "log_index", "transactionHash": "hash", "blockNumber": "block"}, inplace=True)
+    df.rename(
+        columns={
+            "logIndex": "log_index",
+            "transactionHash": "hash",
+            "blockNumber": "block",
+            "transactionIndex": "transaction_index",
+        },
+        inplace=True,
+    )
+    df["block"] = df["block"].astype(int)
+    df["transaction_index"] = df["transaction_index"].astype(int)
+    df["log_index"] = df["log_index"].astype(int)
     df["hash"] = df["hash"].apply(lambda x: str.lower(x))
-    df.sort_values("block", inplace=True)
+    df.sort_values(["block", "transaction_index", "log_index"], inplace=True)
     return df
