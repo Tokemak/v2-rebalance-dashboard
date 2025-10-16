@@ -3,9 +3,6 @@ from dotenv import load_dotenv
 from urllib.parse import urlparse
 import os
 import pandas as pd
-import pydot
-
-from typing import Optional
 
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_column
@@ -451,7 +448,7 @@ class IncentiveTokenSwapped(Base):
     log_index: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(
         nullable=False
-    )  # technically redundent, but we need it for foreign keys to tokens
+    )
     liquidation_row: Mapped[str] = mapped_column(nullable=False)
 
     sell_token_address: Mapped[str] = mapped_column(nullable=False)
@@ -492,9 +489,15 @@ class IncentiveTokenPrices(Base):
     __tablename__ = "incentive_token_sale_prices"
 
     tx_hash: Mapped[str] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
     log_index: Mapped[int] = mapped_column(primary_key=True)
-    third_party_price: Mapped[float] = mapped_column(nullable=True)
+
+    # what token this is a price for, eg the buy token, where the price is in the sell token
+    token_address: Mapped[str] = mapped_column(primary_key=True)
+    # the buy token
+    token_price_denomiated_in: Mapped[str] = mapped_column(primary_key=True)
     # the price according to our internal historical prices api
+    third_party_price: Mapped[float] = mapped_column(nullable=True)
 
     __table_args__ = (
         ForeignKeyConstraint(

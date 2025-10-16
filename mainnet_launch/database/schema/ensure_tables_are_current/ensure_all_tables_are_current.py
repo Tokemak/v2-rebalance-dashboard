@@ -40,6 +40,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.orde
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_incentives import (
     ensure_incentive_token_swapped_events_are_current,
     ensure_incentive_token_prices_are_current,
+    ensure_destination_vault_rewards_claimed_table_is_current,
 )
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_autopools import (
@@ -92,8 +93,11 @@ def _fully_independent_update_functions():
     ensure_tokemak_EOA_gas_costs_are_current()
     ensure_chainlink_gas_costs_table_are_current()
     ensure_autopool_fees_are_current()
+
     ensure_incentive_token_swapped_events_are_current()
+    ensure_destination_vault_rewards_claimed_table_is_current()
     ensure_incentive_token_prices_are_current()
+
     ensure_autopool_transfers_are_current()
     ensure_autopool_deposits_are_current()
     ensure_autopool_withdraws_are_current()
@@ -106,7 +110,7 @@ def _independent_after_constants():
 
 
 def _sequential_after_constants():
-    ensure_destination_states_from_rebalance_plan_are_current()  # big,
+    ensure_destination_states_from_rebalance_plan_are_current()  # big
     ensure_destination_states_are_current()
     ensure_destination_token_values_are_current()
     ensure_autopool_destination_states_are_current()
@@ -147,6 +151,7 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
     ensure_autopool_fees_are_current()
 
     ensure_incentive_token_swapped_events_are_current()
+    ensure_destination_vault_rewards_claimed_table_is_current()
     ensure_incentive_token_prices_are_current()
 
     ensure_destination_underlying_deposits_are_current()
