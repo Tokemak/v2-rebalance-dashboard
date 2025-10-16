@@ -154,7 +154,7 @@ def ensure_destination_vault_rewards_claimed_table_is_current() -> pd.DataFrame:
     for target_chain in ALL_CHAINS:
         new_claim_vault_rewards_rows = []
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             future_to_destination = {
                 executor.submit(
                     _fetch_new_claim_vault_rewards_events,
