@@ -47,10 +47,10 @@ def _get_needed_incentive_token_sales_prices_from_claim_vault_rewards() -> pd.Da
         )
         select full_details_of_needed_claim_vault_rewards.* from 
         full_details_of_needed_claim_vault_rewards WHERE NOT EXISTS (
-            SELECT 1 from incentive_token_prices p 
+            SELECT 1 from incentive_token_sale_prices p 
             WHERE p.tx_hash = full_details_of_needed_claim_vault_rewards.tx_hash
             AND p.log_index = full_details_of_needed_claim_vault_rewards.log_index
-            AND p.token_address = full_details_of_needed_claim_vault_rewards.token_address
+            AND p.token_address = full_details_of_needed_claim_vault_rewards.sell_token_address
         );
 
     """
@@ -81,7 +81,7 @@ def _get_needed_incentive_token_sales_prices_from_incentive_tokens_swapped() -> 
             AND tokens.chain_id = its.chain_id
     )
     SELECT full_details_of_needed_swapped_events.*
-    
+
     FROM full_details_of_needed_swapped_events 
     WHERE NOT EXISTS (
         SELECT 1
@@ -170,7 +170,8 @@ def _update_incentive_token_prices_for_claim_vault_rewards():
 
 def ensure_incentive_token_prices_are_current():
     _update_incentive_token_prices_for_incentive_token_sales()
-    _update_incentive_token_prices_for_claim_vault_rewards()
+    # currently broken
+    # _update_incentive_token_prices_for_claim_vault_rewards() # don't think we really need this
 
 
 if __name__ == "__main__":

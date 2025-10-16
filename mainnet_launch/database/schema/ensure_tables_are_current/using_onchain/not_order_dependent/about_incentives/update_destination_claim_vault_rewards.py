@@ -181,7 +181,7 @@ def ensure_destination_vault_rewards_claimed_table_is_current() -> pd.DataFrame:
                         f"Generated an exception: {exc} for destination vault address: {row['destination_vault_address']} on chain {target_chain.name}"
                     )
                     raise exc
-        
+
         # not there can be an edge case where we havn't added a new incentive token to the tokens table
         # not totally certain if it can happen, but just in case, that can be the prob if you see a sql error
 

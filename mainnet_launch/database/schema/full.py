@@ -446,9 +446,7 @@ class IncentiveTokenSwapped(Base):
 
     tx_hash: Mapped[str] = mapped_column(primary_key=True)
     log_index: Mapped[int] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(
-        nullable=False
-    )
+    chain_id: Mapped[int] = mapped_column(nullable=False)
     liquidation_row: Mapped[str] = mapped_column(nullable=False)
 
     sell_token_address: Mapped[str] = mapped_column(nullable=False)
