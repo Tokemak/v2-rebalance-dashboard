@@ -67,7 +67,6 @@ def fetch_and_flatten_all_claim_vault_rewards_events(
     flat_df = pd.DataFrame(flat_rewards_claimed_records)
     flat_df["destination_vault_address"] = destination_vault_address
     flat_df["chain_id"] = chain.chain_id
-    print(f"Total rows: {len(flat_df)}, NaN values: {flat_df.isna().sum().sum()}")
 
     if flat_df.isna().sum().sum() > 0:
         pass
@@ -118,12 +117,6 @@ def _fetch_new_claim_vault_rewards_events(
     )
 
     if not flat_df.empty:
-
-        if "0xd2d311c09a3a1cdd7162babec8b26e4bd9ced7be0f272b00d7516e58efb32738" in flat_df["hash"].values:
-            print("debug")  # seems fine, not sure what's wrong here
-            # claiming 0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B cvx
-            # and 0xD533a949740bb3306d119CC777fa900bA034cd52
-
         flat_df["amount_claimed_normalized"] = flat_df.apply(
             lambda r: int(r["amount_claimed"]) / (10 ** token_to_decimals[r["token_address"]]), axis=1
         )
@@ -199,4 +192,12 @@ def ensure_destination_vault_rewards_claimed_table_is_current() -> pd.DataFrame:
 if __name__ == "__main__":
     # ensure_destination_vault_rewards_claimed_table_is_current()
 
-    profile_function(ensure_destination_vault_rewards_claimed_table_is_current)
+    # ensure_destination_vault_rewards_claimed_table_is_current()
+
+    reward_claimed_events_fluid_usdt = fetch_and_flatten_all_claim_vault_rewards_events(
+        ETH_CHAIN.block_autopool_first_deployed,
+        chain=ETH_CHAIN,
+        destination_vault_address="0xE4545f9dBC30Ccb6Cda6930DDFd69f3D419FcB61",
+    )
+
+    reward_claimed_events_fluid_usdt
