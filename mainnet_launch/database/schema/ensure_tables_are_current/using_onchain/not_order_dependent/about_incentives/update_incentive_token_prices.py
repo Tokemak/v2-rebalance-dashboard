@@ -10,6 +10,8 @@ from mainnet_launch.database.schema.full import IncentiveTokenPrices
 
 
 def _get_needed_incentive_token_sales_prices() -> pd.DataFrame:
+
+    # todo edit thit to include the block where the ClaimVaultRewards event was emitted as well
     query = """
     WITH full_details_of_needed_swapped_events AS (
         SELECT

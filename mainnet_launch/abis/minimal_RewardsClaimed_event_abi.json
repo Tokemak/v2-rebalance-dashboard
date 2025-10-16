@@ -1,0 +1,12 @@
+[
+    {
+      "anonymous": false,
+      "inputs": [
+        { "indexed": false, "internalType": "address[]", "name": "tokensClaimed", "type": "address[]" },
+        { "indexed": false, "internalType": "uint256[]", "name": "amountsClaimed", "type": "uint256[]" }
+      ],
+      "name": "RewardsClaimed",
+      "type": "event"
+    }
+  ]
+  
