@@ -56,3 +56,6 @@ with open(ABI_DIR / "tokemak_stats_calculator_registry_abi.json", "r") as fin:
 
 with open(ABI_DIR / "minimal_RewardsClaimed_event_abi.json", "r") as fin:
     MINIMAL_DESTINATION_VAULT_REWARD_CLAIMED_EVENT_ABI = json.load(fin)
+
+with open(ABI_DIR / "tokemak_liquidation_row_abi.json", "r") as fin:
+    TOKEMAK_LIQUIDATION_ROW_ABI = json.load(fin)
