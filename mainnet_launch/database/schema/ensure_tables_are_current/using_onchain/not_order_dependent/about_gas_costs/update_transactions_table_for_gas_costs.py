@@ -82,7 +82,7 @@ def _get_all_tx_hashes_by_from_address():
     return from_address_to_hashes_already_saved
 
 
-def _from_address_to_highest_block_already_stored_in_db(chain: ChainData):
+def _from_address_to_highest_block_already_stored_in_db(chain: ChainData) -> dict:
     highest_block_already_seen = (
         simple_agg_by_one_table(
             table=Transactions,
@@ -99,47 +99,30 @@ def _from_address_to_highest_block_already_stored_in_db(chain: ChainData):
 
 
 def ensure_tokemak_EOA_gas_costs_are_current():
-    """Be certain to get all transactions from 0 to the current block for all deployers and service accounts.
-
-    Is slower, but certain to get all transactions.
-    """
-    # is slow and redundant gettinge extra data from etherscan
-    # only run if you need to
     deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
 
     for chain in [ETH_CHAIN]:
-
         highest_block_already_seen = _from_address_to_highest_block_already_stored_in_db(chain)
-
         EOAs_we_want_to_track = set(
             deployers_df[deployers_df["chain_id"] == chain.chain_id]["deployer"].tolist()
             + service_accounts_df[service_accounts_df["chain_id"] == chain.chain_id]["address"].tolist()
         )
-
         transaction_hashes_required = []
 
         for i, EOA_address in enumerate(EOAs_we_want_to_track):
-
             from_block = highest_block_already_seen.get(EOA_address, 0) + 1
             etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
                 chain, EOA_address, from_block=from_block, to_block=chain.get_block_near_top()
             )
             if not etherscan_tx_df.empty:
                 transaction_hashes_required.extend(etherscan_tx_df["hash"].tolist())
-                print(f"{len(transaction_hashes_required)=} {i=} {len(EOAs_we_want_to_track)=} {EOA_address=}")
-
+                # print(f"{len(transaction_hashes_required)=} {i=} {len(EOAs_we_want_to_track)=} {EOA_address=}")
         ensure_all_transactions_are_saved_in_db(transaction_hashes_required, chain)
 
 
 def update_tokemak_EOA_gas_costs_from_0():
-    """Be certain to get all transactions from 0 to the current block for all deployers and service accounts.
+    """Be certain to get all transactions from 0 to the current block for all deployers and service accounts"""
 
-
-    Is slower, but certain to get all transactions.
-    """
-
-    # is slow and redundant gettinge extra data from etherscan
-    # only run if you need to
     deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
 
     for chain in [ETH_CHAIN]:
@@ -155,10 +138,7 @@ def update_tokemak_EOA_gas_costs_from_0():
             etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
                 chain, EOA_address, from_block=0, to_block=chain.get_block_near_top()
             )
-            sleep(0.5)
             transaction_hashes_required.extend(etherscan_tx_df["hash"].tolist())
-            print(len(transaction_hashes_required), i, len(EOAs_we_want_to_track), EOA_address)
-            # break
 
         ensure_all_transactions_are_saved_in_db(transaction_hashes_required, chain)
 
@@ -166,4 +146,14 @@ def update_tokemak_EOA_gas_costs_from_0():
 if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
 
-    profile_function(ensure_tokemak_EOA_gas_costs_are_current)
+    # profile_function(ensure_tokemak_EOA_gas_costs_are_current)
+    # not sure why this sometimes fails with this error
+    ensure_tokemak_EOA_gas_costs_are_current()
+    #     etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
+    #   File "/home/runner/work/v2-rebalance-dashboard/v2-rebalance-dashboard/mainnet_launch/data_fetching/etherscan/get_transactions_etherscan.py", line 78, in get_all_transactions_sent_by_eoa_address
+    #     df["from"] = df["from"].apply(lambda x: chain.client.toChecksumAddress(x))
+    #   File "/home/runner/work/v2-rebalance-dashboard/v2-rebalance-dashboard/.venv/lib/python3.10/site-packages/pandas/core/frame.py", line 4107, in __getitem__
+    #     indexer = self.columns.get_loc(key)
+    #   File "/home/runner/work/v2-rebalance-dashboard/v2-rebalance-dashboard/.venv/lib/python3.10/site-packages/pandas/core/indexes/range.py", line 417, in get_loc
+    #     raise KeyError(key)
+    # KeyError: 'from'
