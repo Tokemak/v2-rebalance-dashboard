@@ -41,7 +41,6 @@ def _get_highest_block_already_fetched_by_destination_vault_address() -> dict:
     return highest_block_already_fetched
 
 
-#
 def get_all_destinaitons_vault_addresses() -> list:
     query = """
         SELECT DISTINCT destination_vault_address, chain_id
