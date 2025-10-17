@@ -2,13 +2,16 @@ import requests
 import pandas as pd
 from mainnet_launch.constants import ChainData, ETHERSCAN_API_KEY, ETHERSCAN_API_URL
 
-# For Etherscan you need to use the v2 endpoint
-# use
+# For Etherscan you need to use the v2 endpoint use
 # ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 
 # not
 # ETHERSCAN_API_URL = "https://api.etherscan.io/api"
 # the old API silently misbehaves
+
+
+class EtherscanAPIError(Exception):
+    pass
 
 
 def _fetch_pages(chain: ChainData, address: str, start: int, end: int, offset: int = 1000):
@@ -47,7 +50,7 @@ def _get_normal_transactions_from_etherscan_recursive(
     chain: ChainData, address: str, start: int, end: int
 ) -> list[dict]:
     """
-    Recursively page through [start…end]. If you hit the 10 000‐-ecord cap,
+    Recursively page through [start…end]. If you hit the record cap,
     advance start to the highest block seen +1 and recurse.
     """
     all_txs, hit_limit = _fetch_pages(chain, address, start, end)
@@ -75,6 +78,15 @@ def get_all_transactions_sent_by_eoa_address(
         return df
     # we only care about transactions sent by the EOA address
     # the etherscan endpoint returns all normal transactions where the EOA is in the `to` or `from` field
+    if "from" not in df.columns:
+        print(df.columns)
+        print(df.head())
+        print(df.shape)
+        print(df.tail)
+        raise EtherscanAPIError(
+            f"Etherscan response missing 'from' field for: \n {EOA_address=} {chain.name=} {from_block=} {to_block=}"
+        )
+
     df["from"] = df["from"].apply(lambda x: chain.client.toChecksumAddress(x))
     df = df[df["from"] == chain.client.toChecksumAddress(EOA_address)].copy()
     return df
@@ -82,14 +94,14 @@ def get_all_transactions_sent_by_eoa_address(
 
 if __name__ == "__main__":
 
-    # — example usage —
-    mainnet_deployer = "0x123cC4AFA59160C6328C0152cf333343F510e5A3"
+    breaking_address = "0x241b8f1fA50F1Ce8fb78e7824757280feEb2aea3"
 
     from mainnet_launch.constants import ETH_CHAIN
 
     tx_df = get_all_transactions_sent_by_eoa_address(
-        ETH_CHAIN, mainnet_deployer, from_block=20638356 - 100, to_block=22884434
+        ETH_CHAIN,
+        breaking_address,
+        from_block=ETH_CHAIN.block_autopool_first_deployed,
+        to_block=ETH_CHAIN.get_block_near_top(),
     )
     print(tx_df.columns)
-
-    print(tx_df.head())
