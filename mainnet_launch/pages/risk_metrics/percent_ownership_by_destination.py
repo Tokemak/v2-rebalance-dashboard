@@ -43,7 +43,7 @@ def fetch_readable_our_tvl_by_destination(chain: ChainData, block: int) -> pd.Da
 
     full_destinations_df["destination_vault_address"] = full_destinations_df["destination_vault_address"].apply(
         lambda x: Web3.toChecksumAddress(x)
-    )
+    )  # pretty sure it is redundant. maybe add tests to make sure all addresses are checksummed already
     df = (
         pd.merge(
             portion_ownership_df,

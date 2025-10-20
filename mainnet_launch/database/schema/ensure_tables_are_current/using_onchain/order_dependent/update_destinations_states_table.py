@@ -66,6 +66,9 @@ def build_lp_token_spot_and_safe_price_calls(
     ]
 
 
+# TODO add the price values here to the pie charts on the % ownership page
+
+
 def _fetch_lp_token_spot_prices(
     autopool_to_all_ever_active_destinations: dict[str, list[Destinations]],
     missing_blocks: list[int],
