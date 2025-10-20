@@ -6,17 +6,6 @@ from mainnet_launch.database.postgres_operations import _exec_sql_and_cache
 from mainnet_launch.slack_messages.post_message import post_slack_message, post_message_with_table
 
 
-def pick_emoji(days: float) -> str:
-    if days < 1:
-        return "🟢"  # green
-    elif 1 <= days < 2:
-        return "🟡"  # yellow
-    elif 2 <= days < 3:
-        return "🟠"  # orange
-    else:
-        return "🔴"  # red
-
-
 def _get_autopools_without_a_plan_in_the_last_n_days(n_days: int):
     query = """
         SELECT 
