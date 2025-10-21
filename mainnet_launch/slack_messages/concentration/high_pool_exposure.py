@@ -162,7 +162,7 @@ def post_ownership_exposure_message(percent_cutoff: float = 50.0):
         },
         inplace=True,
     )
-    high_exposure_df['Ownership'] = high_exposure_df['Ownership'].map(lambda x: f"{x:.2f}%")
+    high_exposure_df["Ownership"] = high_exposure_df["Ownership"].map(lambda x: f"{x:.2f}%")
     post_message_with_table(
         f"Tokemak Ownership by Pool\n Showing Pools with > {percent_cutoff}% Ownership".format(
             percent_cutoff=percent_cutoff

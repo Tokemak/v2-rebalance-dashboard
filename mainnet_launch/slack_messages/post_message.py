@@ -36,8 +36,4 @@ def post_message_with_table(title: str, df: pd.DataFrame):
 
     message = Message(blocks=[Section(text=MarkdownText(text=title)), Section(text=MarkdownText(text=markdown_table))])
 
-    # message = Message(
-    #     blocks=[
-    #              Section(text=MarkdownText(text=markdown_table))])
-
     post_slack_message(message)

@@ -35,8 +35,7 @@ def _get_autopools_without_a_plan_in_the_last_n_days(n_days: int):
 
 def post_autopools_without_generated_plans():
     df = _get_autopools_without_a_plan_in_the_last_n_days(2)
-    print(df)
-    post_message_with_table("Autopools Without a Rebalance Plan Generated in the last 2 days", df)
+    post_message_with_table("Autopools without a rebalance plan Ggnerated in the last 2 days", df)
 
 
 if __name__ == "__main__":
