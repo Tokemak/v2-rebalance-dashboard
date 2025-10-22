@@ -144,11 +144,14 @@ def update_tokemak_EOA_gas_costs_from_0():
 
 
 if __name__ == "__main__":
+
+    ensure_tokemak_EOA_gas_costs_are_current()
+
     from mainnet_launch.constants import profile_function
 
     # profile_function(ensure_tokemak_EOA_gas_costs_are_current)
     # not sure why this sometimes fails with this error
-    ensure_tokemak_EOA_gas_costs_are_current()
+
     #     etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
     #   File "/home/runner/work/v2-rebalance-dashboard/v2-rebalance-dashboard/mainnet_launch/data_fetching/etherscan/get_transactions_etherscan.py", line 78, in get_all_transactions_sent_by_eoa_address
     #     df["from"] = df["from"].apply(lambda x: chain.client.toChecksumAddress(x))
