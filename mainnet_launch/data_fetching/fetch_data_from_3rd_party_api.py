@@ -13,6 +13,7 @@ from aiohttp.client_exceptions import (
 from tqdm import tqdm
 import pandas as pd
 
+
 THIRD_PARTY_SUCCESS_KEY = "3rd_party_response_success"
 
 
@@ -34,9 +35,8 @@ def _run_async_safely(coro):
         # no running loop
         return asyncio.run(coro)
 
-    # if we get here, there is a running loop; run in separate thread to avoid reentrancy issues
     def _runner(c):
-        return asyncio.run(c)  # safe: new loop inside thread
+        return asyncio.run(c)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as exe:
         future = exe.submit(_runner, coro)
@@ -47,6 +47,7 @@ async def _get_json_with_retry(
     session: aiohttp.ClientSession,
     rate_limiter: AsyncLimiter,
     request_kwargs: dict,
+    custom_failure_function=None,
 ):
     while True:
         async with rate_limiter:
@@ -61,6 +62,14 @@ async def _get_json_with_retry(
                         try:
                             resp.raise_for_status()
                             data = await resp.json()
+                            if custom_failure_function is not None and custom_failure_function(data):
+                                raise ClientResponseError(
+                                    request_info=resp.request_info,
+                                    history=resp.history,
+                                    status=resp.status,
+                                    message="Custom failure function triggered",
+                                    headers=resp.headers,
+                                )
                             data[THIRD_PARTY_SUCCESS_KEY] = True
                             data["request_kwargs"] = request_kwargs
                             return data
@@ -107,14 +116,18 @@ async def _get_json_with_retry(
                 }
 
 
-async def _make_many_requests_async(rate_limiter: AsyncLimiter, requests_kwargs: list[dict]):
+async def _make_many_requests_async(
+    rate_limiter: AsyncLimiter, requests_kwargs: list[dict], custom_failure_function=None
+):
     if not requests_kwargs:
         return []
 
     async with aiohttp.ClientSession() as session:
 
         async def runner(i: int, req_kwargs: dict):
-            res: dict = await _get_json_with_retry(session, rate_limiter, request_kwargs=req_kwargs)
+            res: dict = await _get_json_with_retry(
+                session, rate_limiter, request_kwargs=req_kwargs, custom_failure_function=custom_failure_function
+            )
             res["datetime_received"] = pd.Timestamp.now(tz="UTC")
             return i, res
 
@@ -150,17 +163,24 @@ async def _make_many_requests_async_old(rate_limiter: AsyncLimiter, requests_kwa
 
 
 def make_many_requests_to_3rd_party(
-    rate_limit_max_rate: int, rate_limit_time_period, requests_kwargs: list[dict]
+    rate_limit_max_rate: int,
+    rate_limit_time_period: int,
+    requests_kwargs: list[dict],
 ) -> list[dict]:
     """Returns the values from all requests, in the same order as the input list."""
-    rate_limiter = AsyncLimiter(max_rate=rate_limit_max_rate, time_period=rate_limit_time_period)
-    return _run_async_safely(_make_many_requests_async(rate_limiter, requests_kwargs))
+    _rate_limiter = AsyncLimiter(max_rate=rate_limit_max_rate, time_period=rate_limit_time_period)
+    return _run_async_safely(_make_many_requests_async(_rate_limiter, requests_kwargs))
 
 
-def make_single_request_to_3rd_party(request_kwargs: dict) -> dict:
+def make_single_request_to_3rd_party(request_kwargs: dict, custom_failure_function=None) -> dict:
     """
-    Sync helper to fetch a single  response.
+    Sync helper to fetch a single response.
+
+    ```data = make_single_request_to_3rd_party({"method": "GET", "url": url, "params": params, "headers": headers})```
+
+    custom_failure_function(await resp.json()) -> bool, should return True if the response is considered a failure.
+    for APIs that return 200 OK even on errors.
+
     """
-    return make_many_requests_to_3rd_party(
-        rate_limit_max_rate=1, rate_limit_time_period=1, requests_kwargs=[request_kwargs]
-    )[0]
+    _rate_limiter = AsyncLimiter(max_rate=1, time_period=1)
+    return _run_async_safely(_make_many_requests_async(_rate_limiter, [request_kwargs], custom_failure_function))[0]
