@@ -19,7 +19,6 @@ def post_slack_message(message: Message):
     resp = requests.post(TESTING_WEBHOOK_URL, json=payload, timeout=10)
     resp.raise_for_status()
     print(f"Message posted successfully, status code: {resp.status_code}")
-    pprint(message.build())
 
 
 def post_message_with_table(title: str, df: pd.DataFrame):
@@ -37,3 +36,4 @@ def post_message_with_table(title: str, df: pd.DataFrame):
     message = Message(blocks=[Section(text=MarkdownText(text=title)), Section(text=MarkdownText(text=markdown_table))])
 
     post_slack_message(message)
+    pprint(df)
