@@ -1,20 +1,35 @@
-import requests
+"""
+
+Note you can't use alchemy here because it doesn't get all the trasactions only the asset transfers
+
+
+For Etherscan you need to use the v2 endpoint use
+ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
+
+not
+ETHERSCAN_API_URL = "https://api.etherscan.io/api"
+the old API silently misbehaves
+
+"""
+
 import pandas as pd
-from mainnet_launch.constants import ChainData, ETHERSCAN_API_KEY, ETHERSCAN_API_URL
 
-# For Etherscan you need to use the v2 endpoint use
-# ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 
-# not
-# ETHERSCAN_API_URL = "https://api.etherscan.io/api"
-# the old API silently misbehaves
+from mainnet_launch.constants import ChainData, ETHERSCAN_API_KEY, ETHERSCAN_API_URL, ETHERSCAN_ASYNC_RATE_LIMITER
+from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import make_single_request_to_3rd_party
 
 
 class EtherscanAPIError(Exception):
     pass
 
 
-def _fetch_pages(chain: ChainData, address: str, start: int, end: int, offset: int = 1000):
+def _fetch_pages(
+    chain: ChainData,
+    address: str,
+    start: int,
+    end: int,
+    offset: int = 1000,
+) -> tuple[list[dict], bool]:
     """
     Fetch pages 1-10 for [start…end]. Returns (tx_list, hit_limit).
     hit_limit==True if page 10 returned a full batch (i.e. you may have more).
@@ -33,16 +48,23 @@ def _fetch_pages(chain: ChainData, address: str, start: int, end: int, offset: i
             "sort": "asc",
             "apikey": ETHERSCAN_API_KEY,
         }
-        resp = requests.get(ETHERSCAN_API_URL, params=params)
-        resp.raise_for_status()
+
+        resp = make_single_request_to_3rd_party(
+            {
+                "method": "GET",
+                "url": ETHERSCAN_API_URL,
+                "params": params,
+            },
+            rate_limiter=ETHERSCAN_ASYNC_RATE_LIMITER,
+        )
+
         batch = resp.json().get("result", [])
         if not batch:
             return txs, False
         txs.extend(batch)
-        # if we got fewer than `offset`, we know there's no more in this window
         if len(batch) < offset:
             return txs, False
-    # if we made it through 10 full pages, we hit the 10 000 record cap
+    # if we made it through 10 full pages, we hit the 10,000 record cap
     return txs, True
 
 
@@ -93,7 +115,6 @@ def get_all_transactions_sent_by_eoa_address(
 
 
 if __name__ == "__main__":
-
     breaking_address = "0x241b8f1fA50F1Ce8fb78e7824757280feEb2aea3"
 
     from mainnet_launch.constants import ETH_CHAIN

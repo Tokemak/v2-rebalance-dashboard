@@ -13,6 +13,7 @@ from aiohttp.client_exceptions import (
 from tqdm import tqdm
 import pandas as pd
 
+
 THIRD_PARTY_SUCCESS_KEY = "3rd_party_response_success"
 
 
@@ -34,9 +35,8 @@ def _run_async_safely(coro):
         # no running loop
         return asyncio.run(coro)
 
-    # if we get here, there is a running loop; run in separate thread to avoid reentrancy issues
     def _runner(c):
-        return asyncio.run(c)  # safe: new loop inside thread
+        return asyncio.run(c)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as exe:
         future = exe.submit(_runner, coro)
@@ -150,17 +150,28 @@ async def _make_many_requests_async_old(rate_limiter: AsyncLimiter, requests_kwa
 
 
 def make_many_requests_to_3rd_party(
-    rate_limit_max_rate: int, rate_limit_time_period, requests_kwargs: list[dict]
+    rate_limit_max_rate: int,
+    rate_limit_time_period: int,
+    requests_kwargs: list[dict],
+    rate_limiter: None | AsyncLimiter = None,
 ) -> list[dict]:
     """Returns the values from all requests, in the same order as the input list."""
-    rate_limiter = AsyncLimiter(max_rate=rate_limit_max_rate, time_period=rate_limit_time_period)
-    return _run_async_safely(_make_many_requests_async(rate_limiter, requests_kwargs))
+    if rate_limiter is None:
+        _rate_limiter = AsyncLimiter(max_rate=rate_limit_max_rate, time_period=rate_limit_time_period)
+    else:
+        _rate_limiter = rate_limiter
+    return _run_async_safely(_make_many_requests_async(_rate_limiter, requests_kwargs))
 
 
-def make_single_request_to_3rd_party(request_kwargs: dict) -> dict:
+def make_single_request_to_3rd_party(request_kwargs: dict, rate_limiter: None | AsyncLimiter) -> dict:
     """
-    Sync helper to fetch a single  response.
+    Sync helper to fetch a single response.
+
+    ```data = make_single_request_to_3rd_party({"method": "GET", "url": url, "params": params, "headers": headers})```
+
     """
-    return make_many_requests_to_3rd_party(
-        rate_limit_max_rate=1, rate_limit_time_period=1, requests_kwargs=[request_kwargs]
-    )[0]
+    if rate_limiter is None:
+        _rate_limiter = AsyncLimiter(max_rate=1, time_period=1)
+    else:
+        _rate_limiter = rate_limiter
+    return _run_async_safely(_make_many_requests_async(_rate_limiter, request_kwargs))[0]
