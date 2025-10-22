@@ -13,9 +13,9 @@ the old API silently misbehaves
 """
 
 import pandas as pd
+from time import sleep
 
-
-from mainnet_launch.constants import ChainData, ETHERSCAN_API_KEY, ETHERSCAN_API_URL, ETHERSCAN_ASYNC_RATE_LIMITER
+from mainnet_launch.constants import ChainData, ETHERSCAN_API_KEY, ETHERSCAN_API_URL
 from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import make_single_request_to_3rd_party
 
 
@@ -49,16 +49,23 @@ def _fetch_pages(
             "apikey": ETHERSCAN_API_KEY,
         }
 
+        def custom_failure_function(response_data: dict) -> bool:
+            # Etherscan returns 200 OK even on errors, so we need to check the "status" field
+            if int(response_data.get("status")) == 0:
+                return True
+            else:
+                return False
+
         resp = make_single_request_to_3rd_party(
             {
                 "method": "GET",
                 "url": ETHERSCAN_API_URL,
                 "params": params,
             },
-            rate_limiter=ETHERSCAN_ASYNC_RATE_LIMITER,
+            custom_failure_function=custom_failure_function,
         )
 
-        batch = resp.json().get("result", [])
+        batch = resp.get("result", [])
         if not batch:
             return txs, False
         txs.extend(batch)
@@ -82,6 +89,8 @@ def _get_normal_transactions_from_etherscan_recursive(
     # We fetched 10 full pages => there are more transactions in [start…end]
     max_block = max(int(tx["blockNumber"]) for tx in all_txs)
     # Recurse from just past the highest block
+
+    time.sleep(0.2)  # be kind to Etherscan
     return all_txs + _get_normal_transactions_from_etherscan_recursive(chain, address, max_block + 1, end)
 
 
@@ -119,10 +128,34 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import ETH_CHAIN
 
-    tx_df = get_all_transactions_sent_by_eoa_address(
-        ETH_CHAIN,
-        breaking_address,
-        from_block=ETH_CHAIN.block_autopool_first_deployed,
-        to_block=ETH_CHAIN.get_block_near_top(),
-    )
-    print(tx_df.columns)
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=10) as exe:
+
+        addresses = [
+            "0x5020c6EB0fE5321071942847B56349a68C7342dD",
+            "0x14d97603B995f1f433341441cAA83ce5239aD2d3",
+            "0x67beb3Dd509b88b706dC5A9f03f50006410b088B",
+            "0x5416808256eA66367d7Ec1Ae2C37BB64EC2425d4",
+            "0x6E21DBf061FDCdc8D3695150edb384ce2E590d48",
+            "0x9a7cc0bd4BFce8A031ce02D56acf5E0a8c2e3F61",
+            "0xB8B1be69A221Ce7b747ce71f262C0B18Bc60df19",
+            "0x925dB2228A00f4bC0Fb627618e71542ECdd24B17",
+            "0xa9FFE7DBE8cb20F493Dbf875fF0FdB10FeDbcc24",
+            "0x30f29Ca88311F4cc1A1314bc1c45752982D7FD67",
+        ] * 10
+
+        futures = [
+            exe.submit(
+                get_all_transactions_sent_by_eoa_address,
+                ETH_CHAIN,
+                address,
+                ETH_CHAIN.block_autopool_first_deployed,
+                ETH_CHAIN.get_block_near_top(),
+            )
+            for address in addresses
+        ]
+
+        for future in futures:
+            tx_df = future.result()
+            print(tx_df.shape)
