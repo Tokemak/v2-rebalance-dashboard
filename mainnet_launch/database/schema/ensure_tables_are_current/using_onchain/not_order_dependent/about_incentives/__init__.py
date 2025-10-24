@@ -1,9 +1,9 @@
 from .update_incentive_token_prices import ensure_incentive_token_prices_are_current
 from .update_incentive_token_sales import ensure_incentive_token_swapped_events_are_current
-from .update_destination_claim_vault_rewards import ensure_destination_vault_rewards_claimed_table_is_current
+from .update_destination_vault_balance_updated import ensure_incentive_token_balance_updated_is_current
 
 __all__ = [
     "ensure_incentive_token_prices_are_current",
     "ensure_incentive_token_swapped_events_are_current",
-    "ensure_destination_vault_rewards_claimed_table_is_current",
+    "ensure_incentive_token_balance_updated_is_current",
 ]
