@@ -1,19 +1,14 @@
 import argparse
 
-from .post_message import post_slack_message
+from .post_message import post_slack_message, SlackChannel
 
-from blockkit import MarkdownText, Message, Section
+# from blockkit import MarkdownText, Message, Section
 
 
 def _send_slack_message_about_github_action_status(success: bool, action_name: str, action_url: str):
     emoji = "✅" if success else "❌"
-    # todo add proximate cause here,
-    # and time taken
-    message = Message(
-        blocks=[Section(text=MarkdownText(text=f"{emoji} | {action_name} | <{action_url}|see action logs> "))]
-    )
-
-    post_slack_message(message)
+    message = f"{emoji} | {action_name} | <{action_url}|see action logs> "
+    post_slack_message(SlackChannel.PRODUCTION, message)
 
 
 def post_github_action_status():
