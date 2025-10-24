@@ -23,7 +23,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
 )
 
-from mainnet_launch.slack_messages.post_message import post_message_with_table
+from mainnet_launch.slack_messages.post_message import post_message_with_table, SlackChannel
 
 
 def _fetch_rich_tvl_by_destination(
@@ -151,7 +151,9 @@ def post_ownership_exposure_message(percent_cutoff: float = 50.0):
         .drop_duplicates()
     )
 
-    high_exposure_df = high_exposure_df[["underlying_symbol", "percent_ownership", "total_tvl", "holding_autopools"]]
+    high_exposure_df = high_exposure_df[
+        ["underlying_symbol", "destination_vault_address", "percent_ownership", "total_tvl", "holding_autopools"]
+    ]
 
     high_exposure_df.rename(
         columns={
@@ -163,11 +165,12 @@ def post_ownership_exposure_message(percent_cutoff: float = 50.0):
         inplace=True,
     )
     high_exposure_df["Ownership"] = high_exposure_df["Ownership"].map(lambda x: f"{x:.2f}%")
+
     post_message_with_table(
-        f"Tokemak Ownership by Pool\n Showing Pools with > {percent_cutoff}% Ownership".format(
-            percent_cutoff=percent_cutoff
-        ),
-        high_exposure_df[["Pool", "Ownership", "Total TVL", "Autopools"]],
+        SlackChannel.TESTING,
+        initial_comment=f"Tokemak Ownership by Pool\n Showing Pools with > {percent_cutoff}% Ownership",
+        df=high_exposure_df,
+        df_name="high_pool_exposure.csv",
     )
 
 

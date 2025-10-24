@@ -3,7 +3,7 @@
 import pandas as pd
 
 from mainnet_launch.database.postgres_operations import _exec_sql_and_cache
-from mainnet_launch.slack_messages.post_message import post_slack_message, post_message_with_table
+from mainnet_launch.slack_messages.post_message import SlackChannel, post_message_with_table
 
 
 def _get_autopools_without_a_plan_in_the_last_n_days(n_days: int):
@@ -35,7 +35,12 @@ def _get_autopools_without_a_plan_in_the_last_n_days(n_days: int):
 
 def post_autopools_without_generated_plans():
     df = _get_autopools_without_a_plan_in_the_last_n_days(2)
-    post_message_with_table("Autopools without a rebalance plan generated in the last 2 days", df)
+    post_message_with_table(
+        channel=SlackChannel.TESTING,
+        initial_comment="Autopools without a rebalance plan generated in the last 2 days",
+        df=df,
+        df_name="Autopools without recent plans.csv",
+    )
 
 
 if __name__ == "__main__":
