@@ -127,8 +127,8 @@ USDC = TokemakAddress(
 )
 
 USDT = TokemakAddress(
-    eth=DEAD_ADDRESS,
-    base=DEAD_ADDRESS,
+    eth='0xdAC17F958D2ee523a2206206994597C13D831ec7',
+    base='0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
     sonic=DEAD_ADDRESS,
     arb=DEAD_ADDRESS,
     plasma="0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb",
