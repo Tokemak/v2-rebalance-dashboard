@@ -134,13 +134,13 @@ def post_missing_balance_updated_events():
 
     if autopool_destinations_without_expected_claims.empty:
         post_slack_message(
-            SlackChannel.TESTING,
+            SlackChannel.PRODUCTION,
             f"All Destinations that are expected to have claimed rewards in the last {N_DAYS_BALANCE_UPDATED_LOOKBACK} days have done so.",
         )
     else:
 
         post_message_with_table(
-            SlackChannel.TESTING,
+            SlackChannel.PRODUCTION,
             df=autopool_destinations_without_expected_claims,
             file_save_name="Vaults Missing Expected Reward Claims.csv",
             initial_comment="Vaults Missing Expected Reward Claims",
