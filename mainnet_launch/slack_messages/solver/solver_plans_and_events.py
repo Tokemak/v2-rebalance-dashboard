@@ -39,7 +39,7 @@ def post_autopools_without_generated_plans():
         channel=SlackChannel.TESTING,
         initial_comment="Autopools without a rebalance plan generated in the last 2 days",
         df=df,
-        df_name="Autopools without recent plans.csv",
+        file_save_name="Autopools without recent plans.csv",
     )
 
 

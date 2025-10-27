@@ -23,7 +23,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
 )
 
-from mainnet_launch.slack_messages.post_message import post_message_with_table, SlackChannel
+from mainnet_launch.slack_messages.post_message import post_message_with_table, SlackChannel, post_slack_message
 
 
 def _fetch_rich_tvl_by_destination(
@@ -124,7 +124,7 @@ def fetch_destination_percent_ownership_with_sizes() -> pd.DataFrame:
     return final_readable_df
 
 
-def post_ownership_exposure_message(percent_cutoff: float = 50.0):
+def post_destination_ownership_exposure_table(percent_cutoff: float = 50.0):
     """Posts a table of the pools where we have > percent_cutoff % ownership, what autopools and"""
     readable_percent_ownership_by_pool = fetch_destination_percent_ownership_with_sizes()
 
@@ -166,13 +166,19 @@ def post_ownership_exposure_message(percent_cutoff: float = 50.0):
     )
     high_exposure_df["Ownership"] = high_exposure_df["Ownership"].map(lambda x: f"{x:.2f}%")
 
-    post_message_with_table(
-        SlackChannel.TESTING,
-        initial_comment=f"Tokemak Ownership by Pool\n Showing Pools with > {percent_cutoff}% Ownership",
-        df=high_exposure_df,
-        df_name="high_pool_exposure.csv",
-    )
+    if high_exposure_df.empty:
+        post_slack_message(
+            SlackChannel.TESTING,
+            text=f"No Pools with > {percent_cutoff}% Ownership",
+        )
+    else:
+        post_message_with_table(
+            SlackChannel.TESTING,
+            initial_comment=f"Tokemak Ownership by Pool\n Showing Pools with > {percent_cutoff}% Ownership",
+            df=high_exposure_df,
+            file_save_name="high_pool_exposure.csv",
+        )
 
 
 if __name__ == "__main__":
-    post_ownership_exposure_message(percent_cutoff=50.0)
+    post_destination_ownership_exposure_table(percent_cutoff=50.0)

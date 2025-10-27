@@ -2,8 +2,6 @@ import argparse
 
 from .post_message import post_slack_message, SlackChannel
 
-# from blockkit import MarkdownText, Message, Section
-
 
 def _send_slack_message_about_github_action_status(success: bool, action_name: str, action_url: str):
     emoji = "✅" if success else "❌"
