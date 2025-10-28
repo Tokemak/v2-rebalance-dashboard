@@ -28,7 +28,8 @@ statsmodels = "^0.14.4"
 tdqm = "^0.0.1"
 aiolimiter = "^1.2.1"
 line-profiler = "^5.0.0"
-blockkit = "1.9.2" # using an old version because we are still on python3.10
+tabulate = "^0.9.0"
+slack-sdk = "^3.37.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -63,6 +64,12 @@ export-config = "mainnet_launch.app.export_config:create_streamlit_secrets_from_
 
 # slack notifications
 slack-alert = "mainnet_launch.slack_messages.alerts:post_github_action_status"
+
+
+# Slack informational
+
+post-slack-informational-messages = "mainnet_launch.slack_messages.send_informational_messages:send_information_slack_messages"
+
 
 [tool.pytest.ini_options]
 addopts = "-n auto --durations=0 -m 'not marketing'"

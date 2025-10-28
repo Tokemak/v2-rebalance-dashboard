@@ -1,25 +1,12 @@
 import argparse
 
-
-from blockkit import Message, MarkdownText, Section
-import requests
-
-
-from mainnet_launch.constants import V2_DASHBOARD_NOTIFS_WEBHOOK_URL
+from .post_message import post_slack_message, SlackChannel
 
 
 def _send_slack_message_about_github_action_status(success: bool, action_name: str, action_url: str):
     emoji = "✅" if success else "❌"
-    # todo add proximate cause here,
-    # and time taken
-
-    payload = Message(
-        blocks=[Section(text=MarkdownText(text=f"{emoji} | {action_name} | <{action_url}|see action logs> "))]
-    ).build()
-
-    resp = requests.post(V2_DASHBOARD_NOTIFS_WEBHOOK_URL, json=payload, timeout=10)
-    # We want a run time failure if this fails to see in the github action logs
-    resp.raise_for_status()
+    message = f"{emoji} | {action_name} | <{action_url}|see action logs> "
+    post_slack_message(SlackChannel.PRODUCTION, message)
 
 
 def post_github_action_status():

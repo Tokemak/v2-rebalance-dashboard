@@ -38,6 +38,26 @@ def get_latest_rebalance_event_datetime_for_autopool(autopool: AutopoolConstants
         return pd.Timestamp(result) if result is not None else None
 
 
+def fetch_rich_autopool_destinations_table() -> pd.DataFrame:
+    """Returns autopool destinations with autopool name and destination info merged in"""
+    query = """
+            SELECT
+        d.*,
+        
+        ap.name AS autopool_name,
+        ap.base_asset as autopool_base_asset
+        
+        FROM autopool_destinations AS ad
+        LEFT JOIN autopools AS ap
+        ON ap.autopool_vault_address = ad.autopool_vault_address
+        LEFT JOIN destinations AS d
+        ON d.destination_vault_address = ad.destination_vault_address
+        AND d.chain_id = ad.chain_id;
+    """
+    df = _exec_sql_and_cache(query)
+    return df
+
+
 def get_all_autopool_destinations(autopool: AutopoolConstants) -> pd.DataFrame:
     return merge_tables_as_df(
         selectors=[

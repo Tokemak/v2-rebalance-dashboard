@@ -3,8 +3,15 @@ from multicall import Call
 from web3 import Web3
 
 
-from mainnet_launch.constants import ChainData, ALL_CHAINS, ALL_AUTOPOOLS, ALL_BASE_ASSETS, DEAD_ADDRESS
-from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
+from mainnet_launch.constants import (
+    ChainData,
+    ALL_CHAINS,
+    ALL_AUTOPOOLS,
+    ALL_BASE_ASSETS,
+    DEAD_ADDRESS,
+    DESTINATION_VAULT_REGISTRY,
+)
+from mainnet_launch.abis import AUTOPOOL_VAULT_ABI, DESTINATION_VAULT_REGISTRY_ABI
 
 from mainnet_launch.data_fetching.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import (
@@ -16,8 +23,20 @@ from mainnet_launch.database.schema.full import Destinations, DestinationTokens,
 from mainnet_launch.database.postgres_operations import insert_avoid_conflicts, get_subset_not_already_in_column
 
 
-# the reason why this is slow, is because it is inserting all of the destinations even if we have them
-# 17 second optimization if needed
+def ensure_destination_vaults_are_current() -> None:
+    # use destination vault registered
+
+    for chain in ALL_CHAINS:
+        contract = chain.client.eth.contract(address=DESTINATION_VAULT_REGISTRY(chain), abi=AUTOPOOL_VAULT_ABI)
+        new_destination_vaults = fetch_events(
+            contract.events.DestinationVaultRegistered,
+            chain=chain,
+            start_block=chain.block_autopool_first_deployed - 1_000_000,
+        )
+        new_destination_vault_addresses = (
+            new_destination_vaults["destinationVault"].apply(lambda x: Web3.toChecksumAddress(x)).tolist()
+        )
+        destination_vault_state = _make_destination_vault_dicts(new_destination_vault_addresses, chain)
 
 
 def _fetch_token_rows(token_addresses: list[str], chain: ChainData) -> list[Tokens]:
@@ -266,7 +285,9 @@ def ensure_all_tokens_are_saved_in_db(token_addresses: list[str], chain: ChainDa
         values=token_addresses,
         where_clause=(Tokens.chain_id == chain.chain_id),
     )
+
     if token_addresses_to_add:
+        print(f"Adding {len(token_addresses_to_add)} tokens to Tokens table for chain {chain.name}")
         token_rows = _fetch_token_rows(token_addresses_to_add, chain)
         insert_avoid_conflicts(token_rows, Tokens)
 
