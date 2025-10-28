@@ -121,7 +121,7 @@ def fetch_recent_balance_updated_events(n: int) -> pd.DataFrame:
     return autopool_destinations, destinations_with_some_expected_claims
 
 
-def post_missing_balance_updated_events():
+def post_missing_balance_updated_events(slack_channel: SlackChannel):
     autopool_destinations, destinations_with_some_expected_claims = fetch_recent_balance_updated_events(
         n=N_DAYS_BALANCE_UPDATED_LOOKBACK
     )
@@ -134,13 +134,13 @@ def post_missing_balance_updated_events():
 
     if autopool_destinations_without_expected_claims.empty:
         post_slack_message(
-            SlackChannel.PRODUCTION,
+            slack_channel,
             f"All Destinations that are expected to have claimed rewards in the last {N_DAYS_BALANCE_UPDATED_LOOKBACK} days have done so.",
         )
-    else:
 
+    else:
         post_message_with_table(
-            SlackChannel.PRODUCTION,
+            slack_channel,
             df=autopool_destinations_without_expected_claims,
             file_save_name="Vaults Missing Expected Reward Claims.csv",
             initial_comment="Vaults Missing Expected Reward Claims",

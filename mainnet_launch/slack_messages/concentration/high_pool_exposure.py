@@ -124,7 +124,7 @@ def fetch_destination_percent_ownership_with_sizes() -> pd.DataFrame:
     return final_readable_df
 
 
-def post_destination_ownership_exposure_table(percent_cutoff: float = 50.0):
+def post_destination_ownership_exposure_table(slack_channel, percent_cutoff: float = 50.0):
     """Posts a table of the pools where we have > percent_cutoff % ownership, what autopools and"""
     readable_percent_ownership_by_pool = fetch_destination_percent_ownership_with_sizes()
 
@@ -168,12 +168,12 @@ def post_destination_ownership_exposure_table(percent_cutoff: float = 50.0):
 
     if high_exposure_df.empty:
         post_slack_message(
-            SlackChannel.TESTING,
+            slack_channel,
             text=f"No Pools with > {percent_cutoff}% Ownership",
         )
     else:
         post_message_with_table(
-            SlackChannel.TESTING,
+            slack_channel,
             initial_comment=f"Tokemak Ownership by Pool\n Showing Pools with > {percent_cutoff}% Ownership",
             df=high_exposure_df,
             file_save_name="high_pool_exposure.csv",
@@ -181,4 +181,4 @@ def post_destination_ownership_exposure_table(percent_cutoff: float = 50.0):
 
 
 if __name__ == "__main__":
-    post_destination_ownership_exposure_table(percent_cutoff=50.0)
+    post_destination_ownership_exposure_table(SlackChannel.TESTING)

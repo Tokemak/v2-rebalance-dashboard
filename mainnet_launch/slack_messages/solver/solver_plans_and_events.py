@@ -33,10 +33,10 @@ def _get_autopools_without_a_plan_in_the_last_n_days(n_days: int):
     return df[["autopool_symbol", "time_since_plan_generated"]]
 
 
-def post_autopools_without_generated_plans():
+def post_autopools_without_generated_plans(slack_channel: SlackChannel):
     df = _get_autopools_without_a_plan_in_the_last_n_days(2)
     post_message_with_table(
-        channel=SlackChannel.PRODUCTION,
+        channel=slack_channel,
         initial_comment="Autopools without a rebalance plan generated in the last 2 days",
         df=df,
         file_save_name="Autopools without recent plans.csv",
