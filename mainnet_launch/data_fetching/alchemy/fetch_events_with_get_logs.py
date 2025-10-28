@@ -125,9 +125,9 @@ def _recursive_make_web3_getLogs_call(
     )
 
     if status == AchemyRequestStatus.SUCCESS:
-        print(
-            f"Fetched {len(raw_logs):,} logs for {event} from {start_block:,} to {end_block:,} ({end_block - start_block + 1:,} blocks)"
-        )
+        # print(
+        #     f"Fetched {len(raw_logs):,} logs for {event} from {start_block:,} to {end_block:,} ({end_block - start_block + 1:,} blocks)"
+        # )
         global_raw_logs.extend(raw_logs)
         return
 
@@ -138,13 +138,13 @@ def _recursive_make_web3_getLogs_call(
             )
         else:
             mid_block = (start_block + end_block) // 2
-            print(
-                f"Retryable failure when fetching logs for {event} on {chain.name=}"
-                f"from {start_block:,} to {end_block:,} "
-                f"({end_block - start_block + 1:,} blocks), splitting into:\n"
-                f"  - {start_block:,} to {mid_block:,} ({mid_block - start_block + 1:,} blocks)\n"
-                f"  - {mid_block + 1:,} to {end_block:,} ({end_block - mid_block:,} blocks)"
-            )
+            # print(
+            #     f"Retryable failure when fetching logs for {event} on {chain.name=}"
+            #     f"from {start_block:,} to {end_block:,} "
+            #     f"({end_block - start_block + 1:,} blocks), splitting into:\n"
+            #     f"  - {start_block:,} to {mid_block:,} ({mid_block - start_block + 1:,} blocks)\n"
+            #     f"  - {mid_block + 1:,} to {end_block:,} ({end_block - mid_block:,} blocks)"
+            # )
             _recursive_make_web3_getLogs_call(event, chain, start_block, mid_block, argument_filters, global_raw_logs)
             _recursive_make_web3_getLogs_call(event, chain, mid_block + 1, end_block, argument_filters, global_raw_logs)
             return
@@ -164,7 +164,7 @@ def _fetch_events_with_pre_split(
 
     def _fetch_chunk(chunk_start_block: int, chunk_end_block: int) -> list[dict]:
         local_raw_logs: list[dict] = []
-        print(f"Fetching pre split {chain.name} chunk from {chunk_start_block:,} to {chunk_end_block:,}")
+        # print(f"Fetching pre split {chain.name} chunk from {chunk_start_block:,} to {chunk_end_block:,}")
         _recursive_make_web3_getLogs_call(
             event=event,
             chain=chain,

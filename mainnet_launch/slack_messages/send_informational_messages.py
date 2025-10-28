@@ -13,4 +13,4 @@ def send_information_slack_messages():
         post_destination_ownership_exposure_table(slack_channel)
         post_autopools_without_generated_plans(slack_channel)
 
-    profile_function(post_messages, SlackChannel.PRODUCTION)
+    profile_function(post_messages, SlackChannel.TESTING)

@@ -35,4 +35,4 @@ jobs:
         uses: ./.github/actions/post_slack_message
 
       - name: Post Informational Slack Messages
-        run: poetry run python post-slack-informational-messages
+        run: poetry run post-slack-informational-messages
