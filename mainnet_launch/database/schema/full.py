@@ -493,23 +493,6 @@ class IncentiveTokenBalanceUpdated(Base):
     )
 
 
-# class ClaimVaultRewards(Base):
-#     __tablename__ = "claim_vault_rewards"
-#     destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
-#     tx_hash: Mapped[str] = mapped_column(primary_key=True)
-#     log_index: Mapped[int] = mapped_column(primary_key=True)
-#     chain_id: Mapped[int] = mapped_column(primary_key=True)
-#     token_address: Mapped[str] = mapped_column(primary_key=True)
-#     amount_claimed: Mapped[float] = mapped_column(primary_key=True)
-
-#     __table_args__ = (
-#         ForeignKeyConstraint(["token_address", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
-#         ForeignKeyConstraint(
-#             ["destination_vault_address", "chain_id"],
-#             ["destinations.destination_vault_address", "destinations.chain_id"],
-#         ),
-#         ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
-#     )
 
 
 class IncentiveTokenPrices(Base):

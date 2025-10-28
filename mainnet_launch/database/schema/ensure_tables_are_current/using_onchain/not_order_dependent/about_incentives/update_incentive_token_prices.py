@@ -142,36 +142,11 @@ def _update_incentive_token_prices_for_incentive_token_sales():
     insert_avoid_conflicts(new_incentive_token_prices, IncentiveTokenPrices)
 
 
-def _update_incentive_token_prices_for_claim_vault_rewards():
-    claim_vault_rewards_prices_df = _get_needed_incentive_token_sales_prices_from_claim_vault_rewards()
-    if claim_vault_rewards_prices_df.empty:
-        # early exit since we already have all of the prices we need
-        return
-
-    price_requests = _build_tokemak_price_requests(claim_vault_rewards_prices_df)
-    price_df = fetch_many_prices_from_internal_api(price_requests, 200 // 3, 10)
-
-    full_df = pd.concat([claim_vault_rewards_prices_df, price_df], axis=1)
-
-    new_incentive_token_prices = full_df.apply(
-        lambda row: IncentiveTokenPrices(
-            tx_hash=row.tx_hash,
-            log_index=row.log_index,
-            third_party_price=row.price,
-            chain_id=row.chain_id,
-            token_address=row.sell_token_address,
-            token_price_denomiated_in=row.buy_token_address,
-        ),
-        axis=1,
-    ).tolist()
-
-    insert_avoid_conflicts(new_incentive_token_prices, IncentiveTokenPrices)
 
 
 def ensure_incentive_token_prices_are_current():
     _update_incentive_token_prices_for_incentive_token_sales()
-    # currently broken
-    # _update_incentive_token_prices_for_claim_vault_rewards() # don't think we really need this
+
 
 
 if __name__ == "__main__":
