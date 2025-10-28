@@ -18,6 +18,9 @@ from mainnet_launch.database.postgres_operations import (
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_transactions import (
     ensure_all_transactions_are_saved_in_db,
 )
+from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destinations_tokens_and_autopoolDestinations_table import (
+    ensure_all_tokens_are_saved_in_db,
+)
 
 
 def _get_highest_block_already_fetched_by_chain_id() -> dict[int, int]:
@@ -79,7 +82,6 @@ def ensure_incentive_token_balance_updated_is_current() -> pd.DataFrame:
     highest_block_already_fetched = _get_highest_block_already_fetched_by_chain_id()
     all_destinations = get_full_table_as_df(Destinations)
     valid_vaults = set(all_destinations["destination_vault_address"].tolist())
-    token_to_decimals, token_to_symbol = get_token_details_dict()
 
     for target_chain in ALL_CHAINS:
         all_balance_updated_df = fetch_new_balance_updated_events(
@@ -87,6 +89,12 @@ def ensure_incentive_token_balance_updated_is_current() -> pd.DataFrame:
             chain=target_chain,
         )
 
+        ensure_all_tokens_are_saved_in_db(
+            token_addresses=set(all_balance_updated_df["token"].unique().tolist()),
+            chain=target_chain,
+        )
+        # make sure that we caught any extra incentive tokens
+        token_to_decimals, token_to_symbol = get_token_details_dict()
         # don't break on on unregistered vaults, eg for new autopools
         # we add deploy destination contracts before the autopool starts, so ignore for now
 
