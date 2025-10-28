@@ -1,4 +1,7 @@
-"""Minimal example to verify that we can connect alchemy, reads and writes to the database."""
+"""Minimal example to verify that we can connect alchemy, reads and writes to the database
+
+poetry run python mainnet_launch/database/schema/ensure_tables_are_current/simple_save_current_block_number_to_db.py
+"""
 
 from mainnet_launch.constants import *
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (

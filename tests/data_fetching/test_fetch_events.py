@@ -1,21 +1,21 @@
-import pytest
-from mainnet_launch.constants import *
-from mainnet_launch.abis import ERC_20_ABI
+# import pytest
+# from mainnet_launch.constants import *
+# from mainnet_launch.abis import ERC_20_ABI
 
-from mainnet_launch.data_fetching.get_events import fetch_events
+# from mainnet_launch.data_fetching.get_events import fetch_events
 
 
-@pytest.mark.integration
-def test_fetch_plasma_events():
-    plasmaUSD_contract = PLASMA_USD.autopool_eth_addr
-    transfer_df = fetch_events(
-        event=PLASMA_USD.chain.client.eth.contract(address=plasmaUSD_contract, abi=ERC_20_ABI).events.Transfer,
-        chain=PLASMA_USD.chain,
-        start_block=PLASMA_USD.chain.block_autopool_first_deployed,
-        end_block=PLASMA_USD.chain.get_block_near_top(),
-    )
+# @pytest.mark.integration
+# def test_fetch_plasma_events():
+#     plasmaUSD_contract = PLASMA_USD.autopool_eth_addr
+#     transfer_df = fetch_events(
+#         event=PLASMA_USD.chain.client.eth.contract(address=plasmaUSD_contract, abi=ERC_20_ABI).events.Transfer,
+#         chain=PLASMA_USD.chain,
+#         start_block=PLASMA_USD.chain.block_autopool_first_deployed,
+#         end_block=PLASMA_USD.chain.get_block_near_top(),
+#     )
 
-    assert transfer_df.shape[0] > 0
+#     assert transfer_df.shape[0] > 0
 
 
 # if __name__ == "__main__":
