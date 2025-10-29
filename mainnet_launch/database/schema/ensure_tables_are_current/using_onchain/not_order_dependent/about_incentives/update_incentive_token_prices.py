@@ -142,11 +142,8 @@ def _update_incentive_token_prices_for_incentive_token_sales():
     insert_avoid_conflicts(new_incentive_token_prices, IncentiveTokenPrices)
 
 
-
-
 def ensure_incentive_token_prices_are_current():
     _update_incentive_token_prices_for_incentive_token_sales()
-
 
 
 if __name__ == "__main__":

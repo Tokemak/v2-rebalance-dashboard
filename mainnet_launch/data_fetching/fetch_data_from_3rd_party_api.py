@@ -12,7 +12,7 @@ from aiohttp.client_exceptions import (
 
 from tqdm import tqdm
 import pandas as pd
-
+import requests
 
 THIRD_PARTY_SUCCESS_KEY = "3rd_party_response_success"
 
@@ -143,25 +143,6 @@ async def _make_many_requests_async(
         return results
 
 
-async def _make_many_requests_async_old(rate_limiter: AsyncLimiter, requests_kwargs: list[dict]):
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            _get_json_with_retry(session, rate_limiter, request_kwargs=request_kwargs)
-            for request_kwargs in requests_kwargs
-        ]
-
-        results = []
-        for future in tqdm(
-            asyncio.as_completed(tasks),
-            total=len(tasks),
-            desc=f"Fetching 3rd-party data from {requests_kwargs[0]['url']}",
-        ):
-            res: dict = await future
-            res["datetime_received"] = pd.Timestamp.now(tz="UTC")
-            results.append(res)
-        return results
-
-
 def make_many_requests_to_3rd_party(
     rate_limit_max_rate: int,
     rate_limit_time_period: int,
@@ -184,3 +165,11 @@ def make_single_request_to_3rd_party(request_kwargs: dict, custom_failure_functi
     """
     _rate_limiter = AsyncLimiter(max_rate=1, time_period=1)
     return _run_async_safely(_make_many_requests_async(_rate_limiter, [request_kwargs], custom_failure_function))[0]
+
+
+def make_naive_get_request(request_kwargs: dict):
+    return requests.get(**request_kwargs).json()
+
+
+def make_naive_post_request(request_kwargs: dict):
+    return requests.post(**request_kwargs).json()

@@ -493,8 +493,6 @@ class IncentiveTokenBalanceUpdated(Base):
     )
 
 
-
-
 class IncentiveTokenPrices(Base):
     __tablename__ = "incentive_token_sale_prices"
 
