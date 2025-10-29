@@ -20,31 +20,32 @@ def build_get_token_balances_request(
     """
 
     # Alchemy JSON-RPC base for the chain; e.g. https://eth-mainnet.g.alchemy.com/v2/{API_KEY}
-    rpc_url = f"https://{chain.alchemy_network_enum}.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
+    rpc_url = chain.client.provider.endpoint_uri
 
     response = make_single_request_to_3rd_party(
         request_kwargs={
             "method": "POST",
             "url": rpc_url,
-            "params": {
+            "json": {
+                "jsonrpc": "2.0",
                 "method": "alchemy_getTokenBalances",
-                "params": wallet_address,
+                "params": [wallet_address, "erc20"],
                 "id": 1,
             },
-            "headers": {"Content-Type": "application/json", "Accept": "application/json"},
+            "headers": {},
         },
         custom_failure_function=None,
     )
     return response
 
-    def _hex_to_int(x: str) -> int:
-        # Alchemy returns 0x-prefixed hex strings; guard None/empty just in case.
-        if not x:
-            return 0
-        try:
-            return int(x, 16)
-        except Exception:
-            return 0
+    # def _hex_to_int(x: str) -> int:
+    #     # Alchemy returns 0x-prefixed hex strings; guard None/empty just in case.
+    #     if not x:
+    #         return 0
+    #     try:
+    #         return int(x, 16)
+    #     except Exception:
+    #         return 0
 
     def _extract_balances(result_obj: dict) -> dict:
         # result_obj structure:
