@@ -116,7 +116,8 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
         .pivot(index="datetime", columns="symbol", values="price_return")
     )
     st.plotly_chart(
-        px.scatter(price_return_df, title="All Time % Price Return (backing - safe) / safe "), use_container_width=True
+        px.scatter(price_return_df, title="All Time % Price Return (backing - safe) / backing "),
+        use_container_width=True,
     )
 
     safe_spot_spread_df = (

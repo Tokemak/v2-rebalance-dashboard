@@ -115,6 +115,7 @@ def _add_current_liqudation_row_balances(df: pd.DataFrame):
     df["balance"] = df.apply(lambda row: all_balances[row["liquidation_row"], row["token_addresses"]], axis=1)
 
 
+# NOTE, is noisy, not every info is a problem
 def post_unsold_incentive_tokens(slack_channel: SlackChannel):
     """
     Post a table of incentive tokens sent to liquidation rows in the past month that still have (near) non-zero balance.
