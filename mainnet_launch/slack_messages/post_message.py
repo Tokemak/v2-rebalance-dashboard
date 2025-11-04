@@ -22,11 +22,11 @@ class SlackChannel(Enum):
     PRODUCTION = PRODUCTION_CHANNEL_ID
 
 
-def post_slack_message(channel: SlackChannel, text: str):
+def post_slack_message(channel: SlackChannel, text: str) -> None:
     slack_client.chat_postMessage(channel=channel.value, text=text)
 
 
-def post_message_with_table(channel: SlackChannel, initial_comment: str, df: pd.DataFrame, file_save_name: str):
+def post_message_with_table(channel: SlackChannel, initial_comment: str, df: pd.DataFrame, file_save_name: str) -> None:
     table_csv = df.to_csv(index=True)
     slack_client.files_upload_v2(
         channel=channel.value,

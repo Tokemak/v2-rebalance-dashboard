@@ -11,8 +11,8 @@ from mainnet_launch.database.postgres_operations import _exec_sql_and_cache
 from mainnet_launch.slack_messages.post_message import post_message_with_table, SlackChannel, post_slack_message
 from mainnet_launch.database.views import get_token_details_dict
 
-STABLE_COIN_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD = 0.05
-ETH_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD = 0.1
+STABLE_COIN_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD = 0.5
+ETH_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD = 0.25
 
 # Prices and exposure within the 2 days eg directionally correct but not exact
 # TODO consider making them line up exactly
@@ -28,7 +28,7 @@ def _fetch_latest_token_prices() -> pd.DataFrame:
             t.symbol,
             tv.safe_price,
             tv.backing,
-            100 * (tv.backing - tv.safe_price) / tv.backing as percent_discount, -- negative means premimum, positive means discount
+            100 * (tv.backing - tv.safe_price) / tv.backing as percent_discount,  
             tv.block,
             b.datetime as price_datetime
         FROM token_values tv
@@ -122,7 +122,7 @@ def fetch_recent_prices_and_exposure() -> pd.DataFrame:
 
 def summarize_discounts_by_reference(full_df: pd.DataFrame) -> pd.DataFrame:
     """
-    By reference asset (eg USDC, WETH), chain) summarize total exposure at safe price vs backing price,
+    By reference asset (eg (USDC, WETH, ...,) chain) summarize total exposure at safe price vs backing price,
     """
     some_exposure_df = full_df[(full_df["quantity"] > 0)].copy()
     agg = (
@@ -144,41 +144,63 @@ def summarize_discounts_by_reference(full_df: pd.DataFrame) -> pd.DataFrame:
     )
     agg = agg.sort_values("overall_percent_discount", ascending=False, ignore_index=True)
 
-    agg["overall_percent_discount"] = agg["overall_percent_discount"].map("{:.2f}%".format).astype(str)
-    agg["total_value_at_safe_price"] = agg["total_value_at_safe_price"].map("{:.2f}".format).astype(str)
-    agg["total_value_at_backing"] = agg["total_value_at_backing"].map("{:.2f}".format).astype(str)
+    agg["overall_percent_discount"] = agg["overall_percent_discount"].map("{:,.2f}%".format).astype(str)
+    agg["total_value_at_safe_price"] = agg["total_value_at_safe_price"].map("{:,.2f}".format).astype(str)
+    agg["total_value_at_backing"] = agg["total_value_at_backing"].map("{:,.2f}".format).astype(str)
     return agg
+
+
+def post_non_trivial_depegs_slack_message(df: pd.DataFrame, slack_channel: SlackChannel):
+    df = df[df["quantity"] > 0].copy()
+
+    threshold = np.where(
+        df["reference_symbol"].eq("WETH"),
+        ETH_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD,
+        STABLE_COIN_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD,
+    )
+    df["non_trivial_discount"] = df["percent_discount"].abs().ge(threshold) & df["percent_discount"].notna()
+
+    non_trivial_depeg_df = df[df["non_trivial_discount"]].copy()
+
+    non_trivial_depeg_df["percent_discount"] = (
+        non_trivial_depeg_df["percent_discount"].map("{:.2f}%".format).astype(str)
+    )
+    non_trivial_depeg_df["quantity"] = non_trivial_depeg_df["quantity"].map("{:.2f}".format).astype(str)
+    display_cols = [
+        "token_symbol",
+        "reference_symbol",
+        "chain_name",
+        "percent_discount",
+        "quantity",
+        "safe_price",
+        "backing",
+        "exposure_datetime",
+        "price_datetime",
+    ]
+
+    if non_trivial_depeg_df.empty:
+        post_slack_message("No depegging assets found with non-trivial discounts.", slack_channel)
+    else:
+        post_message_with_table(
+            slack_channel,
+            "All depegging assets with non-trivial discounts or premiums",
+            non_trivial_depeg_df[display_cols],
+            file_save_name="non_trivial_depegs_and_exposure.csv",
+        )
 
 
 def post_asset_depeg_slack_message(slack_channel: SlackChannel):
     df = fetch_recent_prices_and_exposure()
     price_return_summary_df = summarize_discounts_by_reference(df)
+
     post_message_with_table(
         slack_channel,
-        "Summary of depegging exposure by reference asset",
+        "Summary of exposure by reference asset with discounts",
         price_return_summary_df,
         file_save_name="depeg_summary_by_reference.csv",
     )
 
-    df = df[df["quantity"] > 0].copy()
-
-    df["non_trivial_discount"] = np.where(
-        (df["reference_symbol"] == "WETH") & (df["percent_discount"].abs() >= ETH_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD),
-        True,
-        np.where(df["percent_discount"].abs() >= STABLE_COIN_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD, True, False),
-    )
-
-    non_trivial_depeg_df = df[df["non_trivial_discount"]].copy()
-    if non_trivial_depeg_df.empty:
-        post_slack_message("No depegging assets found with non-trivial discounts.", slack_channel)
-        return
-    else:
-        post_message_with_table(
-            slack_channel,
-            "All depegging assets with non-trivial discounts or premiums",
-            non_trivial_depeg_df,
-            file_save_name="non_trivial_depegs_and_exposure.csv",
-        )
+    post_non_trivial_depegs_slack_message(df, slack_channel)
 
 
 if __name__ == "__main__":

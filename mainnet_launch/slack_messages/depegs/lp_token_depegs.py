@@ -1,5 +1,4 @@
-# not finished
-from __future__ import annotations
+# not accurate, don't use
 
 import pandas as pd
 
@@ -10,8 +9,7 @@ from mainnet_launch.slack_messages.post_message import (
     post_slack_message,
 )
 
-# Tune as you like
-LP_DEPEG_THRESHOLD = 1.0  # percent
+LP_DEPEG_THRESHOLD = 0.25
 
 
 def _fetch_latest_lp_token_values() -> pd.DataFrame:
@@ -64,11 +62,9 @@ def post_lp_depeg_slack_message(slack_channel: SlackChannel) -> None:
         "datetime",
     ]
 
-    # Only show discounts >= threshold
-    lp_depeg_df = df  # df[df["percent_discount"] >= LP_DEPEG_THRESHOLD].copy()
+    lp_depeg_df = df[df["percent_discount"].abs() >= LP_DEPEG_THRESHOLD].copy()
 
-    # Sort biggest discounts first for readability
-    lp_depeg_df = lp_depeg_df.sort_values(["percent_discount", "datetime"], ascending=[False, False])
+    lp_depeg_df = lp_depeg_df.sort_values(["percent_discount"], ascending=False)
 
     post_message_with_table(
         slack_channel,
