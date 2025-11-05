@@ -16,6 +16,10 @@ slack_client = WebClient(token=SLACK_OAUTH_TOKEN)
 TESTING_CHANNEL_ID = "C09MHUS35V0"
 PRODUCTION_CHANNEL_ID = "C09JUJDJYQH"
 
+RED_CIRCLE = "🔴"
+GREEN_CIRCLE = "🟢"
+YELLOW_CIRCLE = "🟡"
+
 
 class SlackChannel(Enum):
     TESTING = TESTING_CHANNEL_ID
