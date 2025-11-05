@@ -32,7 +32,7 @@ jobs:
 
       - name: Post Slack Status Message
         if: ${{ always() }}
-        uses: ./.github/actions/post_slack_message
+        uses: ./.github/actions/post_github_actions_status
 
       - name: Post Informational Slack Messages
         run: poetry run post-slack-informational-messages
