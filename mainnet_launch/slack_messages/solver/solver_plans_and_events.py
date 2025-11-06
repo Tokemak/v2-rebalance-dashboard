@@ -44,4 +44,4 @@ def post_autopools_without_generated_plans(slack_channel: SlackChannel):
 
 
 if __name__ == "__main__":
-    post_autopools_without_generated_plans()
+    post_autopools_without_generated_plans(SlackChannel.TESTING)

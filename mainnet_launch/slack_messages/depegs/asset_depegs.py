@@ -144,9 +144,18 @@ def summarize_discounts_by_reference(full_df: pd.DataFrame) -> pd.DataFrame:
     )
     agg = agg.sort_values("overall_percent_discount", ascending=False, ignore_index=True)
 
+    threshold = np.where(
+        agg["reference_symbol"].eq("WETH"),
+        ETH_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD,
+        STABLE_COIN_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD,
+    )
+
+    agg = agg[agg["overall_percent_discount"].abs().ge(threshold) & agg["overall_percent_discount"].notna()]
+
     agg["overall_percent_discount"] = agg["overall_percent_discount"].map("{:,.2f}%".format).astype(str)
     agg["total_value_at_safe_price"] = agg["total_value_at_safe_price"].map("{:,.2f}".format).astype(str)
     agg["total_value_at_backing"] = agg["total_value_at_backing"].map("{:,.2f}".format).astype(str)
+
     return agg
 
 
@@ -158,6 +167,7 @@ def post_non_trivial_depegs_slack_message(df: pd.DataFrame, slack_channel: Slack
         ETH_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD,
         STABLE_COIN_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD,
     )
+
     df["non_trivial_discount"] = df["percent_discount"].abs().ge(threshold) & df["percent_discount"].notna()
 
     non_trivial_depeg_df = df[df["non_trivial_discount"]].copy()
@@ -178,10 +188,8 @@ def post_non_trivial_depegs_slack_message(df: pd.DataFrame, slack_channel: Slack
         "price_datetime",
     ]
 
-    if non_trivial_depeg_df.empty:
-        post_slack_message("No depegging assets found with non-trivial discounts.", slack_channel)
-    else:
-        post_message_with_table(
+    if not non_trivial_depeg_df.empty:
+      post_message_with_table(
             slack_channel,
             "All depegging assets with non-trivial discounts or premiums",
             non_trivial_depeg_df[display_cols],

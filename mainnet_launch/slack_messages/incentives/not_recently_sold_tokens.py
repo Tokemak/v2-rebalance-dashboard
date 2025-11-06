@@ -10,12 +10,10 @@ import pandas as pd
 
 from mainnet_launch.database.postgres_operations import (
     _exec_sql_and_cache,
-    get_full_table_as_df_with_tx_hash,
 )
-
-from mainnet_launch.database.views import fetch_rich_autopool_destinations_table
 from mainnet_launch.database.schema.full import *
 from mainnet_launch.slack_messages.post_message import post_slack_message, post_message_with_table, SlackChannel
+from mainnet_launch.slack_messages.constants import CircleEmoji
 from mainnet_launch.constants import *
 
 from mainnet_launch.database.views import get_token_details_dict
@@ -27,6 +25,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_6_with_bool_success,
     get_state_by_one_block,
     safe_normalize_with_bool_success,
+    build_blocks_to_use,
 )
 
 
@@ -85,7 +84,8 @@ def _fetch_incentive_tokens_sold_in_prior_week():
 
 
 def _add_current_liqudation_row_balances(df: pd.DataFrame):
-    all_balances = {}
+    all_yesterday_balances = {}
+    all_today_balances = {}
     for chain in ALL_CHAINS:
         sub_df = df[df["chain_id"] == chain.chain_id]
         if sub_df.empty:
@@ -108,14 +108,22 @@ def _add_current_liqudation_row_balances(df: pd.DataFrame):
             ),
             axis=1,
         ).tolist()
+        blocks = build_blocks_to_use(chain)
+        today_block, yesterday_block = blocks[-1], blocks[-2]
+        today_balances = get_state_by_one_block(calls, today_block, chain)
+        all_today_balances.update(today_balances)
 
-        balances = get_state_by_one_block(calls, chain.get_block_near_top(), chain)
-        all_balances.update(balances)
+        yesterday_balances = get_state_by_one_block(calls, yesterday_block, chain)
+        all_yesterday_balances.update(yesterday_balances)
 
-    df["balance"] = df.apply(lambda row: all_balances[row["liquidation_row"], row["token_addresses"]], axis=1)
+    df["today_balance"] = df.apply(
+        lambda row: all_today_balances[row["liquidation_row"], row["token_addresses"]], axis=1
+    )
+    df["yesterday_balance"] = df.apply(
+        lambda row: all_yesterday_balances[row["liquidation_row"], row["token_addresses"]], axis=1
+    )
 
 
-# NOTE, is noisy, not every info is a problem
 def post_unsold_incentive_tokens(slack_channel: SlackChannel):
     """
     Post a table of incentive tokens sent to liquidation rows in the past month that still have (near) non-zero balance.
@@ -124,9 +132,7 @@ def post_unsold_incentive_tokens(slack_channel: SlackChannel):
 
     eg sent to liqudation row, but not yet sold. perhaps on mainnet where we doing may batch the sales during low gas cost periods.
     """
-
     expected_tokens_to_be_sold = _fetch_addresses_of_tokens_sent_to_liquidation_row_in_prior_month()
-
     token_to_decimals, token_to_symbol = get_token_details_dict()
     expected_tokens_to_be_sold["decimals"] = expected_tokens_to_be_sold["token_addresses"].map(token_to_decimals)
     expected_tokens_to_be_sold["symbol"] = expected_tokens_to_be_sold["token_addresses"].map(token_to_symbol)
@@ -134,19 +140,30 @@ def post_unsold_incentive_tokens(slack_channel: SlackChannel):
         {chain.chain_id: chain.name for chain in ALL_CHAINS}
     )
     _add_current_liqudation_row_balances(expected_tokens_to_be_sold)
-    # simple non trival balance filter
-    # for BTC this is ~$.11 so we don't need to have prices here
-    non_zero_balances = expected_tokens_to_be_sold[expected_tokens_to_be_sold["balance"] > 1e-6]
+    pass
 
-    if not non_zero_balances.empty:
+    # required part of a true positive, 1e-6 is $.10 for BTC at 100k, can safely ignore everything less than that
+    balances_to_watch_df = expected_tokens_to_be_sold[expected_tokens_to_be_sold["yesterday_balance"] > 1e-6].copy()
+    balances_to_watch_df["warning"] = balances_to_watch_df.apply(
+        lambda row: (
+            CircleEmoji.RED.value if row["today_balance"] > row["yesterday_balance"] else CircleEmoji.YELLOW.value
+        ),
+        axis=1,
+    )
+
+    if not balances_to_watch_df.empty:
+        debank_urls = [
+            f"https://debank.com/profile/{a}" for a in balances_to_watch_df["liquidation_row"].unique().tolist()
+        ]
         post_message_with_table(
             slack_channel,
-            initial_comment="Incentive tokens with non-zero balance that were sent to liquidation rows in the past month:",
-            df=non_zero_balances[["liquidation_row", "chain_name", "symbol", "balance"]],
-            file_save_name="non_zero_incentive_tokens_sent_to_liquidation_rows.csv",
+            initial_comment="Incentive Tokens Balances in > 0 yesterday \n" + str(debank_urls),
+            df=balances_to_watch_df[
+                ["warning", "liquidation_row", "chain_name", "symbol", "today_balance", "yesterday_balance"]
+            ],
+            file_save_name="liquidation_row_balances_to_check.csv",
+            show_index=False,
         )
-    else:
-        post_slack_message(slack_channel, text="All incentive tokens sent to liquidation rows have near 0 balance")
 
 
 def _determine_what_should_be_sold_but_was_not(

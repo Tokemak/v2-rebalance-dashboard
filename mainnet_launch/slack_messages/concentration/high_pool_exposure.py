@@ -1,28 +1,18 @@
 """
-
 Post a message that says, what % ownership we have in total for each pool, and how large in base asset terms that pool is.
 
 Aggregation is by pool instead of destination vault, because if we have multiple destination vaults for the same pool
 """
 
-from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import (
-    fetch_readable_our_tvl_by_destination,
-)
-from mainnet_launch.constants import *
-
-from mainnet_launch.database.schema.full import *
-
-
+import pandas as pd
+from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, ALL_CHAINS
+from mainnet_launch.database.postgres_operations import get_full_table_as_df
+from mainnet_launch.database.schema.full import Destinations, AutopoolDestinations
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destinations_states_table import (
     build_lp_token_spot_and_safe_price_calls,
 )
-
-from mainnet_launch.database.postgres_operations import get_full_table_as_df
-
-from mainnet_launch.data_fetching.get_state_by_block import (
-    get_state_by_one_block,
-)
-
+from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block
+from mainnet_launch.pages.risk_metrics.percent_ownership_by_destination import fetch_readable_our_tvl_by_destination
 from mainnet_launch.slack_messages.post_message import post_message_with_table, SlackChannel, post_slack_message
 
 

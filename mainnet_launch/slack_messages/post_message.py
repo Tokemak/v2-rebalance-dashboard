@@ -30,8 +30,10 @@ def post_slack_message(channel: SlackChannel, text: str) -> None:
     slack_client.chat_postMessage(channel=channel.value, text=text)
 
 
-def post_message_with_table(channel: SlackChannel, initial_comment: str, df: pd.DataFrame, file_save_name: str) -> None:
-    table_csv = df.to_csv(index=True)
+def post_message_with_table(
+    channel: SlackChannel, initial_comment: str, df: pd.DataFrame, file_save_name: str, show_index=False
+) -> None:
+    table_csv = df.to_csv(index=show_index)
     slack_client.files_upload_v2(
         channel=channel.value,
         filename=file_save_name,
