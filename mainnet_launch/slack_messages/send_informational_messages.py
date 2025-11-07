@@ -13,7 +13,6 @@ from mainnet_launch.slack_messages.depegs.asset_depegs import post_asset_depeg_s
 from mainnet_launch.slack_messages.post_message import post_slack_message
 
 
-
 def post_messages(slack_channel: SlackChannel):
     post_slack_message(
         slack_channel,
@@ -24,16 +23,14 @@ def post_messages(slack_channel: SlackChannel):
     post_destination_ownership_exposure_table(slack_channel)
     post_autopools_without_generated_plans(slack_channel)
     post_missing_balance_updated_events(slack_channel)
-    post_unsold_incentive_tokens(slack_channel)
+    post_unsold_incentive_tokens(slack_channel)  # done
     post_asset_depeg_slack_message(slack_channel)
     post_illiquid_token_holding_analysis(slack_channel)
-
+    post_slack_message(slack_channel, visual_line_break)
     post_slack_message(slack_channel, visual_line_break)
 
 
-
 def send_information_slack_messages():
-
     profile_function(post_messages, SlackChannel.TESTING)
 
 

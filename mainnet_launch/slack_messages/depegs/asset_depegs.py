@@ -189,7 +189,7 @@ def post_non_trivial_depegs_slack_message(df: pd.DataFrame, slack_channel: Slack
     ]
 
     if not non_trivial_depeg_df.empty:
-      post_message_with_table(
+        post_message_with_table(
             slack_channel,
             "All depegging assets with non-trivial discounts or premiums",
             non_trivial_depeg_df[display_cols],
