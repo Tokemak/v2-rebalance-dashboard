@@ -12,6 +12,8 @@ elif environ["WHICH_ALCHEMY_URL"] == "AUTOPOOL_DASHBOARD_CI_ALCHEMY_URL":
 else:
     raise ValueError(f"Unknown WHICH_ALCHEMY_URL value: {environ['WHICH_ALCHEMY_URL']}")
 
+ALCHEMY_API_KEY = ALCHEMY_URL.split("/")[-1]
+
 ETHERSCAN_API_KEY = environ["ETHERSCAN_API_KEY"]
 ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 

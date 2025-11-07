@@ -44,11 +44,8 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-# test-pages = "tests.test_pages:verify_all_pages_work"
-# time-test-pages = "tests.test_pages:verify_all_pages_work_with_times"
-# reset-dev-db = "mainnet_launch.database.database_branching_scripts:reset_dev_local_branch_to_match_production"
 
-# Quickly update the production database, use threads to go faster
+# Quickly update the production database, use threads to go faster, note note used because of rate limiting, just use the slow one ~ 6 minutes for slow
 update-prod-db = "mainnet_launch.database.schema.ensure_tables_are_current.ensure_all_tables_are_current:main"
 
 # update the produciton database, one function at a time
@@ -67,7 +64,6 @@ slack-alert = "mainnet_launch.slack_messages.alerts:post_github_action_status"
 
 
 # Slack informational
-
 post-slack-informational-messages = "mainnet_launch.slack_messages.send_informational_messages:send_information_slack_messages"
 
 

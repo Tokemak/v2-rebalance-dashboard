@@ -71,6 +71,7 @@ ETH_CHAIN = ChainData(
     chain_id=1,
     start_unix_timestamp=1726365887,
     tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["eth"],
+    alchemy_network_enum="eth-mainnet",
 )
 
 
@@ -80,6 +81,7 @@ BASE_CHAIN = ChainData(
     chain_id=8453,
     start_unix_timestamp=1730591553,
     tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["base"],
+    alchemy_network_enum="base-mainnet",
 )
 
 
@@ -89,6 +91,7 @@ SONIC_CHAIN = ChainData(
     chain_id=146,
     start_unix_timestamp=1748961926,
     tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["sonic"],
+    alchemy_network_enum="sonic-mainnet",
 )
 
 
@@ -98,6 +101,7 @@ ARBITRUM_CHAIN = ChainData(
     chain_id=42161,
     start_unix_timestamp=1757439586,
     tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["arb"],
+    alchemy_network_enum="arb-mainnet",
 )
 
 
@@ -107,7 +111,7 @@ PLASMA_CHAIN = ChainData(
     chain_id=9745,
     start_unix_timestamp=1758314669,
     tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["plasma"],
+    alchemy_network_enum="plasma-mainnet",
 )
-
 
 ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN, ARBITRUM_CHAIN, PLASMA_CHAIN]

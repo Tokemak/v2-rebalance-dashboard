@@ -178,7 +178,7 @@ def identify_suspect_exit_liquidity_quotes(swap_quotes_df: pd.DataFrame) -> pd.D
 def _fetch_and_render_exit_liquidity_from_quotes(
     chain: ChainData,
     base_asset: TokemakAddress,
-    valid_autopools: list[AutopoolConstants],
+    valid_autopools: list[AutopoolConstants],  # included for signature consistency in testing
     quote_batch_number: int | None = None,
 ) -> None:
     if quote_batch_number is None:

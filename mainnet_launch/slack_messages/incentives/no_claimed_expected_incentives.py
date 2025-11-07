@@ -132,13 +132,7 @@ def post_missing_balance_updated_events(slack_channel: SlackChannel):
         > N_DAYS_BALANCE_UPDATED_LOOKBACK
     ]
 
-    if autopool_destinations_without_expected_claims.empty:
-        post_slack_message(
-            slack_channel,
-            f"All Destinations that are expected to have claimed rewards in the last {N_DAYS_BALANCE_UPDATED_LOOKBACK} days have done so.",
-        )
-
-    else:
+    if not autopool_destinations_without_expected_claims.empty:
         post_message_with_table(
             slack_channel,
             df=autopool_destinations_without_expected_claims,

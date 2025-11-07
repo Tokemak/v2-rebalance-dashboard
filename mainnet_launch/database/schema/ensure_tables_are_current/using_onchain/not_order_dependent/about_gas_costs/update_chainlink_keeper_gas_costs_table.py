@@ -43,14 +43,14 @@ def _ensure_one_chain_chainlink_gas_costs_is_updated(
 
     topic_id_to_highest_already_fetched_block = _fetch_topic_id_to_highest_already_fetched_block(chain)
 
-    keeper_network_topic_ids_to_name = (
+    keeper__topic_ids_to_name = (
         chainlink_keepers_df[chainlink_keepers_df["chain_id"] == chain.chain_id].set_index("id")["name"].to_dict()
     )
     upkeep_dfs = []
 
     contract = chain.client.eth.contract(KEEPER_REGISTRY_CONTRACT_ADDRESS, abi=CHAINLINK_KEEPER_REGISTRY_ABI)
 
-    for topic_id, name in keeper_network_topic_ids_to_name.items():
+    for topic_id, name in keeper__topic_ids_to_name.items():
         highest_block_already_fetched = topic_id_to_highest_already_fetched_block.get(topic_id, 0)
         # note still fetches for deprecated blocks, but it is fine
         our_upkeep_df = fetch_events(

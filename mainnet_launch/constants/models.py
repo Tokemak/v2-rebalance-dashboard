@@ -15,6 +15,7 @@ class ChainData:
     chain_id: int
     start_unix_timestamp: int
     tokemak_subgraph_url: str
+    alchemy_network_enum: str
 
     def __hash__(self):
         return self.chain_id

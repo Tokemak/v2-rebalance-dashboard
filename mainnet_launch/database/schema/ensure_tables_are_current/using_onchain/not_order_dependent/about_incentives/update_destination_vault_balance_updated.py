@@ -3,8 +3,16 @@ from web3 import Web3
 
 
 from mainnet_launch.abis import TOKEMAK_LIQUIDATION_ROW_ABI
-from mainnet_launch.constants import ChainData, LIQUIDATION_ROW, LIQUIDATION_ROW2, ALL_CHAINS
+from mainnet_launch.constants import (
+    ChainData,
+    LIQUIDATION_ROW,
+    LIQUIDATION_ROW2,
+    ALL_CHAINS,
+    PLASMA_CHAIN,
+    DEAD_ADDRESS,
+)
 
+import json
 from mainnet_launch.data_fetching.get_events import fetch_events
 
 from mainnet_launch.database.views import get_token_details_dict
@@ -21,6 +29,36 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destinations_tokens_and_autopoolDestinations_table import (
     ensure_all_tokens_are_saved_in_db,
 )
+
+# used by plasma and some of the other new chains
+MINIMAL_BALANCE_UPDATED_ABI_WITH_EXPECTED = """[
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true,  "internalType": "address", "name": "token",           "type": "address" },
+      { "indexed": true,  "internalType": "address", "name": "vault",           "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "actualBalance",   "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "expectedBalance", "type": "uint256" }
+    ],
+    "name": "BalanceUpdated",
+    "type": "event"
+  }
+]"""
+
+# used by eth and base
+MINIMAL_BALANCE_UPDATED_ABI_ONLY_BALANCE = """[
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true,  "internalType": "address", "name": "token",  "type": "address" },
+      { "indexed": true,  "internalType": "address", "name": "vault",  "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "balance", "type": "uint256" }
+    ],
+    "name": "BalanceUpdated",
+    "type": "event"
+  }
+]
+"""
 
 
 def _get_highest_block_already_fetched_by_chain_id() -> dict[int, int]:
@@ -49,32 +87,28 @@ def fetch_new_balance_updated_events(
     start_block: int,
     chain: ChainData,
 ) -> pd.DataFrame:
-    liquidation_row1_contract = chain.client.eth.contract(
-        address=LIQUIDATION_ROW(chain), abi=TOKEMAK_LIQUIDATION_ROW_ABI
-    )
+    dfs = []
+    for liqudation_row in [LIQUIDATION_ROW, LIQUIDATION_ROW2]:
+        for abi in [MINIMAL_BALANCE_UPDATED_ABI_WITH_EXPECTED]:
+            if liqudation_row(chain) == DEAD_ADDRESS:
+                continue
+        contract = chain.client.eth.contract(address=liqudation_row(chain), abi=json.loads(abi))
+        balance_updated_df = fetch_events(
+            event=contract.events.BalanceUpdated,
+            chain=chain,
+            start_block=start_block,
+        )
+        balance_updated_df["chain_id"] = chain.chain_id
+        balance_updated_df["token"] = balance_updated_df["token"].apply(lambda x: Web3.toChecksumAddress(x))
+        balance_updated_df["vault"] = balance_updated_df["vault"].apply(lambda x: Web3.toChecksumAddress(x))
 
-    liquidation_row2_contract = chain.client.eth.contract(
-        address=LIQUIDATION_ROW2(chain), abi=TOKEMAK_LIQUIDATION_ROW_ABI
-    )
+        if "actualBalance" in balance_updated_df.columns:
+            balance_updated_df = balance_updated_df.rename(columns={"actualBalance": "balance"})
 
-    balanceUpdated_1: pd.DataFrame = fetch_events(
-        event=liquidation_row1_contract.events.BalanceUpdated,
-        chain=chain,
-        start_block=start_block,
-    )
-    balanceUpdated_1["liquidation_row"] = LIQUIDATION_ROW(chain)
+        balance_updated_df["liquidation_row"] = liqudation_row(chain)
+        dfs.append(balance_updated_df)
 
-    balance_updated_2: pd.DataFrame = fetch_events(
-        event=liquidation_row2_contract.events.BalanceUpdated,
-        chain=chain,
-        start_block=start_block,
-    )
-    balance_updated_2["liquidation_row"] = LIQUIDATION_ROW2(chain)
-
-    all_balance_updated_df = pd.concat([balanceUpdated_1, balance_updated_2], axis=0)
-    all_balance_updated_df["chain_id"] = chain.chain_id
-    all_balance_updated_df["token"] = all_balance_updated_df["token"].apply(lambda x: Web3.toChecksumAddress(x))
-    all_balance_updated_df["vault"] = all_balance_updated_df["vault"].apply(lambda x: Web3.toChecksumAddress(x))
+    all_balance_updated_df = pd.concat(dfs, axis=0)
     return all_balance_updated_df
 
 
@@ -85,7 +119,10 @@ def ensure_incentive_token_balance_updated_is_current() -> pd.DataFrame:
 
     for target_chain in ALL_CHAINS:
         all_balance_updated_df = fetch_new_balance_updated_events(
-            start_block=highest_block_already_fetched.get(target_chain.chain_id, 0) + 1,
+            start_block=highest_block_already_fetched.get(
+                target_chain.chain_id, target_chain.block_autopool_first_deployed
+            )
+            + 1,
             chain=target_chain,
         )
 
@@ -93,7 +130,7 @@ def ensure_incentive_token_balance_updated_is_current() -> pd.DataFrame:
             token_addresses=set(all_balance_updated_df["token"].unique().tolist()),
             chain=target_chain,
         )
-        # make sure that we caught any extra incentive tokens
+        # make sure that we save to the tokens table any newly added incentive tokens
         token_to_decimals, token_to_symbol = get_token_details_dict()
         # don't break on on unregistered vaults, eg for new autopools
         # we add deploy destination contracts before the autopool starts, so ignore for now
@@ -141,4 +178,5 @@ def ensure_incentive_token_balance_updated_is_current() -> pd.DataFrame:
 if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
 
-    profile_function(ensure_incentive_token_balance_updated_is_current)
+    # profile_function(ensure_incentive_token_balance_updated_is_current)
+    ensure_incentive_token_balance_updated_is_current()
