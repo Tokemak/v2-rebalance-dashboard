@@ -8,7 +8,7 @@ def compute_series_apy(end_of_day_prices_df: pd.DataFrame) -> pd.Series:
     n_years = (end_of_day_prices_df.index[-1] - end_of_day_prices_df.index[0]).days / 365
     total_return = end_of_day_prices_df.iloc[-1] / end_of_day_prices_df.iloc[0] - 1
     apy = 100 * ((1 + total_return) ** (1 / n_years) - 1)
-    return apy
+    return apy.round(2)
 
 
 def compute_most_recent_30_days_apy(end_of_day_prices_df: pd.DataFrame) -> pd.Series:
