@@ -219,6 +219,21 @@ PLASMA_USD = AutopoolConstants(
     base_asset_decimals=6,
 )
 
+LINEA_USD = AutopoolConstants(
+    "lineaUSD",
+    "lineaUSD",
+    autopool_eth_addr="0xd1A6524Fccd465ECa7AF2340B3D7fd2e3bbD792a",
+    autopool_eth_strategy_addr=None,
+    solver_rebalance_plans_bucket=BUCKETS["LINEA_USD"],
+    chain=LINEA_CHAIN,
+    base_asset=USDC(LINEA_CHAIN),
+    block_deployed=24833829,
+    data_from_rebalance_plan=True,
+    base_asset_symbol="USDC",
+    start_display_date="10-23-2025",
+    base_asset_decimals=6,
+)
+
 
 ALL_AUTOPOOLS: list[AutopoolConstants] = [
     AUTO_ETH,
@@ -235,6 +250,7 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
     BASE_EUR,
     ARB_USD,
     PLASMA_USD,
+    LINEA_USD,
 ]
 
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
@@ -249,4 +265,5 @@ ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [
     BASE_EUR,
     ARB_USD,
     PLASMA_USD,
+    LINEA_USD,
 ]

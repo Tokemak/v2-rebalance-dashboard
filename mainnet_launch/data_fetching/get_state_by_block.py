@@ -31,7 +31,8 @@ MULTICALL_V3 = TokemakAddress(
     base="0xcA11bde05977b3631167028862bE2a173976CA11",
     sonic="0xcA11bde05977b3631167028862bE2a173976CA11",
     arb="0x842eC2c7D803033Edf55E478F461FC547Bc54EB2",  # is mulitcall v2 but I don't think it matters
-    plasma="0xcA11bde05977b3631167028862bE2a173976CA11",  # using the mainnet one for now HuskeyInterfaceMulticall, not certain here on the address
+    plasma="0xcA11bde05977b3631167028862bE2a173976CA11",
+    linea="0xcA11bde05977b3631167028862bE2a173976CA11",
     name="multicall_v3",
 )
 
@@ -40,9 +41,10 @@ MULTICALL_V3 = TokemakAddress(
 # custom arbitrum multicall address is 0x842eC2c7D803033Edf55E478F461FC547Bc54EB2
 # the other one, when calling block.number will return the currnet block (on mainent) eg 22m, instead of
 # the current block on arbitrum eg ~380M
-
 # the standard multicall address 0xcA11bde05977b3631167028862bE2a173976CA11
 # gives the mainnet block number. that is not what we are looking for so we use the custom mulitcall v2 version
+
+# note note certain about the linea one
 
 
 def get_state_by_one_block(calls: list[Call], block: int, chain: ChainData):

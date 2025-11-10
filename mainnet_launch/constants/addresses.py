@@ -10,6 +10,7 @@ SYSTEM_REGISTRY = TokemakAddress(
     sonic="0x1a912EB51D3cF8364eBAEE5A982cA37f25aD8848",
     arb="0xBFd8E6C9bF2CD5466f5651746f8E946A6C7b4220",
     plasma="0x9065C0E33Bc8FB31A21874f399985e39bC187D48",
+    linea="0x25f26Ec2e764c63F8D191dFE7f88c6646ca9F980",
     name="system_registry",
 )
 
@@ -19,6 +20,7 @@ AUTOPOOL_REGISTRY = TokemakAddress(
     sonic="0x63E8e5aeBcC8C77BD4411aba375FcBDd9ce8C253",
     arb="0xc3b8F578c25bE230A2C0f56Cb466e7B8c6c9D268",
     plasma="0x0dA0E8f8dF8b6541affB071C6e0FF6835154e1dc",
+    linea="0xf25f616CCc086ddA1129323381EfA1edC8d5F42c",
     name="autopool_registry",
 )
 
@@ -28,6 +30,7 @@ ROOT_PRICE_ORACLE = TokemakAddress(
     sonic="0x356d6e38efd2f33B162eC63534B449B96846751F",
     arb="0xe84CEa5553CC9D65166A7850DAB2E7712072D97F",
     plasma="0xf25BDd81822aB430F6637Ea31D8b5aDd0B6d124F",
+    linea="0x03DC051eb7fe444CEBCC2e870eba4464D8175618",
     name="root_price_oracle",
 )
 
@@ -37,6 +40,7 @@ LENS_CONTRACT = TokemakAddress(
     sonic="0xCB7E450c32D21Eb0168466c8022Ae32EF785a163",
     arb="0x590A31453390A1bB266672156A87eFB1302FC754",
     plasma="0x8dBaD46D468d57fdd1FCbA0452C8cD4d7FaE72E8",
+    linea="0x92537a95b45AB695ab3EbabFc1A3c3E27AF7973c",
     name="lens_contract",
 )
 
@@ -46,6 +50,7 @@ DESTINATION_VAULT_REGISTRY = TokemakAddress(
     sonic="0x005B5DD2182F4ADf9fCA299e762029337FF79fA8",
     arb="0x8d75A2b774277370d9dC8c034f23003B29032B4B",
     plasma="0x8Ccd47869E0EeA55Ba4AF520571A9C6Ce300347d",
+    linea="0xc7B0617573A65cDAC06FAfD106Cf9f8503D65Da2",
     name="destination_vault_registry",
 )
 
@@ -54,7 +59,8 @@ INCENTIVE_PRICING_STATS = TokemakAddress(
     base="0xF28213d5cbc9f4cfB371599D25E232978848090d",
     sonic=DEAD_ADDRESS,
     arb=DEAD_ADDRESS,
-    plasma=DEAD_ADDRESS,  # not certain if this exists on plasma
+    plasma=DEAD_ADDRESS,  # does not exist, double check
+    linea=DEAD_ADDRESS,  # does not exist (double check)
     name="incentive_pricing_stats",
 )
 
@@ -64,6 +70,7 @@ LIQUIDATION_ROW = TokemakAddress(
     sonic="0xf3b137219325466004AEb91CAa0A0Bdd2A8afc8e",
     arb="0x610Ffeb00B8312B0540DED300c683227CB3E3AB5",
     plasma="0xD3132ce50e7471cC6130Ac5Aa553149dc3B2A018",
+    linea="0xc332386610bD4d555c762d7f88c17ACf96f05b3C",
     name="liquidation_row",
 )
 
@@ -73,6 +80,7 @@ LIQUIDATION_ROW2 = TokemakAddress(
     sonic=DEAD_ADDRESS,  # there is only one sonic liquidation row
     arb=DEAD_ADDRESS,  # only one arb liquidation row
     plasma=DEAD_ADDRESS,  # only one plasma liquidation row
+    linea=DEAD_ADDRESS,  # only one linea liquidation row
     name="liquidation_row2",
 )
 
@@ -82,6 +90,7 @@ SOLVER_ROOT_ORACLE = TokemakAddress(
     sonic="0x4137b35266A4f42ad8B4ae21F14D0289861cc970",
     arb="0x5EE5D04942DC4C78cE27c249fDacB24Aa39cBD14",
     plasma="0x03fAD8445b30bF639c5f54e9502e43BA5f4D6caD",
+    linea="0x24127aaD4FB9E7d52803fa6860B9964537127E00",  # might not be right
     name="SolverRootOracle",
 )
 
@@ -92,6 +101,7 @@ POINTS_HOOK = TokemakAddress(
     sonic=DEAD_ADDRESS,
     arb=DEAD_ADDRESS,
     plasma=DEAD_ADDRESS,
+    linea=DEAD_ADDRESS,
     name="points_hook",
 )
 
@@ -101,6 +111,7 @@ STATS_CALCULATOR_REGISTRY = TokemakAddress(
     sonic=DEAD_ADDRESS,
     arb=DEAD_ADDRESS,
     plasma=DEAD_ADDRESS,
+    linea=DEAD_ADDRESS,
     name="stats_calculator_registry",
 )
 
@@ -114,6 +125,7 @@ WETH = TokemakAddress(
     sonic="0x50c42dEAcD8Fc9773493ED674b675bE577f2634b",
     arb="0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
     plasma="0x9895D81bB462A195b4922ED7De0e3ACD007c32CB",  # we shouldn't care about this one
+    linea="0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f",
     name="WETH",
 )
 
@@ -122,7 +134,8 @@ USDC = TokemakAddress(
     base="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     sonic="0x29219dd400f2Bf60E5a23d13Be72B486D4038894",
     arb="0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-    plasma=DEAD_ADDRESS,  # not certain if this is USDC?
+    plasma=DEAD_ADDRESS,
+    linea="0x176211869cA2b568f2A7D4EE941E073a821EE1ff",
     name="USDC",
 )
 
@@ -132,6 +145,7 @@ USDT = TokemakAddress(
     sonic=DEAD_ADDRESS,
     arb=DEAD_ADDRESS,
     plasma="0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb",
+    linea=DEAD_ADDRESS,
     name="USDT",
 )
 
@@ -141,6 +155,7 @@ DOLA = TokemakAddress(
     sonic=DEAD_ADDRESS,
     arb="0x6A7661795C374c0bFC635934efAddFf3A7Ee23b6",
     plasma=DEAD_ADDRESS,  # don't care about DOLA on plasma
+    linea=DEAD_ADDRESS,  # don't care about DOLA on linea
     name="DOLA",
 )
 
@@ -150,6 +165,7 @@ EURC = TokemakAddress(
     sonic=DEAD_ADDRESS,
     arb=DEAD_ADDRESS,  # there is a EURC on arbitrum, but not certain which one to use
     plasma=DEAD_ADDRESS,  # don't care about EURC on plasma
+    linea=DEAD_ADDRESS,  # don't care about EURC on linea
     name="EURC",
 )
 

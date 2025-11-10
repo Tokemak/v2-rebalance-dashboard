@@ -23,6 +23,7 @@ CHAIN_TO_DEFI_LLAMA_SLUG = {
     SONIC_CHAIN: "sonic",
     ARBITRUM_CHAIN: "arbitrum",
     PLASMA_CHAIN: "plasma",
+    LINEA_CHAIN: "linea",  # not tested
 }
 
 
@@ -184,6 +185,7 @@ def no_args_determine_what_days_have_highest_block_found():
 
 if __name__ == "__main__":
     # determine_what_days_have_highest_block_found almost all the time cost
-    profile_function(determine_what_days_have_highest_block_found, ETH_CHAIN)
+    # profile_function(determine_what_days_have_highest_block_found, ETH_CHAIN)
 
-    # profile_function(ensure_blocks_is_current)
+    # # profile_function(ensure_blocks_is_current)
+    ensure_blocks_is_current()

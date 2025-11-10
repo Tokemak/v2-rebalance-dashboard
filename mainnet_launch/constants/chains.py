@@ -19,11 +19,15 @@ arbitrum_client = Web3(Web3.HTTPProvider(ALCHEMY_URL.replace("eth-mainnet", "arb
 
 plasma_client = Web3(Web3.HTTPProvider(ALCHEMY_URL.replace("eth-mainnet", "plasma-mainnet")))
 
+linea_client = Web3(Web3.HTTPProvider(ALCHEMY_URL.replace("eth-mainnet", "linea-mainnet")))
+linea_client.middleware_onion.inject(geth_poa_middleware, layer=0)
+
 eth_client.eth._chain_id = lambda: 1
 base_client.eth._chain_id = lambda: 8453
 sonic_client.eth._chain_id = lambda: 146
 arbitrum_client.eth._chain_id = lambda: 42161
 plasma_client.eth._chain_id = lambda: 9745
+linea_client.eth._chain_id = lambda: 59144
 
 
 WEB3_CLIENTS: dict[str, Web3] = {
@@ -32,6 +36,7 @@ WEB3_CLIENTS: dict[str, Web3] = {
     "sonic": sonic_client,
     "arb": arbitrum_client,
     "plasma": plasma_client,
+    "linea": linea_client,
 }
 
 
@@ -114,4 +119,15 @@ PLASMA_CHAIN = ChainData(
     alchemy_network_enum="plasma-mainnet",
 )
 
-ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN, ARBITRUM_CHAIN, PLASMA_CHAIN]
+
+LINEA_CHAIN = ChainData(
+    name="linea",
+    block_autopool_first_deployed=24833829,
+    chain_id=59144,  # not sure why it said 59140 before
+    start_unix_timestamp=1761230085,
+    tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["linea"],
+    alchemy_network_enum="linea-mainnet",  # not certain
+)
+
+
+ALL_CHAINS = [ETH_CHAIN, BASE_CHAIN, SONIC_CHAIN, ARBITRUM_CHAIN, PLASMA_CHAIN, LINEA_CHAIN]

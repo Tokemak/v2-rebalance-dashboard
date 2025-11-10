@@ -20,12 +20,14 @@ ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 COINGECKO_API_KEY = environ["COINGECKO_API_KEY"]
 DEFAULT_GAS_LIMIT = 550_000_000
 
+# am I actually using these?
 TOKEMAK_SUBGRAPH_URLS = {
     "eth": environ["TOKEMAK_ETHEREUM_SUBGRAPH_URL"],
     "base": environ["TOKEMAK_BASE_SUBGRAPH_URL"],
     "sonic": environ["TOKEMAK_SONIC_SUBGRAPH_URL"],
     "arb": environ["TOKEMAK_ARBITRUM_SUBGRAPH_URL"],
     "plasma": environ["TOKEMAK_PLASMA_SUBGRAPH_URL"],
+    "linea": environ["TOKEMAK_LINEA_SUBGRAPH_URL"],
 }
 
 BUCKETS = {
@@ -43,22 +45,13 @@ BUCKETS = {
     "SILO_ETH": environ["SILO_ETH_BUCKET"],
     "ARB_USD": environ["ARB_USD_BUCKET"],
     "PLASMA_USD": environ["PLASMA_USD_BUCKET"],
+    "LINEA_USD": environ["LINEA_USD_BUCKET"],
 }
-
 
 ROOT_DIR = Path(__file__).parent.parent.parent.resolve()
 SOLVER_REBALANCE_PLANS_DIR = ROOT_DIR / "data_fetching/rebalance_plans"
 WORKING_DATA_DIR = ROOT_DIR / "working_data"
 
-# TODO these can all be removed
-DB_DIR = ROOT_DIR / "database"
-DB_FILE = DB_DIR / "autopool_dashboard.db"
-PRODUCTION_LOG_FILE_NAME = "production_usage.log"
-TEST_LOG_FILE_NAME = "test_pages.log"
-STARTUP_LOG_FILE = ROOT_DIR / "startup.csv"
-
 SEMAPHORE_LIMITS_FOR_MULTICALL = tuple(
     int(x) for x in environ.get("SEMAPHORE_LIMITS_FOR_MULTICALL", "100,20,1").split(",")
 )
-
-V2_DASHBOARD_NOTIFS_WEBHOOK_URL = environ.get("V2_DASHBOARD_NOTIFS_WEBHOOK_URL")

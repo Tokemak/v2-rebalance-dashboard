@@ -94,13 +94,14 @@ class TokemakAddress:
     sonic: str
     arb: str
     plasma: str
+    linea: str
     name: str
 
     def _get_all_chains(self) -> list[str]:
         """
         Returns a list of chain names associated with this TokemakAddress.
         """
-        return [self.eth, self.base, self.sonic, self.arb, self.plasma]
+        return [self.eth, self.base, self.sonic, self.arb, self.plasma, self.linea]
 
     def __post_init__(self):
         for addr in self._get_all_chains():
@@ -120,10 +121,10 @@ class TokemakAddress:
         will be True if addr matches either self.eth or self.base (after checksumming).
         """
         try:
-            check_sum_address = Web3.toChecksumAddress(addr)
+            checksum_address = Web3.toChecksumAddress(addr)
         except Exception:
             return False
-        return check_sum_address in self._get_all_chains()
+        return checksum_address in self._get_all_chains()
 
     def __hash__(self):
         """
