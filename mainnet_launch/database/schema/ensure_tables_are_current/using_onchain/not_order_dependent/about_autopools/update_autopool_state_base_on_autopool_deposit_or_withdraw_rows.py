@@ -66,4 +66,5 @@ def ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit():
 
 
 if __name__ == "__main__":
-    profile_function(ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit)
+    ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit()
+    # profile_function(ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit)

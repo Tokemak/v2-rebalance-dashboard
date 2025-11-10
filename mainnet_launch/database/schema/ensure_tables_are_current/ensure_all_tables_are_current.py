@@ -183,7 +183,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    ensure_database_is_current_slow_and_sequential()
+    # main()
 
     # ensure_database_is_current_slow_and_sequential()
 

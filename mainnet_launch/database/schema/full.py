@@ -27,6 +27,8 @@ else:
     raise ValueError(f"WHICH_DATABASE environment variable set to invalid value: {which_database}")
 
 
+# tmpPostgres = urlparse(os.getenv("ADD_LINEA_USD_FORK"))
+
 ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
     f"@{tmpPostgres.hostname}{tmpPostgres.path}?sslmode=require",

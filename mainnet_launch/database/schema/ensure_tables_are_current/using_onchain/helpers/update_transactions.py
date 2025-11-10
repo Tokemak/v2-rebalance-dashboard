@@ -21,13 +21,13 @@ def fetch_transaction_rows_bulk_from_alchemy(tx_hashes: list[str], chain: ChainD
     def hex_to_int(hexstr: str) -> int:
         return int(hexstr, 16)
 
-    num_batches = 1 + (len(tx_hashes) // 1000)
+    num_batches = 1 + (len(tx_hashes) // 100)
 
     tx_hash_groups = np.array_split(tx_hashes, num_batches)
     all_found_transactions = []
     for tx_group in tx_hash_groups:
         batch_payload = [
-            {"jsonrpc": "2.0", "id": tx_hash, "method": "eth_getTransactionReceipt", "params": [tx_hash]}
+            {"jsonrpc": "2.0", "id": str(tx_hash), "method": "eth_getTransactionReceipt", "params": [str(tx_hash)]}
             for tx_hash in tx_group
         ]
 
