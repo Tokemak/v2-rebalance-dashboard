@@ -180,7 +180,3 @@ def sequential_main():
 
 def main():
     profile_function(ensure_database_is_current, echo_sql_to_console=False)
-
-
-# if __name__ == "__main__":
-#     sequential_main()
