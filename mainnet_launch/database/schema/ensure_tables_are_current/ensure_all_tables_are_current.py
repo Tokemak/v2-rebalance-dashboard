@@ -182,5 +182,5 @@ def main():
     profile_function(ensure_database_is_current, echo_sql_to_console=False)
 
 
-if __name__ == "__main__":
-    sequential_main()
+# if __name__ == "__main__":
+#     sequential_main()
