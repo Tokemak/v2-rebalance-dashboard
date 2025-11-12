@@ -87,7 +87,7 @@ def _fetch_latest_asset_exposure() -> pd.DataFrame:
 
 
 def fetch_recent_prices_and_exposure() -> pd.DataFrame:
-    df = _fetch_latest_token_prices()
+    # df = _fetch_latest_token_prices()
     recent_exposure_df = _fetch_latest_asset_exposure()
     full_df = pd.merge(
         df,
@@ -213,7 +213,3 @@ def post_asset_depeg_slack_message(slack_channel: SlackChannel):
 
 if __name__ == "__main__":
     post_asset_depeg_slack_message(SlackChannel.TESTING)
-
-
-# plasma sUSDe USDT0 chain is showing prices from oct 22, not sure hwy
-# ,sUSDe,USDT0,9745,1.199316,1.203265411509638,0.32822446917034703,2187168.9378375076,2025-10-31 01:56:58+00:00,2025-10-22 21:41:31+00:00,2623106.701851528,2631744.7320281463,plasma,True

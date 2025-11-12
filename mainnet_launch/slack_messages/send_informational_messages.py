@@ -30,8 +30,21 @@ def post_messages(slack_channel: SlackChannel):
     post_slack_message(slack_channel, visual_line_break)
 
 
+def send_production_slack_messages():
+    visual_line_break = "- - " * 30
+
+    channel = SlackChannel.PRODUCTION
+    post_slack_message(channel, visual_line_break)
+    post_slack_message(channel, visual_line_break)
+
+    post_autopools_without_generated_plans(channel)
+    post_missing_balance_updated_events(channel)
+    post_unsold_incentive_tokens(channel)
+
+
 def send_information_slack_messages():
-    profile_function(post_messages, SlackChannel.TESTING)
+    # profile_function(post_messages, SlackChannel.TESTING)
+    send_production_slack_messages()
 
 
 if __name__ == "__main__":

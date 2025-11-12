@@ -86,7 +86,9 @@ def determine_maybe_over_exposed_assets(suspect_quotes_df: pd.DataFrame, asset_e
         inplace=True,
     )
 
-    return maybe_over_exposed_df
+    return maybe_over_exposed_df[
+        ["Chain", "Sell Token", "Buy Token", "Our Exposure", "% Safely Sellable", "Safe Sellable Quantity"]
+    ]
 
 
 def post_illiquid_token_holding_analysis(slack_channel: SlackChannel):
@@ -114,7 +116,7 @@ def post_illiquid_token_holding_analysis(slack_channel: SlackChannel):
     else:
         post_message_with_table(
             slack_channel,
-            "Exposure to illiquid tokens" + "Illiquid = stable coin quote slippage >25bps or ETH asset >50bps",
+            "Exposure to illiquid tokens Illiquid = stable coin quote slippage >25bps or ETH asset >50bps",
             maybe_over_exposed_df,
             file_save_name="illiquid_token_exposure.csv",
         )

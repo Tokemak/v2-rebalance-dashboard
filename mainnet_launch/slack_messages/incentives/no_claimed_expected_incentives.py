@@ -54,7 +54,7 @@ def fetch_recent_balance_updated_events(n: int) -> pd.DataFrame:
                 AND autopool_destination_states.chain_id = destinations.chain_id
 
               WHERE blocks.datetime > '{n_days_ago}'
-              
+
               AND
               autopool_destination_states.owned_shares > 0
 
@@ -62,7 +62,6 @@ def fetch_recent_balance_updated_events(n: int) -> pd.DataFrame:
     """
 
     get_recent_destination_states_query = f"""
-
           SELECT
           destination_states.*,
           destinations.pool as pool,
@@ -139,7 +138,11 @@ def post_missing_balance_updated_events(slack_channel: SlackChannel):
             file_save_name="Vaults Missing Expected Reward Claims.csv",
             initial_comment="Vaults Missing Expected Reward Claims",
         )
+    else:
+        # note this doesn't catch, if we can claim BAL and GHO, but are only claiming the BAL and the GHO is piling up
+
+        post_slack_message(slack_channel, "All claimable incentive tokens moved to Liquidation Row as expected")
 
 
 if __name__ == "__main__":
-    post_missing_balance_updated_events()
+    post_missing_balance_updated_events(SlackChannel.TESTING)

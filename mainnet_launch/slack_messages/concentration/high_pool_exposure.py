@@ -143,7 +143,7 @@ def post_destination_ownership_exposure_table(slack_channel, percent_cutoff: flo
 
     high_exposure_df = high_exposure_df[
         [
-            "underlying_symbol",
+            "underlying_name",
             "destination_vault_address",
             "percent_ownership",
             "total_tvl",
@@ -153,9 +153,9 @@ def post_destination_ownership_exposure_table(slack_channel, percent_cutoff: flo
 
     high_exposure_df.rename(
         columns={
-            "underlying_symbol": "Pool",
-            "percent_ownership": "Ownership",
-            "total_tvl": "Total TVL",
+            "underlying_name": "Pool",
+            "percent_ownership": "Ownership %",
+            "total_tvl": "TVL",
             "holding_autopools": "Autopools",
         },
         inplace=True,

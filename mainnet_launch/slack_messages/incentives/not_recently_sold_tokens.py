@@ -112,7 +112,9 @@ def _add_current_liqudation_row_balances(df: pd.DataFrame):
         ).tolist()
 
         blocks = build_blocks_to_use(chain)
-        today_block, yesterday_block, day_before_yesterday = blocks[-1], blocks[-2], blocks[-3]
+        yesterday_block, day_before_yesterday = blocks[-2], blocks[-3]
+        today_block = chain.get_block_near_top()
+
         all_today_balances.update(get_state_by_one_block(calls, today_block, chain))
         all_yesterday_balances.update(get_state_by_one_block(calls, yesterday_block, chain))
         all_day_before_yesterday_balances.update(get_state_by_one_block(calls, day_before_yesterday, chain))
@@ -126,6 +128,8 @@ def _add_current_liqudation_row_balances(df: pd.DataFrame):
     df["day_before_yesterday_balance"] = df.apply(
         lambda row: all_day_before_yesterday_balances[row["liquidation_row"], row["token_addresses"]], axis=1
     )
+    # df['today_block'] = df['chain_id'].map(chain_to_block).map(lambda x: x[0])
+    # df['today_timestamp'] = df['chain_id'].map(chain_to_block).map(lambda x: x[1])
 
 
 def post_unsold_incentive_tokens(slack_channel: SlackChannel):
@@ -145,11 +149,11 @@ def post_unsold_incentive_tokens(slack_channel: SlackChannel):
     )
     _add_current_liqudation_row_balances(expected_tokens_to_be_sold)
 
-    current_balance_is_non_zero = expected_tokens_to_be_sold["yesterday_balance"] > 1e-6
-    monotonic_up_or_no_change = (
-        expected_tokens_to_be_sold["today_balance"] >= expected_tokens_to_be_sold["yesterday_balance"]
-    ) & (expected_tokens_to_be_sold["yesterday_balance"] >= expected_tokens_to_be_sold["day_before_yesterday_balance"])
-    any_day_is_non_zero = (
+    monotonic_up = (expected_tokens_to_be_sold["today_balance"] >= expected_tokens_to_be_sold["yesterday_balance"]) & (
+        expected_tokens_to_be_sold["yesterday_balance"] >= expected_tokens_to_be_sold["day_before_yesterday_balance"]
+    )
+
+    all_days_are_non_zero = (
         (expected_tokens_to_be_sold["today_balance"] > 1e-6)
         | (expected_tokens_to_be_sold["yesterday_balance"] > 1e-6)
         | (expected_tokens_to_be_sold["day_before_yesterday_balance"] > 1e-6)
@@ -157,9 +161,7 @@ def post_unsold_incentive_tokens(slack_channel: SlackChannel):
 
     # required part of a true positive, 1e-6 is $.10 for BTC at 100k, can safely ignore everything less than that
 
-    balances_to_watch_df = expected_tokens_to_be_sold[
-        current_balance_is_non_zero & (monotonic_up_or_no_change | any_day_is_non_zero)
-    ].copy()
+    balances_to_watch_df = expected_tokens_to_be_sold[all_days_are_non_zero & monotonic_up].copy()
 
     balances_to_watch_df["warning"] = balances_to_watch_df.apply(
         lambda row: (
@@ -174,7 +176,7 @@ def post_unsold_incentive_tokens(slack_channel: SlackChannel):
         ]
         post_message_with_table(
             slack_channel,
-            initial_comment="Incentive Tokens Balances in > 0 yesterday \n" + str(debank_urls),
+            initial_comment="Unsold Incentive Tokens " + str(debank_urls)[1:-1],
             df=balances_to_watch_df[
                 [
                     "warning",
