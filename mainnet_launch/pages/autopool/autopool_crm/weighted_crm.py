@@ -130,7 +130,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
     total_apr_in_df[f"{autopool.name} CR"] = (total_apr_in_df * portion_allocation_df).sum(axis=1)
     total_apr_in_df = total_apr_in_df.where(total_apr_in_df <= MAX_EXPECTED_APR_THESHOLD, np.nan)
 
-    composite_return_out_fig = px.line(total_apr_out_df, title=f"{autopool.name} Composite Return Out")
+    composite_return_out_fig = px.line(total_apr_out_df, title=f"{autopool.name} Composite Return Out", markers=True)
 
     _apply_default_style(composite_return_out_fig)
     composite_return_out_fig.update_layout(yaxis_title="Composite Return Out (%)")
@@ -139,7 +139,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
         line=dict(dash="dash", color="blue"),
     )
 
-    composite_return_in_fig = px.line(total_apr_in_df, title=f"{autopool.name} Composite Return In")
+    composite_return_in_fig = px.line(total_apr_in_df, title=f"{autopool.name} Composite Return In", markers=True)
 
     _apply_default_style(composite_return_in_fig)
     composite_return_in_fig.update_layout(yaxis_title="Composite Return In (%)")

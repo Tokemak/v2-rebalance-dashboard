@@ -69,9 +69,9 @@ def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFra
 
 
 def fetch_key_metrics_data(autopool: AutopoolConstants):
-    nav_per_share_df = fetch_nav_per_share_and_total_nav(autopool)  # some values for arbUSD
-    destination_state_df = fetch_autopool_destination_state_df(autopool)  # empty
-    # not certain why this is empty for arbUSD, but it is
+    nav_per_share_df = fetch_nav_per_share_and_total_nav(autopool)
+    destination_state_df = fetch_autopool_destination_state_df(autopool)
+
     safe_tvl_by_destination = (
         (
             destination_state_df.groupby(["datetime", "readable_name"])[["autopool_implied_safe_value"]]
@@ -106,6 +106,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
         & (price_return_series >= -MAX_DISPLAY_PRICE_RETURN_PERCENT),
         np.nan,
     )
+
     portion_allocation_by_destination_df = safe_tvl_by_destination.div(total_safe_tvl, axis=0)
 
     max_apr_by_destination = (
@@ -120,8 +121,7 @@ def fetch_key_metrics_data(autopool: AutopoolConstants):
     )  # looks right
 
     expected_return_series = (max_apr_by_destination * portion_allocation_by_destination_df).sum(axis=1)
-    # replace all expected returns of 0 with NaN, since an autopool can't every have a 0% expceted return
-    # except with 100% idle only at the start
+
     expected_return_series = expected_return_series.replace(0, np.nan)
 
     total_nav_series = nav_per_share_df["NAV"]
@@ -155,9 +155,6 @@ def _render_top_level_stats(
     autopool,
     latest_rebalance_event_datetime,
 ):
-    def _fmt_dt(dt):
-        return dt.strftime("%m-%d %H:%M") if dt else "—"
-
     def _simple_timedelta(td):
         secs = int(td.total_seconds())
         days, secs = divmod(secs, 86400)
@@ -234,32 +231,48 @@ def _render_top_level_stats(
 def _render_top_level_charts(
     nav_per_share_df, autopool: AutopoolConstants, total_nav_series, expected_return_series, price_return_series
 ):
-    nav_per_share_fig = _apply_default_style(px.line(nav_per_share_df, y=autopool.name, title="NAV Per Share"))
+    nav_per_share_fig = _apply_default_style(
+        px.line(nav_per_share_df, y=autopool.name, title="NAV Per Share", markers=True)
+    )
     price_return_fig = _apply_default_style(
-        px.line(price_return_series, title="Autopool Estimated Price Return (%)", labels={"value": "Price Return (%)"})
+        px.line(
+            price_return_series,
+            title="Autopool Estimated Price Return (%)",
+            labels={"value": "Price Return (%)"},
+            markers=True,
+        )
     )
     price_return_fig.update_traces(showlegend=False)
 
     nav_fig = _apply_default_style(
-        px.line(total_nav_series, title="Total NAV", labels={"value": autopool.base_asset_symbol})
+        px.line(total_nav_series, title="Total NAV", labels={"value": autopool.base_asset_symbol}, markers=True)
     )
     nav_fig.update_traces(showlegend=False)
 
     annualized_30d_return_fig = _apply_default_style(
-        px.line(nav_per_share_df, y="30_day_annualized_return", title="30-day Annualized Return (%)")
+        px.line(nav_per_share_df, y="30_day_annualized_return", title="30-day Annualized Return (%)", markers=True)
     )
     annualized_7d_return_fig = _apply_default_style(
-        px.line(nav_per_share_df, y="7_day_annualized_return", title="7-day Rolling Annualized Return (%)")
+        px.line(
+            nav_per_share_df, y="7_day_annualized_return", title="7-day Rolling Annualized Return (%)", markers=True
+        )
     )
 
     annualized_7d_ma_return_fig = _apply_default_style(
-        px.line(nav_per_share_df, y="7_day_MA_annualized_return", title="7-day MA Annualized Return (%)")
+        px.line(nav_per_share_df, y="7_day_MA_annualized_return", title="7-day MA Annualized Return (%)", markers=True)
     )
     annualized_30d_ma_return_fig = _apply_default_style(
-        px.line(nav_per_share_df, y="30_day_MA_annualized_return", title="30-day MA Annualized Return (%)")
+        px.line(
+            nav_per_share_df, y="30_day_MA_annualized_return", title="30-day MA Annualized Return (%)", markers=True
+        )
     )
     uwcr_return_fig = _apply_default_style(
-        px.line(expected_return_series, title="Expected Annualized Return (%)", labels={"value": "Expected Return (%)"})
+        px.line(
+            expected_return_series,
+            title="Expected Annualized Return (%)",
+            labels={"value": "Expected Return (%)"},
+            markers=True,
+        )
     )
     uwcr_return_fig.update_traces(showlegend=False)
 
@@ -342,7 +355,7 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
 
 
 def _apply_default_style(fig: go.Figure) -> None:
-    fig.update_traces(line=dict(width=3))
+    fig.update_traces(line=dict(width=3), connectgaps=False)
     fig.update_layout(
         title_x=0.5,
         margin=dict(l=40, r=40, t=40, b=80),
@@ -367,7 +380,7 @@ def _diffReturn(x: list):
 if __name__ == "__main__":
     from mainnet_launch.constants import *
 
-    fetch_and_render_key_metrics_data(ARB_USD)
+    fetch_and_render_key_metrics_data(LINEA_USD)
 
     # from mainnet_launch.app.profiler import profile_function
 

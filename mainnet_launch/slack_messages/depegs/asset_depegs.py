@@ -87,7 +87,7 @@ def _fetch_latest_asset_exposure() -> pd.DataFrame:
 
 
 def fetch_recent_prices_and_exposure() -> pd.DataFrame:
-    # df = _fetch_latest_token_prices()
+    df = _fetch_latest_token_prices()
     recent_exposure_df = _fetch_latest_asset_exposure()
     full_df = pd.merge(
         df,

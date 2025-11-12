@@ -1,15 +1,12 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
+import json
 
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 
 from mainnet_launch.constants import WORKING_DATA_DIR, ALL_AUTOPOOLS, AutopoolConstants
-
-
-# assumes AutopoolConstants is already imported from your constants module
-# and that WORKING_DATA_DIR is defined as the parent "working_data" folder
 
 LOCAL_REBALANCE_ROOT = WORKING_DATA_DIR / "local_rebalance_plans"
 
@@ -57,6 +54,33 @@ def download_local_rebalance_plans(autopools: list[AutopoolConstants], max_worke
         # download missing files in parallel
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             executor.map(download, keys_to_fetch)
+
+
+def read_local_rebalance_plans(
+    autopool: AutopoolConstants,
+) -> dict[str, dict]:
+    """
+    Load all local rebalance-plan JSON files for a single autopool into memory.
+
+    Args:
+        autopool: The AutopoolConstants entry to load plans for.
+        ensure_download: If True, first call download_local_rebalance_plans([autopool])
+                         to fetch any missing files from S3.
+        ignore_bad_json: If True, skip files that fail json decoding; if False, raise.
+
+    Returns:
+        Dict mapping filename -> parsed JSON dict.
+    """
+
+    subfolder = LOCAL_REBALANCE_ROOT / autopool.name
+    subfolder.mkdir(parents=True, exist_ok=True)
+
+    plans = []
+    for path in sorted(subfolder.glob("*.json")):
+        with path.open("r", encoding="utf-8") as f:
+            plans.append(json.load(f))
+
+    return plans
 
 
 if __name__ == "__main__":

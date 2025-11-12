@@ -119,7 +119,7 @@ def post_destination_ownership_exposure_table(slack_channel, percent_cutoff: flo
     readable_percent_ownership_by_pool = fetch_destination_percent_ownership_with_sizes()
 
     display_cols = [
-        "underlying_symbol",
+        "underlying_name",
         "percent_ownership",
         "total_tvl",
         "destination_vault_address",
@@ -160,7 +160,7 @@ def post_destination_ownership_exposure_table(slack_channel, percent_cutoff: flo
         },
         inplace=True,
     )
-    high_exposure_df["Ownership"] = high_exposure_df["Ownership"].map(lambda x: f"{x:.2f}%")
+    high_exposure_df["Ownership %"] = high_exposure_df["Ownership %"].map(lambda x: f"{x:.2f}%")
 
     if high_exposure_df.empty:
         post_slack_message(
@@ -170,7 +170,7 @@ def post_destination_ownership_exposure_table(slack_channel, percent_cutoff: flo
     else:
         post_message_with_table(
             slack_channel,
-            initial_comment=f"Tokemak Ownership by Pool\nShowing Pools with > {percent_cutoff}% Ownership",
+            initial_comment=f"Tokemak Ownership by Pool\nShowing Pools with >{percent_cutoff}% Ownership",
             df=high_exposure_df,
             file_save_name="high_pool_exposure.csv",
         )
