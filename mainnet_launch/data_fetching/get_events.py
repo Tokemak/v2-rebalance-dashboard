@@ -41,7 +41,7 @@ class FetchEventParams:
     argument_filters: dict = None
 
 
-def fetch_many_events(events: list[FetchEventParams], num_threads: int = 16) -> dict[str, pd.DataFrame]:
+def fetch_many_events(events: list[FetchEventParams], num_threads: int = 4) -> dict[str, pd.DataFrame]:
     """Fetch many events concurrently"""
     results = {}
 

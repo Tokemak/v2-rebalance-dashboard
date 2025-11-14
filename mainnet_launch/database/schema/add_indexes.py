@@ -6,6 +6,7 @@ from mainnet_launch.database.schema.full import Session
 import sys
 import logging
 
+
 def sequential_test():
     from mainnet_launch.pages.autopool import AUTOPOOL_CONTENT_FUNCTIONS as _fns
     from mainnet_launch.constants import AUTO_USD
@@ -42,9 +43,7 @@ if __name__ == "__main__":
 # ================================================ 153 passed in 489.63s (0:08:09) =====
 
 
-
 # that is a slow query 12 seconds 7 seconds, 13 seconds, can be made much faster
-
 
 
 # SELECT
@@ -83,9 +82,6 @@ if __name__ == "__main__":
 #   ON blocks.chain_id = token_values.chain_id AND blocks.block = token_values.block
 # WHERE
 #     (autopool_destination_states.autopool_vault_address = '0xa7569A44f348d3D70d8ad5889e50F78E33d80D35' AND token_values.denominated_in = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' AND destination_token_values.denominated_in = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' AND tokens.chain_id = 1 AND blocks.datetime > '4-8-2025')
-
-
-
 
 
 create_some_indexes = """
@@ -128,7 +124,7 @@ ON blocks (
 
 # (306 durations < 0.005s hidden.  Use -vv to show these durations.)
 # ================================================ 153 passed in 846.97s (0:14:06) =================================================
-# (mainnet-launch-py3.10) pb@Parkers-Mac-Studio v2-rebalance-dashboard % 
+# (mainnet-launch-py3.10) pb@Parkers-Mac-Studio v2-rebalance-dashboard %
 
 # after adding the indexes it lkooks like ti got worse, by a lot
 

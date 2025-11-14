@@ -142,7 +142,7 @@ def ensure_destination_underlying_withdraw_are_current() -> None:
         all_underlying_withdraw_events_df = fetch_new_destination_underlying_withdraw_events(
             chain,
             destination_to_highest_block,
-            num_threads=16,
+            num_threads=8,
         )
 
         _insert_new_rows_into_destination_underlying_withdraw(chain, all_underlying_withdraw_events_df)
@@ -151,4 +151,5 @@ def ensure_destination_underlying_withdraw_are_current() -> None:
 if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
 
-    profile_function(ensure_destination_underlying_withdraw_are_current)
+    # profile_function(ensure_destination_underlying_withdraw_are_current)
+    ensure_destination_underlying_withdraw_are_current()

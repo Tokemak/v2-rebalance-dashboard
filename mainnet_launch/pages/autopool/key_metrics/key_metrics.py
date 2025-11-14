@@ -379,12 +379,50 @@ def _diffReturn(x: list):
 
 if __name__ == "__main__":
     from mainnet_launch.constants import *
+    from mainnet_launch.database.schema.full import ENGINE
 
-    fetch_and_render_key_metrics_data(LINEA_USD)
+    ENGINE.echo = True
 
-    # from mainnet_launch.app.profiler import profile_function
+    profile_function(fetch_autopool_destination_state_df, BASE_USD)
 
-    # # fetch_and_render_key_metrics_data(AUTO_ETH)
 
-    # # profile_function(fetch_and_render_key_metrics_data, AUTO_USD)
-    # pass
+slow_query = """
+
+SELECT
+    destination_token_values.token_address,
+    destination_token_values.destination_vault_address,
+    destination_token_values.quantity,
+    destination_token_values.block,
+    tokens.symbol,
+    token_values.safe_price,
+    token_values.denominated_in,
+    token_values.backing,
+    autopool_destination_states.owned_shares,
+    destination_states.underlying_token_total_supply,
+    destination_states.lp_token_safe_price,
+    destination_states.incentive_apr,
+    destination_states.fee_apr,
+    destination_states.base_apr,
+    destination_states.fee_plus_base_apr,
+    destination_states.total_apr_out,
+    destination_states.total_apr_in,
+    destinations.underlying_name,
+    destinations.exchange_name,
+    blocks.datetime
+FROM destination_token_values
+JOIN tokens
+  ON tokens.token_address = destination_token_values.token_address AND tokens.chain_id = destination_token_values.chain_id
+JOIN token_values
+  ON token_values.chain_id = destination_token_values.chain_id AND token_values.token_address = destination_token_values.token_address AND token_values.block = destination_token_values.block AND token_values.token_address = destination_token_values.token_address
+JOIN autopool_destination_states
+  ON destination_token_values.chain_id = autopool_destination_states.chain_id AND destination_token_values.destination_vault_address = autopool_destination_states.destination_vault_address AND destination_token_values.block = autopool_destination_states.block AND destination_token_values.chain_id = autopool_destination_states.chain_id
+JOIN destination_states
+  ON destination_states.chain_id = destination_token_values.chain_id AND destination_states.destination_vault_address = destination_token_values.destination_vault_address AND destination_states.block = destination_token_values.block
+JOIN destinations
+  ON destinations.chain_id = destination_token_values.chain_id AND destinations.destination_vault_address = destination_token_values.destination_vault_address
+JOIN blocks
+  ON blocks.chain_id = token_values.chain_id AND blocks.block = token_values.block
+WHERE
+    (autopool_destination_states.autopool_vault_address = '0x9c6864105AEC23388C89600046213a44C384c831' AND token_values.denominated_in = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' AND destination_token_values.denominated_in = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' AND tokens.chain_id = 8453 AND blocks.datetime > '5-16-2025')
+
+"""

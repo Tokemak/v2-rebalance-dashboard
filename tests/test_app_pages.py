@@ -76,6 +76,3 @@ def _risk_metrics_params():
 @pytest.mark.parametrize("fn_name,kwargs", list(_risk_metrics_params()))
 def test_risk_metrics_pages(fn_name, kwargs):
     _run_risk_metrics_page(**kwargs, _fn_name=fn_name)
-
-
-

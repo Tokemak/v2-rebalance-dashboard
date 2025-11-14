@@ -136,7 +136,7 @@ def ensure_destination_underlying_deposits_are_current() -> None:
         all_underlying_deposited_events_df = fetch_new_destination_underlying_deposited_events(
             chain,
             destination_to_highest_block,
-            num_threads=16,
+            num_threads=8,
         )
 
         _insert_new_rows_into_destination_underlying_deposited(chain, all_underlying_deposited_events_df)
