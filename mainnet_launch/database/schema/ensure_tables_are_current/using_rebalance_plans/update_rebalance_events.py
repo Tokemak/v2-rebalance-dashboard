@@ -49,6 +49,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.orde
 
 from mainnet_launch.database.schema.full import AutopoolDestinations, Destinations, DestinationTokens
 
+from mainnet_launch.slack_messages.post_message import post_slack_message, SlackChannel
 
 # could you instead use? looking at the diff in destination vault total supply?
 # assumes that there cannot be two rebalances in the same block
@@ -252,7 +253,6 @@ def add_lp_token_safe_and_spot_prices(
             safe_value_out, safe_value_in, spot_value_out, spot_value_in = _fetch_values_in_and_out(
                 autopool, rebalance_event_row
             )
-
             spot_value_in_solver_change = _get_spot_value_change_in_solver(
                 autopool, destination_info_df, rebalance_event_row
             )
@@ -306,6 +306,10 @@ def _fetch_values_in_and_out(autopool: AutopoolConstants, rebalance_event_row: p
     if in_spot_values is not None:
         token_in_spot_value, token_in_safe_value = in_spot_values
     else:
+        post_slack_message(
+            SlackChannel.PRODUCTION,
+            f"Warning: could not fetch spot and safe price for destination {rebalance_event_row=} {autopool.name=} "
+        )
         token_in_spot_value, token_in_safe_value = (1, 1)
 
     out_spot_values = state[(rebalance_event_row["destinationOutAddress"], "lp_token_spot_and_safe")]
@@ -313,6 +317,10 @@ def _fetch_values_in_and_out(autopool: AutopoolConstants, rebalance_event_row: p
     if out_spot_values is not None:
         token_out_spot_value, token_out_safe_value = out_spot_values
     else:
+        post_slack_message(
+            SlackChannel.PRODUCTION,
+            f"Warning: could not fetch spot and safe price for destination {rebalance_event_row=} {autopool.name=} "
+        )
         token_out_spot_value, token_out_safe_value = (1, 1)
 
     safe_value_out = float(token_out_safe_value * rebalance_event_row["tokenOutAmount"])
