@@ -216,8 +216,8 @@ def ensure_rebalance_events_are_current():
             tx_hash: to_address for tx_hash, to_address in zip(transaction_df["tx_hash"], transaction_df["to_address"])
         }
         rebalance_event_df["solver_address"] = rebalance_event_df["transactionHash"].map(tx_hash_to_to_address)
-        new_rebalance_event_rows = add_lp_token_safe_and_spot_prices(rebalance_event_df, autopool)
 
+        new_rebalance_event_rows = add_lp_token_safe_and_spot_prices(rebalance_event_df, autopool)
         new_autopool_state_rows = _fetch_new_autopool_state_rows(autopool, [int(b) for b in transaction_df["block"]])
 
         insert_avoid_conflicts(new_autopool_state_rows, AutopoolStates)
@@ -284,7 +284,6 @@ def add_lp_token_safe_and_spot_prices(
 
 
 def _fetch_values_in_and_out(autopool: AutopoolConstants, rebalance_event_row: pd.Series):
-
     calls = build_lp_token_spot_and_safe_price_calls(
         destination_addresses=[
             rebalance_event_row["destinationInAddress"],
@@ -300,12 +299,21 @@ def _fetch_values_in_and_out(autopool: AutopoolConstants, rebalance_event_row: p
         # the vault (idle) safe and spot prices are always 1.0
         state[(autopool.autopool_eth_addr, "lp_token_spot_and_safe")] = (1.0, 1.0)
 
-    token_in_spot_value, token_in_safe_value = state[
-        (rebalance_event_row["destinationInAddress"], "lp_token_spot_and_safe")
-    ]
-    token_out_spot_value, token_out_safe_value = state[
-        (rebalance_event_row["destinationOutAddress"], "lp_token_spot_and_safe")
-    ]
+    # if we can't get a price, it's because we removed the destination,
+
+    in_spot_values = state[(rebalance_event_row["destinationInAddress"], "lp_token_spot_and_safe")]
+
+    if in_spot_values is not None:
+        token_in_spot_value, token_in_safe_value = in_spot_values
+    else:
+        token_in_spot_value, token_in_safe_value = (1, 1)
+
+    out_spot_values = state[(rebalance_event_row["destinationOutAddress"], "lp_token_spot_and_safe")]
+
+    if out_spot_values is not None:
+        token_out_spot_value, token_out_safe_value = out_spot_values
+    else:
+        token_out_spot_value, token_out_safe_value = (1, 1)
 
     safe_value_out = float(token_out_safe_value * rebalance_event_row["tokenOutAmount"])
     safe_value_in = float(token_in_safe_value * rebalance_event_row["tokenInAmount"])
@@ -391,12 +399,4 @@ def _get_spot_value_change_in_solver(
 
 
 if __name__ == "__main__":
-
-    from mainnet_launch.constants import *
-
-    _load_raw_rebalance_event_df(ARB_USD)
-    # 50 seconds, need to make subgrapoh calls in parallel
-    # # for each autopool
-    # # thread pool executors
-    # profile_function(_load_raw_rebalance_event_df, ARB_USD)
-    # # profile_function(_load_raw_rebalance_event_df, BASE_ETH)
+    ensure_rebalance_events_are_current()
