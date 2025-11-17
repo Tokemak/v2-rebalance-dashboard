@@ -308,7 +308,7 @@ def _fetch_values_in_and_out(autopool: AutopoolConstants, rebalance_event_row: p
     else:
         post_slack_message(
             SlackChannel.PRODUCTION,
-            f"Warning: could not fetch spot and safe price for destination {rebalance_event_row=} {autopool.name=} "
+            f"Warning: could not fetch spot and safe price for destination {rebalance_event_row=} {autopool.name=} ",
         )
         token_in_spot_value, token_in_safe_value = (1, 1)
 
@@ -319,7 +319,7 @@ def _fetch_values_in_and_out(autopool: AutopoolConstants, rebalance_event_row: p
     else:
         post_slack_message(
             SlackChannel.PRODUCTION,
-            f"Warning: could not fetch spot and safe price for destination {rebalance_event_row=} {autopool.name=} "
+            f"Warning: could not fetch spot and safe price for destination {rebalance_event_row=} {autopool.name=} ",
         )
         token_out_spot_value, token_out_safe_value = (1, 1)
 
