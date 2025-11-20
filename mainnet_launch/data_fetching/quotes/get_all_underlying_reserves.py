@@ -34,6 +34,16 @@ def get_eth_value_by_destination_by_autopool(lens_contract_data: dict):
             # skip autoS for now
             pass
 
+    if len(dests) == 0:
+        return pd.DataFrame(
+            columns=[
+                "vaultAddress",
+                "autoPoolOwnsShares",
+                "actualLPTotalSupply",
+                "autopool_base_asset_decimals",
+                "autopool_symbol",
+            ]
+        )
     return pd.DataFrame(dests)[
         ["vaultAddress", "autoPoolOwnsShares", "actualLPTotalSupply", "autopool_base_asset_decimals", "autopool_symbol"]
     ]
@@ -123,7 +133,12 @@ def fetch_raw_amounts_by_destination(block: int, chain: ChainData) -> pd.DataFra
     lens_contract_df.apply(
         lambda row: _extract_proportional_ownership_of_reserve_tokens_in_underlying_pools(row), axis=1
     )
-    reserve_token_ownership_df = pd.DataFrame.from_records(raw_base_token_value_by_destination)
+    if not raw_base_token_value_by_destination:
+        reserve_token_ownership_df = pd.DataFrame(
+            columns=["token_address", "reserve_amount", "vault_address", "autopool_symbol"]
+        )
+    else:
+        reserve_token_ownership_df = pd.DataFrame.from_records(raw_base_token_value_by_destination)
 
     tokens_df = get_full_table_as_df(Tokens)
     token_address_to_symbol = tokens_df.set_index("token_address")["symbol"].to_dict()

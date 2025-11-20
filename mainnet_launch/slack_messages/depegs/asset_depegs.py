@@ -188,6 +188,11 @@ def post_non_trivial_depegs_slack_message(df: pd.DataFrame, slack_channel: Slack
         "price_datetime",
     ]
 
+    non_trivial_depeg_df["safe_price"] = non_trivial_depeg_df["safe_price"].map("{:.3f}".format).astype(str)
+    non_trivial_depeg_df["backing"] = non_trivial_depeg_df["backing"].map("{:.3f}".format).astype(str)
+    non_trivial_depeg_df["price_datetime"] = non_trivial_depeg_df["price_datetime"].dt.date.astype(str)
+    non_trivial_depeg_df["exposure_datetime"] = non_trivial_depeg_df["exposure_datetime"].dt.date.astype(str)
+
     if not non_trivial_depeg_df.empty:
         post_message_with_table(
             slack_channel,
@@ -199,15 +204,6 @@ def post_non_trivial_depegs_slack_message(df: pd.DataFrame, slack_channel: Slack
 
 def post_asset_depeg_slack_message(slack_channel: SlackChannel):
     df = fetch_recent_prices_and_exposure()
-    price_return_summary_df = summarize_discounts_by_reference(df)
-
-    post_message_with_table(
-        slack_channel,
-        "Summary of exposure by reference asset with discounts",
-        price_return_summary_df,
-        file_save_name="depeg_summary_by_reference.csv",
-    )
-
     post_non_trivial_depegs_slack_message(df, slack_channel)
 
 

@@ -4,6 +4,7 @@ import pandas as pd
 
 from mainnet_launch.database.postgres_operations import _exec_sql_and_cache
 from mainnet_launch.slack_messages.post_message import SlackChannel, post_message_with_table
+from mainnet_launch.constants import DEPRECATED_AUTOPOOLS
 
 
 def _get_autopools_without_a_plan_in_the_last_n_days(n_days: int):
@@ -22,15 +23,11 @@ def _get_autopools_without_a_plan_in_the_last_n_days(n_days: int):
     """
 
     df = _exec_sql_and_cache(query)
-    df["time_since_plan_generated"] = pd.Timestamp.now(tz="UTC").floor("min") - df["plan_generated_time"].dt.floor(
-        "min"
-    )
-    df = (
-        df[df["time_since_plan_generated"] > pd.Timedelta(days=n_days)]
-        .reset_index()
-        .sort_values("time_since_plan_generated")
-    )
-    return df[["autopool_symbol", "time_since_plan_generated"]]
+
+    df = df[~df["autopool_symbol"].isin([a.name for a in DEPRECATED_AUTOPOOLS])].copy()
+    df["Time Since Plan"] = pd.Timestamp.now(tz="UTC").floor("min") - df["plan_generated_time"].dt.floor("min")
+    df = df[df["Time Since Plan"] > pd.Timedelta(days=n_days)].reset_index().sort_values("Time Since Plan")
+    return df[["autopool_symbol", "Time Since Plan"]]
 
 
 def post_autopools_without_generated_plans(slack_channel: SlackChannel):
