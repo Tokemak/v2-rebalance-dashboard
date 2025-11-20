@@ -64,7 +64,8 @@ slack-alert = "mainnet_launch.slack_messages.alerts:post_github_action_status"
 
 
 # Slack informational
-post-slack-informational-messages = "mainnet_launch.slack_messages.send_informational_messages:send_information_slack_messages"
+post-daily-slack-messages = "mainnet_launch.slack_messages:post_daily_messages"
+post-weekly-slack-messages = "mainnet_launch.slack_messages:post_weekly_messages"
 
 
 [tool.pytest.ini_options]

@@ -24,19 +24,27 @@ YELLOW_CIRCLE = "🟡"
 class SlackChannel(Enum):
     TESTING = TESTING_CHANNEL_ID
     PRODUCTION = PRODUCTION_CHANNEL_ID
+    CI = "CI"
 
 
 def post_slack_message(channel: SlackChannel, text: str) -> None:
-    slack_client.chat_postMessage(channel=channel.value, text=text)
+    if channel != SlackChannel.CI:
+        slack_client.chat_postMessage(channel=channel.value, text=text)
+    else:
+        print(f"[CI SLACK MESSAGE] {text}\n")
 
 
 def post_message_with_table(
     channel: SlackChannel, initial_comment: str, df: pd.DataFrame, file_save_name: str, show_index=False
 ) -> None:
     table_csv = df.to_csv(index=show_index)
-    slack_client.files_upload_v2(
-        channel=channel.value,
-        filename=file_save_name,
-        initial_comment=initial_comment,
-        content=table_csv,
-    )
+
+    if channel != SlackChannel.CI:
+        slack_client.files_upload_v2(
+            channel=channel.value,
+            filename=file_save_name,
+            initial_comment=initial_comment,
+            content=table_csv,
+        )
+    else:
+        print(f"[CI SLACK MESSAGE] {initial_comment}\n{table_csv}\n\n")

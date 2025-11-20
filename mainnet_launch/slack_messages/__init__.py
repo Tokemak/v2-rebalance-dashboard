@@ -5,15 +5,19 @@ from mainnet_launch.slack_messages.concentration.holding_illiquid_tokens import 
 from mainnet_launch.slack_messages.solver.solver_plans_and_events import post_autopools_without_generated_plans
 from mainnet_launch.slack_messages.incentives.not_recently_sold_tokens import post_unsold_incentive_tokens
 from mainnet_launch.slack_messages.depegs.asset_depegs import post_asset_depeg_slack_message
+from mainnet_launch.slack_messages.new_destinations.get_possible_new_destinations import post_possible_new_destinations
 
 
-FINISHED_SLACK_MESSAGES = [
-    post_destination_ownership_exposure_table,
-    post_autopools_without_generated_plans,
-    post_missing_balance_updated_events,
-    post_unsold_incentive_tokens,
-    post_asset_depeg_slack_message,
-    post_illiquid_token_holding_analysis,  # TODO move to
-]
+def post_daily_messages(slack_channel: SlackChannel = SlackChannel.PRODUCTION):
+    """Notifications that signal we should do *something*"""
+    post_autopools_without_generated_plans(slack_channel)
+    post_missing_balance_updated_events(slack_channel)
+    post_unsold_incentive_tokens(slack_channel)
+    post_asset_depeg_slack_message(slack_channel)
 
-WORKS_IN_PROGRESS_SLACK_MESSAGES = []
+
+def post_weekly_messages(slack_channel: SlackChannel = SlackChannel.PRODUCTION):
+    """Notifications that about the general state of the autopool, but don't require instant action"""
+    post_destination_ownership_exposure_table(slack_channel)
+    post_illiquid_token_holding_analysis(slack_channel)
+    post_possible_new_destinations(slack_channel)

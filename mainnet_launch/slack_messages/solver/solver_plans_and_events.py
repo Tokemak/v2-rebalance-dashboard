@@ -39,5 +39,6 @@ def post_autopools_without_generated_plans(slack_channel: SlackChannel):
         file_save_name="Autopools without recent plans.csv",
     )
 
+
 if __name__ == "__main__":
     post_autopools_without_generated_plans(SlackChannel.TESTING)

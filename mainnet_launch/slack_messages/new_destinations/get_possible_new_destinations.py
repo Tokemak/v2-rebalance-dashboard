@@ -179,7 +179,7 @@ def extract_possible_interesting_destinations(df: pd.DataFrame) -> pd.DataFrame:
     return interesting_df[interesting_columns]
 
 
-def post_slack_message_about_new_destinations():
+def post_possible_new_destinations():
     df = fetch_possible_new_autopool_destinations(tvl_threshold=2_000_000)
     interesting_df = extract_possible_interesting_destinations(df)
 
