@@ -21,6 +21,24 @@ def _fetch_rich_tvl_by_destination(
 ) -> pd.DataFrame:
     block = chain.get_block_near_top()
     our_tvl_by_destination_df = fetch_readable_our_tvl_by_destination(chain, block).copy()
+    if our_tvl_by_destination_df.empty:
+        columns = [
+            "destination_vault_address",
+            "underlying",
+            "destination_vault_decimals",
+            "underlying_symbol",
+            "totalSupply",
+            "underlyingTotalSupply",
+            "our_total_shares",
+            "total_shares",
+            "autopool",
+            "autopool_name",
+            "base_asset_symbol",
+            "chain_name",
+            "lp_token_safe_price",
+        ]
+        return pd.DataFrame(columns=columns)
+
     our_tvl_by_destination_df = pd.merge(
         our_tvl_by_destination_df,
         destinations[
@@ -56,6 +74,7 @@ def _fetch_rich_tvl_by_destination(
         lambda row: row["autopool"].base_asset_symbol, axis=1
     )
     our_tvl_by_destination_df["chain_name"] = chain.name
+
     return our_tvl_by_destination_df
 
 
@@ -63,7 +82,6 @@ def _fetch_destination_safe_and_spot_prices_for_slack(our_tvl_by_destination_df:
     all_states = {}
 
     for autopool in ALL_AUTOPOOLS:
-
         this_autopool_df = our_tvl_by_destination_df[our_tvl_by_destination_df["autopool"] == autopool].copy()
         if this_autopool_df.empty:
             continue
@@ -92,7 +110,10 @@ def fetch_destination_percent_ownership_with_sizes() -> pd.DataFrame:
 
     for chain in ALL_CHAINS:
         our_tvl_by_destination_df = _fetch_rich_tvl_by_destination(chain, destinations, autopool_destinations)
+        if our_tvl_by_destination_df.empty:
+            continue
         state_df = _fetch_destination_safe_and_spot_prices_for_slack(our_tvl_by_destination_df)
+
         readable_df = pd.merge(
             our_tvl_by_destination_df,
             state_df,

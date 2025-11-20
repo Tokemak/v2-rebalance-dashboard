@@ -18,7 +18,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.exit
 from mainnet_launch.pages.risk_metrics.drop_down import render_pick_chain_and_base_asset_dropdown
 
 
-EXCLUDED_POOLS = [SILO_ETH]
+EXCLUDED_POOLS = [SILO_ETH, SONIC_USD]
 
 
 def fetch_readable_our_tvl_by_destination(chain: ChainData, block: int) -> pd.DataFrame:
@@ -55,19 +55,33 @@ def fetch_readable_our_tvl_by_destination(chain: ChainData, block: int) -> pd.Da
         .sort_values("percent_ownership", ascending=False)
         .reset_index(drop=True)
     )
-
-    return df[
-        [
-            "underlying_name",
-            "percent_ownership",
-            "pool_type",
-            "exchange_name",
-            "destination_vault_address",
-            "pool_address",
-            "totalSupply",
-            "underlyingTotalSupply",
+    # if df is empyt make sure it still has the right columns
+    if df.empty:
+        return pd.DataFrame(
+            columns=[
+                "underlying_name",
+                "percent_ownership",
+                "pool_type",
+                "exchange_name",
+                "destination_vault_address",
+                "pool_address",
+                "totalSupply",
+                "underlyingTotalSupply",
+            ]
+        )
+    else:
+        return df[
+            [
+                "underlying_name",
+                "percent_ownership",
+                "pool_type",
+                "exchange_name",
+                "destination_vault_address",
+                "pool_address",
+                "totalSupply",
+                "underlyingTotalSupply",
+            ]
         ]
-    ]
 
 
 def _fetch_autopool_percent_ownership_of_each_destination(
@@ -103,28 +117,29 @@ def _fetch_autopool_percent_ownership_of_each_destination(
     percent_cols = []
 
     for autopool in autopools:
-        autopool_name = autopool.name
-        our_tvl_by_destination_df[f"{autopool_name} Balance Of"] = our_tvl_by_destination_df[
-            "destination_vault_address"
-        ].map(
-            lambda destination_vault_address: balance_of_dict.get(
-                (autopool.autopool_eth_addr, destination_vault_address), 0
+        if autopool not in EXCLUDED_POOLS:
+            autopool_name = autopool.name
+            our_tvl_by_destination_df[f"{autopool_name} Balance Of"] = our_tvl_by_destination_df[
+                "destination_vault_address"
+            ].map(
+                lambda destination_vault_address: balance_of_dict.get(
+                    (autopool.autopool_eth_addr, destination_vault_address), 0
+                )
             )
-        )
 
-        our_tvl_by_destination_df[f"{autopool_name} Percent Ownership"] = our_tvl_by_destination_df.apply(
-            lambda row: 100 * (int(row[f"{autopool_name} Balance Of"]) / int(row["underlyingTotalSupply"])), axis=1
-        )
+            our_tvl_by_destination_df[f"{autopool_name} Percent Ownership"] = our_tvl_by_destination_df.apply(
+                lambda row: 100 * (int(row[f"{autopool_name} Balance Of"]) / int(row["underlyingTotalSupply"])), axis=1
+            )
 
-        percent_cols.append(f"{autopool_name} Percent Ownership")
+            percent_cols.append(f"{autopool_name} Percent Ownership")
 
-    our_tvl_by_destination_df["Not Tokemak Percent Ownership"] = our_tvl_by_destination_df.apply(
-        lambda row: 100
-        * (int(row["underlyingTotalSupply"]) - int(row["totalSupply"]))
-        / int(row["underlyingTotalSupply"]),
-        axis=1,
-    )
-    percent_cols.append("Not Tokemak Percent Ownership")
+            our_tvl_by_destination_df["Not Tokemak Percent Ownership"] = our_tvl_by_destination_df.apply(
+                lambda row: 100
+                * (int(row["underlyingTotalSupply"]) - int(row["totalSupply"]))
+                / int(row["underlyingTotalSupply"]),
+                axis=1,
+            )
+            percent_cols.append("Not Tokemak Percent Ownership")
 
     return our_tvl_by_destination_df, percent_cols
 
@@ -143,6 +158,7 @@ def _make_pie_chart_color_palette() -> dict[str, str]:
 
 
 def _render_percent_ownership_by_destination(this_autopool_destinations_df: pd.DataFrame, percent_cols: list[str]):
+
     df = this_autopool_destinations_df.reset_index(drop=True)
     # only show destinations where we have some ownership
     df = df[df[percent_cols[:-1]].gt(0).any(axis=1)].copy().reset_index(drop=True)
@@ -219,15 +235,17 @@ def fetch_and_render_one_option_for_percent_ownership_by_destination(
             valid_autopools, our_tvl_by_destination_df, chain.get_block_near_top()
         )
 
-    st.download_button(
-        label="Download Percent Ownership Data",
-        data=this_autopool_destinations_df.to_csv(index=False),
-        file_name=f"{chain.name}_{base_asset.name}_percent_ownership_by_destination.csv",
-        mime="text/csv",
-    )
-
-    _render_methodology()
-    _render_percent_ownership_by_destination(this_autopool_destinations_df, percent_cols)
+    if this_autopool_destinations_df.empty:
+        st.info(f"No Percent Ownership data found for {chain.name} {base_asset.name} Autopools.")
+    else:
+        st.download_button(
+            label="Download Percent Ownership Data",
+            data=this_autopool_destinations_df.to_csv(index=False),
+            file_name=f"{chain.name}_{base_asset.name}_percent_ownership_by_destination.csv",
+            mime="text/csv",
+        )
+        _render_methodology()
+        _render_percent_ownership_by_destination(this_autopool_destinations_df, percent_cols)
 
 
 def _render_methodology():
@@ -245,5 +263,5 @@ def _render_methodology():
 
 
 if __name__ == "__main__":
-    valid_autopools = CHAIN_BASE_ASSET_GROUPS[(ETH_CHAIN, USDC)]
-    fetch_and_render_one_option_for_percent_ownership_by_destination(ETH_CHAIN, USDC, valid_autopools)
+    valid_autopools = CHAIN_BASE_ASSET_GROUPS[(SONIC_CHAIN, USDC)]
+    fetch_and_render_one_option_for_percent_ownership_by_destination(SONIC_CHAIN, USDC, valid_autopools)

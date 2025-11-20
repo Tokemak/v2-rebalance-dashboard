@@ -179,13 +179,13 @@ def extract_possible_interesting_destinations(df: pd.DataFrame) -> pd.DataFrame:
     return interesting_df[interesting_columns]
 
 
-def post_possible_new_destinations():
+def post_possible_new_destinations(slack_channel: SlackChannel):
     df = fetch_possible_new_autopool_destinations(tvl_threshold=2_000_000)
     interesting_df = extract_possible_interesting_destinations(df)
 
     if not interesting_df.empty:
         post_message_with_table(
-            channel=SlackChannel.TESTING,
+            channel=slack_channel,
             initial_comment=f"{len(interesting_df)} Possible New Autopool Destinations (TVL >= $2M):",
             df=interesting_df,
             file_save_name="Possible Autopool Destinations.csv",
@@ -193,4 +193,4 @@ def post_possible_new_destinations():
 
 
 if __name__ == "__main__":
-    post_slack_message_about_new_destinations()
+    post_possible_new_destinations()
