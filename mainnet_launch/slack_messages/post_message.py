@@ -24,7 +24,7 @@ YELLOW_CIRCLE = "🟡"
 class SlackChannel(Enum):
     TESTING = TESTING_CHANNEL_ID
     PRODUCTION = PRODUCTION_CHANNEL_ID
-    CI = "CI"
+    CI = "CI"  # dummy for printing to stdout instead of posting to Slack
 
 
 def post_slack_message(channel: SlackChannel, text: str) -> None:
