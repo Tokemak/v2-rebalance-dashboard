@@ -14,7 +14,7 @@ from mainnet_launch.constants import (
     PLASMA_CHAIN,
     LINEA_CHAIN,
     ALL_CHAINS,
-    DEPRECATED_AUTOPOOLS
+    DEPRECATED_AUTOPOOLS,
 )
 from mainnet_launch.database.postgres_operations import _exec_sql_and_cache
 from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block, identity_with_bool_success
