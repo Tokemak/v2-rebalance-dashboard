@@ -3,6 +3,7 @@ name: Update Production Database
 on:
   schedule:
     - cron: "0 3 * * *" # Daily at 3am UTC (eg 7pm or 8pm PST)
+
   workflow_dispatch:
 
 jobs:
@@ -30,9 +31,24 @@ jobs:
       - name: poetry run pytest
         run: poetry run pytest
 
+      - name: Post Informational Slack Messages
+        run: poetry run post-daily-slack-messages
+
+      - name: Is today Sunday? (UTC)
+        id: is_sunday
+        shell: bash
+        run: |
+          # date +%u => 1=Mon ... 7=Sun
+          if [ "$(date -u +%u)" = "7" ]; then
+            echo "value=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post Weekly Slack Messages
+        if: steps.is_sunday.outputs.value == 'true'
+        run: poetry run post-weekly-slack-messages
+
       - name: Post Slack Status Message
         if: ${{ always() }}
         uses: ./.github/actions/post_github_actions_status
-
-      - name: Post Informational Slack Messages
-        run: poetry run post-slack-informational-messages

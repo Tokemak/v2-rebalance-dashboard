@@ -14,6 +14,7 @@ from mainnet_launch.constants import (
     PLASMA_CHAIN,
     LINEA_CHAIN,
     ALL_CHAINS,
+    DEPRECATED_AUTOPOOLS,
 )
 from mainnet_launch.database.postgres_operations import _exec_sql_and_cache
 from mainnet_launch.data_fetching.get_state_by_block import get_state_by_one_block, identity_with_bool_success
@@ -149,6 +150,8 @@ def extract_possible_interesting_destinations(df: pd.DataFrame) -> pd.DataFrame:
     indexes = set()
 
     for autopool in ALL_AUTOPOOLS:
+        if autopool in DEPRECATED_AUTOPOOLS:
+            continue
         sub_df = df[df["autopool_name"] == autopool.name]
         if not sub_df.empty:
             indexes.update([*sub_df["apyMean30d"].nlargest(2).index, *sub_df["apy"].nlargest(2).index])
