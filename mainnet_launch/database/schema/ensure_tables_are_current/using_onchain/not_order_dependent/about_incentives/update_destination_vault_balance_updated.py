@@ -89,7 +89,7 @@ def fetch_new_balance_updated_events(
 ) -> pd.DataFrame:
     dfs = []
     for liqudation_row in [LIQUIDATION_ROW, LIQUIDATION_ROW2]:
-        for abi in [MINIMAL_BALANCE_UPDATED_ABI_WITH_EXPECTED]:
+        for abi in [MINIMAL_BALANCE_UPDATED_ABI_WITH_EXPECTED, MINIMAL_BALANCE_UPDATED_ABI_ONLY_BALANCE]:
             if liqudation_row(chain) == DEAD_ADDRESS:
                 continue
         contract = chain.client.eth.contract(address=liqudation_row(chain), abi=json.loads(abi))

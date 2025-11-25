@@ -31,6 +31,10 @@ from mainnet_launch.slack_messages.post_message import post_slack_message, post_
 from mainnet_launch.constants import *
 
 
+class IncentiveTokenBalanceUpdatedMissing(Exception):
+    pass
+
+
 N_DAYS_BALANCE_UPDATED_LOOKBACK = 2
 
 
@@ -39,6 +43,9 @@ def fetch_recent_balance_updated_events(n: int) -> pd.DataFrame:
     balance_updated_events = get_full_table_as_df_with_tx_hash(
         IncentiveTokenBalanceUpdated, where_clause=Blocks.datetime > n_days_ago
     ).reset_index()
+
+    if balance_updated_events.empty:
+        IncentiveTokenBalanceUpdatedMissing(f"No IncentiveTokenBalanceUpdated events found in the last {n} days")
 
     get_recent_autopool_destination_states_query = f"""
               SELECT
@@ -108,7 +115,7 @@ def fetch_recent_balance_updated_events(n: int) -> pd.DataFrame:
     most_recent_claims_by_destination = (
         balance_updated_events.groupby("destination_vault_address")["datetime"].max().to_dict()
     )
-
+    # all None, not sure why
     autopool_destinations["most_recent_claim"] = autopool_destinations["destination_vault_address"].map(
         most_recent_claims_by_destination
     )
