@@ -115,7 +115,7 @@ def fetch_recent_balance_updated_events(n: int) -> pd.DataFrame:
     most_recent_claims_by_destination = (
         balance_updated_events.groupby("destination_vault_address")["datetime"].max().to_dict()
     )
-    # all None, not sure why
+
     autopool_destinations["most_recent_claim"] = autopool_destinations["destination_vault_address"].map(
         most_recent_claims_by_destination
     )
