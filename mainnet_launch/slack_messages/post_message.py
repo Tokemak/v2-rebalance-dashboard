@@ -3,7 +3,7 @@ import os
 
 import pandas as pd
 from slack_sdk import WebClient
-
+from pprint import pprint
 from dotenv import load_dotenv
 
 
@@ -31,7 +31,7 @@ def post_slack_message(channel: SlackChannel, text: str) -> None:
     if channel != SlackChannel.CI:
         slack_client.chat_postMessage(channel=channel.value, text=text)
     else:
-        print(f"[CI SLACK MESSAGE] {text}\n")
+        pprint(f"[CI SLACK MESSAGE] {text}\n")
 
 
 def post_message_with_table(
@@ -47,4 +47,5 @@ def post_message_with_table(
             content=table_csv,
         )
     else:
-        print(f"[CI SLACK MESSAGE] {initial_comment}\n{table_csv}\n\n")
+        pprint(f"[CI SLACK MESSAGE] {initial_comment}\n")
+        pprint(df)

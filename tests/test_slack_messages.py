@@ -15,4 +15,5 @@ def test_weekly_slack_messages(capsys):
 
 
 if __name__ == "__main__":
-    test_daily_slack_messages(SlackChannel.CI)
+    post_daily_messages(SlackChannel.CI)
+    post_weekly_messages(SlackChannel.CI)
