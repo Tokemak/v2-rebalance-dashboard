@@ -7,7 +7,6 @@ from mainnet_launch.database.schema.full import *
 from mainnet_launch.database.postgres_operations import *
 
 
-
 def _fetch_autopool_destination_tokens(autopool: AutopoolConstants) -> pd.DataFrame:
     # consider this as a view
     df = merge_tables_as_df(
