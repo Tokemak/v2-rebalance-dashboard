@@ -234,6 +234,7 @@ def _compute_all_time_30_and_7_day_means(safe_spot_spread_df: pd.DataFrame):
     return mean_df, abs_mean_df, percentile_10_df, percentile_90_df
 
 
+@time_decorator
 def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
     autopool_destinations_df = _fetch_autopool_destination_tokens(autopool)  # fast enough
 
@@ -259,4 +260,12 @@ def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
 
 if __name__ == "__main__":
     # profile_function(fetch_and_render_asset_discounts, AUTO_USD)
+    from mainnet_launch.constants import *
+    from dataclasses import replace
+
+    # AUTO_USD = replace(AUTO_USD, start_display_date="2025-08-25")
+    # fetch_and_render_asset_discounts(AUTO_USD)
+
+    BASE_USD = replace(BASE_USD, start_display_date="2025-08-25")
+
     fetch_and_render_asset_discounts(AUTO_USD)

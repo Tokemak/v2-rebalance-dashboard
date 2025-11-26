@@ -6,7 +6,7 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, timezone
 
-from mainnet_launch.constants import AutopoolConstants
+from mainnet_launch.constants import AutopoolConstants, time_decorator, AUTO_ETH
 from mainnet_launch.database.schema.full import AutopoolStates, Blocks, RebalanceEvents, RebalancePlans
 from mainnet_launch.database.postgres_operations import (
     merge_tables_as_df,
@@ -307,6 +307,7 @@ def _render_top_level_charts(
         st.plotly_chart(price_return_fig, use_container_width=True)
 
 
+@time_decorator
 def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
     (
         nav_per_share_df,
@@ -379,12 +380,11 @@ def _diffReturn(x: list):
 
 if __name__ == "__main__":
     from mainnet_launch.constants import *
+    from dataclasses import replace
 
-    fetch_and_render_key_metrics_data(LINEA_USD)
+    AUTO_USD = replace(AUTO_USD, start_display_date="2025-08-25")
+    fetch_and_render_key_metrics_data(AUTO_USD)
 
-    # from mainnet_launch.app.profiler import profile_function
+    # profile_function(fetch_and_render_key_metrics_data, AUTO_USD)
 
-    # # fetch_and_render_key_metrics_data(AUTO_ETH)
-
-    # # profile_function(fetch_and_render_key_metrics_data, AUTO_USD)
     # pass
