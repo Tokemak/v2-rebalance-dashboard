@@ -229,6 +229,7 @@ def _render_underlying_token_spot_and_safe_prices(token_value_df: pd.DataFrame):
     pass
 
 
+@time_decorator
 def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
 
     autopool_destinations_df = _fetch_autopool_dest_token_table(autopool)
@@ -254,4 +255,12 @@ def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
 
 
 if __name__ == "__main__":
+    from mainnet_launch.constants import *
+    from dataclasses import replace
+
+    # AUTO_USD = replace(AUTO_USD, start_display_date="2025-08-25")
+    # fetch_and_render_asset_discounts(AUTO_USD)
+
+    BASE_USD = replace(BASE_USD, start_display_date="2025-08-25")
+
     fetch_and_render_asset_discounts(BASE_USD)
