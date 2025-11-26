@@ -7,7 +7,7 @@ from mainnet_launch.pages.protocol_wide import PROTOCOL_CONTENT_FUNCTIONS
 from mainnet_launch.pages.autopool import AUTOPOOL_CONTENT_FUNCTIONS
 from mainnet_launch.pages.risk_metrics import RISK_METRICS_FUNCTIONS_WITH_ARGS
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, CHAIN_BASE_ASSET_GROUPS
+from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, CHAIN_BASE_ASSET_GROUPS, AUTO_ETH, AUTO_USD
 
 
 os.environ.setdefault("STREAMLIT_HEADLESS", "1")
@@ -53,6 +53,22 @@ def _autopool_params():
 
 @pytest.mark.parametrize("fn_name,kwargs", list(_autopool_params()))
 def test_autopool_pages(fn_name, kwargs):
+    _run_autopool_page(**kwargs, _fn_name=fn_name)
+
+
+def _limited_autopool_params():
+    for fn_name, _ in AUTOPOOL_CONTENT_FUNCTIONS.items():
+        for autopool in [AUTO_USD]:
+            yield pytest.param(
+                fn_name,
+                {"autopool": autopool},
+                id=f"autopool-{fn_name}-{autopool.name}",
+            )
+
+
+@pytest.mark.speed
+@pytest.mark.parametrize("fn_name,kwargs", list(_limited_autopool_params()))
+def test_limited_autopool_pages(fn_name, kwargs):
     _run_autopool_page(**kwargs, _fn_name=fn_name)
 
 

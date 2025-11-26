@@ -67,10 +67,13 @@ slack-alert = "mainnet_launch.slack_messages.alerts:post_github_action_status"
 post-daily-slack-messages = "mainnet_launch.slack_messages:post_daily_messages"
 post-weekly-slack-messages = "mainnet_launch.slack_messages:post_weekly_messages"
 
+# speed testing
+test-speed = "tests.speed_tests:main"
 
 [tool.pytest.ini_options]
-addopts = "-n auto --durations=0 -m 'not marketing'"
+addopts = "-n auto --durations=0 -m 'not marketing and not speed'"
 testpaths = ["tests"]
 markers = [
-  "marketing: the slower marketing pages, don't change often"
+  "marketing: the slower marketing pages, don't change often",
+  "speed: limited autopool page tests, run explicitly"
 ]

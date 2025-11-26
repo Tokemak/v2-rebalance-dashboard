@@ -269,3 +269,4 @@ ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [
 ]
 
 DEPRECATED_AUTOPOOLS: list[AutopoolConstants] = [BAL_ETH, AUTO_LRT, DINERO_ETH, SILO_ETH]
+CURRENT_AUTOPOOLS: list[AutopoolConstants] = [a for a in ALL_AUTOPOOLS if a not in DEPRECATED_AUTOPOOLS]

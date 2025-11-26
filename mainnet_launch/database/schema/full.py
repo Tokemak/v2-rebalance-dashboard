@@ -27,7 +27,7 @@ else:
     raise ValueError(f"WHICH_DATABASE environment variable set to invalid value: {which_database}")
 
 
-# tmpPostgres = urlparse(os.getenv("ADD_LINEA_USD_FORK"))
+tmpPostgres = urlparse(os.getenv("LOCAL_MAIN_FORK_DATABASE_URL"))
 
 ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
