@@ -7,9 +7,9 @@ from mainnet_launch.database.schema.full import *
 from mainnet_launch.database.postgres_operations import *
 
 
-# consider this as a view
-def _fetch_autopool_dest_token_table(autopool: AutopoolConstants) -> pd.DataFrame:
-    # can be replaced by the view
+
+def _fetch_autopool_destination_tokens(autopool: AutopoolConstants) -> pd.DataFrame:
+    # consider this as a view
     df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -59,7 +59,10 @@ def _fetch_token_values(
 ):
     token_value_df = merge_tables_as_df(
         selectors=[
-            TableSelector(table=DestinationTokenValues),
+            TableSelector(
+                table=DestinationTokenValues,
+                select_fields=[DestinationTokenValues.spot_price, DestinationTokenValues.destination_vault_address],
+            ),
             TableSelector(
                 table=TokenValues,
                 select_fields=[
@@ -77,6 +80,7 @@ def _fetch_token_values(
                 select_fields=[Blocks.datetime],
                 join_on=(Blocks.chain_id == TokenValues.chain_id) & (Blocks.block == TokenValues.block),
             ),
+            # I suspect that this is not needed, can do a dict map instead in python
             TableSelector(
                 table=Tokens,
                 select_fields=[Tokens.symbol],
@@ -98,8 +102,15 @@ def _fetch_token_values(
     return token_value_df
 
 
-def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame):
+# thses are the slow parts, some options, make figures in parrelel, then render
+#  st.plotly_chart(
+#    142         1          0.7      0.7     11.8          px.scatter(safe_spot_spread_df, title="All Time % 100 * (spot_price - safe) / safe"),
+#    143         1          0.0      0.0      0.0          use_container_width=True,
+#    144                                               )
 
+
+# 5 seconds,
+def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame):
     # Balancer Aave USDC-Aave GHO (balancerV3)
     # Balancer Aave GHO-USR (balancerV3)
     # have tiny maybe rounding differences, not sure why, TODO
@@ -224,14 +235,8 @@ def _compute_all_time_30_and_7_day_means(safe_spot_spread_df: pd.DataFrame):
     return mean_df, abs_mean_df, percentile_10_df, percentile_90_df
 
 
-def _render_underlying_token_spot_and_safe_prices(token_value_df: pd.DataFrame):
-    # TODO
-    pass
-
-
 def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
-
-    autopool_destinations_df = _fetch_autopool_dest_token_table(autopool)
+    autopool_destinations_df = _fetch_autopool_destination_tokens(autopool)  # fast enough
 
     token_value_df = _fetch_token_values(
         autopool,
@@ -249,9 +254,10 @@ def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
     token_value_df["token_destination_readable_name"] = (
         token_value_df["symbol"] + "\t" + token_value_df["destination_readable_name"]
     )
-
-    _render_component_token_safe_price_and_backing(token_value_df)
+    profile_function(_render_component_token_safe_price_and_backing, token_value_df)
+    # _render_component_token_safe_price_and_backing(token_value_df)
 
 
 if __name__ == "__main__":
-    fetch_and_render_asset_discounts(BASE_USD)
+    # profile_function(fetch_and_render_asset_discounts, AUTO_USD)
+    fetch_and_render_asset_discounts(AUTO_USD)

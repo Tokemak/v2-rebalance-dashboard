@@ -91,6 +91,7 @@ AUTO_USD = AutopoolConstants(
     data_from_rebalance_plan=True,
     base_asset_symbol="USDC",
     start_display_date="4-8-2025",
+    # start_display_date="9-25-2025",
     base_asset_decimals=6,
 )
 
