@@ -2,7 +2,9 @@ import streamlit as st
 
 
 from mainnet_launch.app.ui_config_setup import config_plotly_and_streamlit, STREAMLIT_MARKDOWN_HTML
-from mainnet_launch.constants import ALL_AUTOPOOLS
+from mainnet_launch.constants import ALL_AUTOPOOLS, CURRENT_AUTOPOOLS, DEPRECATED_AUTOPOOLS, SessionState
+import datetime
+import pandas as pd
 from mainnet_launch.pages.page_functions import (
     AUTOPOOL_CONTENT_FUNCTIONS,
     PROTOCOL_CONTENT_FUNCTIONS,
@@ -17,11 +19,9 @@ CATEGORY_AUTOPOOL = "Autopool"
 def main():
 
     config_plotly_and_streamlit()
-    # update_if_needed_on_streamlit_server() # broken, takes too long for streamlit server, SSL connection dropped
 
     st.markdown(STREAMLIT_MARKDOWN_HTML, unsafe_allow_html=True)
     st.title("Autopool Diagnostics Dashboard")
-
     category = st.sidebar.radio(
         "Page type",
         [
@@ -32,6 +32,14 @@ def main():
         index=0,
     )
 
+    show_recent = st.sidebar.checkbox("Show only last 90 days", value=True)
+    if show_recent:
+        st.session_state[SessionState.RECENT_START_DATE] = pd.Timestamp(
+            datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=90)
+        ).isoformat()
+    else:
+        st.session_state[SessionState.RECENT_START_DATE] = None
+
     selected_page = None
     selected_autopool = None
 
@@ -41,8 +49,14 @@ def main():
         selected_page = st.sidebar.radio("Risk Metrics", list(RISK_METRICS_FUNCTIONS.keys()))
     elif category == CATEGORY_AUTOPOOL:
         selected_page = st.sidebar.radio("Autopool Pages", list(AUTOPOOL_CONTENT_FUNCTIONS.keys()))
-        chosen_name = st.sidebar.radio("Select Autopool", [a.name for a in ALL_AUTOPOOLS])
-        selected_autopool = {a.name: a for a in ALL_AUTOPOOLS}[chosen_name]
+        n_deprecated = len(DEPRECATED_AUTOPOOLS)
+        show_depcreated = st.sidebar.checkbox(f"Show {n_deprecated} deprecated autopools", value=False)
+        if show_depcreated:
+            chosen_name = st.sidebar.radio("Select Autopool", [a.name for a in ALL_AUTOPOOLS])
+            selected_autopool = {a.name: a for a in ALL_AUTOPOOLS if a}[chosen_name]
+        else:
+            chosen_name = st.sidebar.radio("Select Autopool", [a.name for a in CURRENT_AUTOPOOLS])
+            selected_autopool = {a.name: a for a in CURRENT_AUTOPOOLS if a}[chosen_name]
 
     if selected_page:
         if category == CATEGORY_PROTOCOL:

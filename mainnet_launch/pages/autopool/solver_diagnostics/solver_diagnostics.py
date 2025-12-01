@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-from datetime import datetime, timezone
+import datetime
 
 import plotly.express as px
 from mainnet_launch.constants import AutopoolConstants
@@ -58,9 +58,13 @@ def _load_actual_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFram
                 (Transactions.block == Blocks.block) & (Transactions.chain_id == Blocks.chain_id),
             ),
         ],
-        where_clause=(RebalanceEvents.autopool_vault_address == autopool.autopool_eth_addr),
+        where_clause=(RebalanceEvents.autopool_vault_address == autopool.autopool_eth_addr)
+        & (Blocks.datetime >= autopool.get_display_date()),
         order_by=Blocks.datetime,
     )
+    if actual_rebalance_events_df.empty:
+        return actual_rebalance_events_df
+
     actual_rebalance_events_df["latency"] = (
         (actual_rebalance_events_df["datetime"] - actual_rebalance_events_df["datetime_generated"]).dt.total_seconds()
     ) / 60
@@ -91,7 +95,8 @@ def _load_dex_swap_steps_df(autopool: AutopoolConstants) -> pd.DataFrame:
                 (Transactions.block == Blocks.block) & (Transactions.chain_id == Blocks.chain_id),
             ),
         ],
-        where_clause=(RebalanceEvents.autopool_vault_address == autopool.autopool_eth_addr),
+        where_clause=(RebalanceEvents.autopool_vault_address == autopool.autopool_eth_addr)
+        & (Blocks.datetime >= autopool.get_display_date()),
         order_by=Blocks.datetime,
     )
     return dex_swap_steps_df
@@ -117,7 +122,7 @@ def _render_time_since_rebalance_plan_and_events(autopool: AutopoolConstants):
         else:
             return f"{secs}s ago"
 
-    now = datetime.now(timezone.utc)
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
     col1, col2 = st.columns(2)
 
     col1.metric(
@@ -137,10 +142,38 @@ def fetch_and_render_solver_diagnostics_data(autopool: AutopoolConstants):
     actual_rebalance_events_df = _load_actual_rebalance_events_df(autopool)
     dex_swap_steps_df = _load_dex_swap_steps_df(autopool)
     proposed_rebalances_df = get_full_table_as_df(
-        RebalancePlans, where_clause=RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr
+        RebalancePlans,
+        where_clause=(RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr)
+        & (RebalancePlans.datetime_generated >= autopool.get_display_date()),
     ).sort_values("datetime_generated")
 
     st.header(f"Solver Diagnostics for {autopool.name}")
+
+    if proposed_rebalances_df.empty:
+        st.warning(
+            f"No recent rebalance plans found for the {autopool.name} autopool. Likely because no plans were generated in the past 90 days."
+        )
+        return
+
+    else:
+        proposed_rebalances_df["hoursBetween"] = (
+            proposed_rebalances_df["datetime_generated"].diff().dt.total_seconds()
+        ) / 3600
+        st.plotly_chart(
+            px.scatter(
+                y=proposed_rebalances_df["hoursBetween"],
+                x=proposed_rebalances_df["datetime_generated"],
+                title="Hours Between Rebalance Plans Generated",
+                labels={"x": "Rebalances", "y": "Hours"},
+            )
+        )
+
+    if actual_rebalance_events_df.empty:
+        st.warning(
+            f"No recent rebalance events found for the {autopool.name} autopool. Likely because no rebalances were executed in the past 90 days."
+        )
+        return
+
     _render_time_since_rebalance_plan_and_events(autopool)
 
     render_dex_win_by_steps(dex_swap_steps_df)  # dex win count, by step
@@ -162,18 +195,6 @@ def fetch_and_render_solver_diagnostics_data(autopool: AutopoolConstants):
             y=actual_rebalance_events_df["hoursBetween"],
             x=actual_rebalance_events_df["datetime"],
             title="Hours Between Rebalance Events",
-            labels={"x": "Rebalances", "y": "Hours"},
-        )
-    )
-
-    proposed_rebalances_df["hoursBetween"] = (
-        proposed_rebalances_df["datetime_generated"].diff().dt.total_seconds()
-    ) / 3600
-    st.plotly_chart(
-        px.scatter(
-            y=proposed_rebalances_df["hoursBetween"],
-            x=proposed_rebalances_df["datetime_generated"],
-            title="Hours Between Rebalance Plans Generated",
             labels={"x": "Rebalances", "y": "Hours"},
         )
     )
@@ -219,8 +240,19 @@ def render_dex_win_by_steps(dex_swap_steps_df: pd.DataFrame) -> pd.DataFrame:
 
 if __name__ == "__main__":
     # streamlit run mainnet_launch/pages/solver_diagnostics/solver_diagnostics.py
-    from mainnet_launch.constants import ALL_AUTOPOOLS
 
-    for autopool in ALL_AUTOPOOLS:
-        fetch_and_render_solver_diagnostics_data(autopool)
-        st.write(f"### \n\n\n")
+    from mainnet_launch.constants import *
+
+    import os
+    import datetime
+    import pandas as pd
+    import pytest
+    import streamlit as st
+
+    from mainnet_launch.constants import SessionState
+
+    st.session_state[SessionState.RECENT_START_DATE] = pd.Timestamp(
+        datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=90)
+    ).isoformat()
+
+    fetch_and_render_solver_diagnostics_data(BAL_ETH)

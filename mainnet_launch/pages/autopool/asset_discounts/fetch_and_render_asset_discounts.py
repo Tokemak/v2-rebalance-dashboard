@@ -7,9 +7,8 @@ from mainnet_launch.database.schema.full import *
 from mainnet_launch.database.postgres_operations import *
 
 
-# consider this as a view
-def _fetch_autopool_dest_token_table(autopool: AutopoolConstants) -> pd.DataFrame:
-    # can be replaced by the view
+def _fetch_autopool_destination_tokens(autopool: AutopoolConstants) -> pd.DataFrame:
+    # consider this as a view
     df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -59,7 +58,10 @@ def _fetch_token_values(
 ):
     token_value_df = merge_tables_as_df(
         selectors=[
-            TableSelector(table=DestinationTokenValues),
+            TableSelector(
+                table=DestinationTokenValues,
+                select_fields=[DestinationTokenValues.spot_price, DestinationTokenValues.destination_vault_address],
+            ),
             TableSelector(
                 table=TokenValues,
                 select_fields=[
@@ -77,6 +79,7 @@ def _fetch_token_values(
                 select_fields=[Blocks.datetime],
                 join_on=(Blocks.chain_id == TokenValues.chain_id) & (Blocks.block == TokenValues.block),
             ),
+            # I suspect that this is not needed, can do a dict map instead in python
             TableSelector(
                 table=Tokens,
                 select_fields=[Tokens.symbol],
@@ -85,7 +88,7 @@ def _fetch_token_values(
         ],
         where_clause=(TokenValues.token_address.in_(token_addresses))
         & (TokenValues.denominated_in == autopool.base_asset)
-        & (Blocks.datetime >= autopool.start_display_date)
+        & (Blocks.datetime >= autopool.get_display_date())
         & (DestinationTokenValues.destination_vault_address.in_(destination_vault_addresses)),
     )
     token_value_df["price_return"] = (
@@ -99,17 +102,6 @@ def _fetch_token_values(
 
 
 def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame):
-
-    # Balancer Aave USDC-Aave GHO (balancerV3)
-    # Balancer Aave GHO-USR (balancerV3)
-    # have tiny maybe rounding differences, not sure why, TODO
-    # might have to do with pricing as USDC instead of aUSDC?
-    # not certain
-    # figure out why later
-    # eg {-0.08380000000000054, -0.08369999999999767}
-    # {-0.03901209374906236, -0.03731156658563722}
-    # {0.010102899532167506, 0.010202928240409647}
-
     price_return_df = (
         token_value_df[["datetime", "symbol", "price_return"]]
         .drop_duplicates()
@@ -181,6 +173,7 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
     st.plotly_chart(px.line(spot_price_df, title="All Time Spot Price"), use_container_width=True)
     st.plotly_chart(px.line(safe_price_df, title="All Time Safe Price"), use_container_width=True)
     st.plotly_chart(px.line(backing_df, title="All Time Backing"), use_container_width=True)
+    pass
 
 
 def _compute_all_time_30_and_7_day_means(safe_spot_spread_df: pd.DataFrame):
@@ -224,15 +217,9 @@ def _compute_all_time_30_and_7_day_means(safe_spot_spread_df: pd.DataFrame):
     return mean_df, abs_mean_df, percentile_10_df, percentile_90_df
 
 
-def _render_underlying_token_spot_and_safe_prices(token_value_df: pd.DataFrame):
-    # TODO
-    pass
-
-
-@time_decorator
+# @time_decorator
 def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
-
-    autopool_destinations_df = _fetch_autopool_dest_token_table(autopool)
+    autopool_destinations_df = _fetch_autopool_destination_tokens(autopool)  # fast enough
 
     token_value_df = _fetch_token_values(
         autopool,
@@ -250,17 +237,19 @@ def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
     token_value_df["token_destination_readable_name"] = (
         token_value_df["symbol"] + "\t" + token_value_df["destination_readable_name"]
     )
-
+    # profile_function(_render_component_token_safe_price_and_backing, token_value_df)
     _render_component_token_safe_price_and_backing(token_value_df)
 
 
 if __name__ == "__main__":
+
     from mainnet_launch.constants import *
-    from dataclasses import replace
+    import streamlit as st
+    import datetime
 
-    # AUTO_USD = replace(AUTO_USD, start_display_date="2025-08-25")
-    # fetch_and_render_asset_discounts(AUTO_USD)
+    st.session_state[SessionState.RECENT_START_DATE] = pd.Timestamp(
+        datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=90)
+    ).isoformat()
 
-    BASE_USD = replace(BASE_USD, start_display_date="2025-08-25")
-
-    fetch_and_render_asset_discounts(BASE_USD)
+    # profile_function(fetch_and_render_asset_discounts, AUTO_USD)
+    fetch_and_render_asset_discounts(AUTO_USD)

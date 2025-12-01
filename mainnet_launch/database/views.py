@@ -172,7 +172,7 @@ def fetch_autopool_destination_state_df(autopool: AutopoolConstants) -> pd.DataF
         & (TokenValues.denominated_in == autopool.base_asset)
         & (DestinationTokenValues.denominated_in == autopool.base_asset)
         & (Tokens.chain_id == autopool.chain.chain_id)
-        & (Blocks.datetime > autopool.start_display_date),
+        & (Blocks.datetime > autopool.get_display_date()),
     )
 
     destinations_df["readable_name"] = destinations_df.apply(
@@ -274,7 +274,11 @@ def get_token_details_dict() -> tuple[dict, dict]:
 
 
 def get_incentive_token_sold_details() -> pd.DataFrame:
-    query = """SELECT
+    if st.session_state.get(SessionState.RECENT_START_DATE):
+        where_clause = f"blocks.datetime >= '{st.session_state[SessionState.RECENT_START_DATE]}'"
+    else:
+        where_clause = "1=1"
+    query = f"""SELECT
         incentive_token_swapped.tx_hash,
         incentive_token_swapped.log_index,
         incentive_token_swapped.chain_id,
@@ -302,6 +306,7 @@ def get_incentive_token_sold_details() -> pd.DataFrame:
         JOIN blocks
         ON blocks.block = transactions.block
         AND blocks.chain_id = transactions.chain_id
+        WHERE {where_clause}
     """
     df = _exec_sql_and_cache(query)
     return df

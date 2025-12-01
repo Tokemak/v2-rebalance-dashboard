@@ -44,7 +44,7 @@ def fetch_nav_per_share_and_total_nav(autopool: AutopoolConstants) -> pd.DataFra
                 join_on=(AutopoolStates.chain_id == Blocks.chain_id) & (AutopoolStates.block == Blocks.block),
             ),
         ],
-        where_clause=(Blocks.datetime > autopool.start_display_date)
+        where_clause=(Blocks.datetime > autopool.get_display_date())
         & (AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr),
         order_by=Blocks.datetime,
     )
@@ -307,7 +307,6 @@ def _render_top_level_charts(
         st.plotly_chart(price_return_fig, use_container_width=True)
 
 
-@time_decorator
 def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
     (
         nav_per_share_df,

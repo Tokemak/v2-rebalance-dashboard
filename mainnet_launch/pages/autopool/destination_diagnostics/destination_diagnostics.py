@@ -45,11 +45,10 @@ def _fetch_destination_apr_data(autopool: AutopoolConstants) -> pd.DataFrame:
                 (DestinationStates.block == Blocks.block) & (DestinationStates.chain_id == Blocks.chain_id),
             ),
         ],
-        where_clause=(AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr),
+        where_clause=(AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr)
+        & (Blocks.datetime >= autopool.get_display_date()),
         order_by=Blocks.datetime,
     )
-
-    destination_state_df = destination_state_df[destination_state_df["datetime"] >= autopool.start_display_date].copy()
 
     destination_state_df["readable_name"] = destination_state_df.apply(
         lambda row: f"{row['underlying_name']} ({row['exchange_name']})", axis=1

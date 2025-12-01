@@ -27,7 +27,7 @@ else:
     raise ValueError(f"WHICH_DATABASE environment variable set to invalid value: {which_database}")
 
 
-# tmpPostgres = urlparse(os.getenv("ADD_LINEA_USD_FORK"))
+# tmpPostgres = urlparse(os.getenv("LOCAL_MAIN_FORK_DATABASE_URL"))
 
 ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
@@ -544,6 +544,11 @@ class AutopoolWithdrawalToken(Base):
     tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"))
     token_address: Mapped[str] = mapped_column(nullable=False)
     amount: Mapped[float] = mapped_column(nullable=False)
+
+
+# NOTE:
+# owner, receiver, and sender are not certain to be EOAs
+# need to check the actual beneficiaries in the txs as needed
 
 
 class AutopoolDeposit(Base):

@@ -76,11 +76,9 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
             ),
         ],
         where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
-        & (AutopoolDestinationStates.block > autopool.block_deployed),
+        & (Blocks.datetime > autopool.get_display_date()),
         order_by=Blocks.datetime,
     )
-
-    destination_state_df = destination_state_df[destination_state_df["datetime"] >= autopool.start_display_date].copy()
 
     destination_state_df["readable_destination_name"] = destination_state_df.apply(
         lambda row: f"{row['underlying_name']} ({row['exchange_name']})", axis=1

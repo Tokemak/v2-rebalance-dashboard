@@ -1,6 +1,8 @@
 [theme]
 base="light"
 
+[logger]
+level = "error"
 
 [server]
 folderWatchBlacklist = [".git", "__pycache__", "mainnet_launch/data_fetching/rebalance_plans"]

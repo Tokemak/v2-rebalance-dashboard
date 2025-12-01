@@ -28,9 +28,12 @@ jobs:
       - name: poetry run update-prod-db
         run: poetry run slow-update-prod-db 
 
-      - name: poetry run pytest
+      - name: poetry run pytest (90 days)
         run: poetry run pytest
 
+      - name: poetry run pytest (all time)
+        run: poetry run pytest --only-render-recent-data=false
+        
       - name: Post Informational Slack Messages
         run: poetry run post-daily-slack-messages
 
