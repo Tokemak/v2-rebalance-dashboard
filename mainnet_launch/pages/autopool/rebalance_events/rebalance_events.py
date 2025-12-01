@@ -274,6 +274,10 @@ def make_expoded_box_plot(df: pd.DataFrame, col: str, resolution: str = "1W"):
 
 def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
     rebalance_df = _load_full_rebalance_event_df(autopool)
+    if rebalance_df.empty:
+        st.warning(f"No rebalance events found for {autopool.name} autopool. Likely None in prior 90 days")
+        return
+
     _render_turnover(rebalance_df, autopool)
 
     rebalance_figures = _make_rebalance_events_plots(rebalance_df)
@@ -360,6 +364,17 @@ def render_average_destination_to_destination_move_performance(rebalance_df: pd.
 
 
 def render_fetch_plan_ui(rebalance_df: pd.DataFrame, autopool: AutopoolConstants):
+    def _fetch_plan_for_tx(tx_hash: str, rebalance_df: pd.DataFrame, autopool: AutopoolConstants) -> dict:
+        s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+
+        row = rebalance_df.loc[rebalance_df["tx_hash"].str.lower() == tx_hash.lower()]
+        if row.empty:
+            raise KeyError(f"no plan for tx {tx_hash}")
+        key = row.iloc[0]["rebalance_file_path"]
+
+        resp = s3.get_object(Bucket=autopool.solver_rebalance_plans_bucket, Key=key)
+        return json.loads(resp["Body"].read())
+
     with st.form("fetch_plan_form"):
         tx = st.text_input("rebalance event transaction hash")
         submitted = st.form_submit_button("fetch plan")
@@ -374,21 +389,14 @@ def render_fetch_plan_ui(rebalance_df: pd.DataFrame, autopool: AutopoolConstants
             st.error(f"unexpected error: {e}")
 
 
-def _fetch_plan_for_tx(tx_hash: str, rebalance_df: pd.DataFrame, autopool: AutopoolConstants) -> dict:
-    s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
-
-    row = rebalance_df.loc[rebalance_df["tx_hash"].str.lower() == tx_hash.lower()]
-    if row.empty:
-        raise KeyError(f"no plan for tx {tx_hash}")
-    key = row.iloc[0]["rebalance_file_path"]
-
-    resp = s3.get_object(Bucket=autopool.solver_rebalance_plans_bucket, Key=key)
-    return json.loads(resp["Body"].read())
-
-
 if __name__ == "__main__":
     from mainnet_launch.constants import *
+    import datetime
 
-    rebalance_df = fetch_and_render_rebalance_events_data(AUTO_DOLA)
+    st.session_state[SessionState.RECENT_START_DATE] = pd.Timestamp(
+        datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=90)
+    ).isoformat()
+
+    rebalance_df = fetch_and_render_rebalance_events_data(BAL_ETH)
 
     # rebalance_df.to_csv("mainnet_launch/working_data/autoUSD_rebalance_df_swap_costs.csv")

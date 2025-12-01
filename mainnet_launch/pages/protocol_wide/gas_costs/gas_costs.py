@@ -9,7 +9,7 @@ import plotly.express as px
 import streamlit as st
 
 
-from mainnet_launch.constants import ETH_CHAIN, ChainData
+from mainnet_launch.constants import ETH_CHAIN, ChainData, SessionState
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_order_dependent.about_gas_costs.update_transactions_table_for_gas_costs import (
     fetch_tokemak_address_constants_dfs,
 )
@@ -18,6 +18,13 @@ from mainnet_launch.database.schema.full import Blocks, ChainlinkGasCosts, Trans
 
 
 def _fetch_chainlink_keeper_network_transactions(chain: ChainData, chainlink_keepers_df: pd.DataFrame) -> pd.DataFrame:
+    if st.session_state.get(SessionState.RECENT_START_DATE):
+        where_clause = (Blocks.chain_id == chain.chain_id) & (
+            Blocks.datetime >= st.session_state[SessionState.RECENT_START_DATE]
+        )
+    else:
+        where_clause = Blocks.chain_id == chain.chain_id
+
     chainlink_gas_costs_df = merge_tables_as_df(
         [
             TableSelector(ChainlinkGasCosts, select_fields=[ChainlinkGasCosts.chainlink_topic_id]),
@@ -27,7 +34,7 @@ def _fetch_chainlink_keeper_network_transactions(chain: ChainData, chainlink_kee
             ),
             TableSelector(Blocks, select_fields=Blocks.datetime, join_on=Transactions.block == Blocks.block),
         ],
-        where_clause=Blocks.chain_id == chain.chain_id,
+        where_clause=where_clause,
     )
     chainlink_gas_costs_df["gas_cost_in_eth"] = (
         chainlink_gas_costs_df["gas_cost_in_eth"] * 1.2
@@ -51,6 +58,13 @@ def _fetch_eoa_transactions(
         print(deployers_df)
         raise ValueError("Expected exactly one deployer address, found: {}".format(len(deployers_df)))
 
+    if st.session_state.get(SessionState.RECENT_START_DATE):
+        where_clause = (Blocks.chain_id == chain.chain_id) & (
+            Blocks.datetime >= st.session_state[SessionState.RECENT_START_DATE]
+        )
+    else:
+        where_clause = Blocks.chain_id == chain.chain_id
+
     address_to_name = service_accounts_df.set_index("address")["name"].to_dict()
     address_to_name[deployers_df["deployer"].values[0]] = "deployer" + " " + str(chain.chain_id)
 
@@ -67,7 +81,7 @@ def _fetch_eoa_transactions(
             ),
             TableSelector(Blocks, select_fields=Blocks.datetime, join_on=Transactions.block == Blocks.block),
         ],
-        where_clause=Blocks.chain_id == chain.chain_id,
+        where_clause=where_clause,
     )
 
     eoa_tx_df["label"] = eoa_tx_df["from_address"].map(address_to_name)
@@ -75,7 +89,6 @@ def _fetch_eoa_transactions(
     return eoa_tx_df[["datetime", "tx_hash", "label", "category", "effective_gas_price", "gas_used", "gas_cost_in_eth"]]
 
 
-@st.cache_data(ttl=60 * 5)  # 5 minutes
 def fetch_our_gas_costs_df() -> pd.DataFrame:
     dfs = []
     deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()

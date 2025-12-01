@@ -2,15 +2,21 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from mainnet_launch.database.schema.full import AutopoolFees
-from mainnet_launch.constants import ALL_AUTOPOOLS
+from mainnet_launch.database.schema.full import AutopoolFees, Blocks
+from mainnet_launch.constants import ALL_AUTOPOOLS, SessionState
 from mainnet_launch.database.postgres_operations import get_full_table_as_df_with_tx_hash
 
 # TODO once we start charging fees, include plots for the USD value of shares when minted
 
 
 def _load_fees_df() -> pd.DataFrame:
-    df = get_full_table_as_df_with_tx_hash(AutopoolFees)
+    if st.session_state.get(SessionState.RECENT_START_DATE):
+        where_clause = Blocks.datetime >= st.session_state[SessionState.RECENT_START_DATE]
+
+    else:
+        where_clause = None
+
+    df = get_full_table_as_df_with_tx_hash(AutopoolFees, where_clause=where_clause)
     autopool_name_map = {a.autopool_eth_addr: a.name for a in ALL_AUTOPOOLS}
     df["autopool_name"] = df["autopool_vault_address"].map(autopool_name_map).fillna(df["autopool_vault_address"])
     return df

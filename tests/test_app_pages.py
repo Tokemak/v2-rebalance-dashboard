@@ -19,23 +19,6 @@ from mainnet_launch.pages.autopool import AUTOPOOL_CONTENT_FUNCTIONS
 from mainnet_launch.pages.risk_metrics import RISK_METRICS_FUNCTIONS_WITH_ARGS
 
 
-os.environ.setdefault("STREAMLIT_HEADLESS", "1")
-
-
-def set_streamlit_session_state_for_tests():
-    st.session_state[SessionState.RECENT_START_DATE] = pd.Timestamp(
-        datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=90)
-    ).isoformat()
-
-
-@pytest.fixture(autouse=True)
-def _set_session_state():
-    st.session_state.clear()
-    set_streamlit_session_state_for_tests()
-    yield
-    st.session_state.clear()
-
-
 def _run_protocol_page(_fn_name: str):
     from mainnet_launch.pages.protocol_wide import PROTOCOL_CONTENT_FUNCTIONS as _fns
 
@@ -79,6 +62,7 @@ def test_autopool_pages(fn_name, kwargs):
     _run_autopool_page(**kwargs, _fn_name=fn_name)
 
 
+# naivily test only USD autopool to see the speed of each page
 def _limited_autopool_params():
     for fn_name, _ in AUTOPOOL_CONTENT_FUNCTIONS.items():
         for autopool in [AUTO_USD]:
