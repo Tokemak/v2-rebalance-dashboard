@@ -307,7 +307,6 @@ def _render_top_level_charts(
         st.plotly_chart(price_return_fig, use_container_width=True)
 
 
-@time_decorator
 def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
     (
         nav_per_share_df,

@@ -32,7 +32,7 @@ def main():
         index=0,
     )
 
-    show_recent = st.sidebar.checkbox("Show only data from the last 90 days", value=True)
+    show_recent = st.sidebar.checkbox("Show only last 90 days", value=True)
     if show_recent:
         st.session_state[SessionState.RECENT_START_DATE] = pd.Timestamp(
             datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=90)
