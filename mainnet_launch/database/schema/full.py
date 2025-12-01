@@ -546,6 +546,11 @@ class AutopoolWithdrawalToken(Base):
     amount: Mapped[float] = mapped_column(nullable=False)
 
 
+# NOTE:
+# owner, receiver, and sender are not certain to be EOAs
+# need to check the actual beneficiaries in the txs as needed
+
+
 class AutopoolDeposit(Base):
     __tablename__ = "autopool_deposits"
 

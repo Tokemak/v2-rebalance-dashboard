@@ -12,8 +12,6 @@ from mainnet_launch.database.postgres_operations import (
     merge_tables_as_df,
     TableSelector,
     get_full_table_as_df,
-    get_full_table_as_df_with_block,
-    get_full_table_as_df_with_tx_hash,
 )
 from mainnet_launch.database.schema.full import (
     RebalanceEvents,

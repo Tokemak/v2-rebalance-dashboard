@@ -58,7 +58,8 @@ def _load_actual_rebalance_events_df(autopool: AutopoolConstants) -> pd.DataFram
                 (Transactions.block == Blocks.block) & (Transactions.chain_id == Blocks.chain_id),
             ),
         ],
-        where_clause=(RebalanceEvents.autopool_vault_address == autopool.autopool_eth_addr),
+        where_clause=(RebalanceEvents.autopool_vault_address == autopool.autopool_eth_addr)
+        & (Blocks.datetime >= autopool.get_display_date()),
         order_by=Blocks.datetime,
     )
     actual_rebalance_events_df["latency"] = (
@@ -91,7 +92,8 @@ def _load_dex_swap_steps_df(autopool: AutopoolConstants) -> pd.DataFrame:
                 (Transactions.block == Blocks.block) & (Transactions.chain_id == Blocks.chain_id),
             ),
         ],
-        where_clause=(RebalanceEvents.autopool_vault_address == autopool.autopool_eth_addr),
+        where_clause=(RebalanceEvents.autopool_vault_address == autopool.autopool_eth_addr)
+        & (Blocks.datetime >= autopool.get_display_date()),
         order_by=Blocks.datetime,
     )
     return dex_swap_steps_df
@@ -137,7 +139,9 @@ def fetch_and_render_solver_diagnostics_data(autopool: AutopoolConstants):
     actual_rebalance_events_df = _load_actual_rebalance_events_df(autopool)
     dex_swap_steps_df = _load_dex_swap_steps_df(autopool)
     proposed_rebalances_df = get_full_table_as_df(
-        RebalancePlans, where_clause=RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr
+        RebalancePlans,
+        where_clause=(RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr)
+        & (RebalancePlans.datetime_generated >= autopool.get_display_date()),
     ).sort_values("datetime_generated")
 
     st.header(f"Solver Diagnostics for {autopool.name}")

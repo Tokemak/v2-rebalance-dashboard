@@ -7,6 +7,9 @@ from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
 
 from mainnet_launch.database.postgres_operations import _exec_sql_and_cache
 
+from mainnet_launch.database.postgres_operations import merge_tables_as_df, TableSelector
+from mainnet_launch.database.schema.full import AutopoolDeposit, AutopoolWithdrawal, Transactions, Blocks
+
 # TODO: not using recent dates filter yet
 
 
@@ -20,39 +23,82 @@ def fetch_and_render_autopool_deposit_and_withdrawals(autopool: AutopoolConstant
     scatter_plot_fig = _make_scatter_plot_figure(autopool, deposit_df, withdraw_df)
     st.plotly_chart(scatter_plot_fig, use_container_width=True)
 
+    with st.expander("Raw Deposit Data"):
+        st.dataframe(deposit_df)
+    with st.expander("Raw Withdrawal Data"):
+        st.dataframe(withdraw_df)
 
-def fetch_autopool_deposit_and_withdraw_events(autopool: AutopoolConstants) -> pd.DataFrame:
-    deposits_sql = f"""
-    SELECT
-        b.datetime,
-        d.assets,
-        d.shares,
-        d.tx_hash
-    FROM autopool_deposits d
-    JOIN transactions t
-      ON t.tx_hash = d.tx_hash
-    JOIN blocks b
-      ON b.block = t.block AND b.chain_id = t.chain_id
-    WHERE d.autopool_vault_address = '{autopool.autopool_eth_addr}'
-      AND d.chain_id = {autopool.chain.chain_id}
-    """
 
-    withdrawals_sql = f"""
-    SELECT
-        b.datetime,
-        w.assets,
-        w.shares,
-        w.tx_hash
-    FROM autopool_withdrawals w
-    JOIN transactions t
-      ON t.tx_hash = w.tx_hash
-    JOIN blocks b
-      ON b.block = t.block AND b.chain_id = t.chain_id
-    WHERE w.autopool_vault_address = '{autopool.autopool_eth_addr}'
-      AND w.chain_id = {autopool.chain.chain_id}
-    """
-    deposits_df = _exec_sql_and_cache(deposits_sql).set_index("datetime")
-    withdrawals_df = _exec_sql_and_cache(withdrawals_sql).set_index("datetime")
+def fetch_autopool_deposit_and_withdraw_events(
+    autopool: AutopoolConstants,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    # --- Deposits ---
+    deposit_selectors = [
+        TableSelector(
+            AutopoolDeposit,
+            [
+                AutopoolDeposit.assets,
+                AutopoolDeposit.shares,
+                AutopoolDeposit.tx_hash,
+            ],
+        ),
+        TableSelector(
+            Transactions,
+            [Transactions.block, Transactions.chain_id],
+            join_on=(Transactions.tx_hash == AutopoolDeposit.tx_hash),
+        ),
+        TableSelector(
+            Blocks,
+            [Blocks.datetime],
+            join_on=(Transactions.block == Blocks.block) & (Transactions.chain_id == Blocks.chain_id),
+        ),
+    ]
+
+    deposit_where = (
+        (AutopoolDeposit.autopool_vault_address == autopool.autopool_eth_addr)
+        & (AutopoolDeposit.chain_id == autopool.chain.chain_id)
+        & (Blocks.datetime >= autopool.get_display_date())
+    )
+
+    deposits_df = merge_tables_as_df(
+        selectors=deposit_selectors,
+        where_clause=deposit_where,
+        order_by=Blocks.datetime,
+    ).set_index("datetime")
+
+    withdrawal_selectors = [
+        TableSelector(
+            AutopoolWithdrawal,
+            [
+                AutopoolWithdrawal.assets,
+                AutopoolWithdrawal.shares,
+                AutopoolWithdrawal.tx_hash,
+            ],
+        ),
+        TableSelector(
+            Transactions,
+            [Transactions.block, Transactions.chain_id],
+            join_on=(Transactions.tx_hash == AutopoolWithdrawal.tx_hash),
+        ),
+        TableSelector(
+            Blocks,
+            [Blocks.datetime],
+            join_on=(Transactions.block == Blocks.block) & (Transactions.chain_id == Blocks.chain_id),
+        ),
+    ]
+
+    withdrawal_where = (
+        (AutopoolWithdrawal.autopool_vault_address == autopool.autopool_eth_addr)
+        & (AutopoolWithdrawal.chain_id == autopool.chain.chain_id)
+        & (Blocks.datetime >= autopool.get_display_date())
+    )
+
+    withdrawals_df = merge_tables_as_df(
+        selectors=withdrawal_selectors,
+        where_clause=withdrawal_where,
+        order_by=Blocks.datetime,
+    ).set_index("datetime")
+
     return deposits_df, withdrawals_df
 
 
