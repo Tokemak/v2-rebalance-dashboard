@@ -32,8 +32,11 @@ jobs:
       - name: poetry run linter
         run: poetry run black --diff --check .
 
-      - name: poetry run pytest
+      - name: poetry run pytest (90 days)
         run: poetry run pytest
+
+      - name: poetry run pytest (all time)
+        run: poetry run pytest --only-render-recent-data=false
       
       - name: Post Slack Status Message
         if: ${{ always() }}
