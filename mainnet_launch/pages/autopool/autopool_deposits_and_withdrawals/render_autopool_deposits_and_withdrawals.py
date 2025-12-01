@@ -7,6 +7,8 @@ from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
 
 from mainnet_launch.database.postgres_operations import _exec_sql_and_cache
 
+# TODO: not using recent dates filter yet
+
 
 def fetch_and_render_autopool_deposit_and_withdrawals(autopool: AutopoolConstants):
     deposit_df, withdraw_df = fetch_autopool_deposit_and_withdraw_events(autopool)

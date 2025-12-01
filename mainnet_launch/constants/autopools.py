@@ -15,7 +15,7 @@ AUTO_ETH = AutopoolConstants(
     block_deployed=20722908,
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
-    start_display_date="9-14-2024",
+    _start_display_date="9-14-2024",
     base_asset_decimals=18,
 )
 
@@ -30,7 +30,7 @@ BAL_ETH = AutopoolConstants(
     block_deployed=20722909,
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
-    start_display_date="9-14-2024",
+    _start_display_date="9-14-2024",
     base_asset_decimals=18,
 )
 
@@ -45,7 +45,7 @@ AUTO_LRT = AutopoolConstants(
     block_deployed=20722910,
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
-    start_display_date="9-14-2024",
+    _start_display_date="9-14-2024",
     base_asset_decimals=18,
 )
 
@@ -60,7 +60,7 @@ BASE_ETH = AutopoolConstants(
     block_deployed=21241103,
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
-    start_display_date="11-5-2024",
+    _start_display_date="11-5-2024",
     base_asset_decimals=18,
 )
 
@@ -75,7 +75,7 @@ DINERO_ETH = AutopoolConstants(
     block_deployed=21718586,
     data_from_rebalance_plan=False,
     base_asset_symbol="ETH",
-    start_display_date="2-9-2025",
+    _start_display_date="2-9-2025",
     base_asset_decimals=18,
 )
 
@@ -90,7 +90,7 @@ AUTO_USD = AutopoolConstants(
     block_deployed=22032640,
     data_from_rebalance_plan=True,
     base_asset_symbol="USDC",
-    start_display_date="4-8-2025",
+    _start_display_date="4-8-2025",
     # start_display_date="9-25-2025",
     base_asset_decimals=6,
 )
@@ -107,7 +107,7 @@ BASE_USD = AutopoolConstants(
     block_deployed=30310652,
     data_from_rebalance_plan=True,
     base_asset_symbol="USDC",
-    start_display_date="5-16-2025",
+    _start_display_date="5-16-2025",
     base_asset_decimals=6,
 )
 
@@ -123,7 +123,7 @@ AUTO_DOLA = AutopoolConstants(
     block_deployed=22582955,
     data_from_rebalance_plan=True,
     base_asset_symbol="DOLA",
-    start_display_date="5-28-2025",
+    _start_display_date="5-28-2025",
     base_asset_decimals=18,
 )
 
@@ -139,7 +139,7 @@ SONIC_USD = AutopoolConstants(
     block_deployed=31593624,
     data_from_rebalance_plan=True,
     base_asset_symbol="USDC",
-    start_display_date="6-03-2025",  # TODO edit this date
+    _start_display_date="6-03-2025",  # TODO edit this date
     base_asset_decimals=6,
 )
 
@@ -155,7 +155,7 @@ SILO_USD = AutopoolConstants(
     block_deployed=23025070,
     data_from_rebalance_plan=True,
     base_asset_symbol="USDC",
-    start_display_date="8-20-2025",  # TODO move this date up
+    _start_display_date="8-20-2025",  # TODO move this date up
     base_asset_decimals=6,
 )
 
@@ -170,7 +170,7 @@ SILO_ETH = AutopoolConstants(
     block_deployed=23025073,
     data_from_rebalance_plan=True,
     base_asset_symbol="ETH",
-    start_display_date="8-20-2025",  # TODO move this date up
+    _start_display_date="8-20-2025",  # TODO move this date up
     base_asset_decimals=18,
 )
 
@@ -185,7 +185,7 @@ BASE_EUR = AutopoolConstants(
     block_deployed=33811934,
     data_from_rebalance_plan=True,
     base_asset_symbol="EURC",
-    start_display_date="8-19-2025",  # TODO move this date up
+    _start_display_date="8-19-2025",  # TODO move this date up
     base_asset_decimals=6,
 )
 
@@ -201,7 +201,7 @@ ARB_USD = AutopoolConstants(
     block_deployed=377406050,
     data_from_rebalance_plan=True,
     base_asset_symbol="USDC",
-    start_display_date="9-09-2025",
+    _start_display_date="9-09-2025",
     base_asset_decimals=6,
 )
 
@@ -216,7 +216,7 @@ PLASMA_USD = AutopoolConstants(
     block_deployed=1385809,
     data_from_rebalance_plan=True,
     base_asset_symbol="USDT",
-    start_display_date="09-20-2025",
+    _start_display_date="09-20-2025",
     base_asset_decimals=6,
 )
 
@@ -231,7 +231,7 @@ LINEA_USD = AutopoolConstants(
     block_deployed=24833829,
     data_from_rebalance_plan=True,
     base_asset_symbol="USDC",
-    start_display_date="10-23-2025",
+    _start_display_date="10-23-2025",
     base_asset_decimals=6,
 )
 

@@ -1,16 +1,39 @@
 """Tests that none of the pages throw errors when run. Does not check that the content is correct."""
 
 import os
+import datetime
+import pandas as pd
 import pytest
+import streamlit as st
 
+from mainnet_launch.constants import (
+    ALL_AUTOPOOLS,
+    AUTO_ETH,
+    AUTO_USD,
+    AutopoolConstants,
+    CHAIN_BASE_ASSET_GROUPS,
+    SessionState,
+)
 from mainnet_launch.pages.protocol_wide import PROTOCOL_CONTENT_FUNCTIONS
 from mainnet_launch.pages.autopool import AUTOPOOL_CONTENT_FUNCTIONS
 from mainnet_launch.pages.risk_metrics import RISK_METRICS_FUNCTIONS_WITH_ARGS
 
-from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, CHAIN_BASE_ASSET_GROUPS, AUTO_ETH, AUTO_USD
-
 
 os.environ.setdefault("STREAMLIT_HEADLESS", "1")
+
+
+def set_streamlit_session_state_for_tests():
+    st.session_state[SessionState.RECENT_START_DATE] = pd.Timestamp(
+        datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=90)
+    ).isoformat()
+
+
+@pytest.fixture(autouse=True)
+def _set_session_state():
+    st.session_state.clear()
+    set_streamlit_session_state_for_tests()
+    yield
+    st.session_state.clear()
 
 
 def _run_protocol_page(_fn_name: str):

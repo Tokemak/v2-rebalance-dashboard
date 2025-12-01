@@ -88,7 +88,7 @@ def _fetch_token_values(
         ],
         where_clause=(TokenValues.token_address.in_(token_addresses))
         & (TokenValues.denominated_in == autopool.base_asset)
-        & (Blocks.datetime >= autopool.start_display_date)
+        & (Blocks.datetime >= autopool.get_display_date())
         & (DestinationTokenValues.destination_vault_address.in_(destination_vault_addresses)),
     )
     token_value_df["price_return"] = (
@@ -101,25 +101,7 @@ def _fetch_token_values(
     return token_value_df
 
 
-# thses are the slow parts, some options, make figures in parrelel, then render
-#  st.plotly_chart(
-#    142         1          0.7      0.7     11.8          px.scatter(safe_spot_spread_df, title="All Time % 100 * (spot_price - safe) / safe"),
-#    143         1          0.0      0.0      0.0          use_container_width=True,
-#    144                                               )
-
-
-# 5 seconds,
 def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame):
-    # Balancer Aave USDC-Aave GHO (balancerV3)
-    # Balancer Aave GHO-USR (balancerV3)
-    # have tiny maybe rounding differences, not sure why, TODO
-    # might have to do with pricing as USDC instead of aUSDC?
-    # not certain
-    # figure out why later
-    # eg {-0.08380000000000054, -0.08369999999999767}
-    # {-0.03901209374906236, -0.03731156658563722}
-    # {0.010102899532167506, 0.010202928240409647}
-
     price_return_df = (
         token_value_df[["datetime", "symbol", "price_return"]]
         .drop_duplicates()
@@ -191,6 +173,7 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
     st.plotly_chart(px.line(spot_price_df, title="All Time Spot Price"), use_container_width=True)
     st.plotly_chart(px.line(safe_price_df, title="All Time Safe Price"), use_container_width=True)
     st.plotly_chart(px.line(backing_df, title="All Time Backing"), use_container_width=True)
+    pass
 
 
 def _compute_all_time_30_and_7_day_means(safe_spot_spread_df: pd.DataFrame):
@@ -234,7 +217,7 @@ def _compute_all_time_30_and_7_day_means(safe_spot_spread_df: pd.DataFrame):
     return mean_df, abs_mean_df, percentile_10_df, percentile_90_df
 
 
-@time_decorator
+# @time_decorator
 def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
     autopool_destinations_df = _fetch_autopool_destination_tokens(autopool)  # fast enough
 
@@ -254,18 +237,19 @@ def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
     token_value_df["token_destination_readable_name"] = (
         token_value_df["symbol"] + "\t" + token_value_df["destination_readable_name"]
     )
-    profile_function(_render_component_token_safe_price_and_backing, token_value_df)
-    # _render_component_token_safe_price_and_backing(token_value_df)
+    # profile_function(_render_component_token_safe_price_and_backing, token_value_df)
+    _render_component_token_safe_price_and_backing(token_value_df)
 
 
 if __name__ == "__main__":
-    # profile_function(fetch_and_render_asset_discounts, AUTO_USD)
+
     from mainnet_launch.constants import *
-    from dataclasses import replace
+    import streamlit as st
+    import datetime
 
-    # AUTO_USD = replace(AUTO_USD, start_display_date="2025-08-25")
-    # fetch_and_render_asset_discounts(AUTO_USD)
+    st.session_state[SessionState.RECENT_START_DATE] = pd.Timestamp(
+        datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=90)
+    ).isoformat()
 
-    BASE_USD = replace(BASE_USD, start_display_date="2025-08-25")
-
+    # profile_function(fetch_and_render_asset_discounts, AUTO_USD)
     fetch_and_render_asset_discounts(AUTO_USD)

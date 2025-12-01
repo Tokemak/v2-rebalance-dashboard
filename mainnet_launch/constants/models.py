@@ -6,6 +6,9 @@ from typing import cast
 import importlib
 
 from web3 import Web3
+import streamlit as st
+
+from .session_state import SessionState
 
 
 @dataclass(frozen=True)
@@ -69,7 +72,7 @@ class AutopoolConstants:
     block_deployed: int
     data_from_rebalance_plan: bool
     base_asset_symbol: str
-    start_display_date: str
+    _start_display_date: str
     base_asset_decimals: int
 
     def __post_init__(self):
@@ -85,6 +88,20 @@ class AutopoolConstants:
             raise ValueError(
                 f"{self.base_asset} must be a checksum address should be {Web3.toChecksumAddress(self.base_asset)=}"
             )
+
+    def get_display_date(self) -> str:
+        """
+        Returns a human-readable date string for when the autopool was deployed.
+        """
+        if st.session_state.get(SessionState.RECENT_START_DATE) is not None:
+            return st.session_state[SessionState.RECENT_START_DATE]
+        else:
+            return self._start_display_date
+
+    @property
+    def start_display_date(self) -> str:
+        # temporary property to prevent direct access
+        raise AttributeError("Use .get_display_date() instead of reading start_display_date directly.")
 
 
 @dataclass
@@ -115,11 +132,6 @@ class TokemakAddress:
         return getattr(self, chain.name)
 
     def __contains__(self, addr: str) -> bool:
-        """
-        Allows membership testing:
-            addr in tokemak_address
-        will be True if addr matches either self.eth or self.base (after checksumming).
-        """
         try:
             checksum_address = Web3.toChecksumAddress(addr)
         except Exception:

@@ -172,7 +172,7 @@ def fetch_autopool_destination_state_df(autopool: AutopoolConstants) -> pd.DataF
         & (TokenValues.denominated_in == autopool.base_asset)
         & (DestinationTokenValues.denominated_in == autopool.base_asset)
         & (Tokens.chain_id == autopool.chain.chain_id)
-        & (Blocks.datetime > autopool.start_display_date),
+        & (Blocks.datetime > autopool.get_display_date()),
     )
 
     destinations_df["readable_name"] = destinations_df.apply(
