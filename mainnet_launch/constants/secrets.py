@@ -20,15 +20,6 @@ ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 COINGECKO_API_KEY = environ["COINGECKO_API_KEY"]
 DEFAULT_GAS_LIMIT = 550_000_000
 
-# am I actually using these?
-TOKEMAK_SUBGRAPH_URLS = {
-    "eth": environ["TOKEMAK_ETHEREUM_SUBGRAPH_URL"],
-    "base": environ["TOKEMAK_BASE_SUBGRAPH_URL"],
-    "sonic": environ["TOKEMAK_SONIC_SUBGRAPH_URL"],
-    "arb": environ["TOKEMAK_ARBITRUM_SUBGRAPH_URL"],
-    "plasma": environ["TOKEMAK_PLASMA_SUBGRAPH_URL"],
-    "linea": environ["TOKEMAK_LINEA_SUBGRAPH_URL"],
-}
 
 BUCKETS = {
     "AUTO_ETH": environ["AUTO_ETH_BUCKET"],

@@ -12,7 +12,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
 )
 
 TOKEMAK_ADDRESSES_CONFIG_API_URL = "https://v2-config.tokemaklabs.com/api/systems"
-# TODO note this has the subgraph URLS so can be used by the autopools instead of in the .env
 
 
 def _extract_deployers_df(systems: list[dict]) -> pd.DataFrame:
@@ -57,15 +56,9 @@ def _extract_service_accounts_df(systems: list[dict]) -> pd.DataFrame:
 
 
 def fetch_tokemak_address_constants_dfs():
-    # this is missing
-    autoUSD_calls_debt_reporting = "0x1A65E4844a3AF0F1733ee9e1A474dc7DB3c396a3"
     resp = requests.get(TOKEMAK_ADDRESSES_CONFIG_API_URL)
     resp.raise_for_status()
     systems = resp.json()
-    import json
-
-    with open("systems.json", "w") as f:
-        json.dump(systems, f, indent=4)
     deployers_df = _extract_deployers_df(systems)
     chainlink_keepers_df = _extract_keepers_df(systems)
     service_accounts_df = _extract_service_accounts_df(systems)
