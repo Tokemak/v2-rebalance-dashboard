@@ -21,6 +21,10 @@ GREEN_CIRCLE = "🟢"
 YELLOW_CIRCLE = "🟡"
 
 
+class PostSlackMessageError(Exception):
+    pass
+
+
 class SlackChannel(Enum):
     TESTING = TESTING_CHANNEL_ID
     PRODUCTION = PRODUCTION_CHANNEL_ID
