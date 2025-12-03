@@ -3,7 +3,7 @@ import time
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
 
-from .secrets import ALCHEMY_URL, TOKEMAK_SUBGRAPH_URLS
+from .secrets import ALCHEMY_URL
 from .models import ChainData
 
 
@@ -21,6 +21,7 @@ plasma_client = Web3(Web3.HTTPProvider(ALCHEMY_URL.replace("eth-mainnet", "plasm
 
 linea_client = Web3(Web3.HTTPProvider(ALCHEMY_URL.replace("eth-mainnet", "linea-mainnet")))
 linea_client.middleware_onion.inject(geth_poa_middleware, layer=0)
+
 
 eth_client.eth._chain_id = lambda: 1
 base_client.eth._chain_id = lambda: 8453
@@ -75,7 +76,6 @@ ETH_CHAIN = ChainData(
     block_autopool_first_deployed=20722908,
     chain_id=1,
     start_unix_timestamp=1726365887,
-    tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["eth"],
     alchemy_network_enum="eth-mainnet",
 )
 
@@ -85,7 +85,6 @@ BASE_CHAIN = ChainData(
     block_autopool_first_deployed=21241103,
     chain_id=8453,
     start_unix_timestamp=1730591553,
-    tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["base"],
     alchemy_network_enum="base-mainnet",
 )
 
@@ -95,7 +94,6 @@ SONIC_CHAIN = ChainData(
     block_autopool_first_deployed=31593624,
     chain_id=146,
     start_unix_timestamp=1748961926,
-    tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["sonic"],
     alchemy_network_enum="sonic-mainnet",
 )
 
@@ -105,7 +103,6 @@ ARBITRUM_CHAIN = ChainData(
     block_autopool_first_deployed=377406050,
     chain_id=42161,
     start_unix_timestamp=1757439586,
-    tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["arb"],
     alchemy_network_enum="arb-mainnet",
 )
 
@@ -115,7 +112,6 @@ PLASMA_CHAIN = ChainData(
     block_autopool_first_deployed=1385809,
     chain_id=9745,
     start_unix_timestamp=1758314669,
-    tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["plasma"],
     alchemy_network_enum="plasma-mainnet",
 )
 
@@ -123,10 +119,9 @@ PLASMA_CHAIN = ChainData(
 LINEA_CHAIN = ChainData(
     name="linea",
     block_autopool_first_deployed=24833829,
-    chain_id=59144,  # not sure why it said 59140 before
+    chain_id=59144,
     start_unix_timestamp=1761230085,
-    tokemak_subgraph_url=TOKEMAK_SUBGRAPH_URLS["linea"],
-    alchemy_network_enum="linea-mainnet",  # not certain
+    alchemy_network_enum="linea-mainnet",
 )
 
 
