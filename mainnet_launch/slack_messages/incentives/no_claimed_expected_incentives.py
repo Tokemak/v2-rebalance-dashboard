@@ -137,7 +137,7 @@ def identify_suspect_destinations(
         "destination_vault_address",
     ]
 
-    if len(suspect_destinations) != len(expected_but_not_claimed):
+    if len(suspect_destinations["destination_vault_address"].drop_duplicates()) != len(expected_but_not_claimed):
         pprint(suspect_destinations)
         # note: might break on destinations that we should have claimed, but never had claimed
         raise PostSlackMessageError(

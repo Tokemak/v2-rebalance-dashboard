@@ -235,6 +235,21 @@ LINEA_USD = AutopoolConstants(
     base_asset_decimals=6,
 )
 
+ANCHRG_USD = AutopoolConstants(
+    "anchrgUSD",
+    "anchrgUSD",
+    autopool_eth_addr="0x1ABD0403591bE494771115d74ED9E120530f356E",
+    autopool_eth_strategy_addr=None,
+    solver_rebalance_plans_bucket=BUCKETS["ANCHRG_USD"],
+    chain=ETH_CHAIN,
+    base_asset=USDC(ETH_CHAIN),
+    block_deployed=23771500,
+    data_from_rebalance_plan=True,
+    base_asset_symbol="USDC",
+    _start_display_date="11-10-2025",
+    base_asset_decimals=6,
+)
+
 
 ALL_AUTOPOOLS: list[AutopoolConstants] = [
     AUTO_ETH,
@@ -252,6 +267,7 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
     ARB_USD,
     PLASMA_USD,
     LINEA_USD,
+    ANCHRG_USD,
 ]
 
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
@@ -267,6 +283,7 @@ ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [
     ARB_USD,
     PLASMA_USD,
     LINEA_USD,
+    ANCHRG_USD,
 ]
 
 DEPRECATED_AUTOPOOLS: list[AutopoolConstants] = [BAL_ETH, AUTO_LRT, DINERO_ETH, SILO_ETH]

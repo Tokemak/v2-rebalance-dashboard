@@ -37,6 +37,7 @@ BUCKETS = {
     "ARB_USD": environ["ARB_USD_BUCKET"],
     "PLASMA_USD": environ["PLASMA_USD_BUCKET"],
     "LINEA_USD": environ["LINEA_USD_BUCKET"],
+    "ANCHRG_USD": environ["ANCHRG_USD_BUCKET"],
 }
 
 ROOT_DIR = Path(__file__).parent.parent.parent.resolve()
