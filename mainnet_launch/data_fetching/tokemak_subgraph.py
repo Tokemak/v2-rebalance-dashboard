@@ -1,24 +1,17 @@
 """Helper methods to fetch data from the tokemak subgraph"""
 
-from pprint import pprint
-
 import requests
+import random
+import time
+
+
 import pandas as pd
-from mainnet_launch.constants import AutopoolConstants, SONIC_USD
 from web3 import Web3
 
-# TODO this fetches everything from 0, duplicates fetching
-# is using subgraph so not really a big issue since the subgraph is very fast and this is run once/day
 
-# TODO Fix TokenValues Root Price Oracle
-
-# conflict with autoETH oracle?
-# fix rebalance event queries
-# ask nick if we are keeping the new or old schema
-# https://subgraph.satsuma-prod.com/tokemak/v2-gen3-sonic-mainnet/playground
-
-# note: this does not do correct values for amountIn
-# for the ETH denomiated pools
+from mainnet_launch.constants import AutopoolConstants
+from mainnet_launch.database.postgres_operations import _exec_sql_and_cache
+from mainnet_launch.database.schema.full import RebalanceEvents
 
 
 class TokemakSubgraphError(Exception):
@@ -31,7 +24,6 @@ def run_query_with_paginate(
     """
     Helper to page through a GraphQL connection using `first`/`skip`.
     """
-
     all_records = []
     skip = 0
 
@@ -40,6 +32,8 @@ def run_query_with_paginate(
 
     while True:
         vars_with_pagination = {**variables, "first": batch_size, "skip": skip}
+        time.sleep(5 + random.choice([_ for _ in range(5)]))
+
         resp = requests.post(api_url, json={"query": query, "variables": vars_with_pagination})
         resp.raise_for_status()
 
@@ -60,33 +54,55 @@ def run_query_with_paginate(
     return df
 
 
-def _fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
+def _get_highest_block_of_rebalance_events_already_saved_in_database(autopool: AutopoolConstants) -> int:
+    query = f"""
+        SELECT MAX(transactions.block) AS block
+        FROM rebalance_events
+        JOIN transactions 
+        ON rebalance_events.tx_hash = transactions.tx_hash
+        WHERE rebalance_events.autopool_vault_address = '{autopool.autopool_eth_addr}'
+    """
 
-    api_url = autopool.chain.tokemak_subgraph_url
-    # if autopool == SONIC_USD:
-    #     api_url = f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet2/api"
-    # else:
-    #     api_url = f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api"
+    df = _exec_sql_and_cache(query)
+    if not df.empty and df["block"].iloc[0] is not None:
+        return int(df["block"].iloc[0])
+    else:
+        return autopool.block_deployed
+
+
+def _fetch_raw_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
+    highest_block_already_seen = _get_highest_block_of_rebalance_events_already_saved_in_database(autopool)
 
     query = """
-    query($autoEthAddress: String!, $first: Int!, $skip: Int!) {
+    query(
+      $autoEthAddress: String!
+      $first: Int!
+      $skip: Int!
+      $minBlock: BigInt!
+    ) {
       autopoolRebalances(
-        first: $first,
-        skip: $skip,
-        orderBy: id,
-        orderDirection: desc,
-        where: { autopool: $autoEthAddress }
+        first: $first
+        skip: $skip
+        orderBy: id
+        orderDirection: desc
+        where: {
+          autopool: $autoEthAddress
+          blockNumber_gt: $minBlock
+        }
       ) {
         transactionHash
         timestamp
         blockNumber
-        autopool
-        
-        tokenIn{id decimals}
+        tokenIn {
+          id
+          decimals
+        }
         destinationInAddress
         tokenInAmount
-        
-        tokenOut{id decimals }
+        tokenOut {
+          id
+          decimals
+        }
         destinationOutAddress
         tokenOutAmount
       }
@@ -94,14 +110,23 @@ def _fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) 
     """
 
     df = run_query_with_paginate(
-        api_url,
+        autopool.chain.tokemak_subgraph_url,
         query,
-        variables={"autoEthAddress": autopool.autopool_eth_addr.lower()},
+        variables={
+            "autoEthAddress": autopool.autopool_eth_addr.lower(),
+            "minBlock": highest_block_already_seen,
+        },
         data_col="autopoolRebalances",
     )
 
-    df["blockNumber"] = df["blockNumber"].astype(int)
+    return df
 
+
+def _postprocess_rebalance_events_df(autopool: AutopoolConstants, df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    df["autopool"] = autopool.autopool_eth_addr
+    df["blockNumber"] = df["blockNumber"].astype(int)
     df["tokenInAddress"] = df["tokenIn"].apply(
         lambda x: Web3.toChecksumAddress(x["id"])
     )  # these are the lp token addresses
@@ -116,59 +141,24 @@ def _fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) 
         lambda row: int(row["tokenInAmount"]) / (10 ** int(row["tokenIn"]["decimals"])), axis=1
     )
 
-    return df
-
-
-def _fetch_tx_hash_to_swap_cost_offset(autopool: AutopoolConstants) -> dict[str, int]:
-
-    metrics_query = """
-    query($first: Int!, $skip: Int!) {
-      rebalanceBetweenDestinations(
-        first: $first,
-        skip: $skip
-      ) {
-        transactionHash
-        swapOffsetPeriod
-      }
-    }
-    """
-
-    df = run_query_with_paginate(
-        f"https://subgraph.satsuma-prod.com/108d48ba91e3/tokemak/v2-gen3-{autopool.chain.name}-mainnet/api",
-        metrics_query,
-        variables={},
-        data_col="rebalanceBetweenDestinations",
-    )
-
-    if not df.empty:
-        df["swapOffsetPeriod"] = df["swapOffsetPeriod"].astype(int)
-    else:
-        df = pd.DataFrame(columns=["transactionHash", "swapOffsetPeriod"])
-
-    tx_hash_to_swap_cost_offset = df.set_index("transactionHash")["swapOffsetPeriod"].to_dict()
-    return tx_hash_to_swap_cost_offset
-
-
-def fetch_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
-
-    df = _fetch_autopool_rebalance_events_from_subgraph(autopool)
     df = df.sort_values("blockNumber")
-
     df["datetime_executed"] = pd.to_datetime(
         df["timestamp"].astype(int),
         unit="s",
         utc=True,
     )
-    # tx_hash_to_swap_cost_offset = _fetch_tx_hash_to_swap_cost_offset(autopool)
-    # df["swapOffsetPeriod"] = df["transactionHash"].map(lambda tx: tx_hash_to_swap_cost_offset.get(tx))
-    # don't care about swapOffsetPeriod
     df["swapOffsetPeriod"] = None
+    return df
 
+
+def fetch_new_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
+    df = _fetch_raw_rebalance_events_from_subgraph(autopool)
+    df = _postprocess_rebalance_events_df(autopool, df)
     return df
 
 
 if __name__ == "__main__":
     from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH, SONIC_USD, ARB_USD
 
-    df = fetch_autopool_rebalance_events_from_subgraph(ARB_USD)
+    df = fetch_new_autopool_rebalance_events_from_subgraph(ARB_USD)
     pass

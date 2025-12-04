@@ -35,7 +35,7 @@ from mainnet_launch.data_fetching.get_state_by_block import (
     safe_normalize_with_bool_success,
     safe_normalize_6_with_bool_success,
 )
-from mainnet_launch.data_fetching.tokemak_subgraph import fetch_autopool_rebalance_events_from_subgraph
+from mainnet_launch.data_fetching.tokemak_subgraph import fetch_new_autopool_rebalance_events_from_subgraph
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_transactions import (
     ensure_all_transactions_are_saved_in_db,
 )
@@ -163,15 +163,17 @@ def _load_destination_info_df(autopool: AutopoolConstants) -> pd.DataFrame:
 
 
 def _load_raw_rebalance_event_df(autopool: AutopoolConstants):
-    """Gets the data from the subgraph"""
+    """Gets the rebalance events from our subgraph and connect them to the plans"""
+    rebalance_event_df = fetch_new_autopool_rebalance_events_from_subgraph(autopool)
 
-    # TODO convert to sql, only fetch from subgraph based on where.
-    # query: get all rebalance events where the tx hash is not in (list)
+    if rebalance_event_df.empty:
+        # early exit if there are no new rebalance events
+        return rebalance_event_df
 
-    # these are dominating time costs
-    rebalance_event_df = fetch_autopool_rebalance_events_from_subgraph(autopool)
-
-    # these are dominating time costs
+    # TODO slightly optimization here because we don't need to fetch all rebalance plans every time only the plans after, 
+    # more than 1 day before the latest rebalance event 
+    # 1 day is too large of a buffer but should be fine.
+    
     rebalance_plan_df = get_full_table_as_df(
         RebalancePlans,
         where_clause=(RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr),
@@ -191,7 +193,6 @@ def _load_raw_rebalance_event_df(autopool: AutopoolConstants):
     ].copy()
 
     hash_to_plan = _connect_plans_to_rebalance_events(rebalance_event_df, rebalance_plan_df)
-
     rebalance_event_df["rebalance_file_path"] = rebalance_event_df["transactionHash"].map(hash_to_plan)
     rebalance_event_df["autopool_vault_address"] = autopool.autopool_eth_addr
     rebalance_event_df["chain_id"] = autopool.chain.chain_id
@@ -200,8 +201,7 @@ def _load_raw_rebalance_event_df(autopool: AutopoolConstants):
 
 def ensure_rebalance_events_are_current():
     for autopool in ALL_AUTOPOOLS:
-        # dominating time cost here 50 seconds
-        rebalance_event_df = _load_raw_rebalance_event_df(autopool)  # hits the subgraph
+        rebalance_event_df = _load_raw_rebalance_event_df(autopool)
 
         if rebalance_event_df.empty:
             print(autopool.name, "no new rebalance events to fetch")
@@ -407,4 +407,7 @@ def _get_spot_value_change_in_solver(
 
 
 if __name__ == "__main__":
-    ensure_rebalance_events_are_current()
+
+    from mainnet_launch.constants import *
+
+    profile_function(_load_raw_rebalance_event_df, BASE_USD)
