@@ -287,7 +287,7 @@ def ensure_destination_states_from_rebalance_plan_are_current():
         results = thread_map(
             _process_plan,
             plans_to_fetch,
-            max_workers=4,
+            max_workers=4,  # not certain here on the best number of threads, 4 works but might be able to go faster
             desc=f"Extracting Destination States from Rebalance Plans for {autopool.name}",
             unit="plan",
         )

@@ -155,8 +155,8 @@ def post_unsold_incentive_tokens(slack_channel: SlackChannel):
 
     all_days_are_non_zero = (
         (expected_tokens_to_be_sold["today_balance"] > 1e-6)
-        | (expected_tokens_to_be_sold["yesterday_balance"] > 1e-6)
-        | (expected_tokens_to_be_sold["day_before_yesterday_balance"] > 1e-6)
+        & (expected_tokens_to_be_sold["yesterday_balance"] > 1e-6)
+        & (expected_tokens_to_be_sold["day_before_yesterday_balance"] > 1e-6)
     )
 
     # required part of a true positive, 1e-6 is $.10 for BTC at 100k, can safely ignore everything less than that
