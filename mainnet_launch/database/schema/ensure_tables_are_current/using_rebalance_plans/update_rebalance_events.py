@@ -170,10 +170,10 @@ def _load_raw_rebalance_event_df(autopool: AutopoolConstants):
         # early exit if there are no new rebalance events
         return rebalance_event_df
 
-    # TODO slightly optimization here because we don't need to fetch all rebalance plans every time only the plans after, 
-    # more than 1 day before the latest rebalance event 
+    # TODO slightl optimization here because we don't need to fetch all rebalance plans every time only the plans after,
+    # more than 1 day before the latest rebalance event
     # 1 day is too large of a buffer but should be fine.
-    
+
     rebalance_plan_df = get_full_table_as_df(
         RebalancePlans,
         where_clause=(RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr),
