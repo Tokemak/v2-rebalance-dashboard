@@ -33,8 +33,10 @@ def run_query_with_paginate(
     while True:
         vars_with_pagination = {**variables, "first": batch_size, "skip": skip}
         time.sleep(5 + random.choice([_ for _ in range(5)]))
+        # Origin, https/reblance-dashboard as an outgoing request header
+        headers = {"Origin": "https://autopool-dashboard-data-fetching.com"}
 
-        resp = requests.post(api_url, json={"query": query, "variables": vars_with_pagination})
+        resp = requests.post(api_url, json={"query": query, "variables": vars_with_pagination, "headers": headers})
         resp.raise_for_status()
 
         response_json = resp.json()
@@ -161,4 +163,5 @@ if __name__ == "__main__":
     from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH, SONIC_USD, ARB_USD
 
     df = fetch_new_autopool_rebalance_events_from_subgraph(ARB_USD)
+    print(df.head())
     pass
