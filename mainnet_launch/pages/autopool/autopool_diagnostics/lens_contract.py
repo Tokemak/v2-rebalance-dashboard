@@ -12,6 +12,10 @@ from mainnet_launch.database.postgres_operations import (
     get_full_table_as_orm,
 )
 
+class LensContractError(Exception):
+    pass
+
+
 GET_POOLS_AND_DESTINATIONS_SIGNATURE = "getPoolsAndDestinations()(((address,string,string,bytes32,address,uint256,uint256,bool,bool,bool,uint8,address,address,uint256,uint256,uint256,uint256,uint256)[],(address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,bool,bool,bool,uint8,uint256,uint256,address,address,string,string,uint256,uint8,int256,(address)[],(address)[],(string)[],(uint256,uint256,int256,uint24[10],uint40)[],(uint256)[],uint256[],uint40[],uint256[])[][]))"
 
 
@@ -258,8 +262,12 @@ def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks_add
 
 
 def get_full_destination_pools_and_destinations_at_one_block(chain: ChainData, block: int) -> dict:
+    # this is failing for plasma
     calls = [get_pools_and_destinations_call(chain)]
-    return get_state_by_one_block(calls, block, chain)["getPoolsAndDestinations"]
+    data =  get_state_by_one_block(calls, block, chain)["getPoolsAndDestinations"]
+    if data is None:
+        raise LensContractError(f"{calls[0].target} LENS_CONTRACT.getPoolsAndDestinations() reverted on {block=} {chain.name=}")
+    return data
 
 
 if __name__ == "__main__":

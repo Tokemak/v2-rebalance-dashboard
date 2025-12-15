@@ -161,45 +161,45 @@ def summarize_discounts_by_reference(full_df: pd.DataFrame) -> pd.DataFrame:
 
 def post_non_trivial_depegs_slack_message(df: pd.DataFrame, slack_channel: SlackChannel):
     df = df[df["quantity"] > 0].copy()
-
-    threshold = np.where(
-        df["reference_symbol"].eq("WETH"),
-        ETH_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD,
-        STABLE_COIN_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD,
-    )
-
-    df["non_trivial_discount"] = df["percent_discount"].abs().ge(threshold) & df["percent_discount"].notna()
-
-    non_trivial_depeg_df = df[df["non_trivial_discount"]].copy()
-
-    non_trivial_depeg_df["percent_discount"] = (
-        non_trivial_depeg_df["percent_discount"].map("{:.2f}%".format).astype(str)
-    )
-    non_trivial_depeg_df["quantity"] = non_trivial_depeg_df["quantity"].map("{:.2f}".format).astype(str)
-    display_cols = [
-        "token_symbol",
-        "reference_symbol",
-        "chain_name",
-        "percent_discount",
-        "quantity",
-        "safe_price",
-        "backing",
-        "exposure_datetime",
-        "price_datetime",
-    ]
-
-    non_trivial_depeg_df["safe_price"] = non_trivial_depeg_df["safe_price"].map("{:.3f}".format).astype(str)
-    non_trivial_depeg_df["backing"] = non_trivial_depeg_df["backing"].map("{:.3f}".format).astype(str)
-    non_trivial_depeg_df["price_datetime"] = non_trivial_depeg_df["price_datetime"].dt.date.astype(str)
-    non_trivial_depeg_df["exposure_datetime"] = non_trivial_depeg_df["exposure_datetime"].dt.date.astype(str)
-
-    if not non_trivial_depeg_df.empty:
-        post_message_with_table(
-            slack_channel,
-            "All depegging assets with non-trivial discounts or premiums",
-            non_trivial_depeg_df[display_cols],
-            file_save_name="non_trivial_depegs_and_exposure.csv",
+    if not df.empty:
+        threshold = np.where(
+            df["reference_symbol"].eq("WETH"),
+            ETH_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD,
+            STABLE_COIN_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD,
         )
+
+        df["non_trivial_discount"] = df["percent_discount"].abs().ge(threshold) & df["percent_discount"].notna()
+
+        non_trivial_depeg_df = df[df["non_trivial_discount"]].copy()
+
+        non_trivial_depeg_df["percent_discount"] = (
+            non_trivial_depeg_df["percent_discount"].map("{:.2f}%".format).astype(str)
+        )
+        non_trivial_depeg_df["quantity"] = non_trivial_depeg_df["quantity"].map("{:.2f}".format).astype(str)
+        display_cols = [
+            "token_symbol",
+            "reference_symbol",
+            "chain_name",
+            "percent_discount",
+            "quantity",
+            "safe_price",
+            "backing",
+            "exposure_datetime",
+            "price_datetime",
+        ]
+
+        non_trivial_depeg_df["safe_price"] = non_trivial_depeg_df["safe_price"].map("{:.3f}".format).astype(str)
+        non_trivial_depeg_df["backing"] = non_trivial_depeg_df["backing"].map("{:.3f}".format).astype(str)
+        non_trivial_depeg_df["price_datetime"] = non_trivial_depeg_df["price_datetime"].dt.date.astype(str)
+        non_trivial_depeg_df["exposure_datetime"] = non_trivial_depeg_df["exposure_datetime"].dt.date.astype(str)
+
+        if not non_trivial_depeg_df.empty:
+            post_message_with_table(
+                slack_channel,
+                "All depegging assets with non-trivial discounts or premiums",
+                non_trivial_depeg_df[display_cols],
+                file_save_name="non_trivial_depegs_and_exposure.csv",
+            )
 
 
 def post_asset_depeg_slack_message(slack_channel: SlackChannel):
