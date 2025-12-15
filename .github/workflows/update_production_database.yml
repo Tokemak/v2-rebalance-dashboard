@@ -33,9 +33,6 @@ jobs:
 
       - name: poetry run pytest (all time)
         run: poetry run pytest --only-render-recent-data=false
-        
-      - name: Post Informational Slack Messages
-        run: poetry run post-daily-slack-messages
 
       - name: Is today Sunday? (UTC)
         id: is_sunday
@@ -48,8 +45,13 @@ jobs:
             echo "value=false" >> "$GITHUB_OUTPUT"
           fi
 
+
+      - name: Post Informational Slack Messages
+        if: ${{ always() }}
+        run: poetry run post-daily-slack-messages
+
       - name: Post Weekly Slack Messages
-        if: steps.is_sunday.outputs.value == 'true'
+        if: ${{ steps.is_sunday.outputs.value == 'true' && always() }}
         run: poetry run post-weekly-slack-messages
 
       - name: Post Slack Status Message
