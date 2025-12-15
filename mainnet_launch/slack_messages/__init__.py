@@ -19,7 +19,6 @@ def post_daily_messages(slack_channel: SlackChannel = SlackChannel.PRODUCTION):
 def post_weekly_messages(slack_channel: SlackChannel = SlackChannel.PRODUCTION):
     """Notifications that about the general state of the autopool, but don't require instant action"""
     post_destination_ownership_exposure_table(slack_channel)
-
     post_illiquid_token_holding_analysis(slack_channel)
     post_possible_new_destinations(slack_channel)
     pass
