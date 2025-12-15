@@ -109,13 +109,10 @@ def parse_destination_vault(vault_data):
 def _handle_get_pools_and_destinations(success, response):
     if success:
         autopools_data, destinations_data = response
-
         parsed_autopools = [parse_autopool(autopool) for autopool in autopools_data]
-
         parsed_destinations = [
             [parse_destination_vault(vault) for vault in destination_list] for destination_list in destinations_data
         ]
-
         return {"autopools": parsed_autopools, "destinations": parsed_destinations}
 
 
@@ -130,11 +127,11 @@ def get_pools_and_destinations_call(chain: ChainData) -> Call:
 def _extract_only_autopools_and_destinations(success, response) -> dict:
     if success:
         autopools_data, destinations_data = response
-
         autopool_vault_address = [a[0] for a in autopools_data]
         destination_vault_addresses = []
         for destinations_list in destinations_data:
             destination_vault_addresses.append([Web3.toChecksumAddress(d[0]) for d in destinations_list])
+            
         return {Web3.toChecksumAddress(a): d for a, d in zip(autopool_vault_address, destination_vault_addresses)}
 
 
