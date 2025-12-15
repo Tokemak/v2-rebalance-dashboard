@@ -12,6 +12,7 @@ from mainnet_launch.database.postgres_operations import (
     get_full_table_as_orm,
 )
 
+
 class LensContractError(Exception):
     pass
 
@@ -131,7 +132,7 @@ def _extract_only_autopools_and_destinations(success, response) -> dict:
         destination_vault_addresses = []
         for destinations_list in destinations_data:
             destination_vault_addresses.append([Web3.toChecksumAddress(d[0]) for d in destinations_list])
-            
+
         return {Web3.toChecksumAddress(a): d for a, d in zip(autopool_vault_address, destination_vault_addresses)}
 
 
@@ -261,9 +262,11 @@ def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks_add
 def get_full_destination_pools_and_destinations_at_one_block(chain: ChainData, block: int) -> dict:
     # this is failing for plasma
     calls = [get_pools_and_destinations_call(chain)]
-    data =  get_state_by_one_block(calls, block, chain)["getPoolsAndDestinations"]
+    data = get_state_by_one_block(calls, block, chain)["getPoolsAndDestinations"]
     if data is None:
-        raise LensContractError(f"{calls[0].target} LENS_CONTRACT.getPoolsAndDestinations() reverted on {block=} {chain.name=}")
+        raise LensContractError(
+            f"{calls[0].target} LENS_CONTRACT.getPoolsAndDestinations() reverted on {block=} {chain.name=}"
+        )
     return data
 
 

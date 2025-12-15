@@ -18,6 +18,10 @@ ETH_DEPEG_OR_PREMIUM_PERCENT_THRESHOLD = 0.25
 # TODO consider making them line up exactly
 
 
+class NoAssetAllocationFound(Exception):
+    pass
+
+
 def _fetch_latest_token_prices() -> pd.DataFrame:
     two_days_ago = pd.Timestamp.now() - pd.Timedelta(days=1)
     query = f"""
@@ -83,6 +87,11 @@ def _fetch_latest_asset_exposure() -> pd.DataFrame:
         ae.block DESC, ae.quote_batch DESC;
     """
     df = _exec_sql_and_cache(query)
+    if df.empty:
+        raise NoAssetAllocationFound(
+            f"""No asset allocation found on database within {two_days_ago}
+                                      Likely because `poetry run fetch-exit-liqudity-quotes` did not run successfully"""
+        )
     return df
 
 
@@ -204,6 +213,7 @@ def post_non_trivial_depegs_slack_message(df: pd.DataFrame, slack_channel: Slack
 
 def post_asset_depeg_slack_message(slack_channel: SlackChannel):
     df = fetch_recent_prices_and_exposure()
+
     post_non_trivial_depegs_slack_message(df, slack_channel)
 
 
