@@ -5,13 +5,13 @@ from mainnet_launch.slack_messages import post_daily_messages, post_weekly_messa
 def test_daily_slack_messages(capsys):
     post_daily_messages(SlackChannel.CI)
     out = capsys.readouterr().out
-    assert "[CI SLACK MESSAGE]" in out
+    assert ("[CI SLACK MESSAGE]" in out) and ("raised Exception" not in out)
 
 
 def test_weekly_slack_messages(capsys):
     post_weekly_messages(SlackChannel.CI)
     out = capsys.readouterr().out
-    assert "[CI SLACK MESSAGE]" in out
+    assert ("[CI SLACK MESSAGE]" in out) and ("raised Exception" not in out)
 
 
 if __name__ == "__main__":

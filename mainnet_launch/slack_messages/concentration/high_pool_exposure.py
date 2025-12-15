@@ -5,7 +5,7 @@ Aggregation is by pool instead of destination vault, because if we have multiple
 """
 
 import pandas as pd
-from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, ALL_CHAINS
+from mainnet_launch.constants import ChainData, ALL_AUTOPOOLS, ALL_CHAINS, PLASMA_CHAIN
 from mainnet_launch.database.postgres_operations import get_full_table_as_df
 from mainnet_launch.database.schema.full import Destinations, AutopoolDestinations
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.order_dependent.update_destinations_states_table import (
@@ -20,7 +20,7 @@ def _fetch_rich_tvl_by_destination(
     chain: ChainData, destinations: pd.DataFrame, autopool_destinations: pd.DataFrame
 ) -> pd.DataFrame:
     block = chain.get_block_near_top()
-    our_tvl_by_destination_df = fetch_readable_our_tvl_by_destination(chain, block).copy()
+    our_tvl_by_destination_df = fetch_readable_our_tvl_by_destination(chain, block)
     if our_tvl_by_destination_df.empty:
         columns = [
             "destination_vault_address",

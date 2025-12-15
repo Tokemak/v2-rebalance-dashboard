@@ -12,6 +12,11 @@ from mainnet_launch.database.postgres_operations import (
     get_full_table_as_orm,
 )
 
+
+class LensContractError(Exception):
+    pass
+
+
 GET_POOLS_AND_DESTINATIONS_SIGNATURE = "getPoolsAndDestinations()(((address,string,string,bytes32,address,uint256,uint256,bool,bool,bool,uint8,address,address,uint256,uint256,uint256,uint256,uint256)[],(address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,bool,bool,bool,uint8,uint256,uint256,address,address,string,string,uint256,uint8,int256,(address)[],(address)[],(string)[],(uint256,uint256,int256,uint24[10],uint40)[],(uint256)[],uint256[],uint40[],uint256[])[][]))"
 
 
@@ -105,13 +110,10 @@ def parse_destination_vault(vault_data):
 def _handle_get_pools_and_destinations(success, response):
     if success:
         autopools_data, destinations_data = response
-
         parsed_autopools = [parse_autopool(autopool) for autopool in autopools_data]
-
         parsed_destinations = [
             [parse_destination_vault(vault) for vault in destination_list] for destination_list in destinations_data
         ]
-
         return {"autopools": parsed_autopools, "destinations": parsed_destinations}
 
 
@@ -126,11 +128,11 @@ def get_pools_and_destinations_call(chain: ChainData) -> Call:
 def _extract_only_autopools_and_destinations(success, response) -> dict:
     if success:
         autopools_data, destinations_data = response
-
         autopool_vault_address = [a[0] for a in autopools_data]
         destination_vault_addresses = []
         for destinations_list in destinations_data:
             destination_vault_addresses.append([Web3.toChecksumAddress(d[0]) for d in destinations_list])
+
         return {Web3.toChecksumAddress(a): d for a, d in zip(autopool_vault_address, destination_vault_addresses)}
 
 
@@ -258,8 +260,14 @@ def fetch_autopool_to_active_destinations_over_this_period_of_missing_blocks_add
 
 
 def get_full_destination_pools_and_destinations_at_one_block(chain: ChainData, block: int) -> dict:
+    # this is failing for plasma
     calls = [get_pools_and_destinations_call(chain)]
-    return get_state_by_one_block(calls, block, chain)["getPoolsAndDestinations"]
+    data = get_state_by_one_block(calls, block, chain)["getPoolsAndDestinations"]
+    if data is None:
+        raise LensContractError(
+            f"{calls[0].target} LENS_CONTRACT.getPoolsAndDestinations() reverted on {block=} {chain.name=}"
+        )
+    return data
 
 
 if __name__ == "__main__":
