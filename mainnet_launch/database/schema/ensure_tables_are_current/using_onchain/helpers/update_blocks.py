@@ -1,3 +1,18 @@
+"""
+Block-by-Timestamp Implementation
+
+This module provides functionality to find blockchain blocks by timestamp.
+It uses Etherscan's API as the primary source, with DeFi Llama as a fallback.
+
+IMPORTANT: This module does NOT use Alchemy's "Blocks by Timestamp" endpoint, which was
+deprecated on December 15, 2025. We use Etherscan's Block Number by Timestamp API instead,
+which Alchemy recommended as the direct replacement.
+
+APIs Used:
+- Primary: Etherscan Block Number by Timestamp (https://docs.etherscan.io/api-endpoints/blocks)
+- Fallback: DeFi Llama Blocks API (https://defillama.com/docs/api)
+"""
+
 from datetime import datetime, timedelta, timezone
 import threading
 import time
@@ -14,21 +29,6 @@ from mainnet_launch.database.postgres_operations import (
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, build_blocks_to_use
 
 from mainnet_launch.constants import *
-
-"""
-Block-by-Timestamp Implementation
-
-This module provides functionality to find blockchain blocks by timestamp.
-It uses Etherscan's API as the primary source, with DeFi Llama as a fallback.
-
-IMPORTANT: This module does NOT use Alchemy's "Blocks by Timestamp" endpoint, which was
-deprecated on December 15, 2025. We use Etherscan's Block Number by Timestamp API instead,
-which Alchemy recommended as the direct replacement.
-
-APIs Used:
-- Primary: Etherscan Block Number by Timestamp (https://docs.etherscan.io/api-endpoints/blocks)
-- Fallback: DeFi Llama Blocks API (https://defillama.com/docs/api)
-"""
 
 # TODO convert this to use the 3rd party data fetching
 
