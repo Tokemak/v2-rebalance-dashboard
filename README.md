@@ -1,53 +1,63 @@
-# File Structure
+# Tokemak V2 Rebalance Dashboard
 
-.env_example
-Stub of .env file. There are some defaults there for the rate limiting and latency
+Streamlit dashboards for monitoring Tokemak V2 Autopools, protocol health, and marketing views. The project ingests onchain and offchain data, stores it in Postgres/SQLite, and renders interactive diagnostics used by the operations and marketing teams.
 
-.env 
-Holds config details and API Keys
+## Repository layout
+- `mainnet_launch/` – Python package that backs the dashboards  
+  - `app/` – Streamlit entrypoints (`poetry run app`, `poetry run marketing-app`) and helpers for exporting Streamlit secrets  
+  - `pages/` – Page renderers grouped into Autopool, Protocol-wide, and Risk Metrics sections  
+  - `data_fetching/` – Onchain/API data collectors, multicall helpers, and rebalance plan utilities  
+  - `database/` – Schema definitions, migrations, and helpers for keeping the analytics database current  
+  - `constants/` – Autopool definitions, addresses, chain metadata, and shared helpers  
+  - `abis/` – Contract ABIs used by the fetchers  
+  - `slack_messages/` – Slack notifications used for alerts and status updates  
+  - `adhoc/` – One-off analysis scripts
+- `tests/` – Pytest suites that smoke-test the pages, slack notifications, and data-fetching utilities
+- `.streamlit/config.toml` – Local Streamlit configuration
+- `.env_example` – Template for required environment variables
 
+## Prerequisites
+- Python 3.10
+- [Poetry](https://python-poetry.org/) for dependency management
+- Access to the required RPC endpoints, database URLs, storage buckets, and API keys (see `.env_example`)
 
-mainnet_launch/
+## Setup
+1. Install dependencies:
+   ```bash
+   poetry install
+   ```
+2. Create a `.env` from `.env_example` and fill in:
+   - `WHICH_ALCHEMY_URL` and the corresponding RPC URLs
+   - `MAIN_DATABASE_URL`/`MAIN_READ_REPLICA_DATABASE_URL` (or other database targets)
+   - Storage bucket names for each autopool
+   - API keys such as `ETHERSCAN_API_KEY` and `COINGECKO_API_KEY`
+   - Slack webhook/token settings for notifications
+3. Generate Streamlit secrets for local runs (optional):
+   ```bash
+   poetry run export-config
+   ```
+   This writes `working_data/streamlit_config_secrets.toml` based on your `.env`.
 
-├── abis
+## Running the dashboards
+- Autopool & protocol diagnostics:
+  ```bash
+  poetry run app  # runs mainnet_launch/app/main.py via streamlit
+  ```
+- Marketing dashboards:
+  ```bash
+  poetry run marketing-app
+  ```
+Pass Streamlit flags (e.g., `--server.port 8501`) after the command if needed.
 
-Holds ABI jsons, constants and helper methods for using abi function signatures with mulitcall.py
+### Useful scripts
+The following Poetry scripts are available (see `pyproject.toml`):
+- `update-prod-db` / `slow-update-prod-db` – keep the analytics database schema and data current
+- `fetch-exit-liqudity-quotes` – pull exit liquidity quotes for held assets
+- `slack-alert`, `post-daily-slack-messages`, `post-weekly-slack-messages` – Slack notifications
 
-├── app
-
-The main app of the dashboard. Has configuation details and a startup script.
-
-├── constants.py
-
-Onchain addresses and app relatated constants (paths, api keys, etc)
-
-
-├── database
-
-The .db files themselves and methods to read and write processed event and onchain data using sqlite.
-
-
-├── data_fetching
-
-Methods to quickly fetch contract events and onchain function calls.
-
-
-├── destinations.py
-
-Defines what a "Destination" is and how to get all destinations deployed since launch. This is relevant because one set of Dex / Staking contract can be used by multiple Autopools. Also destinations are occasioanlly updated and this lets them be stiched together on the UI. Eg if a destination calculator is upgraded we still want to think of that as the same destination even though one of the contracts is different. 
-
-
-├── pages
-
-Each subfolder here is a seperate tab. In general I'm trying to keep the logic for each tab in a seperate folder. However there is still some overlap.
-
-For example:
-
-The Destination Diagnostics tab uses data from the `getDestinationSummaryStats()` call but that data is fetched and stored in the Autopool Diagnostics tab because it is primarily used by charts in that tab. 
-
-
-tests/
-
-test_pages.py
-
-Go though each page and autopool in the UI and ensures that it can run without error. Run this with `$ poetry run test-pages`
+## Testing
+Run the test suite:
+```bash
+poetry run pytest
+```
+By default, marketing and speed tests are skipped; include them with `-m marketing` or `-m speed` when needed.
