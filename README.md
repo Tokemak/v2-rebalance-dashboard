@@ -52,7 +52,7 @@ Pass Streamlit flags (e.g., `--server.port 8501`) after the command if needed.
 ### Useful scripts
 The following Poetry scripts are available (see `pyproject.toml`):
 - `update-prod-db` / `slow-update-prod-db` – keep the analytics database schema and data current
-- `fetch-exit-liqudity-quotes` – pull exit liquidity quotes for held assets
+- `fetch-exit-liquidity-quotes` – pull exit liquidity quotes for held assets
 - `slack-alert`, `post-daily-slack-messages`, `post-weekly-slack-messages` – Slack notifications
 
 ## Testing
