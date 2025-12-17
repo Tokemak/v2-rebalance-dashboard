@@ -1,6 +1,6 @@
 # Tokemak V2 Rebalance Dashboard
 
-Streamlit dashboards for monitoring Tokemak V2 Autopools, protocol health, and marketing views. The project ingests onchain and offchain data, stores it in a Neon Postgres database (with local SQLite when needed), and renders dashboards describing past Autopool behavior for the operations and marketing teams.
+Streamlit dashboards for monitoring Tokemak V2 Autopools, protocol health, and marketing views. The project ingests onchain and offchain data, stores it in a Neon Postgres database, and renders dashboards describing past Autopool behavior for the operations and marketing teams.
 
 ## Repository layout
 - `mainnet_launch/` – Python package that backs the dashboards  
