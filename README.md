@@ -1,6 +1,6 @@
 # Tokemak V2 Rebalance Dashboard
 
-Streamlit dashboards for monitoring Tokemak V2 Autopools, protocol health, and marketing views. The project ingests onchain and offchain data, stores it in Postgres/SQLite, and renders interactive diagnostics used by the operations and marketing teams.
+Streamlit dashboards for monitoring Tokemak V2 Autopools, protocol health, and marketing views. The project ingests onchain and offchain data, stores it in a Neon Postgres database (with local SQLite when needed), and renders dashboards describing past Autopool behavior for the operations and marketing teams.
 
 ## Repository layout
 - `mainnet_launch/` – Python package that backs the dashboards  
@@ -47,7 +47,6 @@ Streamlit dashboards for monitoring Tokemak V2 Autopools, protocol health, and m
   ```bash
   poetry run marketing-app
   ```
-Pass Streamlit flags (e.g., `--server.port 8501`) after the command if needed.
 
 ### Useful scripts
 The following Poetry scripts are available (see `pyproject.toml`):
@@ -60,4 +59,8 @@ Run the test suite:
 ```bash
 poetry run pytest
 ```
-By default, marketing and speed tests are skipped; include them with `-m marketing` or `-m speed` when needed.
+By default, marketing and speed tests are skipped by `addopts`. To run them, clear that setting and target the marker, for example:
+```bash
+PYTEST_ADDOPTS="" poetry run pytest -m marketing
+PYTEST_ADDOPTS="" poetry run pytest -m speed
+```
