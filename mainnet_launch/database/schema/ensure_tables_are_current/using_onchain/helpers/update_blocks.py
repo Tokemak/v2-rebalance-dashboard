@@ -15,6 +15,21 @@ from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blo
 
 from mainnet_launch.constants import *
 
+"""
+Block-by-Timestamp Implementation
+
+This module provides functionality to find blockchain blocks by timestamp.
+It uses Etherscan's API as the primary source, with DeFi Llama as a fallback.
+
+IMPORTANT: This module does NOT use Alchemy's "Blocks by Timestamp" endpoint, which was
+deprecated on December 15, 2025. We use Etherscan's Block Number by Timestamp API instead,
+which Alchemy recommended as the direct replacement.
+
+APIs Used:
+- Primary: Etherscan Block Number by Timestamp (https://docs.etherscan.io/api-endpoints/blocks)
+- Fallback: DeFi Llama Blocks API (https://defillama.com/docs/api)
+"""
+
 # TODO convert this to use the 3rd party data fetching
 
 CHAIN_TO_DEFI_LLAMA_SLUG = {
@@ -104,8 +119,24 @@ _etherscan_semaphore = threading.BoundedSemaphore(4)
 
 def get_block_by_timestamp_etherscan(unix_timestamp: int, chain: ChainData, closest: str) -> int:
     """
-    Fetch the first block after the given UNIX timestamp
-    using Etherscan's getblocknobytime endpoint.
+    Fetch the block closest to a given UNIX timestamp using Etherscan's getblocknobytime endpoint.
+    
+    This uses Etherscan's Block Number by Timestamp API as the primary source, which is the
+    recommended alternative to Alchemy's deprecated "Blocks by Timestamp" endpoint.
+    
+    Falls back to DeFi Llama if Etherscan fails.
+    
+    Args:
+        unix_timestamp: The UNIX timestamp to query
+        chain: The blockchain to query
+        closest: Either "before" or "after" - which block to return relative to timestamp
+        
+    Returns:
+        The block number closest to the given timestamp
+        
+    References:
+        - Etherscan API: https://docs.etherscan.io/api-endpoints/blocks#get-block-number-by-timestamp
+        - Alchemy deprecation notice (Dec 15, 2025): Blocks by Timestamp endpoint deprecated
     """
     with _etherscan_semaphore:
         params = {
@@ -139,8 +170,25 @@ def get_block_by_timestamp_etherscan(unix_timestamp: int, chain: ChainData, clos
 def get_block_by_timestamp_defi_llama(unix_timestamp: int, chain: ChainData, closest: str) -> int:
     """
     Fetch the block closest to the given UNIX timestamp using DeFi Llama.
-    If `closest=="before"`, returns the block at or immediately before the timestamp.
-    If `closest=="after"`, returns one greater than that block (i.e. the next block).
+    
+    This serves as a fallback when Etherscan's API fails. DeFi Llama provides reliable
+    block-by-timestamp data across multiple chains.
+    
+    Args:
+        unix_timestamp: The UNIX timestamp to query
+        chain: The blockchain to query
+        closest: Either "before" or "after" - which block to return relative to timestamp
+        
+    Returns:
+        The block number closest to the given timestamp
+        
+    Note:
+        - If `closest=="before"`, returns the block at or immediately before the timestamp
+        - If `closest=="after"`, returns one greater than that block (i.e. the next block)
+        - DeFi Llama always returns the block ≤ timestamp, so we add 1 for "after" semantics
+        
+    References:
+        - DeFi Llama Blocks API: https://defillama.com/docs/api
     """
     chain_slug = CHAIN_TO_DEFI_LLAMA_SLUG[chain]
     url = f"https://coins.llama.fi/block/{chain_slug}/{unix_timestamp}"
