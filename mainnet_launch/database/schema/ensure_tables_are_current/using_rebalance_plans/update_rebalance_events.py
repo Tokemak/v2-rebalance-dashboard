@@ -51,8 +51,9 @@ from mainnet_launch.database.schema.full import AutopoolDestinations, Destinatio
 
 from mainnet_launch.slack_messages.post_message import post_slack_message, SlackChannel
 
-# could you instead use? looking at the diff in destination vault total supply?
-# assumes that there cannot be two rebalances in the same block
+
+class UpdateRebalanceEventsTableError(Exception):
+    pass
 
 
 def _build_get_spot_price_in_eth_calls(chain: ChainData, destination_address_info_df: pd.DataFrame) -> list[Call]:
@@ -221,6 +222,14 @@ def ensure_rebalance_events_are_current():
         new_rebalance_event_rows = add_lp_token_safe_and_spot_prices(rebalance_event_df, autopool)
         new_autopool_state_rows = _fetch_new_autopool_state_rows(autopool, [int(b) for b in transaction_df["block"]])
 
+        for rebalance_event in RebalanceEvents:
+            # note monkey patch when updating database switch to making the column not nullable
+            # todo drop all rows where rebalance file path is None
+            if rebalance_event.rebalance_file_path is None:
+                raise UpdateRebalanceEventsTableError(
+                    f"Could not identify rebalance plan for rebalance event {rebalance_event.tx_hash=} for {autopool.name}"
+                )
+
         insert_avoid_conflicts(new_autopool_state_rows, AutopoolStates)
         insert_avoid_conflicts(new_rebalance_event_rows, RebalanceEvents)
 
@@ -261,11 +270,13 @@ def add_lp_token_safe_and_spot_prices(
                 tx_hash=rebalance_event_row["transactionHash"],
                 autopool_vault_address=rebalance_event_row["autopool_vault_address"],
                 chain_id=int(rebalance_event_row["chain_id"]),
-                rebalance_file_path=rebalance_event_row["rebalance_file_path"],
+                rebalance_file_path=rebalance_event_row["rebalance_file_path"],  # TODO should not be nullable
                 destination_out=rebalance_event_row["destinationOutAddress"],
                 destination_in=rebalance_event_row["destinationInAddress"],
                 quantity_out=float(rebalance_event_row["tokenOutAmount"]),  # not certain this is correct
-                quantity_in=float(rebalance_event_row["tokenInAmount"]),  # not certain this is correct, is wrong
+                quantity_in=float(
+                    rebalance_event_row["tokenInAmount"]
+                ),  # not accurate, see issue with getting better than expected prices
                 safe_value_out=safe_value_out,
                 safe_value_in=safe_value_in,
                 spot_value_out=spot_value_out,

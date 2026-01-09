@@ -320,7 +320,7 @@ def fetch_and_render_rebalance_events_data(autopool: AutopoolConstants):
         use_container_width=True,
     )
 
-    render_fetch_plan_ui(rebalance_df, autopool)
+    # render_fetch_plan_ui(rebalance_df, autopool)
 
     with st.expander("All Rebalance Events"):
         st.download_button(
@@ -363,30 +363,31 @@ def render_average_destination_to_destination_move_performance(rebalance_df: pd.
     )
 
 
-def render_fetch_plan_ui(rebalance_df: pd.DataFrame, autopool: AutopoolConstants):
-    def _fetch_plan_for_tx(tx_hash: str, rebalance_df: pd.DataFrame, autopool: AutopoolConstants) -> dict:
-        s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+# not used in 6 months, add back if anyone wants it
+# def render_fetch_plan_ui(rebalance_df: pd.DataFrame, autopool: AutopoolConstants):
+#     def _fetch_plan_for_tx(tx_hash: str, rebalance_df: pd.DataFrame, autopool: AutopoolConstants) -> dict:
+#         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
 
-        row = rebalance_df.loc[rebalance_df["tx_hash"].str.lower() == tx_hash.lower()]
-        if row.empty:
-            raise KeyError(f"no plan for tx {tx_hash}")
-        key = row.iloc[0]["rebalance_file_path"]
+#         row = rebalance_df.loc[rebalance_df["tx_hash"].str.lower() == tx_hash.lower()]
+#         if row.empty:
+#             raise KeyError(f"no plan for tx {tx_hash}")
+#         key = row.iloc[0]["rebalance_file_path"]
+# note: known problem here with autoETH having 2 buckets, can't use unadapted
+#         resp = s3.get_object(Bucket=autopool.<bucket here>, Key=key)
+#         return json.loads(resp["Body"].read())
 
-        resp = s3.get_object(Bucket=autopool.solver_rebalance_plans_bucket, Key=key)
-        return json.loads(resp["Body"].read())
-
-    with st.form("fetch_plan_form"):
-        tx = st.text_input("rebalance event transaction hash")
-        submitted = st.form_submit_button("fetch plan")
-    if submitted:
-        try:
-            with st.spinner("fetching plan..."):
-                plan = _fetch_plan_for_tx(tx.strip(), rebalance_df, autopool)
-            st.json(plan)
-        except KeyError:
-            st.error(f"no plan found for tx {tx}")
-        except Exception as e:
-            st.error(f"unexpected error: {e}")
+#     with st.form("fetch_plan_form"):
+#         tx = st.text_input("rebalance event transaction hash")
+#         submitted = st.form_submit_button("fetch plan")
+#     if submitted:
+#         try:
+#             with st.spinner("fetching plan..."):
+#                 plan = _fetch_plan_for_tx(tx.strip(), rebalance_df, autopool)
+#             st.json(plan)
+#         except KeyError:
+#             st.error(f"no plan found for tx {tx}")
+#         except Exception as e:
+#             st.error(f"unexpected error: {e}")
 
 
 if __name__ == "__main__":
@@ -397,6 +398,6 @@ if __name__ == "__main__":
         datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=90)
     ).isoformat()
 
-    rebalance_df = fetch_and_render_rebalance_events_data(BAL_ETH)
+    rebalance_df = fetch_and_render_rebalance_events_data(AUTO_ETH)
 
     # rebalance_df.to_csv("mainnet_launch/working_data/autoUSD_rebalance_df_swap_costs.csv")

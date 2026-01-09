@@ -15,19 +15,19 @@ import uuid
 load_dotenv()
 
 
-which_database = os.getenv("WHICH_DATABASE")
+# which_database = os.getenv("WHICH_DATABASE")
 
-if which_database is None:
-    raise ValueError("WHICH_DATABASE environment variable not set")
-elif which_database == "MAIN_DATABASE_URL":
-    tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
-elif which_database == "MAIN_READ_REPLICA_DATABASE_URL":
-    tmpPostgres = urlparse(os.getenv("MAIN_READ_REPLICA_DATABASE_URL"))
-else:
-    raise ValueError(f"WHICH_DATABASE environment variable set to invalid value: {which_database}")
+# if which_database is None:
+#     raise ValueError("WHICH_DATABASE environment variable not set")
+# elif which_database == "MAIN_DATABASE_URL":
+#     tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
+# elif which_database == "MAIN_READ_REPLICA_DATABASE_URL":
+#     tmpPostgres = urlparse(os.getenv("MAIN_READ_REPLICA_DATABASE_URL"))
+# else:
+#     raise ValueError(f"WHICH_DATABASE environment variable set to invalid value: {which_database}")
 
 
-# tmpPostgres = urlparse(os.getenv("LOCAL_MAIN_FORK_DATABASE_URL"))
+tmpPostgres = urlparse(os.getenv("LOCAL_MAIN_FORK_DATABASE_URL"))
 
 ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
