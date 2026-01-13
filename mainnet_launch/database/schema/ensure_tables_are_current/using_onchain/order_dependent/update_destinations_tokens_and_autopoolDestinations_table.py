@@ -13,7 +13,7 @@ from mainnet_launch.constants import (
 )
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI, DESTINATION_VAULT_REGISTRY_ABI
 
-from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.data_fetching.alchemy.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,

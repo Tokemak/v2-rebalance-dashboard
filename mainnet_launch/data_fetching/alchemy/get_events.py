@@ -6,7 +6,11 @@ from web3.contract import Contract, ContractEvent
 
 from mainnet_launch.data_fetching.alchemy.fetch_events_with_get_logs import fetch_raw_event_logs
 from mainnet_launch.data_fetching.alchemy.process_raw_event_logs import decode_logs
-from mainnet_launch.constants import ChainData
+from mainnet_launch.constants import ChainData, PLASMA_CHAIN
+
+
+class FetchEventsError(Exception):
+    pass
 
 
 def fetch_events(
@@ -43,7 +47,14 @@ class FetchEventParams:
 
 def fetch_many_events(events: list[FetchEventParams], num_threads: int = 16) -> dict[str, pd.DataFrame]:
     """Fetch many events concurrently"""
-    results = {}
+
+    chain = events[0].chain
+    if any(e.chain != chain for e in events):
+        raise FetchEventsError("fetch_many_events requires all events to be on the same chain")
+
+    if chain == PLASMA_CHAIN:
+        num_threads = 1
+
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
         # Map each submitted task to its index in the events list.
@@ -58,6 +69,7 @@ def fetch_many_events(events: list[FetchEventParams], num_threads: int = 16) -> 
             ): ep.id
             for ep in events
         }
+        results = {}
         for future in concurrent.futures.as_completed(future_to_id):
             id_key = future_to_id[future]
             results[id_key] = future.result()

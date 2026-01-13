@@ -3,7 +3,7 @@
 import pandas as pd
 
 from mainnet_launch.abis import BALANCER_AURA_DESTINATION_VAULT_ABI
-from mainnet_launch.constants import ChainData, ALL_CHAINS
+from mainnet_launch.constants import ChainData, ALL_CHAINS, PLASMA_CHAIN
 
 from mainnet_launch.database.schema.full import Destinations, DestinationUnderlyingDeposited, Transactions
 from mainnet_launch.database.postgres_operations import (
@@ -13,7 +13,7 @@ from mainnet_launch.database.postgres_operations import (
     insert_avoid_conflicts,
 )
 
-from mainnet_launch.data_fetching.get_events import fetch_many_events, FetchEventParams
+from mainnet_launch.data_fetching.alchemy.get_events import fetch_many_events, FetchEventParams
 
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_transactions import (
     ensure_all_transactions_are_saved_in_db,
@@ -82,11 +82,7 @@ def fetch_new_destination_underlying_deposited_events(
 ) -> pd.DataFrame:
     """
     Fetch UnderlyingDeposited events for many destination vaults concurrently.
-    Returns a single DataFrame with destination_vault_address annotated.
     """
-    # small safety margin behind the tip
-
-    # Build the event fetch plan
     plans: list[FetchEventParams] = []
     for destination_vault_address, highest_block_already_fetched in destination_to_highest_block.items():
         contract = chain.client.eth.contract(
@@ -107,10 +103,8 @@ def fetch_new_destination_underlying_deposited_events(
     if not plans:
         return pd.DataFrame()
 
-    # Fetch concurrently
     results: dict[str, pd.DataFrame] = fetch_many_events(plans, num_threads=num_threads)
 
-    # Tag each result with its destination address and combine
     dfs: list[pd.DataFrame] = []
     for destination_vault_address, df in results.items():
         if df is None or df.empty:
@@ -145,4 +139,4 @@ def ensure_destination_underlying_deposits_are_current() -> None:
 if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
 
-    profile_function(ensure_destination_underlying_deposits_are_current)
+    ensure_destination_underlying_deposits_are_current()

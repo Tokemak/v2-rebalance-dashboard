@@ -13,7 +13,7 @@ from mainnet_launch.database.schema.full import (
 
 
 from mainnet_launch.abis import STATS_CALCULATOR_REGISTRY_ABI
-from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.data_fetching.alchemy.get_events import fetch_events
 
 
 from mainnet_launch.database.postgres_operations import (

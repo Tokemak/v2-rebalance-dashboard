@@ -13,7 +13,7 @@ the old API silently misbehaves
 """
 
 import pandas as pd
-from time import sleep
+import time
 
 from mainnet_launch.constants import ChainData, ETHERSCAN_API_KEY, ETHERSCAN_API_URL
 from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import make_single_request_to_3rd_party

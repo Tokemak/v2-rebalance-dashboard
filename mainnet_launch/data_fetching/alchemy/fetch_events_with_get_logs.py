@@ -12,7 +12,8 @@ from web3._utils.filters import construct_event_filter_params
 from mainnet_launch.constants import ChainData, SONIC_CHAIN, PLASMA_CHAIN
 
 
-PRE_SPLIT_BLOCK_CHUNK_SIZE = {PLASMA_CHAIN: 100_000, SONIC_CHAIN: 2_000_000}
+# does switching to 50k make it work, 100k failed
+PRE_SPLIT_BLOCK_CHUNK_SIZE = {PLASMA_CHAIN: 50_000, SONIC_CHAIN: 2_000_000}
 
 
 class AchemyRequestStatus(Enum):
@@ -33,14 +34,12 @@ class AlchemyFetchEventsError(Exception):
 def _rpc_post(url: str, payload: dict) -> tuple[dict, AchemyRequestStatus]:
     headers = {"Content-Type": "application/json"}
 
-    r = requests.post(url, json=payload, headers=headers, timeout=30)
-    status = r.status_code
+    r = requests.post(url, json=payload, headers=headers, timeout=60)
     try:
         r.raise_for_status()
     except requests.HTTPError as e:
-        if (r.status_code == AlchemyError.SONIC_ONLY_ERROR.value) and r.url.startswith(
-            "https://sonic-mainnet.g.alchemy.com"
-        ):
+        if (r.status_code == AlchemyError.SONIC_ONLY_ERROR.value) and (('sonic' in url) or ('plasma' in url)):
+            print('retry error,splitting half and trying again')
             return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
         else:
             raise AlchemyFetchEventsError(f"Non-retryable HTTP error {e} for payload {payload=}")
@@ -176,7 +175,7 @@ def _fetch_events_with_pre_split(
         return local_raw_logs
 
     global_raw_logs: list[dict] = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as thread_pool_executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as thread_pool_executor:
         future_to_block_range = {
             thread_pool_executor.submit(_fetch_chunk, start_block, end_block): (start_block, end_block)
             for (start_block, end_block) in new_start_and_end_blocks

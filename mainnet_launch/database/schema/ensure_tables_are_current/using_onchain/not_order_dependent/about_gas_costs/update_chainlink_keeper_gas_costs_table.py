@@ -7,7 +7,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
     fetch_tokemak_address_constants_dfs,
 )
 from mainnet_launch.database.postgres_operations import TableSelector, merge_tables_as_df, insert_avoid_conflicts
-from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.data_fetching.alchemy.get_events import fetch_events
 
 from mainnet_launch.database.schema.full import Transactions, Blocks, ChainlinkGasCosts
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_transactions import (

@@ -2,7 +2,7 @@ import pandas as pd
 
 from mainnet_launch.constants import *
 from mainnet_launch.abis import DESTINATION_DEBT_REPORTING_SWAPPED_ABI
-from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.data_fetching.alchemy.get_events import fetch_events
 
 from mainnet_launch.database.views import get_token_details_dict
 from mainnet_launch.database.schema.full import IncentiveTokenSwapped
