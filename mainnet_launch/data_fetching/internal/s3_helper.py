@@ -68,7 +68,7 @@ def fetch_all_solver_rebalance_plan_file_names(autopool: AutopoolConstants, s3_c
 
 def fetch_rebalance_plan_json_from_s3_bucket(plan_path: str, s3_client, autopool: AutopoolConstants):
     last = None
-    for b in S3_BUCKETS[autopool]:
+    for b in AUTOPOOL_TO_S3_BUCKETS[autopool]:
         try:
             plan = json.loads(s3_client.get_object(Bucket=b, Key=plan_path)["Body"].read())
             plan["rebalance_plan_json_key"] = plan_path

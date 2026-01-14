@@ -59,3 +59,6 @@ with open(ABI_DIR / "minimal_RewardsClaimed_event_abi.json", "r") as fin:
 
 with open(ABI_DIR / "tokemak_liquidation_row_abi.json", "r") as fin:
     TOKEMAK_LIQUIDATION_ROW_ABI = json.load(fin)
+
+with open(ABI_DIR / "curve_stableswap_ng_abi.json", "r") as fin:
+    CURVE_STABLESWAP_NG_ABI = json.load(fin)
