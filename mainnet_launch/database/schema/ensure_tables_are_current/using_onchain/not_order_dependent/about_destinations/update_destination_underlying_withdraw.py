@@ -16,8 +16,7 @@ from mainnet_launch.database.postgres_operations import (
     insert_avoid_conflicts,
 )
 
-from mainnet_launch.data_fetching.alchemy.get_events import fetch_many_events, FetchEventParams
-
+from mainnet_launch.data_fetching.alchemy.get_events import fetch_events
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_transactions import (
     ensure_all_transactions_are_saved_in_db,
 )
@@ -83,42 +82,41 @@ def _insert_new_rows_into_destination_underlying_withdraw(
 def fetch_new_destination_underlying_withdraw_events(
     chain: ChainData,
     destination_to_highest_block: dict[str, int],
-    num_threads: int = 16,  # not certain how this number, 16 seems fine
 ) -> pd.DataFrame:
-    """
-    Fetch UnderlyingWithdraw events for many destination vaults concurrently.
-    Returns a single DataFrame with destination_vault_address annotated.
-    """
-    plans: list[FetchEventParams] = []
+    start_block_to_addresses = {}
+    chain_top = chain.get_block_near_top()
+
     for destination_vault_address, highest_block_already_fetched in destination_to_highest_block.items():
-        contract = chain.client.eth.contract(
-            address=destination_vault_address,
-            abi=BALANCER_AURA_DESTINATION_VAULT_ABI,
-        )
+        start_block = int(highest_block_already_fetched) + 1
+        if start_block > chain_top:
+            continue
 
-        plans.append(
-            FetchEventParams(
-                event=contract.events.UnderlyingWithdraw,
-                chain=chain,
-                id=destination_vault_address,
-                start_block=highest_block_already_fetched + 1,
-                end_block=chain.get_block_near_top(),
-            )
-        )
+        start_block_to_addresses.setdefault(start_block, []).append(destination_vault_address)
 
-    if not plans:
+    if not start_block_to_addresses:
         return pd.DataFrame()
 
-    # Fetch concurrently
-    results: dict[str, pd.DataFrame] = fetch_many_events(plans, num_threads=num_threads)
+    sample_address = next(iter(destination_to_highest_block))
+    sample_contract = chain.client.eth.contract(
+        address=sample_address,
+        abi=BALANCER_AURA_DESTINATION_VAULT_ABI,
+    )
+    event = sample_contract.events.UnderlyingWithdraw
 
-    # Tag each result with its destination address and combine
-    dfs: list[pd.DataFrame] = []
-    for destination_vault_address, df in results.items():
+    dfs = []
+    for start_block, addresses in start_block_to_addresses.items():
+        df = fetch_events(
+            event=event,
+            chain=chain,
+            start_block=start_block,
+            end_block=chain_top,
+            addresses=addresses,
+        )
         if df is None or df.empty:
             continue
+
         df = df.copy()
-        df["destination_vault_address"] = destination_vault_address
+        df["destination_vault_address"] = df["address"]
         dfs.append(df)
 
     if not dfs:
@@ -139,7 +137,6 @@ def ensure_destination_underlying_withdraw_are_current() -> None:
         all_underlying_withdraw_events_df = fetch_new_destination_underlying_withdraw_events(
             chain,
             destination_to_highest_block,
-            num_threads=16,
         )
 
         _insert_new_rows_into_destination_underlying_withdraw(chain, all_underlying_withdraw_events_df)

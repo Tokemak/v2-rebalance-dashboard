@@ -9,71 +9,36 @@ from mainnet_launch.data_fetching.alchemy.process_raw_event_logs import decode_l
 from mainnet_launch.constants import ChainData, PLASMA_CHAIN
 
 
-class FetchEventsError(Exception):
-    pass
-
-
 def fetch_events(
     event: ContractEvent,
     chain: ChainData,
     start_block: int = None,
     end_block: int = None,
     argument_filters: dict | None = None,
+    addresses: list[str] | None = None,
 ) -> pd.DataFrame:
     """
     Fetch all the `event` events between start_block and end_block into a DataFrame.
+    addresses: list of contract addresses to filter logs from (if None, fetch from all addresses)
+    either use just the address in the evnet or (all the addreses in addresses)
+
+    all addressese are assumed to be on the same chain as `chain`
     """
+    if addresses is None:
+        addresses = [event.address]
+
     raw_logs = fetch_raw_event_logs(
         event=event,
         chain=chain,
         start_block=start_block,
         end_block=end_block,
         argument_filters=argument_filters,
+        addresses=addresses,
     )
 
     df = decode_logs(event, raw_logs)
     return df
 
-
-@dataclass
-class FetchEventParams:
-    event: ContractEvent
-    chain: ChainData
-    id: str
-    start_block: int = None
-    end_block: int = None
-    argument_filters: dict = None
-
-
-def fetch_many_events(events: list[FetchEventParams], num_threads: int = 16) -> dict[str, pd.DataFrame]:
-    """Fetch many events concurrently"""
-
-    chain = events[0].chain
-    if any(e.chain != chain for e in events):
-        raise FetchEventsError("fetch_many_events requires all events to be on the same chain")
-
-    if chain == PLASMA_CHAIN:
-        num_threads = 1
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
-        # Map each submitted task to its index in the events list.
-        future_to_id = {
-            executor.submit(
-                fetch_events,
-                event=ep.event,
-                chain=ep.chain,
-                start_block=ep.start_block,
-                end_block=ep.end_block,
-                argument_filters=ep.argument_filters,
-            ): ep.id
-            for ep in events
-        }
-        results = {}
-        for future in concurrent.futures.as_completed(future_to_id):
-            id_key = future_to_id[future]
-            results[id_key] = future.result()
-
-    return results
 
 
 def get_each_event_in_contract(
@@ -96,4 +61,3 @@ if __name__ == "__main__":
         start_block=20_000_000,
         end_block=20_000_100,
     )
-    pass

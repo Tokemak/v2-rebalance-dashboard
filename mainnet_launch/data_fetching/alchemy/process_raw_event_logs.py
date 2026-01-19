@@ -11,6 +11,7 @@ from web3._utils.events import get_event_data
 
 EXPECTED_EVENT_FIELD_NAMES = [
     "event",
+    "address",          # <--- add
     "block",
     "hash",
     "transaction_index",
@@ -35,12 +36,15 @@ def _worker_decode_chunk(args) -> list[dict]:
     decoded = []
 
     for log in logs_chunk:
+
+        emitter_address = log["address"]
         # minimal = {"topics": tuple(bytes.fromhex(t[2:]) for t in log["topics"]), "data": log["data"]}
         log["topics"] = [bytes.fromhex(t[2:]) for t in log["topics"]]
         ev = get_event_data(codec, abi, log)
 
         res = {
             "event": str(ev["event"]),
+            'address': Web3.toChecksumAddress(emitter_address),
             "blockNumber": int(ev["blockNumber"], 16),
             "transactionIndex": int(ev["transactionIndex"], 16),
             "logIndex": int(ev["logIndex"], 16),
