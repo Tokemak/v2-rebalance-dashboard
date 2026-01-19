@@ -70,11 +70,10 @@ def _ensure_chain_top_block_are_cached():
         )
 
 
-
 def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = False):
     ENGINE.echo = echo_sql_to_console
 
-    run_path  = WORKING_DATA_DIR / "update-prod-db.txt"
+    run_path = WORKING_DATA_DIR / "update-prod-db.txt"
 
     steps = [
         _ensure_chain_top_block_are_cached,

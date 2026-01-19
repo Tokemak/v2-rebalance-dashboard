@@ -55,7 +55,6 @@ def fetch_many_events(events: list[FetchEventParams], num_threads: int = 16) -> 
     if chain == PLASMA_CHAIN:
         num_threads = 1
 
-
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
         # Map each submitted task to its index in the events list.
         future_to_id = {

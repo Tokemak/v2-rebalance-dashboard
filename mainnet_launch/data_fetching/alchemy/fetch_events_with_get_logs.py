@@ -38,8 +38,8 @@ def _rpc_post(url: str, payload: dict) -> tuple[dict, AchemyRequestStatus]:
     try:
         r.raise_for_status()
     except requests.HTTPError as e:
-        if (r.status_code == AlchemyError.SONIC_ONLY_ERROR.value) and (('sonic' in url) or ('plasma' in url)):
-            print('retry error,splitting half and trying again')
+        if (r.status_code == AlchemyError.SONIC_ONLY_ERROR.value) and (("sonic" in url) or ("plasma" in url)):
+            print("retry error,splitting half and trying again")
             return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
         else:
             raise AlchemyFetchEventsError(f"Non-retryable HTTP error {e} for payload {payload=}")
