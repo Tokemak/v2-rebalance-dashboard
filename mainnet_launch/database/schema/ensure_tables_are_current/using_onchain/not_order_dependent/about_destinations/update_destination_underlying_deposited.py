@@ -47,7 +47,6 @@ def _get_highest_block_already_fetched_for_destination_underlying_deposited(chai
     return destination_to_highest_block
 
 
-
 def fetch_new_destination_underlying_deposited_events(
     chain: ChainData,
     destination_to_highest_block: dict[str, int],
@@ -139,10 +138,11 @@ def ensure_destination_underlying_deposits_are_current() -> None:
         _insert_new_rows_into_destination_underlying_deposited(chain, all_underlying_deposited_events_df)
 
 
-# at least in theory, if we have an event on chain for a withdrawal 
+# at least in theory, if we have an event on chain for a withdrawal
 # we should have everything before it too
 # that maybe be an optimization needed later
 
 if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
+
     ensure_destination_underlying_deposits_are_current()

@@ -93,24 +93,23 @@ def _eth_getlogs_once(
         "jsonrpc": "2.0",
         "id": 1,
         "method": "eth_getLogs",
-        "params": [params], 
+        "params": [params],
     }
-
 
     max_retries = 3
     base_delay = 1  # seconds
-    
+
     for attempt in range(max_retries + 1):
         raw_logs, status = _rpc_post(rpc_url, payload)
-        
+
         if status != AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN or attempt == max_retries:
             return raw_logs, status
-        
+
         # Exponential backoff with jitter
-        delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+        delay = base_delay * (2**attempt) + random.uniform(0, 1)
         print(f"Retry attempt {attempt + 1}/{max_retries} after {delay:.2f}s delay")
         time.sleep(delay)
-    
+
     return raw_logs, status
 
 

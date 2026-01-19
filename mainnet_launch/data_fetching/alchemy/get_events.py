@@ -40,7 +40,6 @@ def fetch_events(
     return df
 
 
-
 def get_each_event_in_contract(
     contract: Contract, chain: ChainData, start_block: int = None, end_block: int = None
 ) -> dict[str, pd.DataFrame]:
