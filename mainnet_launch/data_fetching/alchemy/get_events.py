@@ -53,10 +53,9 @@ if __name__ == "__main__":
     from mainnet_launch.constants import ETH_CHAIN, WETH, profile_function
     from mainnet_launch.abis import ERC_20_ABI
 
-    weth_contract = ETH_CHAIN.client.eth.contract(address=WETH(ETH_CHAIN), abi=ERC_20_ABI)
-    df = fetch_events(
-        event=weth_contract.events.Transfer,
-        chain=ETH_CHAIN,
-        start_block=20_000_000,
-        end_block=20_000_100,
+
+    toke_contract = ETH_CHAIN.client.eth.contract(
+        "0x2e9d63788249371f1DFC918a52f8d799F4a38C94", abi=ERC_20_ABI
     )
+    TOKE_transfers = fetch_events(toke_contract.events.Transfer, ETH_CHAIN)
+    pass

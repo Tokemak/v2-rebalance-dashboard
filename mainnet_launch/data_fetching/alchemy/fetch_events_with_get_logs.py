@@ -51,23 +51,22 @@ def _rpc_post(url: str, payload: dict) -> tuple[dict, AchemyRequestStatus]:
     headers = {"Content-Type": "application/json"}
 
     r = requests.post(url, json=payload, headers=headers, timeout=30)
+    out = r.json()
     try:
         r.raise_for_status()
     except requests.HTTPError as e:
-        # I don't like the aesthetics of this
+        if r.status_code == 400:
+            error_code = out["error"]["code"]
+            if error_code in [AlchemyError.RESPONSE_TOO_BIG_ERROR.value, AlchemyError.LOG_RESPONSE_SIZE_EXCEEDED.value]:
+                return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
+            else:
+                raise AlchemyFetchEventsError(f"Non-retryable Alchemy error {out['error']}")
         if (r.status_code == AlchemyError.SERVER_SIDE_ERROR.value) and (("sonic" in url) or ("plasma" in url)):
             print("retry error,splitting half and trying again")
             return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
         else:
             raise AlchemyFetchEventsError(f"Non-retryable HTTP error {e} for payload {payload=}")
-    out = r.json()
-
-    if "error" in out:
-        error_code = out["error"]["code"]
-        if error_code in [AlchemyError.RESPONSE_TOO_BIG_ERROR.value, AlchemyError.LOG_RESPONSE_SIZE_EXCEEDED.value]:
-            return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
-        else:
-            raise AlchemyFetchEventsError(f"Non-retryable Alchemy error {out['error']}")
+    
 
     raw_logs = out["result"]
     return raw_logs, AchemyRequestStatus.SUCCESS
@@ -102,13 +101,18 @@ def _eth_getlogs_once(
     for attempt in range(max_retries + 1):
         raw_logs, status = _rpc_post(rpc_url, payload)
 
-        if status != AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN or attempt == max_retries:
+        if status in [AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN, AchemyRequestStatus.SUCCESS]:
             return raw_logs, status
-
-        # Exponential backoff with jitter
-        delay = base_delay * (2**attempt) + random.uniform(0, 1)
-        print(f"Retry attempt {attempt + 1}/{max_retries} after {delay:.2f}s delay")
-        time.sleep(delay)
+        else:
+            if attempt == max_retries:
+                raise AlchemyFetchEventsError(
+                    f"Max retries exceeded for eth_getLogs with params: {params}. Last status: {status}"
+                )
+    
+            # Exponential backoff with jitter
+            delay = base_delay * (2**attempt) + random.uniform(0, 1)
+            print(f"Retry attempt {attempt + 1}/{max_retries} after {delay:.2f}s delay")
+            time.sleep(delay)
 
     return raw_logs, status
 
@@ -232,6 +236,12 @@ def fetch_raw_event_logs(
     argument_filters: dict | None = None,
     addresses: list[str] | None = None,
 ) -> list[dict]:
+    # todo this should be a queue with jobs and retires,
+
+    # do up to 10 calls at once, 
+    # try full split, (thne try those that fail again with half splits at the same time via the queue)
+    # continue
+    # that ought to be faster than recursuve splitting on a single thread for the large cases
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
     end_block = chain.get_block_near_top() if end_block is None else end_block
     split_size = PRE_SPLIT_BLOCK_CHUNK_SIZE[chain]
