@@ -66,7 +66,6 @@ def _rpc_post(url: str, payload: dict) -> tuple[dict, AchemyRequestStatus]:
             return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
         else:
             raise AlchemyFetchEventsError(f"Non-retryable HTTP error {e} for payload {payload=}")
-    
 
     raw_logs = out["result"]
     return raw_logs, AchemyRequestStatus.SUCCESS
@@ -108,7 +107,7 @@ def _eth_getlogs_once(
                 raise AlchemyFetchEventsError(
                     f"Max retries exceeded for eth_getLogs with params: {params}. Last status: {status}"
                 )
-    
+
             # Exponential backoff with jitter
             delay = base_delay * (2**attempt) + random.uniform(0, 1)
             print(f"Retry attempt {attempt + 1}/{max_retries} after {delay:.2f}s delay")
@@ -238,7 +237,7 @@ def fetch_raw_event_logs(
 ) -> list[dict]:
     # todo this should be a queue with jobs and retires,
 
-    # do up to 10 calls at once, 
+    # do up to 10 calls at once,
     # try full split, (thne try those that fail again with half splits at the same time via the queue)
     # continue
     # that ought to be faster than recursuve splitting on a single thread for the large cases
