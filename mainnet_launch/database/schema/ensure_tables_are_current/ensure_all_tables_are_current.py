@@ -84,8 +84,8 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
         # ensure_chainlink_gas_costs_table_are_current,  # qworks
         # ensure_autopool_fees_are_current, faster 25 seconds
         # ensure_incentive_token_swapped_events_are_current, # faster 10 seconds
-        # ensure_incentive_token_balance_updated_is_current, # 10 seconds
-        ensure_incentive_token_prices_are_current,
+        ensure_incentive_token_balance_updated_is_current,  # 10 seconds
+        # ensure_incentive_token_prices_are_current, fast
         ensure_destination_underlying_deposits_are_current,
         ensure_destination_underlying_withdraw_are_current,
         ensure_destination_states_from_rebalance_plan_are_current,

@@ -713,25 +713,41 @@ class AssetExposure(Base):
 
 class DestinationUnderlyingDeposited(Base):
     __tablename__ = "destination_underlying_deposited"
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    log_index: Mapped[int] = mapped_column(primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
 
-    destination_vault_address: Mapped[str] = mapped_column(nullable=False, primary_key=True)
-
-    amount: Mapped[str] = mapped_column(nullable=False)  # unscaled quantity of lp tokens (or recipt tokens for lending)
+    amount: Mapped[str] = mapped_column(nullable=False)  # unscaled quantity of tokens
     sender: Mapped[str] = mapped_column(nullable=False)  # the autopool_vault_address, I'm pretty sure
 
-    __table_args__ = (ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),)
+    __table_args__ = (
+        ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
+        ForeignKeyConstraint(
+            ["destination_vault_address", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+    )
 
 
 class DestinationUnderlyingWithdraw(Base):
     __tablename__ = "destination_underlying_withdraw"
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    log_index: Mapped[int] = mapped_column(primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
 
-    destination_vault_address: Mapped[str] = mapped_column(nullable=False, primary_key=True)
-    # unscaled quantity of lp tokens (or receipt tokens for lending)
-    amount: Mapped[str] = mapped_column(nullable=False)
+    amount: Mapped[str] = mapped_column(nullable=False)  # unscaled quantity of tokens
     owner: Mapped[str] = mapped_column(nullable=False)  # the autopool_vault_address, I'm pretty sure
     to_address: Mapped[str] = mapped_column(nullable=False)
+
+    __table_args__ = (
+        ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
+        ForeignKeyConstraint(
+            ["destination_vault_address", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+    )
 
 
 def drop_and_full_rebuild_db():
