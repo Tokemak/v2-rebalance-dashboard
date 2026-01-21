@@ -117,10 +117,8 @@ def ensure_tokemak_EOA_gas_costs_are_current():
                 chain, EOA_address, from_block=from_block, to_block=chain.get_block_near_top()
             )
             transaction_hashes_required.extend(etherscan_tx_df["hash"].tolist())
-      
 
         ensure_all_transactions_are_saved_in_db(transaction_hashes_required, chain)
-
 
 
 def update_tokemak_EOA_gas_costs_from_0():
@@ -148,10 +146,9 @@ def update_tokemak_EOA_gas_costs_from_0():
 
 if __name__ == "__main__":
 
-
     from mainnet_launch.constants import profile_function
 
     # profile_function(ensure_tokemak_EOA_gas_costs_are_current)
     # not sure why this sometimes fails with this error
-    
+
     update_tokemak_EOA_gas_costs_from_0()

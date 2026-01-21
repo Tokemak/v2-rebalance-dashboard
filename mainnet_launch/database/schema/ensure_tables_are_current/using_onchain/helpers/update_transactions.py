@@ -22,7 +22,7 @@ def fetch_transaction_rows_bulk_from_alchemy(tx_hashes: list[str], chain: ChainD
     def hex_to_int(hexstr: str) -> int:
         return int(hexstr, 16)
 
-    batch_size = 100
+    batch_size = 50
     num_batches = (len(tx_hashes) + batch_size - 1) // batch_size
 
     tx_hash_groups = np.array_split(tx_hashes, num_batches)
