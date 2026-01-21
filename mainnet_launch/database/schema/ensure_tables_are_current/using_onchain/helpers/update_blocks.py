@@ -12,26 +12,20 @@ from mainnet_launch.data_fetching.defi_llama.fetch_timestamp import (
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
 from mainnet_launch.constants import *
 
+# note: this fetches some redundent blocks, but it is fine
+# can optimize later if needed fetching a few extra blocks for each day is reasonable
 
+ONE_MINUTE_TOLERANCE_SECONDS = 60
+DAY_COMPLETENESS_SECONDS = 24 * 60 * 60 - ONE_MINUTE_TOLERANCE_SECONDS  # 23:59:00 = 86340
 
-CHAIN_TO_DEFI_LLAMA_SLUG = {
-    ETH_CHAIN: "ethereum",
-    BASE_CHAIN: "base",
-    SONIC_CHAIN: "sonic",
-    ARBITRUM_CHAIN: "arbitrum",
-    PLASMA_CHAIN: "plasma",
-    LINEA_CHAIN: "linea",  # not tested
-}
 
 def _determine_missing_timestamps(chain: ChainData) -> list[int]:
     """
-    3-query version:
-      1) all UTC days since inception (calendar)
-      2) per-day aggregates from blocks
-      3) join/lead logic in pandas to decide which midnights we still need
+    Day is complete iff max(datetime_utc) - min(datetime_utc) >= 23h59m.
+
+    Returns unix timestamps (seconds) for days we consider incomplete, excluding the current UTC day.
     """
 
-    # 1) Calendar days (UTC) since inception
     q_days = f"""
     select
       gs::date as day,
@@ -44,12 +38,14 @@ def _determine_missing_timestamps(chain: ChainData) -> list[int]:
     order by day asc
     """
 
-    # 2) Per-day aggregates present in blocks table
+    # Pull both block-number bounds and timestamp bounds per UTC day
     q_per_day = f"""
     select
       (datetime at time zone 'UTC')::date as day,
+      min(block) as smallest_block_today,
       max(block) as largest_block_today,
-      min(block) as smallest_block_today
+      min(datetime at time zone 'UTC') as smallest_block_datetime_utc,
+      max(datetime at time zone 'UTC') as largest_block_datetime_utc
     from blocks
     where chain_id = {chain.chain_id}
     group by 1
@@ -61,25 +57,65 @@ def _determine_missing_timestamps(chain: ChainData) -> list[int]:
         return []
 
     per_day_df = _exec_sql_and_cache(q_per_day)
+
+    # If there are no blocks at all, everything before today is missing
     if per_day_df is None or per_day_df.empty:
-        # No blocks at all: we need every day's midnight timestamp
-        return days_df["unix_timestamp"].astype("int64").tolist()
+        today = pd.Timestamp.now(tz="UTC").normalize()
+        return (
+            days_df.loc[days_df["day"] < today.date(), "unix_timestamp"]
+            .astype("int64")
+            .tolist()
+        )
 
-    # 3) Merge + lead in pandas
-    df = days_df.merge(per_day_df, on="day", how="left")
+    df = days_df.merge(per_day_df, on="day", how="left").sort_values("day", ascending=True)
 
-    df["smallest_block_tomorrow"] = df["smallest_block_today"].shift(-1)
+    # Exclude current UTC day (cannot be complete by definition)
+    today = pd.Timestamp.now(tz="UTC").normalize().date()
+    df = df[df["day"] < today]
 
-    # we "know the top of today" iff both present and boundary continuity holds
-    df["we_know_the_top_block_of_today"] = (
-        df["largest_block_today"].notna()
-        & df["smallest_block_tomorrow"].notna()
-        & ((df["largest_block_today"] + 1) == df["smallest_block_tomorrow"])
-    )
+    # Compute per-day coverage in seconds
+    df["coverage_seconds"] = (
+        pd.to_datetime(df["largest_block_datetime_utc"], utc=True)
+        - pd.to_datetime(df["smallest_block_datetime_utc"], utc=True)
+    ).dt.total_seconds()
 
-    missing = df.loc[~df["we_know_the_top_block_of_today"], "unix_timestamp"]
+    # Day is complete if we have timestamps and >= 23h59m coverage
+    df["day_complete"] = df["coverage_seconds"].notna() & (df["coverage_seconds"] >= DAY_COMPLETENESS_SECONDS)
 
-    return missing.astype("int64").tolist()
+    # Incomplete days: either no blocks at all, or not enough time coverage
+    incomplete_days = df.loc[~df["day_complete"], "day"]
+
+    # For each incomplete day, request both:
+    #   - midnight ts (start of day)
+    #   - end-of-day ts (23:59:59)
+    # This gives your fetcher multiple chances to land near both ends.
+    missing_ts = set()
+    day_to_unix = dict(zip(df["day"], df["unix_timestamp"].astype("int64")))
+
+    for day in incomplete_days:
+        ts0 = day_to_unix.get(day)
+        if ts0 is None:
+            continue
+        missing_ts.add(int(ts0))                 # 00:00:00
+        missing_ts.add(int(ts0 + 86400 - 1))     # 23:59:59
+
+    missing = sorted(missing_ts)
+
+    # print(f"[{chain.name}] incomplete days: {len(incomplete_days)} missing timestamps: {missing[:20]}{'...' if len(missing) > 20 else ''}")
+    # print(
+    #     df.loc[df["day"].isin(incomplete_days), [
+    #         "day",
+    #         "unix_timestamp",
+    #         "smallest_block_today",
+    #         "largest_block_today",
+    #         "smallest_block_datetime_utc",
+    #         "largest_block_datetime_utc",
+    #         "coverage_seconds",
+    #         "day_complete",
+    #     ]].head(20)
+    # )
+
+    return missing
 
 
 
@@ -88,7 +124,7 @@ def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData):
     Inserts missing blocks for the chain. Returns count of blocks that were missing (attempted inserts).
     """
     if not blocks:
-        return 0
+        return
 
     blocks_to_add = get_subset_not_already_in_column(
         table=Blocks,
@@ -113,21 +149,24 @@ def ensure_blocks_is_current():
 
     Handles empty/spotty tables by generating the full day series in SQL.
     """
+    # sonic keeps fetching even though I would think it should be current
     for chain in ALL_CHAINS:
         unix_timestamps = _determine_missing_timestamps(chain)
+        if len(unix_timestamps) == 0:
+            print(f"[{chain.name}] blocks table is already current.")
+            continue
 
-        blocks_to_add, failures = fetch_blocks_by_unix_timestamps_defillama(
+        blocks_to_add = fetch_blocks_by_unix_timestamps_defillama(
             unix_timestamps=unix_timestamps,
             chain=chain,
-            closest='after'
         )
+        print('Fetched blocks from DeFiLlama:', blocks_to_add)
 
-        ensure_all_blocks_are_in_table(list(blocks_to_add), chain)
+        ensure_all_blocks_are_in_table(blocks_to_add, chain)
 
         print(
             f"[{chain.name}] timestamps_needed={len(unix_timestamps)} "
             f"fetched_unique_blocks={len(blocks_to_add)}"
-            f"failures={len(failures)}"
         )
 
 

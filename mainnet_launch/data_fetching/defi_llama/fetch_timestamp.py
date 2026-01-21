@@ -58,7 +58,6 @@ def get_block_by_timestamp_defi_llama(unix_timestamp: int, chain: ChainData, clo
 def fetch_blocks_by_unix_timestamps_defillama(
     unix_timestamps: list[int],
     chain: ChainData,
-    closest: str = "before",
     rate_limit_max_rate: int = 5,
     rate_limit_time_period: int = 1,
 ):
@@ -69,26 +68,28 @@ def fetch_blocks_by_unix_timestamps_defillama(
     Returns:
         blocks_to_add: set[int]
         failures: list[dict]  (each contains timestamp + response for inspection)
-    """
-    if closest not in (Closest.BEFORE, Closest.AFTER):
-        raise DeFiLlamaAPIError(f"closest must be 'before' or 'after', got: {closest}")
 
+
+    gets the closest block before AND after the timestamp
+    """
+    # note assumes all timestamps are second 0 on the day Mon Jan 19 2026 00:00:00 GMT+0000
     if not unix_timestamps:
         raise DeFiLlamaAPIError("No unix_timestamps provided")
 
-    def _defillama_block_request_kwargs(ts: int):
+    def _defillama_block_request_kwargs(ts: int, closest: str):
         url = f"https://coins.llama.fi/block/{CHAIN_TO_DEFI_LLAMA_SLUG[chain]}/{int(ts)}"
         params = {"closest": closest}
         return {"method": "GET", "url": url, "params": params}
 
-    def _is_failure(data):
-        if not isinstance(data, dict):
-            return True
-        if data.get(THIRD_PARTY_SUCCESS_KEY) is False:
-            return True
-        return not any(k in data for k in ("height", "block", "result"))
 
-    requests_kwargs = [_defillama_block_request_kwargs(ts) for ts in unix_timestamps]
+    requests_kwargs = []
+    for ts in unix_timestamps:
+        requests_kwargs.append(_defillama_block_request_kwargs(ts, Closest.BEFORE))
+        requests_kwargs.append(_defillama_block_request_kwargs(ts - 10, Closest.BEFORE))
+        requests_kwargs.append(_defillama_block_request_kwargs(ts + 10, Closest.BEFORE))
+        requests_kwargs.append(_defillama_block_request_kwargs(ts + 86400 + 10, Closest.BEFORE))
+
+
 
     responses = make_many_requests_to_3rd_party(
         rate_limit_max_rate=rate_limit_max_rate,
@@ -96,20 +97,15 @@ def fetch_blocks_by_unix_timestamps_defillama(
         requests_kwargs=requests_kwargs,
     )
 
-    blocks_to_add = set()
-    failures = []
+    import pandas as pd
 
-    for ts, res in zip(unix_timestamps, responses):
-        if not res or _is_failure(res):
-            failures.append({"timestamp": ts, "response": res})
-            continue
+    response_df = pd.DataFrame(responses)
+    request_df = pd.json_normalize(requests_kwargs)
 
-        block = res.get("height") or res.get("block") or res.get("result")
-        try:
-            block = int(block)
-        except Exception:
-            failures.append({"timestamp": ts, "response": res})
-            continue
-        blocks_to_add.add(block)
+    joined_df = pd.concat([request_df, response_df], axis=1)
+    joined_df['pdtimestamp'] = pd.to_datetime(joined_df['timestamp'], unit='s', utc=True)
+    # print(joined_df[['pdtimestamp', 'height', 'timestamp']].head(20))
+    joined_df = joined_df.dropna(subset=['height'])
 
-    return blocks_to_add, failures 
+    blocks_add =  list(joined_df['height'].astype(int))
+    return blocks_add
