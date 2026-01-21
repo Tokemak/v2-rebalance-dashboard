@@ -39,7 +39,9 @@ def profile_function(func, *args, **kwargs):
         stats = profiler.get_stats()
         total_time_sec = sum(t for _, rows in stats.timings.items() for _, _, t in rows) * stats.unit
 
-        print(f"Total time: {total_time_sec:.6f} s\n\n")
+        minutes = int(total_time_sec // 60)
+        seconds = int(total_time_sec % 60)
+        print(f"Total time: {minutes}:{seconds:02d}\n\n")
         profiler.print_stats(output_unit=1)
 
         # Save to file with total time header

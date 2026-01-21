@@ -127,7 +127,6 @@ def ensure_incentive_token_prices_are_current():
         print(
             f"Found {len(needed_incentive_token_sales_prices_df):,} incentive token sales prices needed from incentive_token_swapped events."
         )
-    # Break needed_incentive_token_sales_prices_df into chunks of 1000
     chunk_size = 1000
 
     for i in range(0, len(needed_incentive_token_sales_prices_df), chunk_size):
