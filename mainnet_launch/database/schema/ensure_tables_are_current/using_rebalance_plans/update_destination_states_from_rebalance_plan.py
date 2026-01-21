@@ -62,8 +62,11 @@ def convert_rebalance_plan_to_rows(
 ) -> list[DestinationStates]:
     """Makes external calls to etherscan, and on http nodes"""
 
+    # this part is lossy
     block_after_plan_timestamp = get_block_by_timestamp_defi_llama(
-        plan["sod"]["currentTimestamp"], chain=autopool.chain, closest="after"
+        int(plan["sod"]["currentTimestamp"]) + 1,
+        chain=autopool.chain,
+        closest="after",  # not certain that after does anything here
     )
     quantity_of_idle = _get_quantity_of_base_asset_in_idle(
         autopool, tokens_address_to_decimals, block_after_plan_timestamp
@@ -111,10 +114,9 @@ def _extract_destination_token_values(
                     destination_vault_address=Web3.toChecksumAddress(dest_state["address"]),
                     denominated_in=autopool.base_asset,
                     spot_price=spot_price,
-                    quantity=int(raw_amount) / 1e18,  # note in the destination states, everything is in 1e18
+                    quantity=int(raw_amount) / (10**decimals),
                 )
             )
-            pass
 
     return new_destination_token_values
 
@@ -261,24 +263,11 @@ def ensure_destination_states_from_rebalance_plan_are_current():
             continue
 
         def _process_plan(plan_path: str):
-            i = 0
-            while True:
-                try:
-                    plan = fetch_rebalance_plan_json_from_s3_bucket(plan_path, s3_client, autopool)
-                    new_destination_states_rows, new_token_values_rows, new_destination_token_values = (
-                        convert_rebalance_plan_to_rows(plan, autopool, tokens_address_to_decimals)
-                    )
-                    return new_destination_states_rows, new_token_values_rows, new_destination_token_values
-
-                except Exception as e:
-
-                    i += 1
-                    sleep_time = random.uniform(1, 5) + i**2
-                    print(f"Error processing plan {plan_path}, retrying in {sleep_time:.2}")
-                    time.sleep(sleep_time)  # exponential backoff
-
-                    if i == 5:
-                        raise e
+            plan = fetch_rebalance_plan_json_from_s3_bucket(plan_path, s3_client, autopool)
+            new_destination_states_rows, new_token_values_rows, new_destination_token_values = (
+                convert_rebalance_plan_to_rows(plan, autopool, tokens_address_to_decimals)
+            )
+            return new_destination_states_rows, new_token_values_rows, new_destination_token_values
 
         all_destination_states = []
         all_new_token_values_rows = []
@@ -287,7 +276,7 @@ def ensure_destination_states_from_rebalance_plan_are_current():
         results = thread_map(
             _process_plan,
             plans_to_fetch,
-            max_workers=4,  # not certain here on the best number of threads, 4 works but might be able to go faster
+            max_workers=1,  # not certain here on the best number of threads, 4 works but might be able to go faster
             desc=f"Extracting Destination States from Rebalance Plans for {autopool.name}",
             unit="plan",
         )
@@ -337,3 +326,25 @@ if __name__ == "__main__":
 
     # profile_function(ensure_destination_states_from_rebalance_plan_are_current)
     ensure_destination_states_from_rebalance_plan_are_current()
+
+
+# def _process_plan_with_retry(plan_path: str):
+#     i = 0
+#     while True:
+#         try:
+#             plan = fetch_rebalance_plan_json_from_s3_bucket(plan_path, s3_client, autopool)
+#             new_destination_states_rows, new_token_values_rows, new_destination_token_values = (
+#                 convert_rebalance_plan_to_rows(plan, autopool, tokens_address_to_decimals)
+#             )
+#             return new_destination_states_rows, new_token_values_rows, new_destination_token_values
+
+#         except Exception as e:
+
+#             i += 1
+#             sleep_time = random.uniform(1, 5) + i**2
+#             print(f"Error processing plan {plan_path}, retrying in {sleep_time:.2}")
+#             print(f"Error: {e}")
+#             time.sleep(sleep_time)  # exponential backoff
+
+#             if i == 5:
+#                 raise e

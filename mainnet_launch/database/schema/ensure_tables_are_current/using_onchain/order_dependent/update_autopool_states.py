@@ -128,10 +128,8 @@ def _determine_what_blocks_are_needed(autopool: AutopoolConstants) -> list[int]:
 
 
 def ensure_autopool_states_are_current():
-    with ThreadPoolExecutor(max_workers=10) as ex:
-        futures = [ex.submit(_fetch_and_insert_new_autopool_states, ap) for ap in ALL_AUTOPOOLS]
-        for fut in as_completed(futures):
-            fut.result()
+    for autopool in ALL_AUTOPOOLS:
+        _fetch_and_insert_new_autopool_states(autopool)
 
 
 if __name__ == "__main__":

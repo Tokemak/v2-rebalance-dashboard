@@ -232,6 +232,7 @@ def _fetch_and_insert_non_idle_destination_token_values(autopool: AutopoolConsta
     )
 
     insert_avoid_conflicts(new_destination_token_values_rows, DestinationTokenValues)
+    print(f'wrote {len(new_destination_token_values_rows):,} non-idle destination token values for {autopool.name}')
 
 
 def _convert_raw_token_spot_prices_and_reserves_df_to_new_rows(
@@ -350,21 +351,13 @@ def _fetch_and_insert_idle_destination_token_values(
         idle_destination_token_values,
         DestinationTokenValues,
     )
-
-    return idle_destination_token_values
+    print(f'wrote {len(idle_destination_token_values):,} idle destination token values for {autopool.name}')
 
 
 def ensure_destination_token_values_are_current():
     for autopool in ALL_AUTOPOOLS:
         _fetch_and_insert_non_idle_destination_token_values(autopool)
         _fetch_and_insert_idle_destination_token_values(autopool)
-
-    # def _process_autopool(autopool):
-    #     _fetch_and_insert_non_idle_destination_token_values(autopool)
-    #     _fetch_and_insert_idle_destination_token_values(autopool)
-
-    # with ThreadPoolExecutor(max_workers=10) as executor:  # TODO not tested with max workers here
-    #     executor.map(_process_autopool, ALL_AUTOPOOLS)
 
 
 if __name__ == "__main__":
@@ -375,8 +368,8 @@ if __name__ == "__main__":
     # profile_function(_fetch_and_insert_non_idle_destination_token_values, BASE_USD)
     # profile_function(_fetch_and_insert_idle_destination_token_values, BASE_USD)
 
-    # profile_function(ensure_destination_token_values_are_current)
-    ensure_destination_token_values_are_current()
+    profile_function(ensure_destination_token_values_are_current)
+    # ensure_destination_token_values_are_current()
 
 
 # def _get_missing_idle_destination_token_values_needed_blocks(

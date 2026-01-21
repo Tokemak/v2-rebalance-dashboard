@@ -151,6 +151,11 @@ def ensure_blocks_is_current():
             # print(f"[{chain.name}] blocks table is already current.")
             continue
 
+        all_unix_timestamps = []
+        for ts in unix_timestamps:
+            all_unix_timestamps.append(ts + 10)
+            all_unix_timestamps.append(ts + 86400 + 10)
+
         blocks_to_add = fetch_blocks_by_unix_timestamps_defillama(
             unix_timestamps=unix_timestamps,
             chain=chain,

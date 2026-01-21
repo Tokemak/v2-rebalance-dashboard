@@ -77,21 +77,21 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
 
     steps = [
         # _ensure_chain_top_block_are_cached,
-        ensure_blocks_is_current,
-        ensure_autopools_are_current,
+        # ensure_blocks_is_current,
+        # ensure_autopools_are_current,
         # ensure__destinations__tokens__and__destination_tokens_are_current,
         # ensure_tokemak_EOA_gas_costs_are_current,  # 50k transaction's im seing
         # ensure_chainlink_gas_costs_table_are_current,  # qworks
         # ensure_autopool_fees_are_current, faster 25 seconds
         # ensure_incentive_token_swapped_events_are_current, # faster 10 seconds
-        ensure_incentive_token_balance_updated_is_current,  # 10 seconds
+        # ensure_incentive_token_balance_updated_is_current,  # 10 seconds
         # ensure_incentive_token_prices_are_current, fast
-        ensure_destination_underlying_deposits_are_current,
-        ensure_destination_underlying_withdraw_are_current,
-        ensure_destination_states_from_rebalance_plan_are_current,
-        ensure_destination_states_are_current,
-        ensure_destination_token_values_are_current,  # breaksy my interesnt
-        ensure_autopool_destination_states_are_current,
+        # ensure_destination_underlying_deposits_are_current, # updated, 10 seconds
+        # ensure_destination_underlying_withdraw_are_current, # updated, 10 seconds
+        # ensure_destination_states_from_rebalance_plan_are_current, # might be rate limited on defi llama side jan 21 12:25am
+        # ensure_destination_states_are_current,
+        # ensure_destination_token_values_are_current, # fast enough
+        # ensure_autopool_destination_states_are_current, # fast
         ensure_autopool_states_are_current,
         ensure_token_values_are_current,
         ensure_rebalance_plans_table_are_current,

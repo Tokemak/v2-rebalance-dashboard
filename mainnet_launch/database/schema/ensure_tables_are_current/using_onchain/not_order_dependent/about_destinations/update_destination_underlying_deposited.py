@@ -112,13 +112,12 @@ def ensure_destination_underlying_deposits_are_current() -> None:
             print(f"No new DestinationUnderlyingDeposited events for chain {chain.name}")
             continue
 
-
-
         _insert_new_rows(chain, new_df)
 
         print(
             f"Fetched {len(new_df):,} new DestinationUnderlyingDeposited events for chain {chain.name} starting from block {highest_block[chain.chain_id]:,}"
         )
+
 
 if __name__ == "__main__":
     from mainnet_launch.constants import profile_function

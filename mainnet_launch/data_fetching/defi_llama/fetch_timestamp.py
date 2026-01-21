@@ -1,4 +1,5 @@
 from enum import Enum
+import pandas as pd
 
 from mainnet_launch.constants import (
     ETH_CHAIN,
@@ -10,7 +11,6 @@ from mainnet_launch.constants import (
     ChainData,
 )
 from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
-    make_single_request_to_3rd_party,
     THIRD_PARTY_SUCCESS_KEY,
     ThirdPartyAPIError,
     make_many_requests_to_3rd_party,
@@ -36,30 +36,55 @@ class DeFiLlamaAPIError(ThirdPartyAPIError):
     pass
 
 
-def get_block_by_timestamp_defi_llama(unix_timestamp: int, chain: ChainData, closest: str) -> int:
+def get_block_by_timestamp_defi_llama(
+    unix_timestamp: int,
+    chain: ChainData,
+    closest: str,
+    rate_limit_max_rate: int = 5,
+    rate_limit_time_period: int = 1,
+) -> int:
+    """
+    Fetch a single block for a unix timestamp on a given chain via DeFiLlama.
+
+    Args:
+        unix_timestamp: Unix timestamp in seconds
+        chain: ChainData for the blockchain
+        closest: "before" or "after" - which block to return
+        rate_limit_max_rate: Max requests per time period
+        rate_limit_time_period: Time period in seconds
+
+    Returns:
+        block_number: int
+    """
     if closest not in (Closest.BEFORE, Closest.AFTER):
         raise DeFiLlamaAPIError(f"closest must be 'before' or 'after', got: {closest}")
 
     chain_slug = CHAIN_TO_DEFI_LLAMA_SLUG[chain]
-    url = f"https://coins.llama.fi/block/{chain_slug}/{unix_timestamp}"
+    url = f"https://coins.llama.fi/block/{chain_slug}/{int(unix_timestamp)}"
+    params = {"closest": closest}
 
-    data = make_single_request_to_3rd_party({"method": "GET", "url": url})
+    responses = make_many_requests_to_3rd_party(
+        rate_limit_max_rate=rate_limit_max_rate,
+        rate_limit_time_period=rate_limit_time_period,
+        requests_kwargs=[{"method": "GET", "url": url, "params": params}],
+    )
 
-    if not data.get(THIRD_PARTY_SUCCESS_KEY):
-        raise ThirdPartyAPIError("DeFi Llama request failed", data)
+    if not responses or not responses[0].get(THIRD_PARTY_SUCCESS_KEY):
+        raise DeFiLlamaAPIError("DeFi Llama request failed", responses[0] if responses else {})
+
     try:
-        height = int(data["height"])
+        height = int(responses[0]["height"])
     except Exception as e:
-        raise ThirdPartyAPIError(f"Unexpected DeFi Llama response: {type(e).__name__}: {e}", data)
+        raise DeFiLlamaAPIError(f"Unexpected DeFi Llama response: {type(e).__name__}: {e}", responses[0])
 
-    return height + 1 if closest == "after" else height
+    return height
 
 
 def fetch_blocks_by_unix_timestamps_defillama(
     unix_timestamps: list[int],
     chain: ChainData,
     rate_limit_max_rate: int = 5,
-    rate_limit_time_period: int = 1,
+    rate_limit_time_period: int = 2,
 ):
     """
     Fetch blocks for a list of unix timestamps on a given chain via DeFiLlama,
@@ -81,12 +106,14 @@ def fetch_blocks_by_unix_timestamps_defillama(
         params = {"closest": closest}
         return {"method": "GET", "url": url, "params": params}
 
+
     requests_kwargs = []
     for ts in unix_timestamps:
-        requests_kwargs.append(_defillama_block_request_kwargs(ts, Closest.BEFORE))
-        requests_kwargs.append(_defillama_block_request_kwargs(ts - 10, Closest.BEFORE))
-        requests_kwargs.append(_defillama_block_request_kwargs(ts + 10, Closest.BEFORE))
-        requests_kwargs.append(_defillama_block_request_kwargs(ts + 86400 + 10, Closest.BEFORE))
+        requests_kwargs.append((ts, Closest.BEFORE))
+        # requests_kwargs.append(_defillama_block_request_kwargs(ts - 10, Closest.BEFORE_defillama_block_request_kwargs))
+        # requests_kwargs.append(_defillama_block_request_kwargs(ts + 10, Closest.BEFORE))
+        # requests_kwargs.append(_defillama_block_request_kwargs(ts + 86400 + 10, Closest.BEFORE))
+
 
     responses = make_many_requests_to_3rd_party(
         rate_limit_max_rate=rate_limit_max_rate,
@@ -94,7 +121,6 @@ def fetch_blocks_by_unix_timestamps_defillama(
         requests_kwargs=requests_kwargs,
     )
 
-    import pandas as pd
 
     response_df = pd.DataFrame(responses)
     request_df = pd.json_normalize(requests_kwargs)
