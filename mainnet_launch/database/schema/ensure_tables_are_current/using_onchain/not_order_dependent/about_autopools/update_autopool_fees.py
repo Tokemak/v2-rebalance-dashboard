@@ -43,9 +43,7 @@ def ensure_autopool_fees_are_current():
 
     for chain in ALL_CHAINS:
         addresess = [a.autopool_eth_addr for a in ALL_AUTOPOOLS if a.chain == chain]
-        contract = chain.client.eth.contract(
-            address=addresess[0], abi=AUTOPOOL_VAULT_WITH_FEE_COLLECTED_EVENT_ABI
-        )
+        contract = chain.client.eth.contract(address=addresess[0], abi=AUTOPOOL_VAULT_WITH_FEE_COLLECTED_EVENT_ABI)
 
         fee_collected_events_df = fetch_events(
             contract.events.FeeCollected,
@@ -63,12 +61,14 @@ def ensure_autopool_fees_are_current():
 
         fee_df = pd.concat([fee_collected_events_df, periodic_fee_collected_events_df], ignore_index=True)
         if fee_df.empty:
-            print(f'No new autopool fee events for autopools on {chain.name} after block {chain_to_start_block[chain.chain_id]:,}')
+            print(
+                f"No new autopool fee events for autopools on {chain.name} after block {chain_to_start_block[chain.chain_id]:,}"
+            )
             continue
 
         fee_df["mintedShares"] = fee_df["mintedShares"].apply(lambda x: int(x) / 1e18)
         fee_df["chain_id"] = chain.chain_id
-        fee_df["autopool_vault_address"] = fee_df['address']
+        fee_df["autopool_vault_address"] = fee_df["address"]
 
         ensure_all_transactions_are_saved_in_db(
             fee_df["hash"].tolist(),
@@ -89,9 +89,7 @@ def ensure_autopool_fees_are_current():
         ).to_list()
 
         insert_avoid_conflicts(new_fee_rows, AutopoolFees)
-        print(
-            f"Inserted {len(new_fee_rows):,} new autopool fee events for autopools on {chain.name}"
-        )
+        print(f"Inserted {len(new_fee_rows):,} new autopool fee events for autopools on {chain.name}")
 
 
 if __name__ == "__main__":

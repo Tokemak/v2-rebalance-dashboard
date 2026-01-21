@@ -69,9 +69,7 @@ def ensure_autopool_fees_are_current():
         df["chain_id"] = autopool.chain.chain_id
         df["autopool_vault_address"] = autopool.autopool_eth_addr
         new_fee_events.append(df)
-        print(
-            f"Fetched {len(df):,} new autopool fee events for autopool at {autopool.name} on {autopool.chain.name}"
-        )
+        print(f"Fetched {len(df):,} new autopool fee events for autopool at {autopool.name} on {autopool.chain.name}")
 
     if len(new_fee_events) == 0:
         # early exit if no new fee events

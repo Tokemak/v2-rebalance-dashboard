@@ -100,7 +100,7 @@ def ensure_all_transactions_are_saved_in_db(tx_hashes: list[str], chain: ChainDa
         new_transactions: list[Transactions] = fetch_transaction_rows_bulk_from_alchemy(chunk, chain)
 
         ensure_all_blocks_are_in_table([t.block for t in new_transactions], chain)
-        insert_avoid_conflicts(new_transactions, Transactions) # I think this writing is the slow part
+        insert_avoid_conflicts(new_transactions, Transactions)  # I think this writing is the slow part
         print(f"Inserted {len(new_transactions)} transactions for {chain.name}")
 
     print(f"Completed inserting all {len(hashes_to_fetch)} new transactions for {chain.name}")

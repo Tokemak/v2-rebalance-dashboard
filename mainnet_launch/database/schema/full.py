@@ -759,7 +759,7 @@ Session = sessionmaker(bind=ENGINE)
 
 
 if __name__ == "__main__":
-    reflect_and_create    ()
+    reflect_and_create()
     # drop_and_full_rebuild_db()
 
     pass
