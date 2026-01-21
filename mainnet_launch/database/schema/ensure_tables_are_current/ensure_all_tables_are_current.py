@@ -94,7 +94,7 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
         # ensure_autopool_destination_states_are_current, # fast
         # ensure_autopool_states_are_current, # fast, can be faster
         # ensure_token_values_are_current, # fast can be faster
-        ensure_rebalance_plans_table_are_current,
+        # ensure_rebalance_plans_table_are_current, # fast can be faster
         ensure_rebalance_events_are_current,
         ensure_autopool_transfers_are_current,
         ensure_autopool_deposits_are_current,
