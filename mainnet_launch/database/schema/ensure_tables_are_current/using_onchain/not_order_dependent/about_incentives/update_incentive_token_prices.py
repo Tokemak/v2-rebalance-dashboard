@@ -12,6 +12,7 @@ from mainnet_launch.database.schema.full import IncentiveTokenPrices
 
 
 def _get_needed_incentive_token_sales_prices_from_claim_vault_rewards() -> pd.DataFrame:
+    """May be useful to get the spread between when we claim and when we sell incentive tokens, not used"""
     query = """
      WITH full_details_of_needed_claim_vault_rewards AS (
             SELECT
@@ -117,34 +118,45 @@ def _build_tokemak_price_requests(needed_prices_df: pd.DataFrame) -> list[Tokema
     return requests
 
 
-def _update_incentive_token_prices_for_incentive_token_sales():
+def ensure_incentive_token_prices_are_current():
     needed_incentive_token_sales_prices_df = _get_needed_incentive_token_sales_prices_from_incentive_tokens_swapped()
     if needed_incentive_token_sales_prices_df.empty:
-        # early exit since we already have all of the prices we need
+        print("Incentive token prices are current from incentive_token_swapped events.")
         return
-    price_requests = _build_tokemak_price_requests(needed_incentive_token_sales_prices_df)
-    price_df = fetch_many_prices_from_internal_api(price_requests, 200 // 3, 10)
+    else:
+        print(
+            f"Found {len(needed_incentive_token_sales_prices_df):,} incentive token sales prices needed from incentive_token_swapped events."
+        )
+    # Break needed_incentive_token_sales_prices_df into chunks of 1000
+    chunk_size = 1000
 
-    full_df = pd.concat([needed_incentive_token_sales_prices_df, price_df], axis=1)
+    for i in range(0, len(needed_incentive_token_sales_prices_df), chunk_size):
 
-    new_incentive_token_prices = full_df.apply(
-        lambda row: IncentiveTokenPrices(
-            tx_hash=row.tx_hash,
-            log_index=row.log_index,
-            third_party_price=row.price,
-            chain_id=row.chain_id,
-            token_address=row.sell_token_address,
-            token_price_denomiated_in=row.buy_token_address,
-        ),
-        axis=1,
-    ).tolist()
+        chunk_df = needed_incentive_token_sales_prices_df.iloc[i : i + chunk_size]
+        print(f"Processing chunk {i // chunk_size + 1} with {len(chunk_df):,} records...")
 
-    insert_avoid_conflicts(new_incentive_token_prices, IncentiveTokenPrices)
+        price_requests = _build_tokemak_price_requests(chunk_df)
+        price_df = fetch_many_prices_from_internal_api(price_requests, 200 // 3, 10)
 
+        full_df = pd.concat([chunk_df.reset_index(drop=True), price_df.reset_index(drop=True)], axis=1)
 
-def ensure_incentive_token_prices_are_current():
-    _update_incentive_token_prices_for_incentive_token_sales()
+        new_incentive_token_prices = full_df.apply(
+            lambda row: IncentiveTokenPrices(
+                tx_hash=row["tx_hash"],
+                log_index=row["log_index"],
+                third_party_price=row["price"],
+                chain_id=row["chain_id"],
+                token_address=row["sell_token_address"],
+                token_price_denomiated_in=row["buy_token_address"],
+            ),
+            axis=1,
+        ).tolist()
+
+        insert_avoid_conflicts(new_incentive_token_prices, IncentiveTokenPrices)
+        print(f"Inserted {len(new_incentive_token_prices):,} new incentive token prices.")
 
 
 if __name__ == "__main__":
-    ensure_incentive_token_prices_are_current()
+    from mainnet_launch.constants import profile_function
+
+    profile_function(ensure_incentive_token_prices_are_current)

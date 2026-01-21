@@ -116,7 +116,6 @@ def ensure_incentive_token_swapped_events_are_current() -> pd.DataFrame:
         )
 
 
-
 if __name__ == "__main__":
 
     profile_function(ensure_incentive_token_swapped_events_are_current)

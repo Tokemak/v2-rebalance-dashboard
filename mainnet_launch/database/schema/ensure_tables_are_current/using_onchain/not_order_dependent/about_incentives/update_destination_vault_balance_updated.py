@@ -65,7 +65,7 @@ def _get_highest_block_already_fetched_by_chain_id() -> dict[int, int]:
     query = """
         SELECT
             incentive_token_balance_updated.chain_id,
-            MAX(transactions.block) AS max_block
+            MAX(transactions.block) + 1 AS max_block
         FROM incentive_token_balance_updated
         JOIN transactions
             ON transactions.tx_hash = incentive_token_balance_updated.tx_hash
@@ -73,43 +73,49 @@ def _get_highest_block_already_fetched_by_chain_id() -> dict[int, int]:
         GROUP BY
             incentive_token_balance_updated.chain_id
     """
-    highest_block_fetched_by_chain = _exec_sql_and_cache(query)
-
-    if highest_block_fetched_by_chain.empty:
-        highest_block_already_fetched = dict()
-    else:
-        highest_block_already_fetched = highest_block_fetched_by_chain.set_index("chain_id")["max_block"].to_dict()
+    df = _exec_sql_and_cache(query)
+    highest_block_already_fetched = df.set_index("chain_id")["max_block"].to_dict()
+    for chain in ALL_CHAINS:
+        if chain.chain_id not in highest_block_already_fetched:
+            highest_block_already_fetched[chain.chain_id] = chain.block_autopool_first_deployed
 
     return highest_block_already_fetched
 
 
-def fetch_new_balance_updated_events(
-    start_block: int,
-    chain: ChainData,
-) -> pd.DataFrame:
+def fetch_new_balance_updated_events(start_block: int, chain: ChainData) -> pd.DataFrame:
+    addresses = [addr for addr in [LIQUIDATION_ROW(chain), LIQUIDATION_ROW2(chain)] if addr != DEAD_ADDRESS]
+
     dfs = []
-    for liqudation_row in [LIQUIDATION_ROW, LIQUIDATION_ROW2]:
-        for abi in [MINIMAL_BALANCE_UPDATED_ABI_WITH_EXPECTED, MINIMAL_BALANCE_UPDATED_ABI_ONLY_BALANCE]:
-            if liqudation_row(chain) == DEAD_ADDRESS:
-                continue
-        contract = chain.client.eth.contract(address=liqudation_row(chain), abi=json.loads(abi))
-        balance_updated_df = fetch_events(
+
+    for abi in [MINIMAL_BALANCE_UPDATED_ABI_WITH_EXPECTED, MINIMAL_BALANCE_UPDATED_ABI_ONLY_BALANCE]:
+        contract = chain.client.eth.contract(address=addresses[0], abi=json.loads(abi))
+
+        df = fetch_events(
             event=contract.events.BalanceUpdated,
             chain=chain,
             start_block=start_block,
+            addresses=addresses,
         )
-        balance_updated_df["chain_id"] = chain.chain_id
-        balance_updated_df["token"] = balance_updated_df["token"].apply(lambda x: Web3.toChecksumAddress(x))
-        balance_updated_df["vault"] = balance_updated_df["vault"].apply(lambda x: Web3.toChecksumAddress(x))
 
-        if "actualBalance" in balance_updated_df.columns:
-            balance_updated_df = balance_updated_df.rename(columns={"actualBalance": "balance"})
+        if df.empty:
+            continue
 
-        balance_updated_df["liquidation_row"] = liqudation_row(chain)
-        dfs.append(balance_updated_df)
+        df["chain_id"] = chain.chain_id
+        df["liquidation_row"] = df["address"]
 
-    all_balance_updated_df = pd.concat(dfs, axis=0)
-    return all_balance_updated_df
+        df["token"] = df["token"].apply(Web3.toChecksumAddress)
+        df["vault"] = df["vault"].apply(Web3.toChecksumAddress)
+
+        if "actualBalance" in df.columns and "balance" not in df.columns:
+            # this makes the abi variants compatible inside of the db
+            df = df.rename(columns={"actualBalance": "balance"})
+
+        dfs.append(df)
+
+    if not dfs:
+        return pd.DataFrame()
+
+    return pd.concat(dfs, ignore_index=True)
 
 
 def ensure_incentive_token_balance_updated_is_current() -> pd.DataFrame:
@@ -117,39 +123,38 @@ def ensure_incentive_token_balance_updated_is_current() -> pd.DataFrame:
     all_destinations = get_full_table_as_df(Destinations)
     valid_vaults = set(all_destinations["destination_vault_address"].tolist())
 
-    for target_chain in ALL_CHAINS:
-        all_balance_updated_df = fetch_new_balance_updated_events(
-            start_block=highest_block_already_fetched.get(
-                target_chain.chain_id, target_chain.block_autopool_first_deployed
-            )
-            + 1,
-            chain=target_chain,
+    for chain in ALL_CHAINS:
+        new_balance_updated_df = fetch_new_balance_updated_events(
+            start_block=highest_block_already_fetched[chain.chain_id], chain=chain
         )
+        if new_balance_updated_df.empty:
+            print(f"No new IncentiveTokenBalanceUpdated events for chain {chain.name}")
+            continue
 
         ensure_all_tokens_are_saved_in_db(
-            token_addresses=set(all_balance_updated_df["token"].unique().tolist()),
-            chain=target_chain,
+            token_addresses=set(new_balance_updated_df["token"].unique().tolist()),
+            chain=chain,
         )
         # make sure that we save to the tokens table any newly added incentive tokens
         token_to_decimals, token_to_symbol = get_token_details_dict()
+
         # don't break on on unregistered vaults, eg for new autopools
         # we add deploy destination contracts before the autopool starts, so ignore for now
+        new_balance_updated_df = new_balance_updated_df[new_balance_updated_df["vault"].isin(valid_vaults)].copy()
 
-        all_balance_updated_df = all_balance_updated_df[all_balance_updated_df["vault"].isin(valid_vaults)].copy()
-
-        if all_balance_updated_df.empty:
+        if new_balance_updated_df.empty:
             continue
         else:
 
-            all_balance_updated_df["new_balance"] = all_balance_updated_df.apply(
+            new_balance_updated_df["new_balance"] = new_balance_updated_df.apply(
                 lambda row: int(row["balance"]) / (10 ** token_to_decimals[row["token"]]), axis=1
             )
             # useful for debugging
-            all_balance_updated_df["token_symbol"] = all_balance_updated_df.apply(
+            new_balance_updated_df["token_symbol"] = new_balance_updated_df.apply(
                 lambda row: token_to_symbol[row["token"]], axis=1
             )
 
-            new_claim_vault_rewards_rows = all_balance_updated_df.apply(
+            new_claim_vault_rewards_rows = new_balance_updated_df.apply(
                 lambda row: IncentiveTokenBalanceUpdated(
                     tx_hash=row["hash"],
                     log_index=row["log_index"],
@@ -162,21 +167,22 @@ def ensure_incentive_token_balance_updated_is_current() -> pd.DataFrame:
                 axis=1,
             ).tolist()
 
-            new_hashes = [r.tx_hash for r in new_claim_vault_rewards_rows]
-
             ensure_all_transactions_are_saved_in_db(
-                tx_hashes=new_hashes,
-                chain=target_chain,
+                tx_hashes=new_balance_updated_df["hash"].unique().tolist(),
+                chain=chain,
             )
 
             insert_avoid_conflicts(
                 new_claim_vault_rewards_rows,
                 IncentiveTokenBalanceUpdated,
             )
+            print(
+                f"Inserted {len(new_claim_vault_rewards_rows):,} new IncentiveTokenBalanceUpdated rows for chain {chain.name}"
+            )
 
 
 if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
 
-    # profile_function(ensure_incentive_token_balance_updated_is_current)
-    ensure_incentive_token_balance_updated_is_current()
+    profile_function(ensure_incentive_token_balance_updated_is_current)
+    # ensure_incentive_token_balance_updated_is_current()
