@@ -81,15 +81,12 @@ def fetch_blocks_by_unix_timestamps_defillama(
         params = {"closest": closest}
         return {"method": "GET", "url": url, "params": params}
 
-
     requests_kwargs = []
     for ts in unix_timestamps:
         requests_kwargs.append(_defillama_block_request_kwargs(ts, Closest.BEFORE))
         requests_kwargs.append(_defillama_block_request_kwargs(ts - 10, Closest.BEFORE))
         requests_kwargs.append(_defillama_block_request_kwargs(ts + 10, Closest.BEFORE))
         requests_kwargs.append(_defillama_block_request_kwargs(ts + 86400 + 10, Closest.BEFORE))
-
-
 
     responses = make_many_requests_to_3rd_party(
         rate_limit_max_rate=rate_limit_max_rate,
@@ -103,9 +100,9 @@ def fetch_blocks_by_unix_timestamps_defillama(
     request_df = pd.json_normalize(requests_kwargs)
 
     joined_df = pd.concat([request_df, response_df], axis=1)
-    joined_df['pdtimestamp'] = pd.to_datetime(joined_df['timestamp'], unit='s', utc=True)
+    joined_df["pdtimestamp"] = pd.to_datetime(joined_df["timestamp"], unit="s", utc=True)
     # print(joined_df[['pdtimestamp', 'height', 'timestamp']].head(20))
-    joined_df = joined_df.dropna(subset=['height'])
+    joined_df = joined_df.dropna(subset=["height"])
 
-    blocks_add =  list(joined_df['height'].astype(int))
+    blocks_add = list(joined_df["height"].astype(int))
     return blocks_add

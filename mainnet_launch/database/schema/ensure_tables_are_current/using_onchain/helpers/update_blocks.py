@@ -61,11 +61,7 @@ def _determine_missing_timestamps(chain: ChainData) -> list[int]:
     # If there are no blocks at all, everything before today is missing
     if per_day_df is None or per_day_df.empty:
         today = pd.Timestamp.now(tz="UTC").normalize()
-        return (
-            days_df.loc[days_df["day"] < today.date(), "unix_timestamp"]
-            .astype("int64")
-            .tolist()
-        )
+        return days_df.loc[days_df["day"] < today.date(), "unix_timestamp"].astype("int64").tolist()
 
     df = days_df.merge(per_day_df, on="day", how="left").sort_values("day", ascending=True)
 
@@ -96,8 +92,8 @@ def _determine_missing_timestamps(chain: ChainData) -> list[int]:
         ts0 = day_to_unix.get(day)
         if ts0 is None:
             continue
-        missing_ts.add(int(ts0))                 # 00:00:00
-        missing_ts.add(int(ts0 + 86400 - 1))     # 23:59:59
+        missing_ts.add(int(ts0))  # 00:00:00
+        missing_ts.add(int(ts0 + 86400 - 1))  # 23:59:59
 
     missing = sorted(missing_ts)
 
@@ -116,7 +112,6 @@ def _determine_missing_timestamps(chain: ChainData) -> list[int]:
     # )
 
     return missing
-
 
 
 def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData):
@@ -153,21 +148,18 @@ def ensure_blocks_is_current():
     for chain in ALL_CHAINS:
         unix_timestamps = _determine_missing_timestamps(chain)
         if len(unix_timestamps) == 0:
-            print(f"[{chain.name}] blocks table is already current.")
+            # print(f"[{chain.name}] blocks table is already current.")
             continue
 
         blocks_to_add = fetch_blocks_by_unix_timestamps_defillama(
             unix_timestamps=unix_timestamps,
             chain=chain,
         )
-        print('Fetched blocks from DeFiLlama:', blocks_to_add)
+        print("Fetched blocks from DeFiLlama:", blocks_to_add)
 
         ensure_all_blocks_are_in_table(blocks_to_add, chain)
 
-        print(
-            f"[{chain.name}] timestamps_needed={len(unix_timestamps)} "
-            f"fetched_unique_blocks={len(blocks_to_add)}"
-        )
+        print(f"[{chain.name}] timestamps_needed={len(unix_timestamps)} " f"fetched_unique_blocks={len(blocks_to_add)}")
 
 
 if __name__ == "__main__":
