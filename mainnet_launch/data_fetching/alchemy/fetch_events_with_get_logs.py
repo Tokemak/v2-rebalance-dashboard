@@ -18,7 +18,7 @@ import time
 # Other chains (e.g., Base, Mainnet): 100M blocks (DEFAULT_CHUNK_SIZE), minimal restrictions
 # https://www.alchemy.com/docs/chains/ethereum/ethereum-api-endpoints/eth-get-logs
 
-NUM_THREADS_FOR_PRE_SPLIT_FETCH = 2
+NUM_THREADS_FOR_PRE_SPLIT_FETCH = 10
 DEFAULT_CHUNK_SIZE = 100_000_000
 
 # only 10k ranges are garanteed to work, but we need to get more than that becaues there are millions of blocks

@@ -1,6 +1,4 @@
 import pandas as pd
-from dataclasses import dataclass
-import concurrent.futures
 
 from web3.contract import Contract, ContractEvent
 

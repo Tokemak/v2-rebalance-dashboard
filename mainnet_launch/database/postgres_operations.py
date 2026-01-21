@@ -5,15 +5,13 @@ import io
 import csv
 from psycopg2 import sql
 
-from sqlalchemy.orm import InstrumentedAttribute
+from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute
 from sqlalchemy.sql.elements import OperatorExpression, BooleanClauseList
-from sqlalchemy import text
+from sqlalchemy import text, inspect
 from psycopg2.extras import execute_values
 from sqlalchemy.dialects import postgresql
 import numpy as np
-
 import pandas as pd
-
 
 from mainnet_launch.database.schema.full import Session, Base, ENGINE
 
@@ -106,9 +104,35 @@ def _exec_sql_and_cache(sql_plain_text: str) -> pd.DataFrame:
         return pd.read_sql(text(sql_plain_text), con=session.get_bind())
 
 
+def assert_table_schema_matches_model(engine, table: type[DeclarativeBase]) -> None:
+    sa_table = table.__table__
+    tn = sa_table.name
+    schema = sa_table.schema  # None -> search_path/default
+
+    model_cols = [c.name for c in sa_table.columns]
+
+    insp = inspect(engine)
+    db_cols = [c["name"] for c in insp.get_columns(tn, schema=schema)]
+
+    model_only = [c for c in model_cols if c not in db_cols]
+    db_only = [c for c in db_cols if c not in model_cols]
+
+    if model_only or db_only:
+        qual = f"{schema}.{tn}" if schema else tn
+        raise RuntimeError(
+            f"Schema drift detected for {qual}.\n"
+            f"  Columns only in model: {model_only}\n"
+            f"  Columns only in DB:    {db_only}\n"
+            f"  Model columns:         {model_cols}\n"
+            f"  DB columns:            {db_cols}\n"
+            f"Resolve via migrations / rebuild."
+        )
+
+
 def insert_avoid_conflicts(
     new_rows: list[Base], table: Base, index_elements: list[InstrumentedAttribute] = None, expecting_rows: bool = False
 ) -> None:
+    assert_table_schema_matches_model(ENGINE, table)
     if not (isinstance(table, type) and issubclass(table, Base)):
         raise TypeError("must be in order insert_avoid_conflicts(new_rows, table, *args), might have wrong order")
 
@@ -124,7 +148,7 @@ def insert_avoid_conflicts(
 
 def bulk_copy_skip_duplicates(rows: list[tuple], table: type[Base]) -> None:
     """
-    Bulk‑load `rows` into `table`, skipping any duplicates
+    Bulk-load `rows` into `table`, skipping any duplicates
     (based on the table's primary key or unique constraints).
     """
     tn = table.__tablename__

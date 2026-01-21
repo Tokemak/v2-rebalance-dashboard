@@ -525,7 +525,9 @@ class ChainlinkGasCosts(Base):
 
 class AutopoolFees(Base):
     __tablename__ = "autopool_fees"
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+
     log_index: Mapped[int] = mapped_column(primary_key=True)
 
     autopool_vault_address: Mapped[str] = mapped_column(nullable=False)
@@ -533,6 +535,13 @@ class AutopoolFees(Base):
 
     fee_sink: Mapped[str] = mapped_column(nullable=False)  # where the fee went
     minted_shares: Mapped[float] = mapped_column(nullable=False)  # shares is always in 1e18
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
+        ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
+    )
 
 
 # not populated
@@ -750,8 +759,7 @@ Session = sessionmaker(bind=ENGINE)
 
 
 if __name__ == "__main__":
-    reflect_and_create
-    ()
+    reflect_and_create    ()
     # drop_and_full_rebuild_db()
 
     pass
