@@ -101,24 +101,26 @@ def _from_address_to_highest_block_already_stored_in_db(chain: ChainData) -> dic
 def ensure_tokemak_EOA_gas_costs_are_current():
     deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
 
-    for chain in [ETH_CHAIN]:
-        highest_block_already_seen = _from_address_to_highest_block_already_stored_in_db(chain)
-        EOAs_we_want_to_track = set(
-            deployers_df[deployers_df["chain_id"] == chain.chain_id]["deployer"].tolist()
-            + service_accounts_df[service_accounts_df["chain_id"] == chain.chain_id]["address"].tolist()
+    chain = ETH_CHAIN
+    highest_block_already_seen = _from_address_to_highest_block_already_stored_in_db(chain)
+    EOAs_we_want_to_track = set(
+        deployers_df[deployers_df["chain_id"] == chain.chain_id]["deployer"].tolist()
+        + service_accounts_df[service_accounts_df["chain_id"] == chain.chain_id]["address"].tolist()
+    )
+
+    transaction_hashes_required = []
+    for i, EOA_address in enumerate(EOAs_we_want_to_track):
+        from_block = highest_block_already_seen[EOA_address]
+
+        # this should have a rate limiter of no more than 4/ second
+        etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
+            chain, EOA_address, from_block=from_block, to_block=chain.get_block_near_top()
         )
 
-        transaction_hashes_required = []
-        for i, EOA_address in enumerate(EOAs_we_want_to_track):
-            from_block = highest_block_already_seen.get(EOA_address, 0) + 1
-
-            # this should have a rate limiter of no more than 4/ second
-            etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
-                chain, EOA_address, from_block=from_block, to_block=chain.get_block_near_top()
-            )
+        if not etherscan_tx_df.empty:
             transaction_hashes_required.extend(etherscan_tx_df["hash"].tolist())
 
-        ensure_all_transactions_are_saved_in_db(transaction_hashes_required, chain)
+    ensure_all_transactions_are_saved_in_db(transaction_hashes_required, chain)
 
 
 def update_tokemak_EOA_gas_costs_from_0():
@@ -151,4 +153,4 @@ if __name__ == "__main__":
     # profile_function(ensure_tokemak_EOA_gas_costs_are_current)
     # not sure why this sometimes fails with this error
 
-    update_tokemak_EOA_gas_costs_from_0()
+    ensure_tokemak_EOA_gas_costs_are_current()

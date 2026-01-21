@@ -76,30 +76,30 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
     run_path = WORKING_DATA_DIR / "update-prod-db.txt"
 
     steps = [
-        # _ensure_chain_top_block_are_cached,
-        # ensure_blocks_is_current,
-        # ensure_autopools_are_current,
-        # ensure__destinations__tokens__and__destination_tokens_are_current,
-        # ensure_tokemak_EOA_gas_costs_are_current,  # 50k transaction's im seing
-        # ensure_chainlink_gas_costs_table_are_current,  # qworks
-        # ensure_autopool_fees_are_current, faster 25 seconds
-        # ensure_incentive_token_swapped_events_are_current, # faster 10 seconds
-        # ensure_incentive_token_balance_updated_is_current,  # 10 seconds
-        # ensure_incentive_token_prices_are_current, fast
-        # ensure_destination_underlying_deposits_are_current, # updated, 10 seconds
-        # ensure_destination_underlying_withdraw_are_current, # updated, 10 seconds
-        # ensure_destination_states_from_rebalance_plan_are_current, # might be rate limited on defi llama side jan 21 12:25am
-        # ensure_destination_states_are_current,
-        # ensure_destination_token_values_are_current, # fast enough
-        # ensure_autopool_destination_states_are_current, # fast
-        # ensure_autopool_states_are_current, # fast, can be faster
-        # ensure_token_values_are_current, # fast can be faster
-        # ensure_rebalance_plans_table_are_current, # fast can be faster
-        ensure_rebalance_events_are_current,
-        ensure_autopool_transfers_are_current,
-        ensure_autopool_deposits_are_current,
-        ensure_autopool_withdraws_are_current,
-        ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit,
+        _ensure_chain_top_block_are_cached,
+        ensure_blocks_is_current,
+        ensure_autopools_are_current,
+        ensure__destinations__tokens__and__destination_tokens_are_current,
+        ensure_tokemak_EOA_gas_costs_are_current,  # 50k transaction's im seing
+        ensure_chainlink_gas_costs_table_are_current,  # qworks
+        ensure_autopool_fees_are_current,  # faster 25 seconds
+        ensure_incentive_token_swapped_events_are_current,  # faster 10 seconds
+        ensure_incentive_token_balance_updated_is_current,  # 10 seconds
+        ensure_incentive_token_prices_are_current,  # fast
+        ensure_destination_underlying_deposits_are_current,  # updated, 10 seconds
+        ensure_destination_underlying_withdraw_are_current,  # updated, 10 seconds
+        ensure_destination_states_from_rebalance_plan_are_current,  # might be rate limited on defi llama side jan 21 12:25am
+        ensure_destination_states_are_current,
+        ensure_destination_token_values_are_current,  # fast enough
+        ensure_autopool_destination_states_are_current,  # fast
+        ensure_autopool_states_are_current,  # fast, can be faster
+        ensure_token_values_are_current,  # fast can be faster
+        ensure_rebalance_plans_table_are_current,  # fast can be faster
+        ensure_rebalance_events_are_current,  # fast can be faster 120 seconmds
+        ensure_autopool_transfers_are_current,  # fast can be faster
+        ensure_autopool_deposits_are_current,  # fast enough
+        ensure_autopool_withdraws_are_current,  # fast enough
+        ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit,  # fast enough
     ]
 
     overall_t0 = time.perf_counter()
@@ -107,14 +107,24 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
         for func in steps:
             t0 = time.perf_counter()
             try:
-                func()
-                f.write(f"{func.__name__}, {time.perf_counter() - t0:.6f}\n")
+                print(f"Starting step: {func.__name__}")
+                profile_function(func)
+                elapsed = time.perf_counter() - t0
+                f.write(f"{func.__name__}, {elapsed:.6f}\n")
+                f.flush()
+
+                # if elapsed > 60:
+                #     print(f"WARNING: {func.__name__} took {elapsed:.2f} seconds (>60s), breaking execution")
+                #     f.write(f"EXECUTION STOPPED: Step exceeded 60 second threshold\n")
+                #     f.flush()
+                #     break
             except Exception as e:
-                f.write(f"{func.__name__}, {time.perf_counter() - t0:.6f} (failed: {str(e)})\n")
-            f.flush()  # Ensure the file is saved after each write
+                elapsed = time.perf_counter() - t0
+                f.write(f"{func.__name__}, {elapsed:.6f} (failed: {str(e)})\n")
+                f.flush()
 
         f.write(f"TOTAL, {time.perf_counter() - overall_t0:.6f}\n")
-        f.flush()  # Ensure the final write is saved
+        f.flush()
 
     print("finished update")
 

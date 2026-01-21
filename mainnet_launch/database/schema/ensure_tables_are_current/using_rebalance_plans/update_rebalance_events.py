@@ -200,41 +200,7 @@ def _load_raw_rebalance_event_df(autopool: AutopoolConstants):
     return rebalance_event_df
 
 
-def ensure_rebalance_events_are_current():
-    for autopool in ALL_AUTOPOOLS:
-        rebalance_event_df = _load_raw_rebalance_event_df(autopool)
-
-        if rebalance_event_df.empty:
-            print(autopool.name, "no new rebalance events to fetch")
-            continue
-
-        ensure_all_transactions_are_saved_in_db(rebalance_event_df["transactionHash"].to_list(), autopool.chain)
-
-        transaction_df = get_full_table_as_df(
-            Transactions, where_clause=Transactions.tx_hash.in_(rebalance_event_df["transactionHash"].to_list())
-        )
-
-        tx_hash_to_to_address = {
-            tx_hash: to_address for tx_hash, to_address in zip(transaction_df["tx_hash"], transaction_df["to_address"])
-        }
-        rebalance_event_df["solver_address"] = rebalance_event_df["transactionHash"].map(tx_hash_to_to_address)
-
-        new_rebalance_event_rows = add_lp_token_safe_and_spot_prices(rebalance_event_df, autopool)
-        new_autopool_state_rows = _fetch_new_autopool_state_rows(autopool, [int(b) for b in transaction_df["block"]])
-
-        for rebalance_event in RebalanceEvents:
-            # note monkey patch when updating database switch to making the column not nullable
-            # todo drop all rows where rebalance file path is None
-            if rebalance_event.rebalance_file_path is None:
-                raise UpdateRebalanceEventsTableError(
-                    f"Could not identify rebalance plan for rebalance event {rebalance_event.tx_hash=} for {autopool.name}"
-                )
-
-        insert_avoid_conflicts(new_autopool_state_rows, AutopoolStates)
-        insert_avoid_conflicts(new_rebalance_event_rows, RebalanceEvents)
-
-
-def add_lp_token_safe_and_spot_prices(
+def _add_lp_token_safe_and_spot_prices(
     rebalance_event_df: pd.DataFrame,
     autopool: AutopoolConstants,
     max_concurrent_fetches: int = 1,
@@ -286,7 +252,7 @@ def add_lp_token_safe_and_spot_prices(
 
     new_rebalance_event_rows: list[RebalanceEvents] = []
     rows = rebalance_event_df.to_dict("records")
-    with ThreadPoolExecutor(max_workers=1) as executor:
+    with ThreadPoolExecutor(max_workers=max_concurrent_fetches) as executor:
         futures = [executor.submit(_fetch_prices_and_build_rebalance_event, row) for row in rows]
         for future in as_completed(futures):
             new_rebalance_event_rows.append(future.result())
@@ -417,8 +383,51 @@ def _get_spot_value_change_in_solver(
     return spot_value_difference_in_solver
 
 
+def ensure_rebalance_events_are_current():
+    for autopool in ALL_AUTOPOOLS:
+        rebalance_event_df = _load_raw_rebalance_event_df(autopool)
+
+        if rebalance_event_df.empty:
+            print(autopool.name, "no new rebalance events to fetch")
+            continue
+        print(f"Fetched {len(rebalance_event_df):,} new rebalance events for {autopool.name}")
+
+        ensure_all_transactions_are_saved_in_db(rebalance_event_df["transactionHash"].to_list(), autopool.chain)
+
+        transaction_df = get_full_table_as_df(
+            Transactions, where_clause=Transactions.tx_hash.in_(rebalance_event_df["transactionHash"].to_list())
+        )
+
+        tx_hash_to_to_address = {
+            tx_hash: to_address for tx_hash, to_address in zip(transaction_df["tx_hash"], transaction_df["to_address"])
+        }
+        rebalance_event_df["solver_address"] = rebalance_event_df["transactionHash"].map(tx_hash_to_to_address)
+
+        new_rebalance_event_rows = _add_lp_token_safe_and_spot_prices(
+            rebalance_event_df, autopool, max_concurrent_fetches=5
+        )
+        new_autopool_state_rows = _fetch_new_autopool_state_rows(autopool, [int(b) for b in transaction_df["block"]])
+
+        for rebalance_event in new_rebalance_event_rows:
+            # note monkey patch when updating database switch to making the column not nullable
+            # todo drop all rows where rebalance file path is None
+            if rebalance_event.rebalance_file_path is None:
+                # raise UpdateRebalanceEventsTableError(
+                #     f"Could not identify rebalance plan for rebalance event {rebalance_event.tx_hash=} for {autopool.name}"
+                # )
+                print(
+                    f"Warning: could not identify rebalance plan for rebalance event {rebalance_event.tx_hash=} for {autopool.name}"
+                )
+
+        insert_avoid_conflicts(new_autopool_state_rows, AutopoolStates)
+        insert_avoid_conflicts(new_rebalance_event_rows, RebalanceEvents)
+        print(f"Inserted {len(new_rebalance_event_rows):,} new rebalance events for {autopool.name}")
+
+
 if __name__ == "__main__":
 
     from mainnet_launch.constants import *
 
-    profile_function(_load_raw_rebalance_event_df, BASE_USD)
+    # ensure_rebalance_events_are_current()
+
+    profile_function(ensure_rebalance_events_are_current)

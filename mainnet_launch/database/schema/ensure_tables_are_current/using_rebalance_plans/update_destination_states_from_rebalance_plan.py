@@ -26,7 +26,7 @@ from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_all_blocks_are_in_table,
 )
-from mainnet_launch.data_fetching.defi_llama.fetch_timestamp import get_block_by_timestamp_defi_llama
+from mainnet_launch.data_fetching.defi_llama.fetch_timestamp import fetch_blocks_by_unix_timestamps_defillama
 
 from mainnet_launch.data_fetching.internal.s3_helper import (
     fetch_all_solver_rebalance_plan_file_names,
@@ -62,11 +62,12 @@ def convert_rebalance_plan_to_rows(
 ) -> list[DestinationStates]:
     """Makes external calls to etherscan, and on http nodes"""
 
-    # this part is lossy
-    block_after_plan_timestamp = get_block_by_timestamp_defi_llama(
-        int(plan["sod"]["currentTimestamp"]) + 1,
+    timestamp = int(plan["sod"]["currentTimestamp"])
+    block_after_plan_timestamp = fetch_blocks_by_unix_timestamps_defillama(
+        [
+            timestamp,
+        ],
         chain=autopool.chain,
-        closest="after",  # not certain that after does anything here
     )
     quantity_of_idle = _get_quantity_of_base_asset_in_idle(
         autopool, tokens_address_to_decimals, block_after_plan_timestamp
@@ -260,7 +261,10 @@ def ensure_destination_states_from_rebalance_plan_are_current():
         )
 
         if not plans_to_fetch:
+            print(f"No new Rebalance Plans to process for {autopool.name}, skipping.")
             continue
+
+        print(f"Processing {len(plans_to_fetch):,} new Rebalance Plans for {autopool.name}...")
 
         def _process_plan(plan_path: str):
             plan = fetch_rebalance_plan_json_from_s3_bucket(plan_path, s3_client, autopool)
@@ -326,25 +330,3 @@ if __name__ == "__main__":
 
     # profile_function(ensure_destination_states_from_rebalance_plan_are_current)
     ensure_destination_states_from_rebalance_plan_are_current()
-
-
-# def _process_plan_with_retry(plan_path: str):
-#     i = 0
-#     while True:
-#         try:
-#             plan = fetch_rebalance_plan_json_from_s3_bucket(plan_path, s3_client, autopool)
-#             new_destination_states_rows, new_token_values_rows, new_destination_token_values = (
-#                 convert_rebalance_plan_to_rows(plan, autopool, tokens_address_to_decimals)
-#             )
-#             return new_destination_states_rows, new_token_values_rows, new_destination_token_values
-
-#         except Exception as e:
-
-#             i += 1
-#             sleep_time = random.uniform(1, 5) + i**2
-#             print(f"Error processing plan {plan_path}, retrying in {sleep_time:.2}")
-#             print(f"Error: {e}")
-#             time.sleep(sleep_time)  # exponential backoff
-
-#             if i == 5:
-#                 raise e
