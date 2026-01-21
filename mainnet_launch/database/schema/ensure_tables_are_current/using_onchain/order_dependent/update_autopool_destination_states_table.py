@@ -186,7 +186,6 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import *
 
-
     profile_function(ensure_autopool_destination_states_are_current)
     # profile_function(_fetch_and_insert_new_autopool_destination_states, BASE_USD)  # 3,3 seconds
 

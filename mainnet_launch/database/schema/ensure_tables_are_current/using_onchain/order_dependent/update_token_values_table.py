@@ -44,6 +44,8 @@ from mainnet_launch.constants import (
     AutopoolConstants,
 )
 
+# NOTE: dont trust these, are hard coded in multiple places
+
 
 def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain: ChainData) -> list[int]:
     blocks_expected_to_have = merge_tables_as_df(
@@ -110,6 +112,7 @@ def _fetch_and_insert_new_token_values(autopools: list[AutopoolConstants], chain
     needed_blocks = _determine_what_blocks_are_needed(autopools, chain)
 
     if not needed_blocks:
+        print(f"No new token values needed for chain {chain.name}, autopools: {[a.name for a in autopools]}")
         return
 
     tokens_orms: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
@@ -124,6 +127,9 @@ def _fetch_and_insert_new_token_values(autopools: list[AutopoolConstants], chain
             TokenValues.token_address,
             TokenValues.denominated_in,
         ],
+    )
+    print(
+        f"Inserted {len(new_token_values_rows):,} new token values for chain {chain.name}, autopools: {[a.name for a in autopools]}"
     )
 
 

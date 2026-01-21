@@ -106,7 +106,6 @@ def fetch_blocks_by_unix_timestamps_defillama(
         params = {"closest": closest}
         return {"method": "GET", "url": url, "params": params}
 
-
     requests_kwargs = []
     for ts in unix_timestamps:
         requests_kwargs.append((ts, Closest.BEFORE))
@@ -114,13 +113,11 @@ def fetch_blocks_by_unix_timestamps_defillama(
         # requests_kwargs.append(_defillama_block_request_kwargs(ts + 10, Closest.BEFORE))
         # requests_kwargs.append(_defillama_block_request_kwargs(ts + 86400 + 10, Closest.BEFORE))
 
-
     responses = make_many_requests_to_3rd_party(
         rate_limit_max_rate=rate_limit_max_rate,
         rate_limit_time_period=rate_limit_time_period,
         requests_kwargs=requests_kwargs,
     )
-
 
     response_df = pd.DataFrame(responses)
     request_df = pd.json_normalize(requests_kwargs)
