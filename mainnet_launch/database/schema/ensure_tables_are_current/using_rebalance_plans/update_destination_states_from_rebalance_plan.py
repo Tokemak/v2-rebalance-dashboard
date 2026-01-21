@@ -25,8 +25,8 @@ from mainnet_launch.database.postgres_operations import (
 from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, SILO_USD
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_all_blocks_are_in_table,
-    get_block_by_timestamp_etherscan,
 )
+from mainnet_launch.data_fetching.defi_llama.fetch_timestamp import get_block_by_timestamp_defi_llama
 
 from mainnet_launch.data_fetching.internal.s3_helper import (
     fetch_all_solver_rebalance_plan_file_names,
@@ -62,7 +62,7 @@ def convert_rebalance_plan_to_rows(
 ) -> list[DestinationStates]:
     """Makes external calls to etherscan, and on http nodes"""
 
-    block_after_plan_timestamp = get_block_by_timestamp_etherscan(
+    block_after_plan_timestamp = get_block_by_timestamp_defi_llama(
         plan["sod"]["currentTimestamp"], chain=autopool.chain, closest="after"
     )
     quantity_of_idle = _get_quantity_of_base_asset_in_idle(

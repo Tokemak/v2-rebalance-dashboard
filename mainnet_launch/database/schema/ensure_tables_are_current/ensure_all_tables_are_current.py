@@ -80,7 +80,7 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
         ensure_blocks_is_current,
         ensure_autopools_are_current,
         ensure__destinations__tokens__and__destination_tokens_are_current,
-        ensure_tokemak_EOA_gas_costs_are_current,
+        ensure_tokemak_EOA_gas_costs_are_current,  # 50k transaction's im seing
         ensure_chainlink_gas_costs_table_are_current,
         ensure_autopool_fees_are_current,
         ensure_incentive_token_swapped_events_are_current,

@@ -107,17 +107,20 @@ def ensure_tokemak_EOA_gas_costs_are_current():
             deployers_df[deployers_df["chain_id"] == chain.chain_id]["deployer"].tolist()
             + service_accounts_df[service_accounts_df["chain_id"] == chain.chain_id]["address"].tolist()
         )
-        transaction_hashes_required = []
 
+        transaction_hashes_required = []
         for i, EOA_address in enumerate(EOAs_we_want_to_track):
             from_block = highest_block_already_seen.get(EOA_address, 0) + 1
+
+            # this should have a rate limiter of no more than 4/ second
             etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
                 chain, EOA_address, from_block=from_block, to_block=chain.get_block_near_top()
             )
-            if not etherscan_tx_df.empty:
-                transaction_hashes_required.extend(etherscan_tx_df["hash"].tolist())
-                # print(f"{len(transaction_hashes_required)=} {i=} {len(EOAs_we_want_to_track)=} {EOA_address=}")
+            transaction_hashes_required.extend(etherscan_tx_df["hash"].tolist())
+      
+
         ensure_all_transactions_are_saved_in_db(transaction_hashes_required, chain)
+
 
 
 def update_tokemak_EOA_gas_costs_from_0():
@@ -144,20 +147,11 @@ def update_tokemak_EOA_gas_costs_from_0():
 
 
 if __name__ == "__main__":
-    fetch_tokemak_address_constants_dfs()
 
-    # ensure_tokemak_EOA_gas_costs_are_current()
 
     from mainnet_launch.constants import profile_function
 
     # profile_function(ensure_tokemak_EOA_gas_costs_are_current)
     # not sure why this sometimes fails with this error
-
-    #     etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
-    #   File "/home/runner/work/v2-rebalance-dashboard/v2-rebalance-dashboard/mainnet_launch/data_fetching/etherscan/get_transactions_etherscan.py", line 78, in get_all_transactions_sent_by_eoa_address
-    #     df["from"] = df["from"].apply(lambda x: chain.client.toChecksumAddress(x))
-    #   File "/home/runner/work/v2-rebalance-dashboard/v2-rebalance-dashboard/.venv/lib/python3.10/site-packages/pandas/core/frame.py", line 4107, in __getitem__
-    #     indexer = self.columns.get_loc(key)
-    #   File "/home/runner/work/v2-rebalance-dashboard/v2-rebalance-dashboard/.venv/lib/python3.10/site-packages/pandas/core/indexes/range.py", line 417, in get_loc
-    #     raise KeyError(key)
-    # KeyError: 'from'
+    
+    update_tokemak_EOA_gas_costs_from_0()

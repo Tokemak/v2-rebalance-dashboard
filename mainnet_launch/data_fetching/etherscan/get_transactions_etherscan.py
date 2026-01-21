@@ -101,6 +101,9 @@ def get_all_transactions_sent_by_eoa_address(
     to_block: int,
 ) -> pd.DataFrame:
     """Use pagination to get *all* internal txns sent by `EOA_address` from Etherscan,
+
+    EOA mean externally owned account (i.e. not a contract)
+    
     note, no concurrency, or rate limiting. Make sure to add it later"""
 
     all_txs = _get_normal_transactions_from_etherscan_recursive(chain, EOA_address, from_block, to_block)

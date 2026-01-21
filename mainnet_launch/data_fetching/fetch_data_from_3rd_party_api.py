@@ -136,7 +136,7 @@ async def _make_many_requests_async(
         results: list[dict] = [None] * len(tasks)
         desc = f"Fetching 3rd-party data from {requests_kwargs[0].get('url', '')}"
 
-        for fut in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc=desc):
+        for fut in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc=desc, disable=(len(tasks) == 1)):
             i, res = await fut
             results[i] = res
 
