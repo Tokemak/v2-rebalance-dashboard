@@ -68,7 +68,7 @@ def convert_rebalance_plan_to_rows(
             timestamp,
         ],
         chain=autopool.chain,
-    )
+    )[0]
     quantity_of_idle = _get_quantity_of_base_asset_in_idle(
         autopool, tokens_address_to_decimals, block_after_plan_timestamp
     )
@@ -226,7 +226,9 @@ def _extract_destination_states_rows(
 
     return new_destination_states_rows
 
-
+# Broken as of jan 21, 2026 defi llama timestamp query breaks
+# need alternate way not certain if defi llama is broken, or if how I am querying it is broken
+# could also be a cache error through cloudflare
 def ensure_destination_states_from_rebalance_plan_are_current():
     s3_client = make_s3_client()
 

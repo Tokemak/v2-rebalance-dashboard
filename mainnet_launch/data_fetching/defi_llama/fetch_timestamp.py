@@ -109,7 +109,7 @@ def fetch_blocks_by_unix_timestamps_defillama(
     requests_kwargs = []
     for ts in unix_timestamps:
         requests_kwargs.append(_defillama_block_request_kwargs(ts, Closest.BEFORE))
-
+    # this should retry and try again on 500 errors.
     responses = make_many_requests_to_3rd_party(
         rate_limit_max_rate=rate_limit_max_rate,
         rate_limit_time_period=rate_limit_time_period,

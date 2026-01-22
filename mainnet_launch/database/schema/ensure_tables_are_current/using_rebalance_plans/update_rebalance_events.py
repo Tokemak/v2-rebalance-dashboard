@@ -384,6 +384,7 @@ def _get_spot_value_change_in_solver(
 
 
 def ensure_rebalance_events_are_current():
+    # note too slow 3 minutes
     for autopool in ALL_AUTOPOOLS:
         rebalance_event_df = _load_raw_rebalance_event_df(autopool)
 
