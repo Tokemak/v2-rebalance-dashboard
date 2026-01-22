@@ -94,7 +94,7 @@ SOLVER_ROOT_ORACLE = TokemakAddress(
     name="SolverRootOracle",
 )
 
-# only autoLRT on mainnet uses points
+# only autoLRT on mainnet uses points, can safely ignore since it is deprecated
 POINTS_HOOK = TokemakAddress(
     eth="0xA386067eB5F7Dc9b731fe1130745b0FB00c615C3",
     base=DEAD_ADDRESS,

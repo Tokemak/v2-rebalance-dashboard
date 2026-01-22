@@ -74,7 +74,7 @@ def _get_highest_block_of_rebalance_events_already_saved_in_database(autopool: A
 
 def _fetch_raw_rebalance_events_from_subgraph(autopool: AutopoolConstants) -> pd.DataFrame:
     highest_block_already_seen = _get_highest_block_of_rebalance_events_already_saved_in_database(autopool)
-
+    highest_block_already_seen = 0
     query = """
     query(
       $autoEthAddress: String!
@@ -160,8 +160,6 @@ def fetch_new_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstant
 
 
 if __name__ == "__main__":
+    
     from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH, SONIC_USD, ARB_USD
-
-    df = fetch_new_autopool_rebalance_events_from_subgraph(ARB_USD)
-    print(df.head())
-    pass
+    df = fetch_new_autopool_rebalance_events_from_subgraph(AUTO_ETH)

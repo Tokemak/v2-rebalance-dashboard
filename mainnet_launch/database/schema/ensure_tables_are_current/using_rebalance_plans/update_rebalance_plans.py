@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pandas as pd
 from web3 import Web3
-
+from tqdm import tqdm
 
 from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, DOLA, EURC, USDT
 from mainnet_launch.database.schema.full import RebalancePlans, Destinations, DexSwapSteps, Tokens
@@ -239,6 +239,7 @@ def ensure_rebalance_plans_table_are_current():
         )
 
         if not plans_not_already_fetched:
+            print(f"No new rebalance plans to fetch for {autopool.name}")
             continue
 
         def _process_plan(plan_on_remote: str):
@@ -255,7 +256,8 @@ def ensure_rebalance_plans_table_are_current():
         all_dex_steps_rows = []
 
         with ThreadPoolExecutor(max_workers=10) as executor:
-            for response in executor.map(_process_plan, plans_not_already_fetched):
+            futures = list(executor.map(_process_plan, plans_not_already_fetched))
+            for response in tqdm(futures, desc=f"Processing {autopool.name} plans"):
                 new_rebalance_plan_row, new_dex_steps_rows = response
                 all_rebalance_plan_rows.append(new_rebalance_plan_row)
                 all_dex_steps_rows.extend(new_dex_steps_rows)
@@ -266,6 +268,7 @@ def ensure_rebalance_plans_table_are_current():
         insert_avoid_conflicts(
             all_dex_steps_rows, DexSwapSteps, index_elements=[DexSwapSteps.file_name, DexSwapSteps.step_index]
         )
+        print("Inserted ", len(all_rebalance_plan_rows), " new rebalance plans for ", autopool.name)
 
 
 def print_count_of_rebalance_plans_in_db():
@@ -281,5 +284,3 @@ if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
 
     profile_function(ensure_rebalance_plans_table_are_current)
-
-    print_count_of_rebalance_plans_in_db()

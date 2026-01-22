@@ -11,6 +11,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.help
 )
 from mainnet_launch.database.postgres_operations import insert_avoid_conflicts, get_subset_not_already_in_column
 from mainnet_launch.constants import ChainData, DEAD_ADDRESS, time_decorator
+from tqdm import tqdm
 from mainnet_launch.database.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
@@ -21,11 +22,12 @@ def fetch_transaction_rows_bulk_from_alchemy(tx_hashes: list[str], chain: ChainD
     def hex_to_int(hexstr: str) -> int:
         return int(hexstr, 16)
 
-    num_batches = 1 + (len(tx_hashes) // 100)
+    batch_size = 50
+    num_batches = (len(tx_hashes) + batch_size - 1) // batch_size
 
     tx_hash_groups = np.array_split(tx_hashes, num_batches)
     all_found_transactions = []
-    for tx_group in tx_hash_groups:
+    for tx_group in tqdm(tx_hash_groups, desc=f"Fetching transactions for {chain.name} in bulk from alchemy"):
         batch_payload = [
             {"jsonrpc": "2.0", "id": str(tx_hash), "method": "eth_getTransactionReceipt", "params": [str(tx_hash)]}
             for tx_hash in tx_group
@@ -89,8 +91,16 @@ def ensure_all_transactions_are_saved_in_db(tx_hashes: list[str], chain: ChainDa
     if not hashes_to_fetch:
         return
     print(f"Fetching {len(hashes_to_fetch)} new transactions for {chain.name}")
-    new_transactions: list[Transactions] = fetch_transaction_rows_bulk_from_alchemy(hashes_to_fetch, chain)
 
-    ensure_all_blocks_are_in_table([t.block for t in new_transactions], chain)
-    insert_avoid_conflicts(new_transactions, Transactions)
-    print(f"Inserted {len(new_transactions)} new transactions for {chain.name}")
+    chunk_size = 5_000
+    for i in range(0, len(hashes_to_fetch), chunk_size):
+        chunk = hashes_to_fetch[i : i + chunk_size]
+        print(f"Processing chunk {i//chunk_size + 1}/{(len(hashes_to_fetch) + chunk_size - 1)//chunk_size}")
+
+        new_transactions: list[Transactions] = fetch_transaction_rows_bulk_from_alchemy(chunk, chain)
+
+        ensure_all_blocks_are_in_table([t.block for t in new_transactions], chain)
+        insert_avoid_conflicts(new_transactions, Transactions)  # I think this writing is the slow part
+        print(f"Inserted {len(new_transactions)} transactions for {chain.name}")
+
+    print(f"Completed inserting all {len(hashes_to_fetch)} new transactions for {chain.name}")

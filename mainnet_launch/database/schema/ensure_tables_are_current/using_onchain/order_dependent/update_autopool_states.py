@@ -11,6 +11,7 @@ from mainnet_launch.database.schema.full import (
 
 from mainnet_launch.database.postgres_operations import (
     get_subset_not_already_in_column,
+    _exec_sql_and_cache,
     insert_avoid_conflicts,
     merge_tables_as_df,
     TableSelector,
@@ -87,7 +88,10 @@ def _fetch_new_autopool_state_rows(
 def _fetch_and_insert_new_autopool_states(autopool: AutopoolConstants) -> None:
     missing_blocks = _determine_what_blocks_are_needed(autopool)
     if not missing_blocks:
+        print(f"No new autopool states needed for {autopool.name}.")
         return
+
+    print(f"Fetching {len(missing_blocks)} new autopool states for {autopool.name}.")
 
     new_autopool_states_rows = _fetch_new_autopool_state_rows(autopool, missing_blocks)
 
@@ -95,47 +99,76 @@ def _fetch_and_insert_new_autopool_states(autopool: AutopoolConstants) -> None:
         new_autopool_states_rows,
         AutopoolStates,
     )
+    print(f"Inserted {len(new_autopool_states_rows)} new autopool states for {autopool.name}.")
 
 
 def _determine_what_blocks_are_needed(autopool: AutopoolConstants) -> list[int]:
-    # TODO rewrite in pure sql
-    blocks_expected_to_have = merge_tables_as_df(
-        selectors=[
-            TableSelector(
-                AutopoolDestinations,
-                [
-                    AutopoolDestinations.destination_vault_address,
-                    AutopoolDestinations.autopool_vault_address,
-                ],
-            ),
-            TableSelector(
-                DestinationStates,
-                DestinationStates.block,
-                join_on=(DestinationStates.destination_vault_address == AutopoolDestinations.destination_vault_address),
-            ),
-        ],
-        where_clause=(DestinationStates.chain_id == autopool.chain.chain_id)
-        & (AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr),
-    )["block"].unique()
-
-    blocks_to_fetch = get_subset_not_already_in_column(
-        AutopoolStates,
-        AutopoolStates.block,
-        blocks_expected_to_have,
-        where_clause=AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr,
+    query = f"""
+    WITH expected_blocks AS (
+        SELECT DISTINCT ds.block
+        FROM autopool_destinations ad
+        JOIN destination_states ds
+        ON ds.destination_vault_address = ad.destination_vault_address
+        AND ds.chain_id = ad.chain_id
+        WHERE ad.chain_id = {autopool.chain.chain_id}
+        AND ad.autopool_vault_address = '{autopool.autopool_eth_addr}'
+    ),
+    missing_blocks AS (
+        SELECT eb.block
+        FROM expected_blocks eb
+        LEFT JOIN autopool_states aps
+        ON aps.block = eb.block
+        AND aps.chain_id = {autopool.chain.chain_id}
+        AND aps.autopool_vault_address = '{autopool.autopool_eth_addr}'
+        WHERE aps.block IS NULL
     )
+    SELECT block
+    FROM missing_blocks
+    ORDER BY block
+    """
+    df = _exec_sql_and_cache(query)
+    blocks_to_fetch = df["block"].tolist()
     return blocks_to_fetch
 
 
 def ensure_autopool_states_are_current():
-    with ThreadPoolExecutor(max_workers=10) as ex:
-        futures = [ex.submit(_fetch_and_insert_new_autopool_states, ap) for ap in ALL_AUTOPOOLS]
-        for fut in as_completed(futures):
-            fut.result()
+    for autopool in ALL_AUTOPOOLS:
+        _fetch_and_insert_new_autopool_states(autopool)
+        print(f"Ensured autopool states are current for {autopool.name}.")
 
 
 if __name__ == "__main__":
-
     from mainnet_launch.constants import *
 
-    profile_function(ensure_autopool_states_are_current)
+    # profile_function(ensure_autopool_states_are_current)
+    ensure_autopool_states_are_current()
+
+
+# def _determine_what_blocks_are_needed_old(autopool: AutopoolConstants) -> list[int]:
+#     # TODO rewrite in pure sql
+#     blocks_expected_to_have = merge_tables_as_df(
+#         selectors=[
+#             TableSelector(
+#                 AutopoolDestinations,
+#                 [
+#                     AutopoolDestinations.destination_vault_address,
+#                     AutopoolDestinations.autopool_vault_address,
+#                 ],
+#             ),
+#             TableSelector(
+#                 DestinationStates,
+#                 DestinationStates.block,
+#                 join_on=(DestinationStates.destination_vault_address == AutopoolDestinations.destination_vault_address),
+#             ),
+#         ],
+#         where_clause=(DestinationStates.chain_id == autopool.chain.chain_id)
+#         & (AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr),
+#     )["block"].unique()
+
+#     blocks_to_fetch = get_subset_not_already_in_column(
+#         AutopoolStates,
+#         AutopoolStates.block,
+#         blocks_expected_to_have,
+#         where_clause=AutopoolStates.autopool_vault_address == autopool.autopool_eth_addr,
+#     )
+#     return blocks_to_fetch

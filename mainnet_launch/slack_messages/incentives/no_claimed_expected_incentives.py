@@ -23,6 +23,8 @@ from mainnet_launch.slack_messages.post_message import (
     post_slack_message,
 )
 
+# TODO not accurate, false positives and negatives
+
 
 def augment_claimed_events(claimed: pd.DataFrame) -> pd.DataFrame:
     claimed = claimed.copy()

@@ -1,7 +1,3 @@
-"""Note: getLogs supports the same event from multiple contracts in one call, but this is not implemented here."""
-
-# don't add a silent parameter yet, shows where we are making redundent event fetches
-
 from enum import Enum
 import concurrent.futures
 import requests
@@ -9,10 +5,31 @@ from web3 import Web3
 from web3.contract import ContractEvent
 from web3._utils.filters import construct_event_filter_params
 
-from mainnet_launch.constants import ChainData, SONIC_CHAIN, PLASMA_CHAIN
+from mainnet_launch.constants import ChainData, SONIC_CHAIN, PLASMA_CHAIN, ALL_CHAINS
+import random
+import time
+
+# you prob want to use bloom filters like in
+# https://github.com/agiletechvn/go-ethereum-code-analysis/blob/master/eth-bloombits-and-filter-analysis.md?utm_source=chatgpt.com
 
 
-PRE_SPLIT_BLOCK_CHUNK_SIZE = {PLASMA_CHAIN: 100_000, SONIC_CHAIN: 2_000_000}
+# PLASMA_CHAIN: 100k blocks per chunk due to stricter RPC limits
+# SONIC_CHAIN: 2M blocks per chunk, handles moderate limits
+# Other chains (e.g., Base, Mainnet): 100M blocks (DEFAULT_CHUNK_SIZE), minimal restrictions
+# https://www.alchemy.com/docs/chains/ethereum/ethereum-api-endpoints/eth-get-logs
+
+NUM_THREADS_FOR_PRE_SPLIT_FETCH = 10
+DEFAULT_CHUNK_SIZE = 100_000_000
+
+# only 10k ranges are garanteed to work, but we need to get more than that becaues there are millions of blocks
+# so the 503 failures are retried at least once before splitting and trying again
+# these are finger in the wind values
+
+PRE_SPLIT_BLOCK_CHUNK_SIZE = {
+    PLASMA_CHAIN: 100_000,
+    SONIC_CHAIN: 2_000_000,
+    **{chain: DEFAULT_CHUNK_SIZE for chain in ALL_CHAINS if chain not in [PLASMA_CHAIN, SONIC_CHAIN]},
+}
 
 
 class AchemyRequestStatus(Enum):
@@ -23,7 +40,7 @@ class AchemyRequestStatus(Enum):
 class AlchemyError(Enum):
     LOG_RESPONSE_SIZE_EXCEEDED = -32602
     RESPONSE_TOO_BIG_ERROR = -32008
-    SONIC_ONLY_ERROR = 503
+    SERVER_SIDE_ERROR = 503
 
 
 class AlchemyFetchEventsError(Exception):
@@ -34,24 +51,21 @@ def _rpc_post(url: str, payload: dict) -> tuple[dict, AchemyRequestStatus]:
     headers = {"Content-Type": "application/json"}
 
     r = requests.post(url, json=payload, headers=headers, timeout=30)
-    status = r.status_code
+    out = r.json()
     try:
         r.raise_for_status()
     except requests.HTTPError as e:
-        if (r.status_code == AlchemyError.SONIC_ONLY_ERROR.value) and r.url.startswith(
-            "https://sonic-mainnet.g.alchemy.com"
-        ):
+        if r.status_code == 400:
+            error_code = out["error"]["code"]
+            if error_code in [AlchemyError.RESPONSE_TOO_BIG_ERROR.value, AlchemyError.LOG_RESPONSE_SIZE_EXCEEDED.value]:
+                return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
+            else:
+                raise AlchemyFetchEventsError(f"Non-retryable Alchemy error {out['error']}")
+        if (r.status_code == AlchemyError.SERVER_SIDE_ERROR.value) and (("sonic" in url) or ("plasma" in url)):
+            print("retry error,splitting half and trying again")
             return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
         else:
             raise AlchemyFetchEventsError(f"Non-retryable HTTP error {e} for payload {payload=}")
-    out = r.json()
-
-    if "error" in out:
-        error_code = out["error"]["code"]
-        if error_code in [AlchemyError.RESPONSE_TOO_BIG_ERROR.value, AlchemyError.LOG_RESPONSE_SIZE_EXCEEDED.value]:
-            return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
-        else:
-            raise AlchemyFetchEventsError(f"Non-retryable Alchemy error {out['error']}")
 
     raw_logs = out["result"]
     return raw_logs, AchemyRequestStatus.SUCCESS
@@ -59,13 +73,16 @@ def _rpc_post(url: str, payload: dict) -> tuple[dict, AchemyRequestStatus]:
 
 def _eth_getlogs_once(
     rpc_url: str,
-    address: str | list[str] | None,
+    addresses: list[str],
     topics: list | None,
-    from_block: str,
-    to_block: str,
+    from_block_hex: str,
+    to_block_hex: str,
 ) -> tuple[list[dict], AchemyRequestStatus]:
 
-    params = {"address": address, "fromBlock": from_block, "toBlock": to_block}
+    if not isinstance(addresses, list):
+        raise AlchemyFetchEventsError(f"addresses must be a list of addresses, got {addresses}")
+
+    params = {"address": addresses, "fromBlock": from_block_hex, "toBlock": to_block_hex}
 
     if topics is not None:
         params["topics"] = topics
@@ -76,7 +93,26 @@ def _eth_getlogs_once(
         "method": "eth_getLogs",
         "params": [params],
     }
-    raw_logs, status = _rpc_post(rpc_url, payload)
+
+    max_retries = 3
+    base_delay = 1  # seconds
+
+    for attempt in range(max_retries + 1):
+        raw_logs, status = _rpc_post(rpc_url, payload)
+
+        if status in [AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN, AchemyRequestStatus.SUCCESS]:
+            return raw_logs, status
+        else:
+            if attempt == max_retries:
+                raise AlchemyFetchEventsError(
+                    f"Max retries exceeded for eth_getLogs with params: {params}. Last status: {status}"
+                )
+
+            # Exponential backoff with jitter
+            delay = base_delay * (2**attempt) + random.uniform(0, 1)
+            print(f"Retry attempt {attempt + 1}/{max_retries} after {delay:.2f}s delay")
+            time.sleep(delay)
+
     return raw_logs, status
 
 
@@ -105,6 +141,7 @@ def _recursive_make_web3_getLogs_call(
     end_block: int,
     argument_filters: dict | None = None,
     global_raw_logs: list[dict] | None = None,
+    addresses: list[str] | None = None,
 ) -> None:
     """
     Collect every `event` between start_block and end_block into a DataFrame.
@@ -115,19 +152,17 @@ def _recursive_make_web3_getLogs_call(
         raise AlchemyFetchEventsError(f"{end_block:,} must be greater than {start_block:,}")
 
     filter_params = _build_address_and_topics_for_event(event, argument_filters, hex(start_block), hex(end_block))
+    # del filter_params["address"] # we don't care about the address here, we are passing it in separately, just for clarity
 
     raw_logs, status = _eth_getlogs_once(
         rpc_url=chain.client.provider.endpoint_uri,
-        address=filter_params["address"],
+        addresses=addresses,
         topics=filter_params["topics"],
-        from_block=filter_params["fromBlock"],
-        to_block=filter_params["toBlock"],
+        from_block_hex=filter_params["fromBlock"],
+        to_block_hex=filter_params["toBlock"],
     )
 
     if status == AchemyRequestStatus.SUCCESS:
-        # print(
-        #     f"Fetched {len(raw_logs):,} logs for {event} from {start_block:,} to {end_block:,} ({end_block - start_block + 1:,} blocks)"
-        # )
         global_raw_logs.extend(raw_logs)
         return
 
@@ -138,20 +173,23 @@ def _recursive_make_web3_getLogs_call(
             )
         else:
             mid_block = (start_block + end_block) // 2
-            # print(
-            #     f"Retryable failure when fetching logs for {event} on {chain.name=}"
-            #     f"from {start_block:,} to {end_block:,} "
-            #     f"({end_block - start_block + 1:,} blocks), splitting into:\n"
-            #     f"  - {start_block:,} to {mid_block:,} ({mid_block - start_block + 1:,} blocks)\n"
-            #     f"  - {mid_block + 1:,} to {end_block:,} ({end_block - mid_block:,} blocks)"
-            # )
-            _recursive_make_web3_getLogs_call(event, chain, start_block, mid_block, argument_filters, global_raw_logs)
-            _recursive_make_web3_getLogs_call(event, chain, mid_block + 1, end_block, argument_filters, global_raw_logs)
+            _recursive_make_web3_getLogs_call(
+                event, chain, start_block, mid_block, argument_filters, global_raw_logs, addresses=addresses
+            )
+            _recursive_make_web3_getLogs_call(
+                event, chain, mid_block + 1, end_block, argument_filters, global_raw_logs, addresses=addresses
+            )
             return
 
 
 def _fetch_events_with_pre_split(
-    event: ContractEvent, chain: ChainData, start_block: int, end_block: int, argument_filters: dict, split_size: int
+    event: ContractEvent,
+    chain: ChainData,
+    start_block: int,
+    end_block: int,
+    argument_filters: dict,
+    split_size: int,
+    addresses: list[str],
 ) -> bool:
     """we want to pre split the sonic large block, because it fails (sporadically at larger ranges)"""
 
@@ -164,7 +202,6 @@ def _fetch_events_with_pre_split(
 
     def _fetch_chunk(chunk_start_block: int, chunk_end_block: int) -> list[dict]:
         local_raw_logs: list[dict] = []
-        # print(f"Fetching pre split {chain.name} chunk from {chunk_start_block:,} to {chunk_end_block:,}")
         _recursive_make_web3_getLogs_call(
             event=event,
             chain=chain,
@@ -172,11 +209,12 @@ def _fetch_events_with_pre_split(
             end_block=chunk_end_block,
             argument_filters=argument_filters,
             global_raw_logs=local_raw_logs,
+            addresses=addresses,
         )
         return local_raw_logs
 
     global_raw_logs: list[dict] = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as thread_pool_executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=NUM_THREADS_FOR_PRE_SPLIT_FETCH) as thread_pool_executor:
         future_to_block_range = {
             thread_pool_executor.submit(_fetch_chunk, start_block, end_block): (start_block, end_block)
             for (start_block, end_block) in new_start_and_end_blocks
@@ -192,19 +230,21 @@ def _fetch_events_with_pre_split(
 def fetch_raw_event_logs(
     event: ContractEvent,
     chain: ChainData,
-    start_block: int = None,
+    start_block: int | None = None,
     end_block: int | None = None,
     argument_filters: dict | None = None,
+    addresses: list[str] | None = None,
 ) -> list[dict]:
+    # todo this should be a queue with jobs and retires,
+
+    # do up to 10 calls at once,
+    # try full split, (thne try those that fail again with half splits at the same time via the queue)
+    # continue
+    # that ought to be faster than recursuve splitting on a single thread for the large cases
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
     end_block = chain.get_block_near_top() if end_block is None else end_block
-
-    if chain in [PLASMA_CHAIN, SONIC_CHAIN]:
-        raw_logs = _fetch_events_with_pre_split(
-            event, chain, start_block, end_block, argument_filters, split_size=PRE_SPLIT_BLOCK_CHUNK_SIZE[chain]
-        )
-        return raw_logs
-
-    raw_logs = []
-    _recursive_make_web3_getLogs_call(event, chain, start_block, end_block, argument_filters, raw_logs)
+    split_size = PRE_SPLIT_BLOCK_CHUNK_SIZE[chain]
+    raw_logs = _fetch_events_with_pre_split(
+        event, chain, start_block, end_block, argument_filters, split_size, addresses
+    )
     return raw_logs

@@ -17,6 +17,11 @@ from mainnet_launch.data_fetching.fetch_data_from_3rd_party_api import (
     THIRD_PARTY_SUCCESS_KEY,
 )
 
+
+class CoinGeckoDeprecatedError(Exception):
+    pass
+
+
 _CHAIN_TO_COINGECKO_SLUGS = {
     ETH_CHAIN: {"token_prices": "ethereum", "network_id": "eth"},
     BASE_CHAIN: {"token_prices": "base", "network_id": "base"},
