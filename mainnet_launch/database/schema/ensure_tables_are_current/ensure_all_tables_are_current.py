@@ -102,23 +102,28 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
         ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit,  # fast enough
     ]
 
-    overall_t0 = time.perf_counter()
-    with run_path.open("w", encoding="utf-8") as f:
-        for func in steps:
-            t0 = time.perf_counter()
-            try:
-                print(f"Starting step: {func.__name__}")
-                profile_function(func)
-                elapsed = time.perf_counter() - t0
-                f.write(f"{func.__name__}, {elapsed:.6f}\n")
-                f.flush()
-            except Exception as e:
-                elapsed = time.perf_counter() - t0
-                f.write(f"{func.__name__}, {elapsed:.6f} (failed: {str(e)})\n")
-                f.flush()
+    if False:
+        overall_t0 = time.perf_counter()
+        with run_path.open("w", encoding="utf-8") as f:
+            for func in steps:
+                t0 = time.perf_counter()
+                try:
+                    print(f"Starting step: {func.__name__}")
+                    profile_function(func)
+                    elapsed = time.perf_counter() - t0
+                    f.write(f"{func.__name__}, {elapsed:.6f}\n")
+                    f.flush()
+                except Exception as e:
+                    elapsed = time.perf_counter() - t0
+                    f.write(f"{func.__name__}, {elapsed:.6f} (failed: {str(e)})\n")
+                    f.flush()
 
-        f.write(f"TOTAL, {time.perf_counter() - overall_t0:.6f}\n")
-        f.flush()
+            f.write(f"TOTAL, {time.perf_counter() - overall_t0:.6f}\n")
+            f.flush()
+    
+    else:
+        for func in steps:
+            func()
 
     print("finished update")
 
