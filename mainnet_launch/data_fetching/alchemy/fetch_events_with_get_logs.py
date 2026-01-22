@@ -54,7 +54,8 @@ def _rpc_post(url: str, payload: dict) -> tuple[dict, AchemyRequestStatus]:
     out = r.json()
     try:
         r.raise_for_status()
-    except requests.HTTPError as e:
+    except (requests.HTTPError, requests.Timeout, requests.ConnectionError) as e:
+
         if r.status_code == 400:
             error_code = out["error"]["code"]
             if error_code in [AlchemyError.RESPONSE_TOO_BIG_ERROR.value, AlchemyError.LOG_RESPONSE_SIZE_EXCEEDED.value]:
