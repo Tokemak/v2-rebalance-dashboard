@@ -3,12 +3,20 @@ from multicall import Call
 from sqlalchemy import text, bindparam
 from sqlalchemy.dialects.postgresql import ARRAY, BIGINT, TEXT
 
-from mainnet_launch.database.schema.full import Autopools, DestinationStates, Destinations, AutopoolDestinations
+from mainnet_launch.database.schema.full import (
+    Autopools,
+    DestinationStates,
+    Destinations,
+    AutopoolDestinations,
+    RebalanceEvents,
+)
+
 
 from mainnet_launch.database.postgres_operations import (
     get_full_table_as_orm,
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
+    _exec_sql_and_cache,
     merge_tables_as_df,
     set_some_cells_to_null,
     TableSelector,
@@ -27,10 +35,6 @@ from mainnet_launch.constants import (
     ALL_CHAINS,
     POINTS_HOOK,
     ROOT_PRICE_ORACLE,
-    USDC,
-    WETH,
-    DOLA,
-    EURC,
     ALL_AUTOPOOLS_DATA_ON_CHAIN,
     ALL_AUTOPOOLS,
     AutopoolConstants,
@@ -604,20 +608,37 @@ def _overwrite_bad_summary_states_rows():
             DestinationStates.total_apr_out,
         ],
     )
-    pass
+
+
+def get_rebalance_blocks(chain) -> list[int]:
+    query = f"""
+        SELECT DISTINCT t.block
+        FROM rebalance_events re
+        JOIN transactions t
+          ON t.tx_hash = re.tx_hash
+         AND t.chain_id = re.chain_id
+        WHERE re.chain_id = {chain.chain_id}
+        ORDER BY t.block
+    """
+
+    blocks = list(_exec_sql_and_cache(query)["block"])
+    return blocks
 
 
 def ensure_destination_states_are_current():
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)
+        # blocks_with_rebalances = get_rebalance_blocks(chain)
+        # possible_blocks = list(set(possible_blocks).union(set(blocks_with_rebalances)))
         _add_new_destination_states_to_db(possible_blocks, chain)
 
-    _overwrite_bad_summary_states_rows()  # don't do this every time, only once. not certain yet on right pattern
-    # fast only .3 seconds
+    _overwrite_bad_summary_states_rows()
 
 
 if __name__ == "__main__":
 
     from mainnet_launch.constants import profile_function
 
-    profile_function(ensure_destination_states_are_current)
+    # profile_function(ensure_destination_states_are_current)
+
+    ensure_destination_states_are_current()

@@ -120,7 +120,7 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
 
             f.write(f"TOTAL, {time.perf_counter() - overall_t0:.6f}\n")
             f.flush()
-    
+
     else:
         for func in steps:
             func()
