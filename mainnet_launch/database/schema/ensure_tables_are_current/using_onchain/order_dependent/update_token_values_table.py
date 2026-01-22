@@ -13,7 +13,7 @@ from mainnet_launch.database.schema.full import (
 
 
 from mainnet_launch.abis import STATS_CALCULATOR_REGISTRY_ABI
-from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.data_fetching.alchemy.get_events import fetch_events
 
 
 from mainnet_launch.database.postgres_operations import (
@@ -43,6 +43,8 @@ from mainnet_launch.constants import (
     ALL_AUTOPOOLS_DATA_ON_CHAIN,
     AutopoolConstants,
 )
+
+# NOTE: dont trust these, are hard coded in multiple places
 
 
 def _determine_what_blocks_are_needed(autopools: list[AutopoolConstants], chain: ChainData) -> list[int]:
@@ -110,6 +112,7 @@ def _fetch_and_insert_new_token_values(autopools: list[AutopoolConstants], chain
     needed_blocks = _determine_what_blocks_are_needed(autopools, chain)
 
     if not needed_blocks:
+        print(f"No new token values needed for chain {chain.name}, autopools: {[a.name for a in autopools]}")
         return
 
     tokens_orms: list[Tokens] = get_full_table_as_orm(Tokens, where_clause=Tokens.chain_id == chain.chain_id)
@@ -124,6 +127,9 @@ def _fetch_and_insert_new_token_values(autopools: list[AutopoolConstants], chain
             TokenValues.token_address,
             TokenValues.denominated_in,
         ],
+    )
+    print(
+        f"Inserted {len(new_token_values_rows):,} new token values for chain {chain.name}, autopools: {[a.name for a in autopools]}"
     )
 
 

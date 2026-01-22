@@ -15,19 +15,19 @@ import uuid
 load_dotenv()
 
 
-which_database = os.getenv("WHICH_DATABASE")
+# which_database = os.getenv("WHICH_DATABASE")
 
-if which_database is None:
-    raise ValueError("WHICH_DATABASE environment variable not set")
-elif which_database == "MAIN_DATABASE_URL":
-    tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
-elif which_database == "MAIN_READ_REPLICA_DATABASE_URL":
-    tmpPostgres = urlparse(os.getenv("MAIN_READ_REPLICA_DATABASE_URL"))
-else:
-    raise ValueError(f"WHICH_DATABASE environment variable set to invalid value: {which_database}")
+# if which_database is None:
+#     raise ValueError("WHICH_DATABASE environment variable not set")
+# elif which_database == "MAIN_DATABASE_URL":
+#     tmpPostgres = urlparse(os.getenv("MAIN_DATABASE_URL"))
+# elif which_database == "MAIN_READ_REPLICA_DATABASE_URL":
+#     tmpPostgres = urlparse(os.getenv("MAIN_READ_REPLICA_DATABASE_URL"))
+# else:
+#     raise ValueError(f"WHICH_DATABASE environment variable set to invalid value: {which_database}")
 
 
-# tmpPostgres = urlparse(os.getenv("LOCAL_MAIN_FORK_DATABASE_URL"))
+tmpPostgres = urlparse(os.getenv("LOCAL_MAIN_FORK_DATABASE_URL"))
 
 ENGINE = create_engine(
     f"postgresql+psycopg2://{tmpPostgres.username}:{tmpPostgres.password}"
@@ -425,20 +425,20 @@ class RebalanceEvents(Base):
     )
 
 
-# not populated
-class SolverProfit(Base):
-    __tablename__ = "solver_profit"
+# # not populated
+# class SolverProfit(Base):
+#     __tablename__ = "solver_profit"
 
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("rebalace_events.tx_hash"), primary_key=True)
-    block: Mapped[int] = mapped_column(primary_key=True)
-    chain_id: Mapped[int] = mapped_column(primary_key=True)
+#     tx_hash: Mapped[str] = mapped_column(ForeignKey("rebalace_events.tx_hash"), primary_key=True)
+#     block: Mapped[int] = mapped_column(primary_key=True)
+#     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
-    denominated_in: Mapped[str] = mapped_column(nullable=False)
+#     denominated_in: Mapped[str] = mapped_column(nullable=False)
 
-    solver_value_held_before_rebalance: Mapped[float] = mapped_column(nullable=False)
-    solver_value_held_after_rebalance: Mapped[float] = mapped_column(nullable=False)
+#     solver_value_held_before_rebalance: Mapped[float] = mapped_column(nullable=False)
+#     solver_value_held_after_rebalance: Mapped[float] = mapped_column(nullable=False)
 
-    __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
+#     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
 
 class IncentiveTokenSwapped(Base):
@@ -525,7 +525,9 @@ class ChainlinkGasCosts(Base):
 
 class AutopoolFees(Base):
     __tablename__ = "autopool_fees"
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+
     log_index: Mapped[int] = mapped_column(primary_key=True)
 
     autopool_vault_address: Mapped[str] = mapped_column(nullable=False)
@@ -533,6 +535,13 @@ class AutopoolFees(Base):
 
     fee_sink: Mapped[str] = mapped_column(nullable=False)  # where the fee went
     minted_shares: Mapped[float] = mapped_column(nullable=False)  # shares is always in 1e18
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["autopool_vault_address", "chain_id"], ["autopools.autopool_vault_address", "autopools.chain_id"]
+        ),
+        ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
+    )
 
 
 # not populated
@@ -704,25 +713,41 @@ class AssetExposure(Base):
 
 class DestinationUnderlyingDeposited(Base):
     __tablename__ = "destination_underlying_deposited"
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    log_index: Mapped[int] = mapped_column(primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
 
-    destination_vault_address: Mapped[str] = mapped_column(nullable=False, primary_key=True)
-
-    amount: Mapped[str] = mapped_column(nullable=False)  # unscaled quantity of lp tokens (or recipt tokens for lending)
+    amount: Mapped[str] = mapped_column(nullable=False)  # unscaled quantity of tokens
     sender: Mapped[str] = mapped_column(nullable=False)  # the autopool_vault_address, I'm pretty sure
 
-    __table_args__ = (ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),)
+    __table_args__ = (
+        ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
+        ForeignKeyConstraint(
+            ["destination_vault_address", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+    )
 
 
 class DestinationUnderlyingWithdraw(Base):
     __tablename__ = "destination_underlying_withdraw"
-    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), nullable=False, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(ForeignKey("transactions.tx_hash"), primary_key=True)
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    log_index: Mapped[int] = mapped_column(primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(primary_key=True)
 
-    destination_vault_address: Mapped[str] = mapped_column(nullable=False, primary_key=True)
-    # unscaled quantity of lp tokens (or receipt tokens for lending)
-    amount: Mapped[str] = mapped_column(nullable=False)
+    amount: Mapped[str] = mapped_column(nullable=False)  # unscaled quantity of tokens
     owner: Mapped[str] = mapped_column(nullable=False)  # the autopool_vault_address, I'm pretty sure
     to_address: Mapped[str] = mapped_column(nullable=False)
+
+    __table_args__ = (
+        ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
+        ForeignKeyConstraint(
+            ["destination_vault_address", "chain_id"],
+            ["destinations.destination_vault_address", "destinations.chain_id"],
+        ),
+    )
 
 
 def drop_and_full_rebuild_db():

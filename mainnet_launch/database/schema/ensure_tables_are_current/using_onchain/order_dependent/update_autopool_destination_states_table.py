@@ -186,7 +186,7 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import *
 
-    # profile_function(ensure_autopool_destination_states_are_current)
-    profile_function(_fetch_and_insert_new_autopool_destination_states, BASE_USD)  # 3,3 seconds
+    profile_function(ensure_autopool_destination_states_are_current)
+    # profile_function(_fetch_and_insert_new_autopool_destination_states, BASE_USD)  # 3,3 seconds
 
 # _determine_what_blocks_are_needed(ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, ALL_CHAINS[0])

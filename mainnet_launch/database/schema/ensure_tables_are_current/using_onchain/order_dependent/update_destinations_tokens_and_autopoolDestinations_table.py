@@ -13,7 +13,7 @@ from mainnet_launch.constants import (
 )
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI, DESTINATION_VAULT_REGISTRY_ABI
 
-from mainnet_launch.data_fetching.get_events import fetch_events
+from mainnet_launch.data_fetching.alchemy.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_state_by_one_block,
     identity_with_bool_success,
@@ -23,20 +23,20 @@ from mainnet_launch.database.schema.full import Destinations, DestinationTokens,
 from mainnet_launch.database.postgres_operations import insert_avoid_conflicts, get_subset_not_already_in_column
 
 
-def ensure_destination_vaults_are_current() -> None:
-    # use destination vault registered
+# def ensure_destination_vaults_are_current() -> None:
+#     # use destination vault registered
 
-    for chain in ALL_CHAINS:
-        contract = chain.client.eth.contract(address=DESTINATION_VAULT_REGISTRY(chain), abi=AUTOPOOL_VAULT_ABI)
-        new_destination_vaults = fetch_events(
-            contract.events.DestinationVaultRegistered,
-            chain=chain,
-            start_block=chain.block_autopool_first_deployed - 1_000_000,
-        )
-        new_destination_vault_addresses = (
-            new_destination_vaults["destinationVault"].apply(lambda x: Web3.toChecksumAddress(x)).tolist()
-        )
-        destination_vault_state = _make_destination_vault_dicts(new_destination_vault_addresses, chain)
+#     for chain in ALL_CHAINS:
+#         contract = chain.client.eth.contract(address=DESTINATION_VAULT_REGISTRY(chain), abi=AUTOPOOL_VAULT_ABI)
+#         new_destination_vaults = fetch_events(
+#             contract.events.DestinationVaultRegistered,
+#             chain=chain,
+#             start_block=chain.block_autopool_first_deployed - 1_000_000,
+#         )
+#         new_destination_vault_addresses = (
+#             new_destination_vaults["destinationVault"].apply(lambda x: Web3.toChecksumAddress(x)).tolist()
+#         )
+#         destination_vault_state = _make_destination_vault_dicts(new_destination_vault_addresses, chain)
 
 
 def _fetch_token_rows(token_addresses: list[str], chain: ChainData) -> list[Tokens]:

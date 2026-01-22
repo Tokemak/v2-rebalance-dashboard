@@ -20,9 +20,9 @@ ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api"
 COINGECKO_API_KEY = environ["COINGECKO_API_KEY"]
 DEFAULT_GAS_LIMIT = 550_000_000
 
-
-BUCKETS = {
-    "AUTO_ETH": environ["AUTO_ETH_BUCKET"],
+S3_BUCKETS = {
+    "AUTO_ETH": environ["AUTO_ETH_BUCKET"],  # Before Jan 2, 2026  # slight overlap 1 plan Jan 03, 2026 here
+    "AUTO_ETH2": environ["AUTO_ETH_BUCKET2"],  # after Jan 2, 2026
     "BAL_ETH": environ["BAL_ETH_BUCKET"],
     "AUTO_LRT": environ["AUTO_LRT_BUCKET"],
     "BASE_ETH": environ["BASE_ETH_BUCKET"],
