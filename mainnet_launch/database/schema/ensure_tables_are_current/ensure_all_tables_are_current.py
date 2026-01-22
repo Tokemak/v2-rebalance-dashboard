@@ -73,7 +73,7 @@ def _ensure_chain_top_block_are_cached():
 def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = False):
     ENGINE.echo = echo_sql_to_console
 
-    run_path = WORKING_DATA_DIR / "update-prod-db.txt"
+    run_path = "update-prod-db.txt"
 
     steps = [
         _ensure_chain_top_block_are_cached,
@@ -112,12 +112,6 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
                 elapsed = time.perf_counter() - t0
                 f.write(f"{func.__name__}, {elapsed:.6f}\n")
                 f.flush()
-
-                # if elapsed > 60:
-                #     print(f"WARNING: {func.__name__} took {elapsed:.2f} seconds (>60s), breaking execution")
-                #     f.write(f"EXECUTION STOPPED: Step exceeded 60 second threshold\n")
-                #     f.flush()
-                #     break
             except Exception as e:
                 elapsed = time.perf_counter() - t0
                 f.write(f"{func.__name__}, {elapsed:.6f} (failed: {str(e)})\n")
