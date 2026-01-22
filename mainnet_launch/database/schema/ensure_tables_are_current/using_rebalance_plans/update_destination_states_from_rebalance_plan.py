@@ -226,6 +226,7 @@ def _extract_destination_states_rows(
 
     return new_destination_states_rows
 
+
 # Broken as of jan 21, 2026 defi llama timestamp query breaks
 # need alternate way not certain if defi llama is broken, or if how I am querying it is broken
 # could also be a cache error through cloudflare
