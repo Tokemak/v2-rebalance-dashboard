@@ -160,6 +160,7 @@ def fetch_new_autopool_rebalance_events_from_subgraph(autopool: AutopoolConstant
 
 
 if __name__ == "__main__":
-    
+
     from mainnet_launch.constants import ALL_AUTOPOOLS, AutopoolConstants, USDC, WETH, AUTO_ETH, SONIC_USD, ARB_USD
+
     df = fetch_new_autopool_rebalance_events_from_subgraph(AUTO_ETH)
