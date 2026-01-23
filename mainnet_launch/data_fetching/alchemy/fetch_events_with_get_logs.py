@@ -40,6 +40,7 @@ class AchemyRequestStatus(Enum):
 class AlchemyError(Enum):
     LOG_RESPONSE_SIZE_EXCEEDED = -32602
     RESPONSE_TOO_BIG_ERROR = -32008
+    QUERY_TIMEOUT_EXCEEDED = -32000
     SERVER_SIDE_ERROR = 503
 
 
@@ -58,7 +59,11 @@ def _rpc_post(url: str, payload: dict) -> tuple[dict, AchemyRequestStatus]:
 
         if r.status_code == 400:
             error_code = out["error"]["code"]
-            if error_code in [AlchemyError.RESPONSE_TOO_BIG_ERROR.value, AlchemyError.LOG_RESPONSE_SIZE_EXCEEDED.value]:
+            if error_code in [
+                AlchemyError.RESPONSE_TOO_BIG_ERROR.value,
+                AlchemyError.LOG_RESPONSE_SIZE_EXCEEDED.value,
+                AlchemyError.QUERY_TIMEOUT_EXCEEDED.value,
+            ]:
                 return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
             else:
                 raise AlchemyFetchEventsError(f"Non-retryable Alchemy error {out['error']}")
