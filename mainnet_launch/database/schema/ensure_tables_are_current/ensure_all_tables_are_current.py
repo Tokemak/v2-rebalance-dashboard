@@ -62,6 +62,8 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
     ensure_chainlink_gas_costs_table_are_current,
 )
 
+# https://chatgpt.com/c/6973be9e-60b0-8330-96d9-93d94f820db0 general speed up ideas
+
 
 def _ensure_chain_top_block_are_cached():
     for chain in ALL_CHAINS:
@@ -80,7 +82,7 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
         ensure_blocks_is_current,
         ensure_autopools_are_current,
         ensure__destinations__tokens__and__destination_tokens_are_current,
-        ensure_tokemak_EOA_gas_costs_are_current,  # 50k transaction's im seing
+        ensure_tokemak_EOA_gas_costs_are_current,
         ensure_chainlink_gas_costs_table_are_current,  # qworks
         ensure_autopool_fees_are_current,  # faster 25 seconds
         ensure_incentive_token_swapped_events_are_current,  # faster 10 seconds
@@ -102,28 +104,23 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
         ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit,  # fast enough
     ]
 
-    if False:
-        overall_t0 = time.perf_counter()
-        with run_path.open("w", encoding="utf-8") as f:
-            for func in steps:
-                t0 = time.perf_counter()
-                try:
-                    print(f"Starting step: {func.__name__}")
-                    profile_function(func)
-                    elapsed = time.perf_counter() - t0
-                    f.write(f"{func.__name__}, {elapsed:.6f}\n")
-                    f.flush()
-                except Exception as e:
-                    elapsed = time.perf_counter() - t0
-                    f.write(f"{func.__name__}, {elapsed:.6f} (failed: {str(e)})\n")
-                    f.flush()
-
-            f.write(f"TOTAL, {time.perf_counter() - overall_t0:.6f}\n")
-            f.flush()
-    
-    else:
+    # if False:
+    overall_t0 = time.perf_counter()
+    with run_path.open("w", encoding="utf-8") as f:
         for func in steps:
-            func()
+            t0 = time.perf_counter()
+            print(f"Starting step: {func.__name__}")
+            profile_function(func)
+            elapsed = time.perf_counter() - t0
+            f.write(f"{func.__name__}, {elapsed:.6f}\n")
+            f.flush()
+
+        f.write(f"TOTAL, {time.perf_counter() - overall_t0:.6f}\n")
+        f.flush()
+
+    # else:
+    #     for func in steps:
+    #         func()
 
     print("finished update")
 
