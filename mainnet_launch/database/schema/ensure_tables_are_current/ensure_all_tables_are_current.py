@@ -104,9 +104,8 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
         ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit,  # fast enough
     ]
 
-    # if False:
     overall_t0 = time.perf_counter()
-    with run_path.open("w", encoding="utf-8") as f:
+    with open(run_path, "w", encoding="utf-8") as f:
         for func in steps:
             t0 = time.perf_counter()
             print(f"Starting step: {func.__name__}")
@@ -117,10 +116,6 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
 
         f.write(f"TOTAL, {time.perf_counter() - overall_t0:.6f}\n")
         f.flush()
-
-    # else:
-    #     for func in steps:
-    #         func()
 
     print("finished update")
 

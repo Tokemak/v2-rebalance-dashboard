@@ -61,7 +61,6 @@ def fetch_transaction_rows_bulk_from_alchemy(tx_hashes: list[str], chain: ChainD
                 to_address=to_address,
                 effective_gas_price=effective_gas_price,
                 gas_used=gas_used,
-                gas_cost_in_eth=(gas_used * effective_gas_price) / 10**18,
             )
 
         found_transactions = [_record_to_transaction(tx_receipt) for tx_receipt in responses]

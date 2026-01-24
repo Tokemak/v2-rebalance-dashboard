@@ -22,7 +22,7 @@ from sqlalchemy.orm import (
     sessionmaker,
 )
 
-from custom_db_types import Base, EvmAddress, EvmTopic, EvmTxHash
+from mainnet_launch.database.schema.custom_db_types import Base, EvmAddress, EvmTopic, EvmTxHash
 
 load_dotenv()
 
