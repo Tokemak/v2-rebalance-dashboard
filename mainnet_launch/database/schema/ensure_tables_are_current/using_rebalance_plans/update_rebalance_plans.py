@@ -48,10 +48,6 @@ def _handle_only_state_of_destinations_rebalance_plan(plan: dict) -> RebalancePl
         swap_offset_period=None,
         num_candidate_destinations=None,
         candidate_destinations_rank=None,
-        projected_swap_cost=None,
-        projected_net_gain=None,
-        projected_gross_gain=None,
-        projected_slippage=None,
     )
 
 
@@ -135,16 +131,13 @@ def _extract_rebalance_plan(
     }
 
     in_destination_name = rebalance_test["inDest"]
-    projected_gross_gain = 0
     candidate_destinations_rank = None
-    projected_net_gain = 0
 
     if plan["destinationIn"] != autopool.autopool_eth_addr:
         for i, d in enumerate(plan.get("addRank", [])):
             if d[0] == in_destination_name:
                 candidate_destinations_rank = i
-                projected_net_gain = d[1] / 1e18
-                projected_gross_gain = projected_net_gain + projected_swap_cost
+                break
 
     out_dest_apr = float(rebalance_test["outDestApr"]) if rebalance_test["outDestApr"] else None
     in_dest_apr = float(rebalance_test["inDestApr"]) if rebalance_test["inDestApr"] else None
@@ -152,7 +145,6 @@ def _extract_rebalance_plan(
     apr_delta = (in_dest_adj_apr if in_dest_adj_apr else 0) - (out_dest_apr if out_dest_apr else 0)
     swap_offset_period = int(rebalance_test["swapOffsetPeriod"]) if rebalance_test["swapOffsetPeriod"] else None
     num_candidate_destinations = len(plan.get("addRank", []))
-    projected_slippage = 100 * projected_swap_cost / amount_out_safe_value if amount_out_safe_value else None
 
     new_rebalance_plan_row = RebalancePlans(
         file_name=plan["rebalance_plan_json_key"],
@@ -179,10 +171,6 @@ def _extract_rebalance_plan(
         swap_offset_period=swap_offset_period,
         num_candidate_destinations=num_candidate_destinations,
         candidate_destinations_rank=candidate_destinations_rank,
-        projected_swap_cost=projected_swap_cost,
-        projected_net_gain=projected_net_gain,
-        projected_gross_gain=projected_gross_gain,
-        projected_slippage=projected_slippage,
     )
 
     return new_rebalance_plan_row

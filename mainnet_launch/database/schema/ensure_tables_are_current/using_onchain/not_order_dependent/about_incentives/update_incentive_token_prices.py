@@ -48,7 +48,7 @@ def _get_needed_incentive_token_sales_prices_from_claim_vault_rewards() -> pd.Da
         )
         select full_details_of_needed_claim_vault_rewards.* from 
         full_details_of_needed_claim_vault_rewards WHERE NOT EXISTS (
-            SELECT 1 from incentive_token_sale_prices p 
+            SELECT 1 from incentive_token_prices p 
             WHERE p.tx_hash = full_details_of_needed_claim_vault_rewards.tx_hash
             AND p.log_index = full_details_of_needed_claim_vault_rewards.log_index
             AND p.token_address = full_details_of_needed_claim_vault_rewards.sell_token_address
@@ -86,7 +86,7 @@ def _get_needed_incentive_token_sales_prices_from_incentive_tokens_swapped() -> 
     FROM full_details_of_needed_swapped_events 
     WHERE NOT EXISTS (
         SELECT 1
-        FROM incentive_token_sale_prices p
+        FROM incentive_token_prices p
         WHERE p.tx_hash = full_details_of_needed_swapped_events.tx_hash
             AND p.log_index = full_details_of_needed_swapped_events.log_index
     );
@@ -146,7 +146,7 @@ def ensure_incentive_token_prices_are_current():
                 third_party_price=row["price"],
                 chain_id=row["chain_id"],
                 token_address=row["sell_token_address"],
-                token_price_denomiated_in=row["buy_token_address"],
+                denominated_in=row["buy_token_address"],
             ),
             axis=1,
         ).tolist()

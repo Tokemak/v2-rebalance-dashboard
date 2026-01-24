@@ -1,19 +1,28 @@
-from dataclasses import asdict
-from dotenv import load_dotenv
-from urllib.parse import urlparse
 import os
-import pandas as pd
-
-from sqlalchemy import MetaData
-from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Mapped, mapped_column
-from sqlalchemy import DateTime, ARRAY, String, ForeignKeyConstraint, BigInteger, Integer
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
 import uuid
-from hexbytes import HexBytes
+from urllib.parse import urlparse
 
-from custom_db_types import EvmAddress, EvmTxHash, EvmTopic, Base
+import pandas as pd
+from dotenv import load_dotenv
+from hexbytes import HexBytes
+from sqlalchemy import (
+    ARRAY,
+    BigInteger,
+    DateTime,
+    ForeignKeyConstraint,
+    Integer,
+    MetaData,
+    String,
+    create_engine,
+)
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    sessionmaker,
+)
+
+from custom_db_types import Base, EvmAddress, EvmTopic, EvmTxHash
 
 load_dotenv()
 
@@ -47,6 +56,7 @@ ENGINE = create_engine(
 # -----------------------
 # Core EVM data
 # -----------------------
+
 
 class Blocks(Base):
     __tablename__ = "blocks"
@@ -85,6 +95,7 @@ class Tokens(Base):
 # -----------------------
 # Tokemak Specific Data
 # -----------------------
+
 
 class Autopools(Base):
     __tablename__ = "autopools"
@@ -314,14 +325,6 @@ class RebalancePlans(Base):
     num_candidate_destinations: Mapped[int] = mapped_column(nullable=True)
     candidate_destinations_rank: Mapped[int] = mapped_column(nullable=True)
 
-    # might be redundant too double chekc
-    projected_swap_cost: Mapped[float] = mapped_column(nullable=True)
-    projected_net_gain: Mapped[float] = mapped_column(nullable=True)
-    projected_gross_gain: Mapped[float] = mapped_column(nullable=True)
-
-    # redundant, can be calculated from projected_swap_cost and out_spot_eth
-    # projected_slippage: Mapped[float] = mapped_column(nullable=True)  # 100 projected_swap_cost / out_spot_eth
-
     __table_args__ = (
         ForeignKeyConstraint(
             ["destination_in", "chain_id"],
@@ -438,12 +441,11 @@ class IncentiveTokenSwapped(Base):
 
 class IncentiveTokenBalanceUpdated(Base):
     """
-    Liqudation Row Balance Updated events
+    Liquidation Row Balance Updated events
 
-    Tracks how much of each token is ready for liqudation in the liqudation row contract
+    Tracks how much of each token is ready for liquidation in the liquidation row contract
 
-    Eg when liquidatable tokens are moved to the liqudation row.
-
+    Eg when liquidatable tokens are moved to the liquidation row contract it updated how much of that token is there
     """
 
     __tablename__ = "incentive_token_balance_updated"
@@ -468,7 +470,7 @@ class IncentiveTokenBalanceUpdated(Base):
 
 
 class IncentiveTokenPrices(Base):
-    __tablename__ = "incentive_token_sale_prices"
+    __tablename__ = "incentive_token_prices"
 
     tx_hash: Mapped[HexBytes] = mapped_column(EvmTxHash, primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
@@ -477,7 +479,7 @@ class IncentiveTokenPrices(Base):
     # what token this is a price for, eg the buy token, where the price is in the sell token
     token_address: Mapped[HexBytes] = mapped_column(EvmAddress, primary_key=True)
     # the buy token
-    token_price_denomiated_in: Mapped[HexBytes] = mapped_column(EvmAddress, primary_key=True)
+    denominated_in: Mapped[HexBytes] = mapped_column(EvmAddress, primary_key=True)
     # the price according to our internal historical prices api
     third_party_price: Mapped[float] = mapped_column(nullable=True)
 
@@ -678,12 +680,9 @@ class AssetExposure(Base):
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     reference_asset: Mapped[HexBytes] = mapped_column(EvmAddress, primary_key=True)
     token_address: Mapped[HexBytes] = mapped_column(EvmAddress, primary_key=True)
-
-    quantity: Mapped[float] = mapped_column(nullable=False)  # in scaled terms, (eg 1 for ETH instead of 1e18)
-
-    quote_batch: Mapped[int] = mapped_column(
-        nullable=False
-    )  # helper for iding the (group of quotes) all used in the same time
+    quantity: Mapped[float] = mapped_column(nullable=False)  # decimal normalized form
+    # helper for identifying the (group of quotes) fetched together, eg over about an hour
+    quote_batch: Mapped[int] = mapped_column(nullable=False)
 
     __table_args__ = (
         ForeignKeyConstraint(["reference_asset", "chain_id"], ["tokens.token_address", "tokens.chain_id"]),
@@ -756,7 +755,7 @@ Session = sessionmaker(bind=ENGINE)
 
 
 if __name__ == "__main__":
-    # reflect_and_create()
-    drop_and_full_rebuild_db()
+    reflect_and_create()
+    # drop_and_full_rebuild_db()
 
     pass

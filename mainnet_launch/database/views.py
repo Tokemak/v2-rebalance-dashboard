@@ -283,7 +283,7 @@ def get_incentive_token_sold_details() -> pd.DataFrame:
         incentive_token_swapped.log_index,
         incentive_token_swapped.chain_id,
         blocks.datetime,
-        incentive_token_sale_prices.third_party_price,
+        incentive_token_prices.third_party_price,
         incentive_token_swapped.sell_amount,
         incentive_token_swapped.buy_amount,
         incentive_token_swapped.buy_amount_received,
@@ -292,9 +292,9 @@ def get_incentive_token_sold_details() -> pd.DataFrame:
         (incentive_token_swapped.buy_amount_received / NULLIF(incentive_token_swapped.sell_amount, 0)) AS actual_execution,
         (incentive_token_swapped.buy_amount / NULLIF(incentive_token_swapped.sell_amount, 0))          AS worst_possible_execution
         FROM incentive_token_swapped
-        LEFT JOIN incentive_token_sale_prices
-        ON incentive_token_sale_prices.tx_hash = incentive_token_swapped.tx_hash
-        AND incentive_token_sale_prices.log_index = incentive_token_swapped.log_index
+        LEFT JOIN incentive_token_prices
+        ON incentive_token_prices.tx_hash = incentive_token_swapped.tx_hash
+        AND incentive_token_prices.log_index = incentive_token_swapped.log_index
         LEFT JOIN tokens AS sell_tokens
         ON sell_tokens.token_address = incentive_token_swapped.sell_token_address
         AND sell_tokens.chain_id      = incentive_token_swapped.chain_id
