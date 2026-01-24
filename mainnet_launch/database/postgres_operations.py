@@ -1,5 +1,8 @@
 """data access layer functions for postgres"""
 
+
+from __future__ import annotations
+
 from dataclasses import dataclass
 import io
 import csv
@@ -12,6 +15,8 @@ from psycopg2.extras import execute_values
 from sqlalchemy.dialects import postgresql
 import numpy as np
 import pandas as pd
+from hexbytes import HexBytes
+
 
 from mainnet_launch.database.schema.full import Session, Base, ENGINE
 
@@ -101,7 +106,9 @@ def _exec_sql_and_cache(sql_plain_text: str) -> pd.DataFrame:
         raise TypeError("sql_plain_text must be a string")
 
     with Session.begin() as session:
-        return pd.read_sql(text(sql_plain_text), con=session.get_bind())
+        df =  pd.read_sql(text(sql_plain_text), con=session.get_bind())
+        df = normalize_bytea_in_df(df)
+        return df
 
 
 def assert_table_schema_matches_model(engine, table: type[DeclarativeBase]) -> None:
@@ -322,6 +329,7 @@ def get_full_table_as_df(table: Base, where_clause: OperatorExpression | None = 
         )
 
         df = pd.read_sql(sql, con=session.get_bind())
+        df = normalize_bytea_in_df(df)
         return df
 
 
@@ -354,6 +362,7 @@ def get_full_table_as_df_with_block(table: Base, where_clause: OperatorExpressio
         )
 
         df = pd.read_sql(sql, con=session.get_bind())
+        df = normalize_bytea_in_df(df)
         df.set_index("datetime", inplace=True)
         return df
 
@@ -387,6 +396,7 @@ def get_full_table_as_df_with_tx_hash(table: Base, where_clause: OperatorExpress
         )
 
         df = pd.read_sql(sql, con=session.get_bind())
+        df = normalize_bytea_in_df(df)
         df.set_index("datetime", inplace=True)
         return df
 
@@ -413,7 +423,9 @@ def get_subset_of_table_as_df(
         """
         )
 
-        return pd.read_sql(sql, con=session.get_bind())
+        df =  pd.read_sql(sql, con=session.get_bind())
+        df = normalize_bytea_in_df(df)
+        return df
 
 
 def get_full_table_as_orm(table: Base, where_clause: OperatorExpression | None = None) -> list[Base]:
@@ -453,61 +465,9 @@ def natural_left_right_using_where(
         """
         )
 
-        return pd.read_sql(sql, con=session.get_bind())
-
-
-# not used, use the natural join when possible, it is clearer
-def generic_merge_tables_as_df(
-    left: type[Base],
-    right: type[Base],
-    left_join_columns: list[InstrumentedAttribute],
-    right_join_columns: list[InstrumentedAttribute],
-    where_clause: OperatorExpression | None = None,
-) -> pd.DataFrame:
-    """
-    Fully merges two tables on arbitrary column pairs:
-      SELECT l.*, r.*
-      FROM <left>  AS l
-      JOIN <right> AS r
-        ON (l.left_join_columns[i] = r.right_join_columns[i] AND ...)
-      [WHERE <where_clause>]
-
-    Arguments:
-      left                -- ORM class for the “left” table
-      right               -- ORM class for the “right” table
-      left_join_columns   -- list of InstrumentedAttribute on left side
-      right_join_columns  -- list of InstrumentedAttribute on right side (same length)
-      where_clause        -- optional SQLAlchemy boolean expression for filtering
-    """
-    if len(left_join_columns) != len(right_join_columns):
-        raise CustomPostgresOperationException("left_join_columns and right_join_columns must be the same length")
-
-    left_table = left.__tablename__
-    right_table = right.__tablename__
-
-    # build the ON clause
-    on_clauses = []
-    for lcol, rcol in zip(left_join_columns, right_join_columns):
-        on_clauses.append(f"l.{lcol.key} = r.{rcol.key}")
-    on_sql = " AND ".join(on_clauses)
-
-    # build WHERE fragment
-    with Session.begin() as session:
-        where_sql = _where_clause_to_string(where_clause, session)
-
-        sql = text(
-            f"""
-            SELECT
-              l.*,    -- all columns from left
-              r.*     -- all columns from right
-            FROM {left_table}  AS l
-            JOIN {right_table} AS r
-              ON {on_sql}
-            {where_sql}
-        """
-        )
-
-        return pd.read_sql(sql, con=session.get_bind())
+        df =  pd.read_sql(sql, con=session.get_bind())
+        df = normalize_bytea_in_df(df)
+        return df
 
 
 def _where_clause_to_string(where_clause: OperatorExpression | None, session) -> str:
@@ -613,6 +573,56 @@ def simple_agg_by_one_table(
             GROUP BY {group_by_column.key}
         """
         return _exec_sql_and_cache(sql)
+
+
+
+def _bytea_to_0x(v):
+    """
+    Convert common BYTEA-return types into a canonical 0x-prefixed hex string.
+
+    Handles: memoryview (psycopg2), bytes, bytearray, HexBytes.
+    Leaves everything else unchanged.
+    """
+    if v is None:
+        return None
+
+    if isinstance(v, memoryview):
+        b = v.tobytes()
+        return "0x" + b.hex()
+
+    if isinstance(v, (bytes, bytearray)):
+        return "0x" + bytes(v).hex()
+
+    if HexBytes and isinstance(v, HexBytes):
+        return "0x" + bytes(v).hex()
+
+    return v
+
+
+def normalize_bytea_in_df(df):
+    """
+    In-place-ish normalization for DataFrames coming from SQL reads.
+    Only touches object columns and only if they contain byte-like values.
+    """
+    if df is None or df.empty:
+        return df
+
+    obj_cols = [c for c in df.columns if df[c].dtype == "object"]
+    for c in obj_cols:
+        # Find a representative non-null
+        sample = next((x for x in df[c].values if x is not None), None)
+        if isinstance(sample, (memoryview, bytes, bytearray)) or (HexBytes and isinstance(sample, HexBytes)):
+            df[c] = df[c].map(_bytea_to_0x)
+
+    return df
+
+
+def normalize_bytea_in_record(record: dict[str, Any]) -> dict[str, Any]:
+    """
+    Same idea for dict rows (if you ever use .mappings() or manual dict assembly).
+    """
+    return {k: _bytea_to_0x(v) for k, v in record.items()}
+
 
 
 if __name__ == "__main__":
