@@ -1,6 +1,5 @@
 """data access layer functions for postgres"""
 
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -106,7 +105,7 @@ def _exec_sql_and_cache(sql_plain_text: str) -> pd.DataFrame:
         raise TypeError("sql_plain_text must be a string")
 
     with Session.begin() as session:
-        df =  pd.read_sql(text(sql_plain_text), con=session.get_bind())
+        df = pd.read_sql(text(sql_plain_text), con=session.get_bind())
         df = normalize_bytea_in_df(df)
         return df
 
@@ -423,7 +422,7 @@ def get_subset_of_table_as_df(
         """
         )
 
-        df =  pd.read_sql(sql, con=session.get_bind())
+        df = pd.read_sql(sql, con=session.get_bind())
         df = normalize_bytea_in_df(df)
         return df
 
@@ -465,7 +464,7 @@ def natural_left_right_using_where(
         """
         )
 
-        df =  pd.read_sql(sql, con=session.get_bind())
+        df = pd.read_sql(sql, con=session.get_bind())
         df = normalize_bytea_in_df(df)
         return df
 
@@ -575,28 +574,51 @@ def simple_agg_by_one_table(
         return _exec_sql_and_cache(sql)
 
 
+import string
+from typing import Any
 
-def _bytea_to_0x(v):
-    """
-    Convert common BYTEA-return types into a canonical 0x-prefixed hex string.
+_HEXDIGITS = set(string.hexdigits)
 
-    Handles: memoryview (psycopg2), bytes, bytearray, HexBytes.
-    Leaves everything else unchanged.
-    """
+def _coerce_to_bytes(v: Any) -> bytes | None:
     if v is None:
         return None
-
     if isinstance(v, memoryview):
-        b = v.tobytes()
-        return "0x" + b.hex()
-
+        return v.tobytes()
     if isinstance(v, (bytes, bytearray)):
-        return "0x" + bytes(v).hex()
+        return bytes(v)
+    # HexBytes (optional)
+    try:
+        from hexbytes import HexBytes
+        if isinstance(v, HexBytes):
+            return bytes(v)
+    except Exception:
+        pass
+    return None
 
-    if HexBytes and isinstance(v, HexBytes):
-        return "0x" + bytes(v).hex()
+def _bytea_to_0x(v: Any) -> Any:
+    b = _coerce_to_bytes(v)
+    if b is None:
+        return v
 
-    return v
+    # Case 1: BYTEA contains ASCII like b"0xabc123..."
+    try:
+        s = b.decode("ascii").strip()
+    except UnicodeDecodeError:
+        s = None
+
+    if s:
+        # allow "0x..." or bare hex
+        if s.startswith(("0x", "0X")):
+            hex_part = s[2:]
+            if hex_part and all(c in _HEXDIGITS for c in hex_part):
+                return "0x" + hex_part.lower()
+        else:
+            # bare hex (no prefix)
+            if s and all(c in _HEXDIGITS for c in s):
+                return "0x" + s.lower()
+
+    # Case 2: BYTEA contains raw bytes; represent as Ethereum-style 0x + hex
+    return "0x" + b.hex()
 
 
 def normalize_bytea_in_df(df):
@@ -622,7 +644,6 @@ def normalize_bytea_in_record(record: dict[str, Any]) -> dict[str, Any]:
     Same idea for dict rows (if you ever use .mappings() or manual dict assembly).
     """
     return {k: _bytea_to_0x(v) for k, v in record.items()}
-
 
 
 if __name__ == "__main__":

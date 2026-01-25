@@ -158,4 +158,5 @@ def ensure_incentive_token_prices_are_current():
 if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
 
-    profile_function(ensure_incentive_token_prices_are_current)
+    # profile_function(ensure_incentive_token_prices_are_current)
+    ensure_incentive_token_prices_are_current()

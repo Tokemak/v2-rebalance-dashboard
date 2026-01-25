@@ -1,6 +1,7 @@
 """Assumes that all the destinations are in Destinations Table"""
 
 import pandas as pd
+from web3 import Web3
 
 from mainnet_launch.abis import BALANCER_AURA_DESTINATION_VAULT_ABI
 from mainnet_launch.constants import ChainData, ALL_CHAINS
@@ -46,7 +47,8 @@ def fetch_new_underlying_deposited_events(
     if not destination_addresses:
         return pd.DataFrame()
 
-    contract = chain.client.eth.contract(address=destination_addresses[0], abi=BALANCER_AURA_DESTINATION_VAULT_ABI)
+    # any of the destination addresses will do, since the event signature is the same across all
+    contract = chain.client.eth.contract(address=Web3.toChecksumAddress(destination_addresses[0]), abi=BALANCER_AURA_DESTINATION_VAULT_ABI)
 
     df = fetch_events(
         event=contract.events.UnderlyingDeposited,
