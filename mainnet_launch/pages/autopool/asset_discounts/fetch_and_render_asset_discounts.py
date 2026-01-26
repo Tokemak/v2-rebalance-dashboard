@@ -101,6 +101,57 @@ def _fetch_token_values(
     return token_value_df
 
 
+def _fetch_lp_token_spot_prices(autopool: AutopoolConstants, destination_readable_map: dict[str, str]) -> pd.DataFrame:
+    lp_token_price_df = merge_tables_as_df(
+        selectors=[
+            TableSelector(
+                table=DestinationStates,
+                select_fields=[
+                    DestinationStates.destination_vault_address,
+                    DestinationStates.lp_token_spot_price,
+                    DestinationStates.lp_token_safe_price,
+                ],
+            ),
+            TableSelector(
+                table=AutopoolDestinations,
+                select_fields=[AutopoolDestinations.autopool_vault_address],
+                join_on=(
+                    (AutopoolDestinations.destination_vault_address == DestinationStates.destination_vault_address)
+                    & (AutopoolDestinations.chain_id == DestinationStates.chain_id)
+                ),
+            ),
+            TableSelector(
+                table=Blocks,
+                select_fields=[Blocks.datetime],
+                join_on=(DestinationStates.block == Blocks.block) & (DestinationStates.chain_id == Blocks.chain_id),
+            ),
+        ],
+        where_clause=(
+            (AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr)
+            & (DestinationStates.chain_id == autopool.chain.chain_id)
+            & (Blocks.datetime >= autopool.get_display_date())
+        ),
+        order_by=Blocks.datetime,
+    )
+
+    if lp_token_price_df.empty:
+        return lp_token_price_df
+
+    lp_token_price_df["destination_readable_name"] = lp_token_price_df["destination_vault_address"].map(
+        destination_readable_map
+    )
+    lp_token_price_df["lp_token_spot_price"] = pd.to_numeric(lp_token_price_df["lp_token_spot_price"])
+    lp_token_price_df["lp_token_safe_price"] = pd.to_numeric(lp_token_price_df["lp_token_safe_price"])
+
+    safe_price = lp_token_price_df["lp_token_safe_price"]
+    lp_token_price_df["lp_token_percent_discount"] = (
+        100 * (safe_price - lp_token_price_df["lp_token_spot_price"]) / safe_price
+    )
+    lp_token_price_df.loc[safe_price == 0, "lp_token_percent_discount"] = None
+
+    return lp_token_price_df
+
+
 def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame):
     price_return_df = (
         token_value_df[["datetime", "symbol", "price_return"]]
@@ -176,6 +227,34 @@ def _render_component_token_safe_price_and_backing(token_value_df: pd.DataFrame)
     pass
 
 
+def _render_lp_token_spot_prices(lp_token_price_df: pd.DataFrame):
+    st.subheader("LP Token Spot Discount (Root Price Oracle)")
+
+    if lp_token_price_df.empty:
+        st.info("No LP token price data available yet.")
+        return
+
+    spot_price_df = (
+        lp_token_price_df.dropna(subset=["destination_readable_name", "lp_token_spot_price"])
+        .pivot(index="datetime", columns="destination_readable_name", values="lp_token_spot_price")
+    )
+    if not spot_price_df.empty:
+        st.plotly_chart(
+            px.line(spot_price_df, title="LP Token Spot Price Over Time"),
+            use_container_width=True,
+        )
+
+    discount_df = (
+        lp_token_price_df.dropna(subset=["destination_readable_name", "lp_token_percent_discount"])
+        .pivot(index="datetime", columns="destination_readable_name", values="lp_token_percent_discount")
+    )
+    if not discount_df.empty:
+        st.plotly_chart(
+            px.line(discount_df, title="LP Token Spot Discount vs Safe (%)"),
+            use_container_width=True,
+        )
+
+
 def _compute_all_time_30_and_7_day_means(safe_spot_spread_df: pd.DataFrame):
     latest = pd.Timestamp.utcnow()
     all_time_df = safe_spot_spread_df * 100
@@ -221,6 +300,10 @@ def _compute_all_time_30_and_7_day_means(safe_spot_spread_df: pd.DataFrame):
 def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
     autopool_destinations_df = _fetch_autopool_destination_tokens(autopool)  # fast enough
 
+    destination_readable_map = (
+        autopool_destinations_df.set_index("destination_vault_address")["destination_readable_name"].to_dict()
+    )
+
     token_value_df = _fetch_token_values(
         autopool,
         autopool_destinations_df["token_address"].unique().tolist(),
@@ -228,7 +311,7 @@ def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
     )
 
     token_value_df["destination_readable_name"] = token_value_df["destination_vault_address"].map(
-        autopool_destinations_df.set_index("destination_vault_address")["destination_readable_name"].to_dict()
+        destination_readable_map
     )
     token_value_df["underlying_name"] = token_value_df["destination_vault_address"].map(
         autopool_destinations_df.set_index("destination_vault_address")["underlying_name"].to_dict()
@@ -237,6 +320,10 @@ def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
     token_value_df["token_destination_readable_name"] = (
         token_value_df["symbol"] + "\t" + token_value_df["destination_readable_name"]
     )
+
+    lp_token_price_df = _fetch_lp_token_spot_prices(autopool, destination_readable_map)
+    _render_lp_token_spot_prices(lp_token_price_df)
+
     # profile_function(_render_component_token_safe_price_and_backing, token_value_df)
     _render_component_token_safe_price_and_backing(token_value_df)
 
