@@ -19,6 +19,8 @@ from web3 import Web3
 
 from mainnet_launch.database.schema.full import Session, Base, ENGINE
 
+# cchecksum faster if needed
+# https://github.com/BobTheBuidler/cchecksum
 
 class CustomPostgresOperationException(Exception):
     """An error generated on the query side not by postgres"""
@@ -261,7 +263,9 @@ def get_subset_not_already_in_column_in_python(
                 FROM {table.__tablename__}
                 {where_sql}"""
 
-        rows = session.execute(text(query)).scalars().all()
+        df = pd.read_sql(text(query), con=session.get_bind())
+        df = normalize_bytea_in_df(df)
+        rows = df[column.key].tolist()
 
     existing_values = set(rows)
     input_values = set(_to_python_list(values))

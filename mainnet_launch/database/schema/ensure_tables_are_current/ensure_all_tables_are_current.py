@@ -65,31 +65,23 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
 # https://chatgpt.com/c/6973be9e-60b0-8330-96d9-93d94f820db0 general speed up ideas
 
 
-def _ensure_chain_top_block_are_cached():
-    for chain in ALL_CHAINS:
-        print(
-            f"Universe: {chain.name} start_block={chain.block_autopool_first_deployed:,}, end_block={chain.get_block_near_top():,}"
-        )
-
-
 def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = False):
     ENGINE.echo = echo_sql_to_console
 
     run_path = "update-prod-db.txt"
     # note is fetching duplicate data somewhere, not sure where yet for sure in eunsure atupools
     steps = [
-        _ensure_chain_top_block_are_cached,
         ensure_blocks_is_current,
         ensure_autopools_are_current,
         ensure__destinations__tokens__and__destination_tokens_are_current,
-        ensure_tokemak_EOA_gas_costs_are_current,
-        ensure_chainlink_gas_costs_table_are_current,  # very slow, not sure if fetching duplicate data 30338, new transactions for eth
-        ensure_autopool_fees_are_current,  # faster 25 seconds
-        ensure_incentive_token_swapped_events_are_current,  # faster 10 seconds
-        ensure_incentive_token_balance_updated_is_current,  # 10 seconds
-        ensure_incentive_token_prices_are_current,  # fast
-        ensure_destination_underlying_deposits_are_current,  # updated, 10 seconds
-        ensure_destination_underlying_withdraw_are_current,  # updated, 10 seconds
+        # ensure_tokemak_EOA_gas_costs_are_current,
+        # ensure_chainlink_gas_costs_table_are_current,  # very slow, not sure if fetching duplicate data 30338, new transactions for eth
+        # ensure_autopool_fees_are_current,  # faster 25 seconds
+        # ensure_incentive_token_swapped_events_are_current,  # faster 10 seconds
+        # ensure_incentive_token_balance_updated_is_current,  # 10 seconds
+        # ensure_incentive_token_prices_are_current,  # fast
+        # ensure_destination_underlying_deposits_are_current,  # updated, 10 seconds
+        # ensure_destination_underlying_withdraw_are_current,  # updated, 10 seconds
         # all above work as of jan 24, 2026
         # ensure_destination_states_from_rebalance_plan_are_current,  # might be rate limited on defi llama side jan 21 12:25am
         # ensure_destination_states_are_current,
