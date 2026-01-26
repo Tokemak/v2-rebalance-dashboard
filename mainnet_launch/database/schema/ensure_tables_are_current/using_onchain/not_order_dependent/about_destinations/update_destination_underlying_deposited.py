@@ -48,7 +48,9 @@ def fetch_new_underlying_deposited_events(
         return pd.DataFrame()
 
     # any of the destination addresses will do, since the event signature is the same across all
-    contract = chain.client.eth.contract(address=Web3.toChecksumAddress(destination_addresses[0]), abi=BALANCER_AURA_DESTINATION_VAULT_ABI)
+    contract = chain.client.eth.contract(
+        address=Web3.toChecksumAddress(destination_addresses[0]), abi=BALANCER_AURA_DESTINATION_VAULT_ABI
+    )
 
     df = fetch_events(
         event=contract.events.UnderlyingDeposited,

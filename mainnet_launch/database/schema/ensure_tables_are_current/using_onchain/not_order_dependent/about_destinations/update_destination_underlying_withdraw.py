@@ -47,7 +47,7 @@ def fetch_new_underlying_withdraw_events(
         return pd.DataFrame()
 
     contract = chain.client.eth.contract(
-        address=destination_addresses[0],
+        address=chain.client.toChecksumAddress(destination_addresses[0]),
         abi=BALANCER_AURA_DESTINATION_VAULT_ABI,
     )
 

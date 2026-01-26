@@ -15,7 +15,7 @@ from sqlalchemy.dialects import postgresql
 import numpy as np
 import pandas as pd
 from hexbytes import HexBytes
-
+from web3 import Web3
 
 from mainnet_launch.database.schema.full import Session, Base, ENGINE
 
@@ -579,6 +579,12 @@ from typing import Any
 
 _HEXDIGITS = set(string.hexdigits)
 
+
+class BytesConversionError(Exception):
+    pass
+
+
+# I think this should just be string | None to bytes
 def _coerce_to_bytes(v: Any) -> bytes | None:
     if v is None:
         return None
@@ -586,39 +592,55 @@ def _coerce_to_bytes(v: Any) -> bytes | None:
         return v.tobytes()
     if isinstance(v, (bytes, bytearray)):
         return bytes(v)
-    # HexBytes (optional)
     try:
-        from hexbytes import HexBytes
         if isinstance(v, HexBytes):
             return bytes(v)
-    except Exception:
-        pass
-    return None
+    except Exception as e:
+        raise BytesConversionError("Failed to convert HexBytes", v) from e
+
+    raise BytesConversionError(f"Failed to convert {v} into bytes Btes")
+
 
 def _bytea_to_0x(v: Any) -> Any:
     b = _coerce_to_bytes(v)
     if b is None:
         return v
 
-    # Case 1: BYTEA contains ASCII like b"0xabc123..."
+    # Case 1: BYTEA contains ASCII like b"0xabc123..." or b"abc123..."
     try:
         s = b.decode("ascii").strip()
     except UnicodeDecodeError:
         s = None
 
     if s:
-        # allow "0x..." or bare hex
         if s.startswith(("0x", "0X")):
             hex_part = s[2:]
             if hex_part and all(c in _HEXDIGITS for c in hex_part):
-                return "0x" + hex_part.lower()
+                hex_str = "0x" + hex_part.lower()
+            else:
+                hex_str = None
         else:
-            # bare hex (no prefix)
             if s and all(c in _HEXDIGITS for c in s):
-                return "0x" + s.lower()
+                hex_str = "0x" + s.lower()
+            else:
+                hex_str = None
+
+        if hex_str is not None:
+            # If it's an address-length hex string, checksum it
+            if len(hex_str) == 42:  # 0x + 40 hex chars = 20 bytes
+
+                return Web3.toChecksumAddress(hex_str)
+            return hex_str
 
     # Case 2: BYTEA contains raw bytes; represent as Ethereum-style 0x + hex
-    return "0x" + b.hex()
+    hex_str = "0x" + b.hex()
+
+    # Only checksum raw-byte values that look like addresses (20 bytes)
+    if len(b) == 20:
+
+        return Web3.toChecksumAddress(hex_str)
+
+    return hex_str
 
 
 def normalize_bytea_in_df(df):
@@ -633,7 +655,7 @@ def normalize_bytea_in_df(df):
     for c in obj_cols:
         # Find a representative non-null
         sample = next((x for x in df[c].values if x is not None), None)
-        if isinstance(sample, (memoryview, bytes, bytearray)) or (HexBytes and isinstance(sample, HexBytes)):
+        if isinstance(sample, (memoryview, bytes, bytearray, HexBytes)):
             df[c] = df[c].map(_bytea_to_0x)
 
     return df
