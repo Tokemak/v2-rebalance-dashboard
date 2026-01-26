@@ -79,7 +79,7 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
     # note is fetching duplicate data somewhere, not sure where yet for sure in eunsure atupools
     steps = [
         _ensure_chain_top_block_are_cached,
-        ensure_blocks_is_current, # known slow, redundent
+        ensure_blocks_is_current, 
         ensure_autopools_are_current,
         ensure__destinations__tokens__and__destination_tokens_are_current,
         ensure_tokemak_EOA_gas_costs_are_current,
