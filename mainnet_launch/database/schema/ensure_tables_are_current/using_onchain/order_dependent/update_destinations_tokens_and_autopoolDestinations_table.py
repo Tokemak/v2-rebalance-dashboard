@@ -9,9 +9,8 @@ from mainnet_launch.constants import (
     ALL_AUTOPOOLS,
     ALL_BASE_ASSETS,
     DEAD_ADDRESS,
-    DESTINATION_VAULT_REGISTRY,
 )
-from mainnet_launch.abis import AUTOPOOL_VAULT_ABI, DESTINATION_VAULT_REGISTRY_ABI
+from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
 from mainnet_launch.data_fetching.alchemy.get_events import fetch_events
 from mainnet_launch.data_fetching.get_state_by_block import (
@@ -21,22 +20,6 @@ from mainnet_launch.data_fetching.get_state_by_block import (
 )
 from mainnet_launch.database.schema.full import Destinations, DestinationTokens, Tokens, AutopoolDestinations
 from mainnet_launch.database.postgres_operations import insert_avoid_conflicts, get_subset_not_already_in_column
-
-
-# def ensure_destination_vaults_are_current() -> None:
-#     # use destination vault registered
-
-#     for chain in ALL_CHAINS:
-#         contract = chain.client.eth.contract(address=DESTINATION_VAULT_REGISTRY(chain), abi=AUTOPOOL_VAULT_ABI)
-#         new_destination_vaults = fetch_events(
-#             contract.events.DestinationVaultRegistered,
-#             chain=chain,
-#             start_block=chain.block_autopool_first_deployed - 1_000_000,
-#         )
-#         new_destination_vault_addresses = (
-#             new_destination_vaults["destinationVault"].apply(lambda x: Web3.toChecksumAddress(x)).tolist()
-#         )
-#         destination_vault_state = _make_destination_vault_dicts(new_destination_vault_addresses, chain)
 
 
 def _fetch_token_rows(token_addresses: list[str], chain: ChainData) -> list[Tokens]:
@@ -170,6 +153,7 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
                 continue
 
             autopool_vault_contract = chain.client.eth.contract(autopool.autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
+            # this part make redundant calls,
             DestinationVaultAdded = fetch_events(
                 autopool_vault_contract.events.DestinationVaultAdded,
                 chain=chain,

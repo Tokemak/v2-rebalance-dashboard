@@ -22,6 +22,7 @@ from mainnet_launch.database.schema.full import Session, Base, ENGINE
 # cchecksum faster if needed
 # https://github.com/BobTheBuidler/cchecksum
 
+
 class CustomPostgresOperationException(Exception):
     """An error generated on the query side not by postgres"""
 

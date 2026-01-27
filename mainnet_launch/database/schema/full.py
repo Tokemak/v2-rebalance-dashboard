@@ -127,8 +127,8 @@ class Destinations(Base):
     underlying_symbol: Mapped[str] = mapped_column(nullable=False)
     underlying_name: Mapped[str] = mapped_column(nullable=False)
 
-    denominated_in: Mapped[HexBytes] = mapped_column(EvmAddress, nullable=False)  # DestinationVaultAddress.baseAsset()
-    destination_vault_decimals: Mapped[int] = mapped_column(nullable=False)  # DestinationVaultAddress.decimals()
+    denominated_in: Mapped[HexBytes] = mapped_column(EvmAddress, nullable=False)
+    destination_vault_decimals: Mapped[int] = mapped_column(nullable=False)
 
 
 class AutopoolDestinations(Base):
