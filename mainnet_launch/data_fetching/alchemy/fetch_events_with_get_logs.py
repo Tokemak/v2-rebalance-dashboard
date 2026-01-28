@@ -1,4 +1,5 @@
 from enum import Enum
+import datetime
 import concurrent.futures
 import requests
 from web3 import Web3
@@ -26,7 +27,7 @@ DEFAULT_CHUNK_SIZE = 100_000_000
 # these are finger in the wind values
 
 PRE_SPLIT_BLOCK_CHUNK_SIZE = {
-    PLASMA_CHAIN: 100_000,
+    PLASMA_CHAIN: 50_000,
     SONIC_CHAIN: 2_000_000,
     **{chain: DEFAULT_CHUNK_SIZE for chain in ALL_CHAINS if chain not in [PLASMA_CHAIN, SONIC_CHAIN]},
 }
@@ -73,6 +74,19 @@ def _rpc_post(url: str, payload: dict) -> tuple[dict, AchemyRequestStatus]:
         else:
             raise AlchemyFetchEventsError(f"Non-retryable HTTP error {e} for payload {payload=}")
 
+    if "error" in out:
+        error_code = out.get("error", {}).get("code")
+        if error_code is None:
+            raise AlchemyFetchEventsError(f"Unexpected error format: {out.get('error')}")
+        if error_code in [
+            AlchemyError.RESPONSE_TOO_BIG_ERROR.value,
+            AlchemyError.LOG_RESPONSE_SIZE_EXCEEDED.value,
+            AlchemyError.QUERY_TIMEOUT_EXCEEDED.value,
+        ]:
+            return [], AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN
+        else:
+            raise AlchemyFetchEventsError(f"Non-retryable Alchemy error {out['error']}")
+
     raw_logs = out["result"]
     return raw_logs, AchemyRequestStatus.SUCCESS
 
@@ -105,6 +119,16 @@ def _eth_getlogs_once(
 
     for attempt in range(max_retries + 1):
         raw_logs, status = _rpc_post(rpc_url, payload)
+
+        _chain_label = rpc_url.split(".g.")[0]
+
+        block_start = int(from_block_hex, 16)
+        block_end = int(to_block_hex, 16)
+        block_range = block_end - block_start
+        now = datetime.datetime.now().isoformat()
+        print(
+            f"fetched logs from {_chain_label} {block_start:,} to {block_end:,} block_range {block_range:,} status: {status} num logs: {len(raw_logs)} {now}"
+        )
 
         if status in [AchemyRequestStatus.SPLIT_RANGE_AND_TRY_AGAIN, AchemyRequestStatus.SUCCESS]:
             return raw_logs, status
@@ -249,6 +273,14 @@ def fetch_raw_event_logs(
     # that ought to be faster than recursuve splitting on a single thread for the large cases
     start_block = chain.block_autopool_first_deployed if start_block is None else start_block
     end_block = chain.get_block_near_top() if end_block is None else end_block
+
+    try:
+        start_block, end_block = int(start_block), int(end_block)
+    except Exception as e:
+        raise AlchemyFetchEventsError(
+            f"start_block and end_block must be castable to integers, got {start_block}, {end_block}"
+        ) from e
+
     split_size = PRE_SPLIT_BLOCK_CHUNK_SIZE[chain]
     raw_logs = _fetch_events_with_pre_split(
         event, chain, start_block, end_block, argument_filters, split_size, addresses
