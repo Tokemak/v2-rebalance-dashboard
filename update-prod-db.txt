@@ -1,34 +1,40 @@
-ensure_blocks_is_current, 639.983691
-ensure_autopools_are_current, 44.256350
-ensure__destinations__tokens__and__destination_tokens_are_current, ERROR: Non-retryable Alchemy error {'code': -32600, 'message': 'You can make eth_getLogs requests with up to a 10000 block range. Based on your parameters, this block range should work: [0x16abf2, 0x16d301]'}
-ensure_tokemak_EOA_gas_costs_are_current, 1493.510969
-ensure_chainlink_gas_costs_table_are_current, 548.887735
-ensure_autopool_fees_are_current, ERROR: Non-retryable Alchemy error {'code': -32600, 'message': 'You can make eth_getLogs requests with up to a 10000 block range. Based on your parameters, this block range should work: [0x152551, 0x154c60]'}
-ensure_incentive_token_swapped_events_are_current, ERROR: Non-retryable Alchemy error {'code': -32600, 'message': 'You can make eth_getLogs requests with up to a 10000 block range. Based on your parameters, this block range should work: [0x152551, 0x154c60]'}
-ensure_incentive_token_balance_updated_is_current, ERROR: Non-retryable Alchemy error {'code': -32600, 'message': 'You can make eth_getLogs requests with up to a 10000 block range. Based on your parameters, this block range should work: [0x152551, 0x154c60]'}
-ensure_incentive_token_prices_are_current, 1842.233131
+ensure_blocks_is_current, 1275.979689
+ensure_autopools_are_current, 0.292510
+ensure__destinations__tokens__and__destination_tokens_are_current, 73.182927
+ensure_tokemak_EOA_gas_costs_are_current, 21.437578
+ensure_chainlink_gas_costs_table_are_current, 20.331329
+ensure_autopool_fees_are_current, ERROR: HTTPSConnectionPool(host='plasma-mainnet.g.alchemy.com', port=443): Max retries exceeded with url: /v2/7dyyKalTzbS0cySjdpnkr (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x12e2dfb50>: Failed to resolve 'plasma-mainnet.g.alchemy.com' ([Errno 8] nodename nor servname provided, or not known)"))
+ensure_incentive_token_swapped_events_are_current, 49.400016
+ensure_incentive_token_balance_updated_is_current, 73.147587
+ensure_incentive_token_prices_are_current, 9.320711
 ensure_destination_underlying_deposits_are_current, ERROR: value too long for type character varying(42)
-CONTEXT:  COPY destination_underlying_deposited_staging, line 1, column tx_hash: "0xf08c1566202aabb4f0e03bdcaeb156df0d01ed97884c9913fe465851e33b82a7"
+CONTEXT:  COPY destination_underlying_deposited_staging, line 1, column tx_hash: "0x772557f397666fe0e4bfff3484c8778b478014cdd81cbe151fe6cebaee26e6dc"
 
 ensure_destination_underlying_withdraw_are_current, ERROR: value too long for type character varying(42)
-CONTEXT:  COPY destination_underlying_withdraw_staging, line 1, column tx_hash: "0x4ae8fb7d93bb1c17579441dd4255a835f1fe727508ddf1b4e3fa523c39901268"
+CONTEXT:  COPY destination_underlying_withdraw_staging, line 1, column tx_hash: "0xdf5f2b66741efcdb9a4c49ce11a3f55b5c5005cdb0ddeb6ff37e118da65fb0df"
 
 ensure_destination_states_from_rebalance_plan_are_current, ERROR: __init__() got an unexpected keyword argument 'denominated_in'
-ensure_destination_states_are_current, 193.853552
-ensure_destination_token_values_are_current, ERROR: __init__() got an unexpected keyword argument 'denominated_in'
-ensure_autopool_destination_states_are_current, 74.668855
-ensure_autopool_states_are_current, 31.045511
-ensure_token_values_are_current, 150.692361
+ensure_destination_states_are_current, 181.705448
+ensure_destination_token_values_are_current, 277.148252
+ensure_autopool_destination_states_are_current, 58.802745
+ensure_autopool_states_are_current, 30.074166
+ensure_token_values_are_current, 155.787169
 ensure_rebalance_plans_table_are_current, ERROR: null value in column "solver_address" of relation "rebalance_plans_staging" violates not-null constraint
-DETAIL:  Failing row contains (rebalance_plan_1769322596_0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f11..., 2026-01-25 06:29:56+00, 0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null).
-CONTEXT:  COPY rebalance_plans_staging, line 2: "rebalance_plan_1769322596_0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56.json,2026-01-25 06:29:56+00:00,..."
+DETAIL:  Failing row contains (rebalance_plan_1752850855_0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f11..., 2025-07-18 15:00:55+00, 0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null).
+CONTEXT:  COPY rebalance_plans_staging, line 1: "rebalance_plan_1752850855_0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56.json,2025-07-18 15:00:55+00:00,..."
 
 ensure_rebalance_events_are_current, ERROR: null value in column "rebalance_file_path" of relation "rebalance_events_staging" violates not-null constraint
-DETAIL:  Failing row contains (0x05172d31b8475ad5cc66f80ac1b57b360edea712f47c4839476ff1774ecdde..., 0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56, 1, null, 0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56, 0x40219bBda953ca811d2D0168Dc806a96b84791d9, 20.03034603161687, 19.539138954586285, 20.03034603161687, 20.014705040916045, 20.004741455848105, 20.03034603161687, -0.05595463422625881).
-CONTEXT:  COPY rebalance_events_staging, line 1: "0x05172d31b8475ad5cc66f80ac1b57b360edea712f47c4839476ff1774ecddea6,0x0A2b94F6871c1D7A32Fe58E1ab5e6de..."
+DETAIL:  Failing row contains (0x3d11c1a2767f6a2ba7dc6415fae9e1a8042a314adf9113b034845f86148aa6..., 0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56, 1, null, 0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56, 0xe4433D00Cf48BFE0C672d9949F2cd2c008bffC04, 52.781963682020006, 52.03623734497092, 52.781963682020006, 52.74093583748953, 52.74494432209028, 52.781963682020006, 0.007917294552301567).
+CONTEXT:  COPY rebalance_events_staging, line 1: "0x3d11c1a2767f6a2ba7dc6415fae9e1a8042a314adf9113b034845f86148aa6aa,0x0A2b94F6871c1D7A32Fe58E1ab5e6de..."
 
-ensure_autopool_transfers_are_current, ERROR: Non-retryable Alchemy error {'code': -32600, 'message': 'You can make eth_getLogs requests with up to a 10000 block range. Based on your parameters, this block range should work: [0x15e8a1, 0x160fb0]'}
-ensure_autopool_deposits_are_current, ERROR: Non-retryable Alchemy error {'code': -32600, 'message': 'You can make eth_getLogs requests with up to a 10000 block range. Based on your parameters, this block range should work: [0x1a7c81, 0x1aa390]'}
-ensure_autopool_withdraws_are_current, ERROR: Non-retryable Alchemy error {'code': -32600, 'message': 'You can make eth_getLogs requests with up to a 10000 block range. Based on your parameters, this block range should work: [0x152551, 0x154c60]'}
-ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit, 0.295290
-TOTAL, 5538.318936
+ensure_autopool_transfers_are_current, ERROR: value too long for type character varying(42)
+CONTEXT:  COPY autopool_transfers_staging, line 1, column tx_hash: "0x7e402e99be046fe6f7134925b5c923b06d1da2e8788a07dfa3cc322981351a56"
+
+ensure_autopool_deposits_are_current, ERROR: value too long for type character varying(42)
+CONTEXT:  COPY autopool_deposits_staging, line 1, column tx_hash: "0xc96d39d0fc7fe18502dbe73ab1e2920a8107b41f6e85f863d0de45e4d82d3c0b"
+
+ensure_autopool_withdraws_are_current, ERROR: value too long for type character varying(42)
+CONTEXT:  COPY autopool_withdrawals_staging, line 1, column tx_hash: "0x733fe5510ce574d71d3330a88a1a9339c9b494bc12df65dff4024293cc3fca37"
+
+ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit, 0.295468
+TOTAL, 3145.554477
