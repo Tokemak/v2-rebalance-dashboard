@@ -68,12 +68,12 @@ class Blocks(Base):
 class Transactions(Base):
     __tablename__ = "transactions"
 
-    tx_hash: Mapped[String] = mapped_column(str, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String, primary_key=True)
     block: Mapped[int] = mapped_column(nullable=False)
     chain_id: Mapped[int] = mapped_column(nullable=False)
 
-    from_address: Mapped[String] = mapped_column(str, nullable=False)
-    to_address: Mapped[String] = mapped_column(str, nullable=False)
+    from_address: Mapped[str] = mapped_column(String, nullable=False)
+    to_address: Mapped[str] = mapped_column(String, nullable=False)
     effective_gas_price: Mapped[int] = mapped_column(BigInteger, nullable=False)
     gas_used: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
@@ -83,7 +83,7 @@ class Transactions(Base):
 class Tokens(Base):
     __tablename__ = "tokens"
 
-    token_address: Mapped[str] = mapped_column(str, primary_key=True)
+    token_address: Mapped[str] = mapped_column(String, primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     symbol: Mapped[str] = mapped_column(nullable=False)
@@ -98,14 +98,14 @@ class Tokens(Base):
 
 class Autopools(Base):
     __tablename__ = "autopools"
-    autopool_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     block_deployed: Mapped[int] = mapped_column(nullable=False)
     name: Mapped[str] = mapped_column(nullable=False)
     symbol: Mapped[str] = mapped_column(nullable=False)
-    strategy_address: Mapped[str] = mapped_column(str, nullable=True)
-    base_asset: Mapped[str] = mapped_column(str, nullable=False)
+    strategy_address: Mapped[str] = mapped_column(String, nullable=True)
+    base_asset: Mapped[str] = mapped_column(String, nullable=False)
     data_from_rebalance_plan: Mapped[bool] = mapped_column(nullable=False)
 
     __table_args__ = (ForeignKeyConstraint(["block_deployed", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
@@ -114,19 +114,19 @@ class Autopools(Base):
 class Destinations(Base):
     __tablename__ = "destinations"
 
-    destination_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     exchange_name: Mapped[str] = mapped_column(nullable=False)
     name: Mapped[str] = mapped_column(nullable=False)
     symbol: Mapped[str] = mapped_column(nullable=False)
     pool_type: Mapped[str] = mapped_column(nullable=False)
-    pool: Mapped[str] = mapped_column(str, nullable=False)
-    underlying: Mapped[str] = mapped_column(str, nullable=False)
+    pool: Mapped[str] = mapped_column(String, nullable=False)
+    underlying: Mapped[str] = mapped_column(String, nullable=False)
     underlying_symbol: Mapped[str] = mapped_column(nullable=False)
     underlying_name: Mapped[str] = mapped_column(nullable=False)
 
-    denominated_in: Mapped[str] = mapped_column(str, nullable=False)
+    denominated_in: Mapped[str] = mapped_column(String, nullable=False)
     destination_vault_decimals: Mapped[int] = mapped_column(nullable=False)
     block_deployed: Mapped[int] = mapped_column(nullable=True)
 
@@ -137,9 +137,9 @@ class Destinations(Base):
 class AutopoolDestinations(Base):
     __tablename__ = "autopool_destinations"
 
-    destination_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    autopool_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
 
     __table_args__ = (
         ForeignKeyConstraint(
@@ -156,9 +156,9 @@ class AutopoolDestinations(Base):
 class DestinationTokens(Base):
     __tablename__ = "destination_tokens"
 
-    destination_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    token_address: Mapped[str] = mapped_column(str, primary_key=True)
+    token_address: Mapped[str] = mapped_column(String, primary_key=True)
 
     index: Mapped[int] = mapped_column(nullable=False)  # the order of this token in the destination tokens
 
@@ -177,7 +177,7 @@ class DestinationTokens(Base):
 class AutopoolStates(Base):
     __tablename__ = "autopool_states"
 
-    autopool_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
 
@@ -198,7 +198,7 @@ class AutopoolStates(Base):
 class DestinationStates(Base):
     __tablename__ = "destination_states"
 
-    destination_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
@@ -231,8 +231,8 @@ class DestinationStates(Base):
 class AutopoolDestinationStates(Base):
     __tablename__ = "autopool_destination_states"
 
-    destination_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
-    autopool_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     owned_shares: Mapped[float] = mapped_column(nullable=False)
@@ -254,8 +254,8 @@ class TokenValues(Base):
 
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    token_address: Mapped[str] = mapped_column(str, primary_key=True)
-    denominated_in: Mapped[str] = mapped_column(str, primary_key=True)
+    token_address: Mapped[str] = mapped_column(String, primary_key=True)
+    denominated_in: Mapped[str] = mapped_column(String, primary_key=True)
 
     backing: Mapped[float] = mapped_column(nullable=True)
     safe_price: Mapped[float] = mapped_column(nullable=True)
@@ -272,8 +272,8 @@ class DestinationTokenValues(Base):
 
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)  # can make smaller?, smaller dtype?
-    token_address: Mapped[str] = mapped_column(str, primary_key=True)
-    destination_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    token_address: Mapped[str] = mapped_column(String, primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
     # denominated_in: Mapped[str] = mapped_column(
     #     primary_key=True
     # )  # we don't need this, it the same as destinations.base_asset()
@@ -297,14 +297,14 @@ class RebalancePlans(Base):
     file_name: Mapped[str] = mapped_column(primary_key=True)
 
     datetime_generated: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
-    autopool_vault_address: Mapped[str] = mapped_column(str, nullable=False)
+    autopool_vault_address: Mapped[str] = mapped_column(String, nullable=False)
     chain_id: Mapped[int] = mapped_column(nullable=False)
-    solver_address: Mapped[str] = mapped_column(str, nullable=False)
+    solver_address: Mapped[str] = mapped_column(String, nullable=True)
     rebalance_type: Mapped[str] = mapped_column(nullable=True)
-    destination_out: Mapped[str] = mapped_column(str, nullable=True)
-    token_out: Mapped[str] = mapped_column(str, nullable=True)
-    destination_in: Mapped[str] = mapped_column(str, nullable=True)
-    token_in: Mapped[str] = mapped_column(str, nullable=True)
+    destination_out: Mapped[str] = mapped_column(String, nullable=True)
+    token_out: Mapped[str] = mapped_column(String, nullable=True)
+    destination_in: Mapped[str] = mapped_column(String, nullable=True)
+    token_in: Mapped[str] = mapped_column(String, nullable=True)
 
     # TODO consider removing move name, it is inferable from the destination names
     move_name: Mapped[str] = mapped_column(nullable=True)
@@ -361,9 +361,9 @@ class DexSwapSteps(Base):
 class RebalanceCandidateDestinations(Base):
     __tablename__ = "rebalance_candidate_destinations"
 
-    file_name: Mapped[str] = mapped_column(primary_key=True)
+    file_name: Mapped[str] = mapped_column(String, primary_key=True)
 
-    destination_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
     chain_id: Mapped[int] = mapped_column(nullable=False)
     net_gain: Mapped[float] = mapped_column(nullable=False)
     expected_swap_cost: Mapped[float] = mapped_column(nullable=False)
@@ -380,13 +380,13 @@ class RebalanceCandidateDestinations(Base):
 
 class RebalanceEvents(Base):
     __tablename__ = "rebalance_events"
-    tx_hash: Mapped[str] = mapped_column(str, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String, primary_key=True)
 
-    autopool_vault_address: Mapped[str] = mapped_column(str, nullable=False)
+    autopool_vault_address: Mapped[str] = mapped_column(String, nullable=False)
     chain_id: Mapped[int] = mapped_column(nullable=False)
-    rebalance_file_path: Mapped[str] = mapped_column(nullable=False)
-    destination_out: Mapped[str] = mapped_column(str, nullable=False)
-    destination_in: Mapped[str] = mapped_column(str, nullable=False)
+    rebalance_file_path: Mapped[str] = mapped_column(nullable=True)  # can add back later
+    destination_out: Mapped[str] = mapped_column(String, nullable=False)
+    destination_in: Mapped[str] = mapped_column(String, nullable=False)
 
     quantity_out: Mapped[float] = mapped_column(
         nullable=False
@@ -422,13 +422,13 @@ class RebalanceEvents(Base):
 class IncentiveTokenSwapped(Base):
     __tablename__ = "incentive_token_swapped"
 
-    tx_hash: Mapped[str] = mapped_column(str, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String, primary_key=True)
     log_index: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(nullable=False)
-    liquidation_row: Mapped[str] = mapped_column(str, nullable=False)
+    liquidation_row: Mapped[str] = mapped_column(String, nullable=False)
 
-    sell_token_address: Mapped[str] = mapped_column(str, nullable=False)
-    buy_token_address: Mapped[str] = mapped_column(str, nullable=False)
+    sell_token_address: Mapped[str] = mapped_column(String, nullable=False)
+    buy_token_address: Mapped[str] = mapped_column(String, nullable=False)
 
     # normalized, scaled by decimals
     sell_amount: Mapped[float] = mapped_column(nullable=False)
@@ -453,13 +453,13 @@ class IncentiveTokenBalanceUpdated(Base):
 
     __tablename__ = "incentive_token_balance_updated"
 
-    tx_hash: Mapped[str] = mapped_column(str, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String, primary_key=True)
     log_index: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
-    liquidation_row: Mapped[str] = mapped_column(str, nullable=False)
-    token_address: Mapped[str] = mapped_column(str, primary_key=True)
-    destination_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    liquidation_row: Mapped[str] = mapped_column(String, nullable=False)
+    token_address: Mapped[str] = mapped_column(String, primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
     new_balance: Mapped[float] = mapped_column(nullable=False)  # the balance after updating. eg the balance value
 
     __table_args__ = (
@@ -475,14 +475,14 @@ class IncentiveTokenBalanceUpdated(Base):
 class IncentiveTokenPrices(Base):
     __tablename__ = "incentive_token_prices"
 
-    tx_hash: Mapped[str] = mapped_column(str, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String, primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     log_index: Mapped[int] = mapped_column(primary_key=True)
 
     # what token this is a price for, eg the buy token, where the price is in the sell token
-    token_address: Mapped[str] = mapped_column(str, primary_key=True)
+    token_address: Mapped[str] = mapped_column(String, primary_key=True)
     # the buy token
-    denominated_in: Mapped[str] = mapped_column(str, primary_key=True)
+    denominated_in: Mapped[str] = mapped_column(String, primary_key=True)
     # the price according to our internal historical prices api
     third_party_price: Mapped[float] = mapped_column(nullable=True)
 
@@ -496,23 +496,23 @@ class IncentiveTokenPrices(Base):
 class ChainlinkGasCosts(Base):
     __tablename__ = "chainlink_gas_costs"
 
-    tx_hash: Mapped[str] = mapped_column(str, primary_key=True)
-    chainlink_topic_id: Mapped[str] = mapped_column(str, nullable=False)
+    tx_hash: Mapped[str] = mapped_column(String, primary_key=True)
+    chainlink_topic_id: Mapped[str] = mapped_column(String, nullable=False)
 
     __table_args__ = (ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),)
 
 
 class AutopoolFees(Base):
     __tablename__ = "autopool_fees"
-    tx_hash: Mapped[str] = mapped_column(str, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String, primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     log_index: Mapped[int] = mapped_column(primary_key=True)
 
-    autopool_vault_address: Mapped[str] = mapped_column(str, nullable=False)
+    autopool_vault_address: Mapped[str] = mapped_column(String, nullable=False)
     fee_name: Mapped[str] = mapped_column(nullable=False)  # eg FeeCollected or PeriodicFeeCollected
 
-    fee_sink: Mapped[str] = mapped_column(str, nullable=False)  # where the fee went
+    fee_sink: Mapped[str] = mapped_column(String, nullable=False)  # where the fee went
     minted_shares: Mapped[float] = mapped_column(nullable=False)  # shares is always in 1e18
 
     __table_args__ = (
@@ -529,8 +529,8 @@ class AutopoolWithdrawalToken(Base):
     __tablename__ = "autopool_withdrawal_token"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    tx_hash: Mapped[str] = mapped_column(str, nullable=False)
-    token_address: Mapped[str] = mapped_column(str, nullable=False)
+    tx_hash: Mapped[str] = mapped_column(String, nullable=False)
+    token_address: Mapped[str] = mapped_column(String, nullable=False)
     amount: Mapped[float] = mapped_column(nullable=False)
 
     __table_args__ = (ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),)
@@ -539,16 +539,16 @@ class AutopoolWithdrawalToken(Base):
 class AutopoolDeposit(Base):
     __tablename__ = "autopool_deposits"
 
-    autopool_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
-    tx_hash: Mapped[str] = mapped_column(str, primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String, primary_key=True)
     log_index: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     shares: Mapped[float] = mapped_column(nullable=False)
     assets: Mapped[float] = mapped_column(nullable=False)
 
-    sender: Mapped[str] = mapped_column(str, nullable=False)
-    owner: Mapped[str] = mapped_column(str, nullable=False)
+    sender: Mapped[str] = mapped_column(String, nullable=False)
+    owner: Mapped[str] = mapped_column(String, nullable=False)
 
     # NOTE:
     # owner, receiver, and sender are not certain to be EOAs
@@ -564,17 +564,17 @@ class AutopoolDeposit(Base):
 
 class AutopoolWithdrawal(Base):
     __tablename__ = "autopool_withdrawals"
-    autopool_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
-    tx_hash: Mapped[str] = mapped_column(str, primary_key=True)
+    autopool_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String, primary_key=True)
     log_index: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     shares: Mapped[float] = mapped_column(nullable=False)
     assets: Mapped[float] = mapped_column(nullable=False)
 
-    sender: Mapped[str] = mapped_column(str, nullable=False)
-    receiver: Mapped[str] = mapped_column(str, nullable=False)
-    owner: Mapped[str] = mapped_column(str, nullable=False)
+    sender: Mapped[str] = mapped_column(String, nullable=False)
+    receiver: Mapped[str] = mapped_column(String, nullable=False)
+    owner: Mapped[str] = mapped_column(String, nullable=False)
 
     __table_args__ = (
         ForeignKeyConstraint(
@@ -588,13 +588,13 @@ class AutopoolTransfer(Base):
     __tablename__ = "autopool_transfers"
     # ERC20.Transfer events for Autopool shares moved between accounts
 
-    tx_hash: Mapped[str] = mapped_column(str, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String, primary_key=True)
     log_index: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(nullable=False)
 
-    autopool_vault_address: Mapped[str] = mapped_column(str, nullable=False)
-    from_address: Mapped[str] = mapped_column(str, nullable=False)
-    to_address: Mapped[str] = mapped_column(str, nullable=False)
+    autopool_vault_address: Mapped[str] = mapped_column(String, nullable=False)
+    from_address: Mapped[str] = mapped_column(String, nullable=False)
+    to_address: Mapped[str] = mapped_column(String, nullable=False)
     value: Mapped[float] = mapped_column(nullable=False)  # always in 1e18
 
     __table_args__ = (ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),)
@@ -604,7 +604,7 @@ class AutopoolTransfer(Base):
 class DexScreenerPoolLiquidity(Base):
     __tablename__ = "dex_screener_pool_liquidity"
 
-    pool_address: Mapped[str] = mapped_column(str, primary_key=True)
+    pool_address: Mapped[str] = mapped_column(String, primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
 
     pool_name: Mapped[str] = mapped_column(nullable=False)
@@ -623,8 +623,8 @@ class PoolLiquiditySnapshot(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     chain_id: Mapped[int] = mapped_column(nullable=False)
-    pool_address: Mapped[str] = mapped_column(str, nullable=False)
-    token_address: Mapped[str] = mapped_column(str, nullable=False)
+    pool_address: Mapped[str] = mapped_column(String, nullable=False)
+    token_address: Mapped[str] = mapped_column(String, nullable=False)
     usd_liquidity: Mapped[float] = mapped_column(nullable=False)
     datetime_requested: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
     datetime_received: Mapped[pd.Timestamp] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -642,12 +642,12 @@ class SwapQuote(Base):
     __tablename__ = "swap_quotes"
 
     chain_id: Mapped[int] = mapped_column(nullable=False)
-    base_asset: Mapped[str] = mapped_column(str, nullable=False)  # eg WETH, USDC, DOLA
+    base_asset: Mapped[str] = mapped_column(String, nullable=False)  # eg WETH, USDC, DOLA
 
     api_name: Mapped[str] = mapped_column(nullable=False)  # eg tokemak, or odos (so far)
 
-    sell_token_address: Mapped[str] = mapped_column(str, nullable=False)
-    buy_token_address: Mapped[str] = mapped_column(str, nullable=False)
+    sell_token_address: Mapped[str] = mapped_column(String, nullable=False)
+    buy_token_address: Mapped[str] = mapped_column(String, nullable=False)
 
     scaled_amount_in: Mapped[float] = mapped_column(nullable=False)
     scaled_amount_out: Mapped[float] = mapped_column(nullable=False)
@@ -681,8 +681,8 @@ class AssetExposure(Base):
 
     block: Mapped[int] = mapped_column(primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
-    reference_asset: Mapped[str] = mapped_column(str, primary_key=True)
-    token_address: Mapped[str] = mapped_column(str, primary_key=True)
+    reference_asset: Mapped[str] = mapped_column(String, primary_key=True)
+    token_address: Mapped[str] = mapped_column(String, primary_key=True)
     quantity: Mapped[float] = mapped_column(nullable=False)  # decimal normalized form
     # helper for identifying the (group of quotes) fetched together, eg over about an hour
     quote_batch: Mapped[int] = mapped_column(nullable=False)
@@ -696,13 +696,13 @@ class AssetExposure(Base):
 
 class DestinationUnderlyingDeposited(Base):
     __tablename__ = "destination_underlying_deposited"
-    tx_hash: Mapped[str] = mapped_column(str, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String, primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     log_index: Mapped[int] = mapped_column(primary_key=True)
-    destination_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
 
     amount: Mapped[str] = mapped_column(nullable=False)  # unscaled quantity of tokens
-    sender: Mapped[str] = mapped_column(str, nullable=False)  # the autopool_vault_address, I'm pretty sure
+    sender: Mapped[str] = mapped_column(String, nullable=False)  # the autopool_vault_address, I'm pretty sure
 
     __table_args__ = (
         ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
@@ -715,14 +715,14 @@ class DestinationUnderlyingDeposited(Base):
 
 class DestinationUnderlyingWithdraw(Base):
     __tablename__ = "destination_underlying_withdraw"
-    tx_hash: Mapped[str] = mapped_column(str, primary_key=True)
+    tx_hash: Mapped[str] = mapped_column(String, primary_key=True)
     chain_id: Mapped[int] = mapped_column(primary_key=True)
     log_index: Mapped[int] = mapped_column(primary_key=True)
-    destination_vault_address: Mapped[str] = mapped_column(str, primary_key=True)
+    destination_vault_address: Mapped[str] = mapped_column(String, primary_key=True)
 
     amount: Mapped[str] = mapped_column(nullable=False)  # unscaled quantity of tokens
-    owner: Mapped[str] = mapped_column(str, nullable=False)  # the autopool_vault_address, I'm pretty sure
-    to_address: Mapped[str] = mapped_column(str, nullable=False)
+    owner: Mapped[str] = mapped_column(String, nullable=False)  # the autopool_vault_address, I'm pretty sure
+    to_address: Mapped[str] = mapped_column(String, nullable=False)
 
     __table_args__ = (
         ForeignKeyConstraint(["tx_hash"], ["transactions.tx_hash"]),
@@ -759,5 +759,6 @@ Session = sessionmaker(bind=ENGINE)
 
 if __name__ == "__main__":
     # reflect_and_create()
+    # drop_and_full_rebuild_db()
+    pass
     drop_and_full_rebuild_db()
-

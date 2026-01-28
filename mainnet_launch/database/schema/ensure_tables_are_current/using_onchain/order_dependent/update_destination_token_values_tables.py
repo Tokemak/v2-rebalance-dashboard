@@ -265,7 +265,6 @@ def _convert_raw_token_spot_prices_and_reserves_df_to_new_rows(
 
         sub_df = token_spot_prices_and_reserves_df[["block", token_spot_price_column]].copy()
         sub_df.columns = ["block", "spot_price"]
-        sub_df["denominated_in"] = autopool.base_asset
 
         sub_df["quantity"] = amounts_excluding_pool_token
 
@@ -341,7 +340,6 @@ def _fetch_and_insert_idle_destination_token_values(
                         token_address=autopool.base_asset,
                         spot_price=1.0,
                         quantity=total_idle,
-                        denominated_in=autopool.base_asset,
                     )
                 )
 

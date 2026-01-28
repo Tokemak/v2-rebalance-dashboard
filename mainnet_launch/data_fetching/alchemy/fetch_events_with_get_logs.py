@@ -27,7 +27,7 @@ DEFAULT_CHUNK_SIZE = 100_000_000
 # these are finger in the wind values
 
 PRE_SPLIT_BLOCK_CHUNK_SIZE = {
-    PLASMA_CHAIN: 50_000,
+    PLASMA_CHAIN: 10_000,  # need a better solve for this
     SONIC_CHAIN: 2_000_000,
     **{chain: DEFAULT_CHUNK_SIZE for chain in ALL_CHAINS if chain not in [PLASMA_CHAIN, SONIC_CHAIN]},
 }
