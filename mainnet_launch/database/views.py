@@ -119,7 +119,6 @@ def fetch_autopool_destination_state_df(autopool: AutopoolConstants) -> pd.DataF
                 table=TokenValues,
                 select_fields=[
                     TokenValues.safe_price,
-                    TokenValues.denominated_in,
                     TokenValues.backing,
                 ],
                 join_on=(TokenValues.chain_id == DestinationTokenValues.chain_id)
@@ -169,8 +168,6 @@ def fetch_autopool_destination_state_df(autopool: AutopoolConstants) -> pd.DataF
             ),
         ],
         where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
-        & (TokenValues.denominated_in == autopool.base_asset)
-        & (DestinationTokenValues.denominated_in == autopool.base_asset)
         & (Tokens.chain_id == autopool.chain.chain_id)
         & (Blocks.datetime > autopool.get_display_date()),
     )

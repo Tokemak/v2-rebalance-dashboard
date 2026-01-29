@@ -36,6 +36,10 @@ def _fetch_chainlink_keeper_network_transactions(chain: ChainData, chainlink_kee
         ],
         where_clause=where_clause,
     )
+    chainlink_gas_costs_df["gas_cost_in_eth"] = chainlink_gas_costs_df.apply(
+        lambda row: (int(row["effective_gas_price"]) * int(row["gas_used"])) / 1e18, axis=1
+    )
+
     chainlink_gas_costs_df["gas_cost_in_eth"] = (
         chainlink_gas_costs_df["gas_cost_in_eth"] * 1.2
     )  # chainlink charges a 20% premium
@@ -86,6 +90,10 @@ def _fetch_eoa_transactions(
 
     eoa_tx_df["label"] = eoa_tx_df["from_address"].map(address_to_name)
     eoa_tx_df["category"] = eoa_tx_df["from_address"].map(address_to_category)
+    eoa_tx_df["gas_cost_in_eth"] = eoa_tx_df.apply(
+        lambda row: (int(row["effective_gas_price"]) * int(row["gas_used"])) / 1e18, axis=1
+    )
+
     return eoa_tx_df[["datetime", "tx_hash", "label", "category", "effective_gas_price", "gas_used", "gas_cost_in_eth"]]
 
 
@@ -108,7 +116,9 @@ def fetch_our_gas_costs_df() -> pd.DataFrame:
     df = pd.concat([chainlink_gas_costs_df, eoa_tx_df], ignore_index=True).drop_duplicates()
 
     df["label"] = df["label"] + " (" + df["category"] + ")"
-
+    df["gas_cost_in_eth"] = df.apply(
+        lambda row: (int(row["effective_gas_price"]) * int(row["gas_used"])) / 1e18, axis=1
+    )
     all_time_totals = df.groupby("label")["gas_cost_in_eth"].sum()
     return df, all_time_totals, deployers_df, chainlink_keepers_df, service_accounts_df
 
