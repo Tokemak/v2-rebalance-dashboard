@@ -24,10 +24,8 @@ from mainnet_launch.database.schema.track_last_processed_block_helper import (
 )
 
 
-
-
 def fetch_new_underlying_deposited_events(
-    start_block: int, end_block:int, chain: ChainData, destination_addresses: list[str]
+    start_block: int, end_block: int, chain: ChainData, destination_addresses: list[str]
 ) -> pd.DataFrame:
     if not destination_addresses:
         return pd.DataFrame()
@@ -95,7 +93,7 @@ def ensure_destination_underlying_deposits_are_current() -> None:
 
         new_df = fetch_new_underlying_deposited_events(
             start_block=highest_block[chain.chain_id],
-            end_block = top_block,
+            end_block=top_block,
             chain=chain,
             destination_addresses=destination_addresses,
         )

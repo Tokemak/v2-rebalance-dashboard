@@ -6,7 +6,7 @@ from web3 import Web3
 from web3.contract import ContractEvent
 from web3._utils.filters import construct_event_filter_params
 
-from mainnet_launch.constants import ChainData, SONIC_CHAIN, PLASMA_CHAIN, ALL_CHAINS
+from mainnet_launch.constants import ChainData, SONIC_CHAIN, PLASMA_CHAIN, LINEA_CHAIN, ALL_CHAINS
 import random
 import time
 
@@ -29,7 +29,8 @@ DEFAULT_CHUNK_SIZE = 100_000_000
 PRE_SPLIT_BLOCK_CHUNK_SIZE = {
     PLASMA_CHAIN: 10_000,  # need a better solve for this
     SONIC_CHAIN: 2_000_000,
-    **{chain: DEFAULT_CHUNK_SIZE for chain in ALL_CHAINS if chain not in [PLASMA_CHAIN, SONIC_CHAIN]},
+    LINEA_CHAIN: 250_000,  # all limits but plasma are finger in the wind, a best guess is fine here
+    **{chain: DEFAULT_CHUNK_SIZE for chain in ALL_CHAINS if chain not in [PLASMA_CHAIN, SONIC_CHAIN, LINEA_CHAIN]},
 }
 
 

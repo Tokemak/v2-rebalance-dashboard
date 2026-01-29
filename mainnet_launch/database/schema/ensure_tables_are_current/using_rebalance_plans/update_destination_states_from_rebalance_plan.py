@@ -62,26 +62,36 @@ def convert_rebalance_plan_to_rows(
 ) -> list[DestinationStates]:
     """Makes external calls to etherscan, and on http nodes"""
 
-    timestamp = int(plan["sod"]["currentTimestamp"])
-    block_after_plan_timestamp = fetch_blocks_by_unix_timestamps_defillama(
-        [
-            timestamp,
-        ],
-        chain=autopool.chain,
-    )[0]
-    quantity_of_idle = _get_quantity_of_base_asset_in_idle(
-        autopool, tokens_address_to_decimals, block_after_plan_timestamp
-    )
+    try:
+        timestamp = int(plan["sod"]["currentTimestamp"])
+        block_after_plan_timestamp = fetch_blocks_by_unix_timestamps_defillama(
+            [
+                timestamp,
+            ],
+            chain=autopool.chain,
+        )[0]
+        quantity_of_idle = _get_quantity_of_base_asset_in_idle(
+            autopool, tokens_address_to_decimals, block_after_plan_timestamp
+        )
 
-    new_destination_states_rows = _extract_destination_states_rows(
-        autopool, tokens_address_to_decimals, plan, block_after_plan_timestamp, quantity_of_idle
-    )
-    new_token_values_rows = _extract_token_values_data(autopool, plan, block_after_plan_timestamp)
-    new_destination_token_values = _extract_destination_token_values(
-        autopool, plan, block_after_plan_timestamp, quantity_of_idle
-    )
+        new_destination_states_rows = _extract_destination_states_rows(
+            autopool, tokens_address_to_decimals, plan, block_after_plan_timestamp, quantity_of_idle
+        )
+        new_token_values_rows = _extract_token_values_data(autopool, plan, block_after_plan_timestamp)
+        new_destination_token_values = _extract_destination_token_values(
+            autopool, plan, block_after_plan_timestamp, quantity_of_idle
+        )
 
-    return new_destination_states_rows, new_token_values_rows, new_destination_token_values
+        return new_destination_states_rows, new_token_values_rows, new_destination_token_values, {"error": None}
+    except Exception as e:
+        return (
+            [],
+            [],
+            [],
+            {
+                "error": str(e),
+            },
+        )
 
 
 def _extract_destination_token_values(
@@ -118,6 +128,9 @@ def _extract_destination_token_values(
             )
 
     return new_destination_token_values
+
+
+# 0xfB6448B96637d90FcF2E4Ad2c622A487d0496e6f should be in linea token but it is not
 
 
 def _extract_token_values_data(
@@ -158,6 +171,11 @@ def _extract_token_values_data(
                 seen_tokens.add(token_address)
 
     return new_token_values_rows
+
+
+# should also be in the destian
+# 0xfB6448B96637d90FcF2E4Ad2c622A487d0496e6f is a pool on linea,
+# select * from destinations where destination_vault_address = '0xfB6448B96637d90FcF2E4Ad2c622A487d0496e6f'
 
 
 def _extract_destination_states_rows(
@@ -269,10 +287,16 @@ def ensure_destination_states_from_rebalance_plan_are_current():
 
         def _process_plan(plan_path: str):
             plan = fetch_rebalance_plan_json_from_s3_bucket(plan_path, s3_client, autopool)
-            new_destination_states_rows, new_token_values_rows, new_destination_token_values = (
+            new_destination_states_rows, new_token_values_rows, new_destination_token_values, error = (
                 convert_rebalance_plan_to_rows(plan, autopool, tokens_address_to_decimals)
             )
-            return new_destination_states_rows, new_token_values_rows, new_destination_token_values
+            if error["error"] is not None:
+                print(
+                    f"Error processing Rebalance Plan {plan_path} for {autopool.name}: {error['error']}. Skipping this plan."
+                )
+                return new_destination_states_rows, new_token_values_rows, new_destination_token_values
+            else:
+                return new_destination_states_rows, new_token_values_rows, new_destination_token_values
 
         all_destination_states = []
         all_new_token_values_rows = []
@@ -281,7 +305,7 @@ def ensure_destination_states_from_rebalance_plan_are_current():
         results = thread_map(
             _process_plan,
             plans_to_fetch,
-            max_workers=1,  # not certain here on the best number of threads, 4 works but might be able to go faster
+            max_workers=4,  # not certain here on the best number of threads, 4 works but might be able to go faster
             desc=f"Extracting Destination States from Rebalance Plans for {autopool.name}",
             unit="plan",
         )
@@ -302,13 +326,11 @@ def ensure_destination_states_from_rebalance_plan_are_current():
         insert_avoid_conflicts(
             all_new_token_values_rows,
             TokenValues,
-
         )
 
         insert_avoid_conflicts(
             all_destination_token_rows,
             DestinationTokenValues,
-
         )
 
 

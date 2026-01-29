@@ -431,9 +431,6 @@ def get_subset_of_table_as_df(
 
 
 def get_full_table_as_orm(table: Base, where_clause: OperatorExpression | None = None) -> list[Base]:
-    print(
-        "This function might not properly convert from BYTEA to 0x strings, might want to use get_full_table_as_df instead"
-    )
     with Session.begin() as session:
         where_sql = _where_clause_to_string(where_clause, session)
 

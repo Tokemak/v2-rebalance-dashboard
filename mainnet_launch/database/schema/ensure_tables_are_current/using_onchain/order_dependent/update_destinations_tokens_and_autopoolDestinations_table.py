@@ -3,7 +3,7 @@ from multicall import Call
 from web3 import Web3
 
 
-from mainnet_launch.constants import ChainData, ALL_CHAINS, ALL_AUTOPOOLS, DEAD_ADDRESS, PLASMA_CHAIN
+from mainnet_launch.constants import ChainData, ALL_CHAINS, ALL_AUTOPOOLS, DEAD_ADDRESS, PLASMA_CHAIN, LINEA_CHAIN
 from mainnet_launch.abis import AUTOPOOL_VAULT_ABI
 
 from mainnet_launch.data_fetching.alchemy.get_events import fetch_events
@@ -222,7 +222,7 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
     """
     chain_data_to_last_processed_block = get_last_processed_block_for_table(Destinations)
 
-    for chain in ALL_CHAINS:
+    for chain in [LINEA_CHAIN]:
         top_block = chain.get_block_near_top()
 
         print(
@@ -239,6 +239,8 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
             end_block=top_block,
             addresses=[a.autopool_eth_addr for a in autopools],
         )
+
+        # 0xfB6448B96637d90FcF2E4Ad2c622A487d0496e6f
 
         DestinationVaultAdded["autopool"] = DestinationVaultAdded["address"]
         DestinationVaultAdded["destination"] = DestinationVaultAdded["destination"].apply(
@@ -282,7 +284,9 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import ETH_CHAIN, profile_function
 
-    profile_function(ensure__destinations__tokens__and__destination_tokens_are_current)
+    # profile_function(ensure__destinations__tokens__and__destination_tokens_are_current)
+
+    ensure__destinations__tokens__and__destination_tokens_are_current()
 
 
 # def ensure__destinations__tokens__and__destination_tokens_are_current_old() -> None:

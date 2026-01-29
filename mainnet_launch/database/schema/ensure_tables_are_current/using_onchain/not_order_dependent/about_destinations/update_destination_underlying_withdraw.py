@@ -20,12 +20,9 @@ from mainnet_launch.database.schema.track_last_processed_block_helper import (
 )
 
 
-
-
-
 def fetch_new_underlying_withdraw_events(
     start_block: int,
-    end_block:int, 
+    end_block: int,
     chain: ChainData,
     destination_addresses: list[str],
 ) -> pd.DataFrame:
