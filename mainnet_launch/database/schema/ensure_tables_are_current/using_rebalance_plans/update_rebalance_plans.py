@@ -231,14 +231,17 @@ def ensure_rebalance_plans_table_are_current():
             continue
 
         def _process_plan(plan_on_remote: str):
-            # only external call here
-            plan = fetch_rebalance_plan_json_from_s3_bucket(plan_on_remote, s3_client, autopool)
-            new_rebalance_plan_row = _extract_rebalance_plan(
-                plan, autopool, destination_address_to_symbol, token_address_to_decimals
-            )
-            new_dex_steps_rows = _extract_new_dext_steps(plan)
+            try:
+                plan = fetch_rebalance_plan_json_from_s3_bucket(plan_on_remote, s3_client, autopool)
+                new_rebalance_plan_row = _extract_rebalance_plan(
+                    plan, autopool, destination_address_to_symbol, token_address_to_decimals
+                )
+                new_dex_steps_rows = _extract_new_dext_steps(plan)
 
-            return (new_rebalance_plan_row, new_dex_steps_rows)
+                return (new_rebalance_plan_row, new_dex_steps_rows, False)
+            except Exception as e:
+                print(f"Error processing plan {plan_on_remote} for {autopool.name}: {str(e)}")
+                return (None, None, True)
 
         all_rebalance_plan_rows = []
         all_dex_steps_rows = []
@@ -246,10 +249,10 @@ def ensure_rebalance_plans_table_are_current():
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = list(executor.map(_process_plan, plans_not_already_fetched))
             for response in tqdm(futures, desc=f"Processing {autopool.name} plans"):
-                new_rebalance_plan_row, new_dex_steps_rows = response
-                all_rebalance_plan_rows.append(new_rebalance_plan_row)
-                all_dex_steps_rows.extend(new_dex_steps_rows)
-
+                new_rebalance_plan_row, new_dex_steps_rows, failed = response
+                if not failed:
+                    all_rebalance_plan_rows.append(new_rebalance_plan_row)
+                    all_dex_steps_rows.extend(new_dex_steps_rows)
                 # TODO add RebalanceCandidateDestinations here
 
         insert_avoid_conflicts(all_rebalance_plan_rows, RebalancePlans, index_elements=[RebalancePlans.file_name])
