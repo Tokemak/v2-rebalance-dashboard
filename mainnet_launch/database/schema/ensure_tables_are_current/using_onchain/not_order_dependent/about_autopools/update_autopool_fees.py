@@ -32,7 +32,7 @@ def ensure_autopool_fees_are_current():
         fee_collected_events_df = fetch_events(
             contract.events.FeeCollected,
             chain=chain,
-            start_block=chain_to_start_block[chain] + 1 ,
+            start_block=chain_to_start_block[chain] + 1,
             end_block=top_block,
             addresses=addresess,
         )
@@ -49,6 +49,11 @@ def ensure_autopool_fees_are_current():
         if fee_df.empty:
             print(
                 f"No new autopool fee events for autopools on {chain.name} after block {chain_to_start_block[chain]:,}"
+            )
+            write_last_processed_block(
+                chain,
+                top_block,
+                AutopoolFees,
             )
             continue
 
@@ -82,10 +87,12 @@ def ensure_autopool_fees_are_current():
             top_block,
             AutopoolFees,
         )
+        pass
 
 
 if __name__ == "__main__":
+    ensure_autopool_fees_are_current()
 
     # ensure_autopool_fees_are_current()
-    profile_function(ensure_autopool_fees_are_current)
+    # profile_function(ensure_autopool_fees_are_current)
     # ensure_autopool_fees_are_current()

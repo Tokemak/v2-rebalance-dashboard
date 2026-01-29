@@ -23,10 +23,10 @@ def write_last_processed_block(chain: ChainData, block: int, table: type):
         session.execute(text(query), {"chain_id": chain.chain_id, "table_name": table.__tablename__, "block": block})
         session.commit()
 
-    print(f"Wrote last processed block {block:,} for table {table.__tablename__} on chain {chain.name}")
+    print(f"Updated {TrackLastProcessedBlock.__tablename__} to ({table.__tablename__}, {chain.chain_id}, {block:,})")
 
 
-def get_last_processed_block_for_table(table: type[Base]) -> dict[ChainData, int]:
+def get_last_processed_block_for_table(table: type[Base]) -> dict[ChainData | int, int]:
     """Get the last processed block for each chain for the given table. If no entry exists for a chain, use the chain's block_autopool_first_deployed."""
 
     df = get_full_table_as_df(
@@ -43,4 +43,4 @@ def get_last_processed_block_for_table(table: type[Base]) -> dict[ChainData, int
         chain: chain_id_to_last_processed_block[chain.chain_id] for chain in ALL_CHAINS
     }
 
-    return chain_data_to_last_processed_block
+    return {**chain_data_to_last_processed_block, **chain_id_to_last_processed_block}

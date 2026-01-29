@@ -62,8 +62,6 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.not_
     ensure_chainlink_gas_costs_table_are_current,
 )
 
-# https://chatgpt.com/c/6973be9e-60b0-8330-96d9-93d94f820db0 general speed up ideas
-
 
 def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = False):
     ENGINE.echo = echo_sql_to_console
@@ -76,8 +74,8 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
         ensure__destinations__tokens__and__destination_tokens_are_current,  # faster
         ensure_tokemak_EOA_gas_costs_are_current,
         ensure_chainlink_gas_costs_table_are_current,
-        ensure_autopool_fees_are_current,
-        ensure_incentive_token_swapped_events_are_current,
+        ensure_autopool_fees_are_current,  # faster
+        ensure_incentive_token_swapped_events_are_current,  # faster
         ensure_incentive_token_balance_updated_is_current,
         ensure_incentive_token_prices_are_current,
         ensure_destination_underlying_deposits_are_current,

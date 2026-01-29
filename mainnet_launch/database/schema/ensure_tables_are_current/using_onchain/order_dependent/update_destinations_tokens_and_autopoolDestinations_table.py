@@ -16,8 +16,6 @@ from mainnet_launch.database.schema.full import Destinations, DestinationTokens,
 from mainnet_launch.database.postgres_operations import (
     insert_avoid_conflicts,
     get_subset_not_already_in_column,
-    get_full_table_as_df,
-    bulk_overwrite,
 )
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_all_blocks_are_in_table,
