@@ -22,9 +22,10 @@ from mainnet_launch.database.postgres_operations import (
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_all_blocks_are_in_table,
 )
-
-# need this to not make redundant scans of plasma events
-PHONY_DESTINATION_NAME = "phony_destination_to_not_double_scan_rows"
+from mainnet_launch.database.schema.track_last_processed_block_helper import (
+    get_last_processed_block_for_table,
+    write_last_processed_block,
+)
 
 
 def ensure_all_tokens_are_saved_in_db(token_addresses: list[str], chain: ChainData) -> None:
@@ -217,52 +218,26 @@ def _build_destination_rows(
     return all_destinations, all_autopool_destinations, all_destination_tokens
 
 
-def overwrite_phony_destination_block_scanned_to_row(chain: ChainData, block_scanned_to: int) -> None:
-    """Just useful for not scanning too many plasma events every time"""
-
-    phony_row = Destinations(
-        destination_vault_address=DEAD_ADDRESS,
-        chain_id=chain.chain_id,
-        exchange_name="tokemak",
-        name=PHONY_DESTINATION_NAME,
-        symbol="phony",
-        pool_type="idle",
-        pool=DEAD_ADDRESS,
-        underlying=DEAD_ADDRESS,
-        underlying_symbol="phony",
-        underlying_name="phony",
-        denominated_in=DEAD_ADDRESS,
-        destination_vault_decimals=18,
-        block_deployed=block_scanned_to,
-    )
-
-    bulk_overwrite((phony_row,), Destinations)
-
-
 def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
     """
     Make sure that the Destinations, DestinationTokens and Tokens tables are current for all the underlying tokens in each of the destinations
     """
-    current_destinations = get_full_table_as_df(Destinations)
-
-    chain_to_highest_block_seen = current_destinations.groupby("chain_id")["block_deployed"].max().to_dict()
-    for c in ALL_CHAINS:
-        if c.chain_id not in chain_to_highest_block_seen or pd.isna(chain_to_highest_block_seen[c.chain_id]):
-            chain_to_highest_block_seen[c.chain_id] = (
-                c.block_autopool_first_deployed
-            )  # not certain these are convervative enough
+    chain_data_to_last_processed_block = get_last_processed_block_for_table(Destinations)
 
     for chain in ALL_CHAINS:
         top_block = chain.get_block_near_top()
-        print(f"Ensuring Destinations, DestinationTokens, and Tokens are current for chain {chain.name}")
+
+        print(
+            f"Updating Destinations, DestinationTokens and Tokens for chain {chain.name} using blocks {chain_data_to_last_processed_block[chain]+1} to {top_block}"
+        )
         autopools = [a for a in ALL_AUTOPOOLS if a.chain == chain]
 
         autopool_vault_contract = chain.client.eth.contract(autopools[0].autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
-        # this part make redundant calls,
+
         DestinationVaultAdded = fetch_events(
             autopool_vault_contract.events.DestinationVaultAdded,
             chain=chain,
-            start_block=chain_to_highest_block_seen[chain.chain_id] + 1,
+            start_block=chain_data_to_last_processed_block[chain] + 1,
             end_block=top_block,
             addresses=[a.autopool_eth_addr for a in autopools],
         )
@@ -301,7 +276,7 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
         insert_avoid_conflicts(all_autopool_destinations, AutopoolDestinations)
         print("successfully updated tables for chain", chain.name)
 
-        # overwrite_phony_destination_block_scanned_to_row(chain, top_block)
+        write_last_processed_block(chain, top_block, Destinations)
 
 
 if __name__ == "__main__":

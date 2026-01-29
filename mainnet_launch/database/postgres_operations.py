@@ -14,8 +14,7 @@ from psycopg2.extras import execute_values
 from sqlalchemy.dialects import postgresql
 import numpy as np
 import pandas as pd
-from hexbytes import HexBytes
-from web3 import Web3
+
 
 from mainnet_launch.database.schema.full import Session, Base, ENGINE
 

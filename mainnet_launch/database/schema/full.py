@@ -4,15 +4,7 @@ from urllib.parse import urlparse
 
 import pandas as pd
 from dotenv import load_dotenv
-from sqlalchemy import (
-    ARRAY,
-    String,
-    DateTime,
-    ForeignKeyConstraint,
-    Integer,
-    MetaData,
-    create_engine,
-)
+from sqlalchemy import ARRAY, String, DateTime, ForeignKeyConstraint, Integer, MetaData, create_engine, BigInteger
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import (
     Mapped,
@@ -73,8 +65,8 @@ class Transactions(Base):
 
     from_address: Mapped[str] = mapped_column(nullable=False)
     to_address: Mapped[str] = mapped_column(nullable=False)
-    effective_gas_price: Mapped[int] = mapped_column(nullable=False)
-    gas_used: Mapped[int] = mapped_column(nullable=False)
+    effective_gas_price: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    gas_used: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
     __table_args__ = (ForeignKeyConstraint(["block", "chain_id"], ["blocks.block", "blocks.chain_id"]),)
 
@@ -732,6 +724,20 @@ class DestinationUnderlyingWithdraw(Base):
     )
 
 
+class TrackLastProcessedBlock(Base):
+    """
+    plasma fetch events takes minutes, instead of seconds, even if there are no events to process.
+    Each call requires a 10k block range, so to speed up processing time when no events are present
+
+    """
+
+    __tablename__ = "track_last_processed_block"
+
+    chain_id: Mapped[int] = mapped_column(primary_key=True)
+    table_name: Mapped[str] = mapped_column(primary_key=True)
+    last_processed_block: Mapped[int] = mapped_column(nullable=False)
+
+
 def drop_and_full_rebuild_db():
     confirmation = input("Type 'delete_and_rebuild' to confirm dropping and rebuilding the database: ")
     if confirmation != "delete_and_rebuild":
@@ -757,7 +763,7 @@ Session = sessionmaker(bind=ENGINE)
 
 
 if __name__ == "__main__":
-    # reflect_and_create()
+    reflect_and_create()
     # drop_and_full_rebuild_db()
-    pass
-    drop_and_full_rebuild_db()
+    # pass
+    # drop_and_full_rebuild_db()

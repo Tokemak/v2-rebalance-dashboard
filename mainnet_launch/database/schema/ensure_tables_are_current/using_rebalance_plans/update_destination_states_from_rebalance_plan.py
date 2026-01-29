@@ -93,7 +93,6 @@ def _extract_destination_token_values(
             block=block_after_plan_timestamp,
             chain_id=autopool.chain.chain_id,
             token_address=autopool.base_asset,
-            denominated_in=autopool.base_asset,
             destination_vault_address=autopool.autopool_eth_addr,
             spot_price=1.0,
             quantity=quantity_of_idle,
@@ -113,7 +112,6 @@ def _extract_destination_token_values(
                     chain_id=autopool.chain.chain_id,
                     token_address=token_address,
                     destination_vault_address=Web3.toChecksumAddress(dest_state["address"]),
-                    denominated_in=autopool.base_asset,
                     spot_price=spot_price,
                     quantity=int(raw_amount) / (10**decimals),
                 )
@@ -130,7 +128,6 @@ def _extract_token_values_data(
             block=block_after_plan_timestamp,
             chain_id=autopool.chain.chain_id,
             token_address=autopool.base_asset,
-            denominated_in=autopool.base_asset,
             backing=1.0,
             safe_price=1.0,
         )

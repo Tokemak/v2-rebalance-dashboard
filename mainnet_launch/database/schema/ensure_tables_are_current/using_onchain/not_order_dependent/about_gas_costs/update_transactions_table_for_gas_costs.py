@@ -150,7 +150,7 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import profile_function
 
-    # profile_function(ensure_tokemak_EOA_gas_costs_are_current)
+    profile_function(ensure_tokemak_EOA_gas_costs_are_current)
     # not sure why this sometimes fails with this error
 
-    ensure_tokemak_EOA_gas_costs_are_current()
+    # ensure_tokemak_EOA_gas_costs_are_current()
