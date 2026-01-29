@@ -76,21 +76,26 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
         ensure_chainlink_gas_costs_table_are_current,
         ensure_autopool_fees_are_current,  # faster
         ensure_incentive_token_swapped_events_are_current,  # faster
-        ensure_incentive_token_balance_updated_is_current,
-        ensure_incentive_token_prices_are_current,
-        ensure_destination_underlying_deposits_are_current,
-        ensure_destination_underlying_withdraw_are_current,
-        ensure_destination_states_from_rebalance_plan_are_current,
-        ensure_destination_states_are_current,
-        ensure_destination_token_values_are_current,
+        ensure_incentive_token_balance_updated_is_current, # faster
+
+        ensure_incentive_token_prices_are_current, # ought to be faster
+
+        ensure_destination_underlying_deposits_are_current, # untested, should be faster
+
+        ensure_destination_underlying_withdraw_are_current, # untested, should be faster
+
+        ensure_destination_states_from_rebalance_plan_are_current, # don't need new method
+        ensure_destination_states_are_current, # not needed new method
+
+        ensure_destination_token_values_are_current, # not needed
         ensure_autopool_destination_states_are_current,
         ensure_autopool_states_are_current,
         ensure_token_values_are_current,
         ensure_rebalance_plans_table_are_current,
-        ensure_rebalance_events_are_current,
-        ensure_autopool_transfers_are_current,
-        ensure_autopool_deposits_are_current,
-        ensure_autopool_withdraws_are_current,
+        ensure_rebalance_events_are_current, # seems fine
+        ensure_autopool_transfers_are_current, # need to update to be faster use get_last_processed_block_for_table
+        ensure_autopool_deposits_are_current, # need to update to be faster use get_last_processed_block_for_table
+        ensure_autopool_withdraws_are_current,  # need to update to be faster use get_last_processed_block_for_table
         ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit,
     ]
 
