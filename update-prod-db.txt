@@ -1,2 +1,24 @@
-ensure_blocks_is_current, 11.005348
-ensure_autopools_are_current, 0.300611
+ensure_blocks_is_current, 5.818016
+ensure_autopools_are_current, 0.294863
+ensure__destinations__tokens__and__destination_tokens_are_current, 37.932956
+ensure_tokemak_EOA_gas_costs_are_current, 18.839204
+ensure_chainlink_gas_costs_table_are_current, 15.752918
+ensure_autopool_fees_are_current, 7.629274
+ensure_incentive_token_swapped_events_are_current, 18.834120
+ensure_incentive_token_balance_updated_is_current, 17.823283
+ensure_incentive_token_prices_are_current, 2.520779
+ensure_destination_underlying_deposits_are_current, 13.399230
+ensure_destination_underlying_withdraw_are_current, 7.430536
+ensure_destination_states_from_rebalance_plan_are_current, ERROR: 'timestamp'
+ensure_destination_states_are_current, 4.624096
+ensure_destination_token_values_are_current, 37.658373
+ensure_autopool_destination_states_are_current, 15.030581
+ensure_autopool_states_are_current, 10.629799
+ensure_token_values_are_current, 43.432932
+ensure_rebalance_plans_table_are_current, ERROR: '0xD96d54E54186116fBC5C76727dd694E92F57f3fD'
+ensure_rebalance_events_are_current, ERROR: Value `nan` of type <class 'float'> cannot be encoded by AddressEncoder
+ensure_autopool_transfers_are_current, 28.011879
+ensure_autopool_deposits_are_current, 13.009165
+ensure_autopool_withdraws_are_current, 11.460083
+ensure_an_autopool_state_exists_for_each_autopool_withdrawal_or_deposit, 7.629142
+TOTAL, 809.897951

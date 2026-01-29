@@ -128,6 +128,7 @@ def _extract_token_values_data(
             block=block_after_plan_timestamp,
             chain_id=autopool.chain.chain_id,
             token_address=autopool.base_asset,
+            denominated_in=autopool.base_asset,
             backing=1.0,
             safe_price=1.0,
         )
@@ -296,32 +297,18 @@ def ensure_destination_states_from_rebalance_plan_are_current():
         insert_avoid_conflicts(
             all_destination_states,
             DestinationStates,
-            index_elements=[
-                DestinationStates.block,
-                DestinationStates.chain_id,
-                DestinationStates.destination_vault_address,
-            ],
         )
 
         insert_avoid_conflicts(
             all_new_token_values_rows,
             TokenValues,
-            index_elements=[
-                TokenValues.block,
-                TokenValues.chain_id,
-                TokenValues.token_address,
-            ],
+
         )
 
         insert_avoid_conflicts(
             all_destination_token_rows,
             DestinationTokenValues,
-            index_elements=[
-                DestinationTokenValues.block,
-                DestinationTokenValues.chain_id,
-                DestinationTokenValues.token_address,
-                DestinationTokenValues.destination_vault_address,
-            ],
+
         )
 
 
