@@ -51,6 +51,11 @@ from mainnet_launch.database.schema.full import AutopoolDestinations, Destinatio
 
 from mainnet_launch.slack_messages.post_message import post_slack_message, SlackChannel
 
+from mainnet_launch.database.schema.track_last_processed_block_helper import (
+    get_last_processed_block_for_table,
+    write_last_processed_block,
+)
+
 
 class UpdateRebalanceEventsTableError(Exception):
     pass

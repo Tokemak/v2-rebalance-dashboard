@@ -28,6 +28,7 @@ S3_BUCKETS = {
     "BASE_ETH": environ["BASE_ETH_BUCKET"],
     "DINERO_ETH": environ["DINERO_ETH_BUCKET"],
     "AUTO_USD": environ["AUTO_USD_BUCKET"],
+    "AUTO_USD2": environ["AUTO_USD_BUCKET2"],
     "BASE_USD": environ["BASE_USD_BUCKET"],
     "AUTO_DOLA": environ["AUTO_DOLA_BUCKET"],
     "SONIC_USD": environ["SONIC_USD_BUCKET"],

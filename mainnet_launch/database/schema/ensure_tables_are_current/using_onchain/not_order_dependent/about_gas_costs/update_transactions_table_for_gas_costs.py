@@ -110,7 +110,7 @@ def ensure_tokemak_EOA_gas_costs_are_current():
 
     transaction_hashes_required = []
     for i, EOA_address in enumerate(EOAs_we_want_to_track):
-        from_block = highest_block_already_seen[EOA_address]
+        from_block = highest_block_already_seen.get(EOA_address, ETH_CHAIN.block_autopool_first_deployed)
 
         # this should have a rate limiter of no more than 4/ second
         etherscan_tx_df = get_all_transactions_sent_by_eoa_address(
@@ -150,7 +150,7 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import profile_function
 
-    # profile_function(ensure_tokemak_EOA_gas_costs_are_current)
+    profile_function(ensure_tokemak_EOA_gas_costs_are_current)
     # not sure why this sometimes fails with this error
 
-    ensure_tokemak_EOA_gas_costs_are_current()
+    # ensure_tokemak_EOA_gas_costs_are_current()
