@@ -14,26 +14,10 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.orde
     ensure_all_tokens_are_saved_in_db,
 )
 
-
-def _get_highest_swapped_event_already_fetched() -> dict:
-    query = """
-    SELECT
-        incentive_token_swapped.chain_id,
-        MAX(transactions.block) + 1 AS max_block
-    FROM incentive_token_swapped
-    JOIN transactions
-        ON transactions.tx_hash = incentive_token_swapped.tx_hash
-    AND transactions.chain_id = incentive_token_swapped.chain_id
-    GROUP BY
-        incentive_token_swapped.chain_id
-    """
-    df = _exec_sql_and_cache(query)
-    highest_block_already_fetched = df.set_index("chain_id")["max_block"].to_dict()
-    for chain in ALL_CHAINS:
-        if chain.chain_id not in highest_block_already_fetched:
-            highest_block_already_fetched[chain.chain_id] = chain.block_autopool_first_deployed
-
-    return highest_block_already_fetched
+from mainnet_launch.database.schema.track_last_processed_block_helper import (
+    get_last_processed_block_for_table,
+    write_last_processed_block,
+)
 
 
 def _add_token_details(
@@ -64,16 +48,17 @@ def _add_token_details(
 
 
 def ensure_incentive_token_swapped_events_are_current() -> pd.DataFrame:
-    highest_block_already_fetched = _get_highest_swapped_event_already_fetched()
+    highest_block_already_fetched = get_last_processed_block_for_table(IncentiveTokenSwapped)
 
     for chain in ALL_CHAINS:
         addresses = [addr for addr in [LIQUIDATION_ROW(chain), LIQUIDATION_ROW2(chain)] if addr is not DEAD_ADDRESS]
-
+        top_block = chain.get_block_near_top()
         contract = chain.client.eth.contract(addresses[0], abi=DESTINATION_DEBT_REPORTING_SWAPPED_ABI)
         swapped_df = fetch_events(
             contract.events.Swapped,
             chain=chain,
             start_block=highest_block_already_fetched[chain.chain_id],
+            end_block=top_block,
             addresses=addresses,
         )
 
@@ -89,6 +74,7 @@ def ensure_incentive_token_swapped_events_are_current() -> pd.DataFrame:
         if swapped_df.empty:
             # early continue if there are no new swapped events
             print(f"No new IncentiveTokenSwapped events for chain {chain.name}")
+            write_last_processed_block(chain, top_block, IncentiveTokenSwapped)
             continue
 
         swapped_df = _add_token_details(swapped_df, token_to_decimals, token_to_symbol)
@@ -114,6 +100,7 @@ def ensure_incentive_token_swapped_events_are_current() -> pd.DataFrame:
         print(
             f"Inserted {len(new_incentive_token_swapped_events):,} new IncentiveTokenSwapped events for chain {chain.name}"
         )
+        write_last_processed_block(chain, top_block, IncentiveTokenSwapped)
 
 
 if __name__ == "__main__":

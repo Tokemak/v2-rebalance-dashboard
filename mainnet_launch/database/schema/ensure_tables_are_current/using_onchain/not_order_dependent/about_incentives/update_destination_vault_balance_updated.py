@@ -30,6 +30,12 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.orde
     ensure_all_tokens_are_saved_in_db,
 )
 
+from mainnet_launch.database.schema.track_last_processed_block_helper import (
+    get_last_processed_block_for_table,
+    write_last_processed_block,
+)
+
+
 # used by plasma and some of the other new chains
 MINIMAL_BALANCE_UPDATED_ABI_WITH_EXPECTED = """[
   {
@@ -61,28 +67,7 @@ MINIMAL_BALANCE_UPDATED_ABI_ONLY_BALANCE = """[
 """
 
 
-def _get_highest_block_already_fetched_by_chain_id() -> dict[int, int]:
-    query = """
-        SELECT
-            incentive_token_balance_updated.chain_id,
-            MAX(transactions.block) + 1 AS max_block
-        FROM incentive_token_balance_updated
-        JOIN transactions
-            ON transactions.tx_hash = incentive_token_balance_updated.tx_hash
-        AND transactions.chain_id = incentive_token_balance_updated.chain_id
-        GROUP BY
-            incentive_token_balance_updated.chain_id
-    """
-    df = _exec_sql_and_cache(query)
-    highest_block_already_fetched = df.set_index("chain_id")["max_block"].to_dict()
-    for chain in ALL_CHAINS:
-        if chain.chain_id not in highest_block_already_fetched:
-            highest_block_already_fetched[chain.chain_id] = chain.block_autopool_first_deployed
-
-    return highest_block_already_fetched
-
-
-def fetch_new_balance_updated_events(start_block: int, chain: ChainData) -> pd.DataFrame:
+def fetch_new_balance_updated_events(start_block: int, end_block: int, chain: ChainData) -> pd.DataFrame:
     addresses = [addr for addr in [LIQUIDATION_ROW(chain), LIQUIDATION_ROW2(chain)] if addr != DEAD_ADDRESS]
 
     dfs = []
@@ -94,6 +79,7 @@ def fetch_new_balance_updated_events(start_block: int, chain: ChainData) -> pd.D
             event=contract.events.BalanceUpdated,
             chain=chain,
             start_block=start_block,
+            end_block=end_block,
             addresses=addresses,
         )
 
@@ -119,16 +105,19 @@ def fetch_new_balance_updated_events(start_block: int, chain: ChainData) -> pd.D
 
 
 def ensure_incentive_token_balance_updated_is_current() -> pd.DataFrame:
-    highest_block_already_fetched = _get_highest_block_already_fetched_by_chain_id()
+    highest_block_already_fetched = get_last_processed_block_for_table(IncentiveTokenBalanceUpdated)
     all_destinations = get_full_table_as_df(Destinations)
     valid_vaults = set(all_destinations["destination_vault_address"].tolist())
 
     for chain in ALL_CHAINS:
+        top_block = chain.get_block_near_top()
         new_balance_updated_df = fetch_new_balance_updated_events(
-            start_block=highest_block_already_fetched[chain.chain_id], chain=chain
+            start_block=highest_block_already_fetched[chain.chain_id], chain=chain, end_block=top_block
         )
+
         if new_balance_updated_df.empty:
             print(f"No new IncentiveTokenBalanceUpdated events for chain {chain.name}")
+            write_last_processed_block(chain, top_block, IncentiveTokenBalanceUpdated)
             continue
 
         ensure_all_tokens_are_saved_in_db(
@@ -143,6 +132,7 @@ def ensure_incentive_token_balance_updated_is_current() -> pd.DataFrame:
         new_balance_updated_df = new_balance_updated_df[new_balance_updated_df["vault"].isin(valid_vaults)].copy()
 
         if new_balance_updated_df.empty:
+            write_last_processed_block(chain, top_block, IncentiveTokenBalanceUpdated)
             continue
         else:
 
@@ -179,6 +169,7 @@ def ensure_incentive_token_balance_updated_is_current() -> pd.DataFrame:
             print(
                 f"Inserted {len(new_claim_vault_rewards_rows):,} new IncentiveTokenBalanceUpdated rows for chain {chain.name}"
             )
+            write_last_processed_block(chain, top_block, IncentiveTokenBalanceUpdated)
 
 
 if __name__ == "__main__":

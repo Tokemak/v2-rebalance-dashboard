@@ -1,5 +1,7 @@
 """data access layer functions for postgres"""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 import io
 import csv
@@ -13,7 +15,11 @@ from sqlalchemy.dialects import postgresql
 import numpy as np
 import pandas as pd
 
+
 from mainnet_launch.database.schema.full import Session, Base, ENGINE
+
+# cchecksum faster if needed
+# https://github.com/BobTheBuidler/cchecksum
 
 
 class CustomPostgresOperationException(Exception):
@@ -101,7 +107,8 @@ def _exec_sql_and_cache(sql_plain_text: str) -> pd.DataFrame:
         raise TypeError("sql_plain_text must be a string")
 
     with Session.begin() as session:
-        return pd.read_sql(text(sql_plain_text), con=session.get_bind())
+        df = pd.read_sql(text(sql_plain_text), con=session.get_bind())
+        return df
 
 
 def assert_table_schema_matches_model(engine, table: type[DeclarativeBase]) -> None:
@@ -255,7 +262,9 @@ def get_subset_not_already_in_column_in_python(
                 FROM {table.__tablename__}
                 {where_sql}"""
 
-        rows = session.execute(text(query)).scalars().all()
+        df = pd.read_sql(text(query), con=session.get_bind())
+
+        rows = df[column.key].tolist()
 
     existing_values = set(rows)
     input_values = set(_to_python_list(values))
@@ -322,6 +331,7 @@ def get_full_table_as_df(table: Base, where_clause: OperatorExpression | None = 
         )
 
         df = pd.read_sql(sql, con=session.get_bind())
+
         return df
 
 
@@ -354,6 +364,7 @@ def get_full_table_as_df_with_block(table: Base, where_clause: OperatorExpressio
         )
 
         df = pd.read_sql(sql, con=session.get_bind())
+
         df.set_index("datetime", inplace=True)
         return df
 
@@ -387,6 +398,7 @@ def get_full_table_as_df_with_tx_hash(table: Base, where_clause: OperatorExpress
         )
 
         df = pd.read_sql(sql, con=session.get_bind())
+
         df.set_index("datetime", inplace=True)
         return df
 
@@ -413,7 +425,9 @@ def get_subset_of_table_as_df(
         """
         )
 
-        return pd.read_sql(sql, con=session.get_bind())
+        df = pd.read_sql(sql, con=session.get_bind())
+
+        return df
 
 
 def get_full_table_as_orm(table: Base, where_clause: OperatorExpression | None = None) -> list[Base]:
@@ -453,61 +467,9 @@ def natural_left_right_using_where(
         """
         )
 
-        return pd.read_sql(sql, con=session.get_bind())
+        df = pd.read_sql(sql, con=session.get_bind())
 
-
-# not used, use the natural join when possible, it is clearer
-def generic_merge_tables_as_df(
-    left: type[Base],
-    right: type[Base],
-    left_join_columns: list[InstrumentedAttribute],
-    right_join_columns: list[InstrumentedAttribute],
-    where_clause: OperatorExpression | None = None,
-) -> pd.DataFrame:
-    """
-    Fully merges two tables on arbitrary column pairs:
-      SELECT l.*, r.*
-      FROM <left>  AS l
-      JOIN <right> AS r
-        ON (l.left_join_columns[i] = r.right_join_columns[i] AND ...)
-      [WHERE <where_clause>]
-
-    Arguments:
-      left                -- ORM class for the “left” table
-      right               -- ORM class for the “right” table
-      left_join_columns   -- list of InstrumentedAttribute on left side
-      right_join_columns  -- list of InstrumentedAttribute on right side (same length)
-      where_clause        -- optional SQLAlchemy boolean expression for filtering
-    """
-    if len(left_join_columns) != len(right_join_columns):
-        raise CustomPostgresOperationException("left_join_columns and right_join_columns must be the same length")
-
-    left_table = left.__tablename__
-    right_table = right.__tablename__
-
-    # build the ON clause
-    on_clauses = []
-    for lcol, rcol in zip(left_join_columns, right_join_columns):
-        on_clauses.append(f"l.{lcol.key} = r.{rcol.key}")
-    on_sql = " AND ".join(on_clauses)
-
-    # build WHERE fragment
-    with Session.begin() as session:
-        where_sql = _where_clause_to_string(where_clause, session)
-
-        sql = text(
-            f"""
-            SELECT
-              l.*,    -- all columns from left
-              r.*     -- all columns from right
-            FROM {left_table}  AS l
-            JOIN {right_table} AS r
-              ON {on_sql}
-            {where_sql}
-        """
-        )
-
-        return pd.read_sql(sql, con=session.get_bind())
+        return df
 
 
 def _where_clause_to_string(where_clause: OperatorExpression | None, session) -> str:
@@ -522,34 +484,47 @@ def _where_clause_to_string(where_clause: OperatorExpression | None, session) ->
         return ""
 
 
-def bulk_overwrite(rows: list[tuple], table: type[Base]) -> None:
+# broken
+def bulk_overwrite(new_rows: list[Base], table: type[Base]) -> None:
     """
-    Atomically delete any rows whose primary keys appear in `rows`,
-    then insert all of `rows` (i.e. “upsert by delete+insert”),
-    using context managers throughout.
+    Atomically delete any rows whose primary keys appear in `new_rows`,
+    then insert all of `new_rows` (delete+insert “overwrite”).
+
+    Requires ORM rows that implement `.to_tuple()`.
     """
+    if not new_rows:
+        return
+
     tn = table.__tablename__
     cols = [c.name for c in table.__table__.columns]
     id_cols = [c.name for c in table.__table__.primary_key.columns]
 
-    # build list of just the PK‐tuples for deletion
+    # Minimal conversion: require ORM rows with .to_tuple()
+    try:
+        rows = [r.to_tuple() for r in new_rows]
+    except Exception as e:
+        raise TypeError(
+            "bulk_overwrite expects `new_rows` to be ORM objects that implement `.to_tuple()` "
+            "(e.g., subclasses of Base)."
+        ) from e
+
     pk_positions = [cols.index(pk) for pk in id_cols]
     pk_tuples = [tuple(r[pos] for pos in pk_positions) for r in rows]
 
     delete_sql = sql.SQL("DELETE FROM {table} WHERE ({pkey}) IN %s").format(
-        table=sql.Identifier(tn), pkey=sql.SQL(", ").join(map(sql.Identifier, id_cols))
+        table=sql.Identifier(tn),
+        pkey=sql.SQL(", ").join(map(sql.Identifier, id_cols)),
     )
     insert_sql = sql.SQL("INSERT INTO {table} ({fields}) VALUES %s").format(
-        table=sql.Identifier(tn), fields=sql.SQL(", ").join(map(sql.Identifier, cols))
+        table=sql.Identifier(tn),
+        fields=sql.SQL(", ").join(map(sql.Identifier, cols)),
     )
 
-    # Use `with` so conn.commit()/rollback() and close() are automatic
     with ENGINE.raw_connection() as conn:
         with conn.cursor() as cur:
-            # 1) delete any conflicting rows
             cur.execute(delete_sql, (tuple(pk_tuples),))
-            # 2) bulk‐insert all new rows
             execute_values(cur, insert_sql.as_string(cur), rows)
+        conn.commit()
 
 
 def set_some_cells_to_null(
@@ -613,6 +588,100 @@ def simple_agg_by_one_table(
             GROUP BY {group_by_column.key}
         """
         return _exec_sql_and_cache(sql)
+
+
+# import string
+# from typing import Any
+
+# _HEXDIGITS = set(string.hexdigits)
+
+
+# class BytesConversionError(Exception):
+#     pass
+
+
+# # I think this should just be string | None to bytes
+# def _coerce_to_bytes(v: Any) -> bytes | None:
+#     if v is None:
+#         return None
+#     if isinstance(v, memoryview):
+#         return v.tobytes()
+#     if isinstance(v, (bytes, bytearray)):
+#         return bytes(v)
+#     try:
+#         if isinstance(v, HexBytes):
+#             return bytes(v)
+#     except Exception as e:
+#         raise BytesConversionError("Failed to convert HexBytes", v) from e
+
+#     raise BytesConversionError(f"Failed to convert {v} into bytes Btes")
+
+
+# def _bytea_to_0x(v: Any) -> Any:
+#     b = _coerce_to_bytes(v)
+#     if b is None:
+#         return v
+
+#     # Case 1: BYTEA contains ASCII like b"0xabc123..." or b"abc123..."
+#     try:
+#         s = b.decode("ascii").strip()
+#     except UnicodeDecodeError:
+#         s = None
+
+#     if s:
+#         if s.startswith(("0x", "0X")):
+#             hex_part = s[2:]
+#             if hex_part and all(c in _HEXDIGITS for c in hex_part):
+#                 hex_str = "0x" + hex_part.lower()
+#             else:
+#                 hex_str = None
+#         else:
+#             if s and all(c in _HEXDIGITS for c in s):
+#                 hex_str = "0x" + s.lower()
+#             else:
+#                 hex_str = None
+
+#         if hex_str is not None:
+#             # If it's an address-length hex string, checksum it
+#             if len(hex_str) == 42:  # 0x + 40 hex chars = 20 bytes
+
+#                 return Web3.toChecksumAddress(hex_str)
+#             return hex_str
+
+#     # Case 2: BYTEA contains raw bytes; represent as Ethereum-style 0x + hex
+#     hex_str = "0x" + b.hex()
+
+#     # Only checksum raw-byte values that look like addresses (20 bytes)
+#     if len(b) == 20:
+
+#         return Web3.toChecksumAddress(hex_str)
+
+#     return hex_str
+
+
+# def normalize_bytea_in_df(df):
+#     """
+#     In-place-ish normalization for DataFrames coming from SQL reads.
+#     Only touches object columns and only if they contain byte-like values.
+#     """
+#     if df is None or df.empty:
+#         return df
+
+#     obj_cols = [c for c in df.columns if df[c].dtype == "object"]
+#     for c in obj_cols:
+#         # Find a representative non-null
+#         sample = next((x for x in df[c].values if x is not None), None)
+#         if isinstance(sample, (memoryview, bytes, bytearray, HexBytes)):
+#             df[c] = df[c].map(_bytea_to_0x)
+
+#     return df
+
+
+# def normalize_bytea_in_record(record: dict[str, Any]) -> dict[str, Any]:
+#     """
+#     Same idea for dict rows (if you ever use .mappings() or manual dict assembly).
+#     """
+#     return {k: _bytea_to_0x(v) for k, v in record.items()}
 
 
 if __name__ == "__main__":

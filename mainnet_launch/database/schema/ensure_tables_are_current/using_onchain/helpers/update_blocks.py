@@ -12,11 +12,15 @@ from mainnet_launch.data_fetching.defi_llama.fetch_timestamp import (
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks
 from mainnet_launch.constants import *
 
-# note: this fetches some redundent blocks, but it is fine
-# can optimize later if needed fetching a few extra blocks for each day is reasonable
+"""
+- We need the top and bottom block of each day
+- Exact top and exact bottom block are not necessary, as long as there is at least 23:59 minutes between the top and bottom block timestamps for each day it is good enough
+- This is because some chains have inconsistent block times
+- Some an have several (sequential blocks) with the same timestamp (sonic)
+"""
 
-ONE_MINUTE_TOLERANCE_SECONDS = 60
-DAY_COMPLETENESS_SECONDS = 24 * 60 * 60 - ONE_MINUTE_TOLERANCE_SECONDS  # 23:59:00 = 86340
+
+DAY_COMPLETENESS_SECONDS = (24 * 60 * 60) - 60  # 23 hours 59 minutes
 
 
 def _determine_missing_timestamps(chain: ChainData) -> list[int]:
@@ -68,7 +72,7 @@ def _determine_missing_timestamps(chain: ChainData) -> list[int]:
     # Exclude current UTC day (cannot be complete by definition)
     today = pd.Timestamp.now(tz="UTC").normalize().date()
     df = df[df["day"] < today]
-
+    df = df.sort_index()
     # Compute per-day coverage in seconds
     df["coverage_seconds"] = (
         pd.to_datetime(df["largest_block_datetime_utc"], utc=True)
@@ -78,40 +82,27 @@ def _determine_missing_timestamps(chain: ChainData) -> list[int]:
     # Day is complete if we have timestamps and >= 23h59m coverage
     df["day_complete"] = df["coverage_seconds"].notna() & (df["coverage_seconds"] >= DAY_COMPLETENESS_SECONDS)
 
-    # Incomplete days: either no blocks at all, or not enough time coverage
-    incomplete_days = df.loc[~df["day_complete"], "day"]
+    missing_df = df[~df["day_complete"]]
 
-    # For each incomplete day, request both:
-    #   - midnight ts (start of day)
-    #   - end-of-day ts (23:59:59)
-    # This gives your fetcher multiple chances to land near both ends.
+    if missing_df.empty:
+        return []
+
+    print(f"Chain {chain.name} missing days")
+    print(missing_df.head(12))
     missing_ts = set()
-    day_to_unix = dict(zip(df["day"], df["unix_timestamp"].astype("int64")))
 
-    for day in incomplete_days:
-        ts0 = day_to_unix.get(day)
-        if ts0 is None:
-            continue
-        missing_ts.add(int(ts0))  # 00:00:00
-        missing_ts.add(int(ts0 + 86400 - 1))  # 23:59:59
+    for unix_ts in missing_df["unix_timestamp"]:
+        # note: this fetches some redundent blocks, but it is fine
+        # can optimize later if needed fetching a few extra blocks for each day is reasonable
+        N = 15  # I want to fetch blocks a bit before and after the target timestamps to be safe
+        missing_ts.add(int(unix_ts) + N)
+        missing_ts.add(int(unix_ts) - N)
+        missing_ts.add(int(unix_ts + 86400 - N))
+        missing_ts.add(int(unix_ts + 86400 + N))
 
-    missing = sorted(missing_ts)
+    print(f"determined {len(missing_ts)} missing timestamps for chain {chain.name}")
 
-    # print(f"[{chain.name}] incomplete days: {len(incomplete_days)} missing timestamps: {missing[:20]}{'...' if len(missing) > 20 else ''}")
-    # print(
-    #     df.loc[df["day"].isin(incomplete_days), [
-    #         "day",
-    #         "unix_timestamp",
-    #         "smallest_block_today",
-    #         "largest_block_today",
-    #         "smallest_block_datetime_utc",
-    #         "largest_block_datetime_utc",
-    #         "coverage_seconds",
-    #         "day_complete",
-    #     ]].head(20)
-    # )
-
-    return missing
+    return sorted(list(missing_ts))
 
 
 def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData):
@@ -132,7 +123,8 @@ def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData):
         df = get_raw_state_by_blocks([], blocks_to_add, chain, include_block_number=True)
         df["chain_id"] = chain.chain_id
         df["datetime"] = pd.to_datetime(df.index, utc=True)
-
+        print("blocks_fetched")
+        print(df.head(12))
         new_rows = [Blocks.from_record(r) for r in df.to_dict(orient="records")]
         insert_avoid_conflicts(new_rows, Blocks)
 
@@ -148,18 +140,14 @@ def ensure_blocks_is_current():
     for chain in ALL_CHAINS:
         unix_timestamps = _determine_missing_timestamps(chain)
         if len(unix_timestamps) == 0:
-            # print(f"[{chain.name}] blocks table is already current.")
+            print(f"{chain.name} blocks table is already current.")
             continue
-
-        all_unix_timestamps = []
-        for ts in unix_timestamps:
-            all_unix_timestamps.append(ts + 10)
-            all_unix_timestamps.append(ts + 86400 + 10)
 
         blocks_to_add = fetch_blocks_by_unix_timestamps_defillama(
             unix_timestamps=unix_timestamps,
             chain=chain,
         )
+        print(f"{blocks_to_add=} for {len(unix_timestamps)} missing timestamps")
         print("Fetched blocks from DeFiLlama:", blocks_to_add)
 
         ensure_all_blocks_are_in_table(blocks_to_add, chain)
@@ -168,4 +156,6 @@ def ensure_blocks_is_current():
 
 
 if __name__ == "__main__":
-    ensure_blocks_is_current()
+    from mainnet_launch.constants import profile_function
+
+    profile_function(ensure_blocks_is_current)

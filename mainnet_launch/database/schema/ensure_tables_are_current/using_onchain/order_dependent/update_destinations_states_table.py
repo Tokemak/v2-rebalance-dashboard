@@ -15,12 +15,9 @@ from mainnet_launch.database.schema.full import (
 from mainnet_launch.database.postgres_operations import (
     get_full_table_as_orm,
     insert_avoid_conflicts,
-    get_subset_not_already_in_column,
-    _exec_sql_and_cache,
     merge_tables_as_df,
     set_some_cells_to_null,
     TableSelector,
-    ENGINE,
 )
 from mainnet_launch.data_fetching.get_state_by_block import (
     get_raw_state_by_blocks,
@@ -414,7 +411,7 @@ def _add_new_destination_states_to_db(desired_blocks: list[int], chain: ChainDat
     destination_underlying_total_supply_df = _fetch_destination_total_supply_df(
         autopool_to_all_ever_active_destinations, missing_blocks, chain
     )
-
+    # points are depreacted, can remove
     autopool_points_df = _fetch_autopool_points_apr(autopool_to_all_ever_active_destinations, missing_blocks, chain)
 
     lp_token_spot_price_df = _fetch_lp_token_spot_prices(

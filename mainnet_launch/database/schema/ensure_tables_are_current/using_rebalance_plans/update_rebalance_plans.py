@@ -48,10 +48,6 @@ def _handle_only_state_of_destinations_rebalance_plan(plan: dict) -> RebalancePl
         swap_offset_period=None,
         num_candidate_destinations=None,
         candidate_destinations_rank=None,
-        projected_swap_cost=None,
-        projected_net_gain=None,
-        projected_gross_gain=None,
-        projected_slippage=None,
     )
 
 
@@ -135,16 +131,13 @@ def _extract_rebalance_plan(
     }
 
     in_destination_name = rebalance_test["inDest"]
-    projected_gross_gain = 0
     candidate_destinations_rank = None
-    projected_net_gain = 0
 
     if plan["destinationIn"] != autopool.autopool_eth_addr:
         for i, d in enumerate(plan.get("addRank", [])):
             if d[0] == in_destination_name:
                 candidate_destinations_rank = i
-                projected_net_gain = d[1] / 1e18
-                projected_gross_gain = projected_net_gain + projected_swap_cost
+                break
 
     out_dest_apr = float(rebalance_test["outDestApr"]) if rebalance_test["outDestApr"] else None
     in_dest_apr = float(rebalance_test["inDestApr"]) if rebalance_test["inDestApr"] else None
@@ -152,7 +145,6 @@ def _extract_rebalance_plan(
     apr_delta = (in_dest_adj_apr if in_dest_adj_apr else 0) - (out_dest_apr if out_dest_apr else 0)
     swap_offset_period = int(rebalance_test["swapOffsetPeriod"]) if rebalance_test["swapOffsetPeriod"] else None
     num_candidate_destinations = len(plan.get("addRank", []))
-    projected_slippage = 100 * projected_swap_cost / amount_out_safe_value if amount_out_safe_value else None
 
     new_rebalance_plan_row = RebalancePlans(
         file_name=plan["rebalance_plan_json_key"],
@@ -179,10 +171,6 @@ def _extract_rebalance_plan(
         swap_offset_period=swap_offset_period,
         num_candidate_destinations=num_candidate_destinations,
         candidate_destinations_rank=candidate_destinations_rank,
-        projected_swap_cost=projected_swap_cost,
-        projected_net_gain=projected_net_gain,
-        projected_gross_gain=projected_gross_gain,
-        projected_slippage=projected_slippage,
     )
 
     return new_rebalance_plan_row
@@ -243,14 +231,17 @@ def ensure_rebalance_plans_table_are_current():
             continue
 
         def _process_plan(plan_on_remote: str):
-            # only external call here
-            plan = fetch_rebalance_plan_json_from_s3_bucket(plan_on_remote, s3_client, autopool)
-            new_rebalance_plan_row = _extract_rebalance_plan(
-                plan, autopool, destination_address_to_symbol, token_address_to_decimals
-            )
-            new_dex_steps_rows = _extract_new_dext_steps(plan)
+            try:
+                plan = fetch_rebalance_plan_json_from_s3_bucket(plan_on_remote, s3_client, autopool)
+                new_rebalance_plan_row = _extract_rebalance_plan(
+                    plan, autopool, destination_address_to_symbol, token_address_to_decimals
+                )
+                new_dex_steps_rows = _extract_new_dext_steps(plan)
 
-            return (new_rebalance_plan_row, new_dex_steps_rows)
+                return (new_rebalance_plan_row, new_dex_steps_rows, False)
+            except Exception as e:
+                print(f"Error processing plan {plan_on_remote} for {autopool.name}: {str(e)}")
+                return (None, None, True)
 
         all_rebalance_plan_rows = []
         all_dex_steps_rows = []
@@ -258,10 +249,10 @@ def ensure_rebalance_plans_table_are_current():
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = list(executor.map(_process_plan, plans_not_already_fetched))
             for response in tqdm(futures, desc=f"Processing {autopool.name} plans"):
-                new_rebalance_plan_row, new_dex_steps_rows = response
-                all_rebalance_plan_rows.append(new_rebalance_plan_row)
-                all_dex_steps_rows.extend(new_dex_steps_rows)
-
+                new_rebalance_plan_row, new_dex_steps_rows, failed = response
+                if not failed:
+                    all_rebalance_plan_rows.append(new_rebalance_plan_row)
+                    all_dex_steps_rows.extend(new_dex_steps_rows)
                 # TODO add RebalanceCandidateDestinations here
 
         insert_avoid_conflicts(all_rebalance_plan_rows, RebalancePlans, index_elements=[RebalancePlans.file_name])

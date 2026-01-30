@@ -24,7 +24,7 @@ import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 
-from mainnet_launch.constants import AutopoolConstants, WORKING_DATA_DIR, S3_BUCKETS, AUTO_ETH, ALL_AUTOPOOLS
+from mainnet_launch.constants import AutopoolConstants, WORKING_DATA_DIR, S3_BUCKETS, AUTO_ETH, ALL_AUTOPOOLS, AUTO_USD
 
 from mainnet_launch.database.postgres_operations import get_subset_of_table_as_df
 
@@ -34,8 +34,9 @@ from mainnet_launch.database.schema.full import RebalancePlans, RebalanceEvents
 LOCAL_REBALANCE_ROOT = WORKING_DATA_DIR / "local_rebalance_plans"
 
 # only autoETH has 2 buckets (as of Jan 9, 2026)
-AUTOPOOL_TO_S3_BUCKETS = {a: (a.solver_rebalance_plans_bucket,) for a in ALL_AUTOPOOLS if a != AUTO_ETH}
+AUTOPOOL_TO_S3_BUCKETS = {a: (a.solver_rebalance_plans_bucket,) for a in ALL_AUTOPOOLS if a not in (AUTO_ETH, AUTO_USD)}
 AUTOPOOL_TO_S3_BUCKETS[AUTO_ETH] = (S3_BUCKETS["AUTO_ETH2"], S3_BUCKETS["AUTO_ETH"])
+AUTOPOOL_TO_S3_BUCKETS[AUTO_USD] = (S3_BUCKETS["AUTO_USD"], S3_BUCKETS["AUTO_USD2"])
 
 
 def make_s3_client() -> boto3.client:

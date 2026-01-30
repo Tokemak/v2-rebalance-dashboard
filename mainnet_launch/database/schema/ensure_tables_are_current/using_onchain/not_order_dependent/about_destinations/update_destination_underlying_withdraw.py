@@ -14,32 +14,15 @@ from mainnet_launch.data_fetching.alchemy.get_events import fetch_events
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_transactions import (
     ensure_all_transactions_are_saved_in_db,
 )
-
-
-def _get_highest_block_already_fetched_by_chain_id() -> dict[int, int]:
-    query = """
-        SELECT
-            duw.chain_id,
-            MAX(t.block) + 1 AS max_block
-        FROM destination_underlying_withdraw duw
-        JOIN transactions t
-            ON t.tx_hash = duw.tx_hash
-        AND t.chain_id = duw.chain_id
-        GROUP BY
-            duw.chain_id
-    """
-    df = _exec_sql_and_cache(query)
-    highest = {} if df is None or df.empty else df.set_index("chain_id")["max_block"].to_dict()
-
-    for chain in ALL_CHAINS:
-        if chain.chain_id not in highest or highest[chain.chain_id] is None:
-            highest[chain.chain_id] = chain.block_autopool_first_deployed
-
-    return highest
+from mainnet_launch.database.schema.track_last_processed_block_helper import (
+    get_last_processed_block_for_table,
+    write_last_processed_block,
+)
 
 
 def fetch_new_underlying_withdraw_events(
     start_block: int,
+    end_block: int,
     chain: ChainData,
     destination_addresses: list[str],
 ) -> pd.DataFrame:
@@ -47,7 +30,7 @@ def fetch_new_underlying_withdraw_events(
         return pd.DataFrame()
 
     contract = chain.client.eth.contract(
-        address=destination_addresses[0],
+        address=chain.client.toChecksumAddress(destination_addresses[0]),
         abi=BALANCER_AURA_DESTINATION_VAULT_ABI,
     )
 
@@ -55,8 +38,8 @@ def fetch_new_underlying_withdraw_events(
         event=contract.events.UnderlyingWithdraw,
         chain=chain,
         start_block=start_block,
+        end_block=end_block,
         addresses=destination_addresses,
-        end_block=chain.get_block_near_top(),
     )
 
     if df is None or df.empty:
@@ -94,10 +77,11 @@ def _insert_new_rows(chain: ChainData, df: pd.DataFrame) -> None:
 
 
 def ensure_destination_underlying_withdraw_are_current() -> None:
-    highest_block = _get_highest_block_already_fetched_by_chain_id()
+    highest_block = get_last_processed_block_for_table(DestinationUnderlyingWithdraw)
     destinations_df = get_full_table_as_df(Destinations)
 
     for chain in ALL_CHAINS:
+        top_block = chain.get_block_near_top()
         destination_addresses = (
             destinations_df[destinations_df["chain_id"] == chain.chain_id]["destination_vault_address"]
             .unique()
@@ -108,6 +92,7 @@ def ensure_destination_underlying_withdraw_are_current() -> None:
 
         new_df = fetch_new_underlying_withdraw_events(
             start_block=highest_block[chain.chain_id],
+            end_block=top_block,
             chain=chain,
             destination_addresses=destination_addresses,
         )
@@ -122,6 +107,7 @@ def ensure_destination_underlying_withdraw_are_current() -> None:
             f"Fetched {len(new_df):,} new DestinationUnderlyingWithdraw events for chain {chain.name} "
             f"starting from block {highest_block[chain.chain_id]:,}"
         )
+        write_last_processed_block(chain, top_block, DestinationUnderlyingWithdraw)
 
 
 if __name__ == "__main__":
