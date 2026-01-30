@@ -24,10 +24,9 @@ DEFAULT_CHUNK_SIZE = 100_000_000
 
 # only 10k ranges are garanteed to work, but we need to get more than that becaues there are millions of blocks
 # so the 503 failures are retried at least once before splitting and trying again
-# these are finger in the wind values
 
 PRE_SPLIT_BLOCK_CHUNK_SIZE = {
-    PLASMA_CHAIN: 10_000,  # need a better solve for this
+    PLASMA_CHAIN: 10_000,
     SONIC_CHAIN: 2_000_000,
     LINEA_CHAIN: 250_000,  # all limits but plasma are finger in the wind, a best guess is fine here
     **{chain: DEFAULT_CHUNK_SIZE for chain in ALL_CHAINS if chain not in [PLASMA_CHAIN, SONIC_CHAIN, LINEA_CHAIN]},

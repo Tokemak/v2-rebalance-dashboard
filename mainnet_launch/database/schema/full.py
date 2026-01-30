@@ -726,9 +726,9 @@ class DestinationUnderlyingWithdraw(Base):
 
 class TrackLastProcessedBlock(Base):
     """
-    plasma fetch events takes minutes, instead of seconds, even if there are no events to process.
-    Each call requires a 10k block range, so to speed up processing time when no events are present
-
+    On Plasam, fetch events takes minutes, instead of seconds, even if there are no events 
+    to process because each call requires a 10k block range, so to speed up processing time 
+    when no events are present track where you fetched events already to avoid redundant calls
     """
 
     __tablename__ = "track_last_processed_block"
