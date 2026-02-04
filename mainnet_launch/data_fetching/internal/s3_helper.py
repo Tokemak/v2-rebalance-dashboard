@@ -80,6 +80,21 @@ def fetch_rebalance_plan_json_from_s3_bucket(plan_path: str, s3_client, autopool
     raise RuntimeError(f"failed to download {plan_path} for autopool {autopool.name}") from last
 
 
+def fetch_rebalance_plan_json_no_s3_client(plan_path: str, autopool: AutopoolConstants) -> dict:
+    s3_client = make_s3_client()
+    last = None
+    for b in AUTOPOOL_TO_S3_BUCKETS[autopool]:
+        try:
+            plan = json.loads(s3_client.get_object(Bucket=b, Key=plan_path)["Body"].read())
+            plan["rebalance_plan_json_key"] = plan_path
+            plan["autopool_vault_address"] = autopool.autopool_eth_addr
+            return plan
+        except Exception as e:
+            last = e
+    raise RuntimeError(f"failed to download {plan_path} for autopool {autopool.name}") from last
+
+
+
 def download_local_rebalance_plans():
     """
     iterates through each autopool, lists its s3 bucket of rebalance-plan jsons,

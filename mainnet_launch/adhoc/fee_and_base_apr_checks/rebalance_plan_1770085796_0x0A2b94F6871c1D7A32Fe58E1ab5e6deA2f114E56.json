@@ -1,0 +1,365 @@
+{
+  "timestamp": 1770085796,
+  "sodOnly": true,
+  "chainId": "1",
+  "solverAddress": "0x952D7a7eB2e0804d37d9244BE8e47341356d2f5D",
+  "poolAddress": "",
+  "destinationOut": "",
+  "tokenOut": "",
+  "amountOut": "",
+  "amountOutETH": "",
+  "destinationIn": "",
+  "tokenIn": "",
+  "minAmountIn": "",
+  "minAmountInETH": "",
+  "steps": [],
+  "sod": {
+    "currentTimestamp": 1770085796,
+    "destStates": [
+      {
+        "snapshotTimestamp": 0,
+        "name": "Tokemak-Wrapped Ether-Balancer osETH-waWETH",
+        "address": "0x87E25fFe5C3A2720Cd43F5Eb8ec41Ac0CE699D07",
+        "poolType": "balV3",
+        "pool": "0x57c23c58B1D8C3292c15BEcF07c62C5c52457A42",
+        "underlying": "0x57c23c58B1D8C3292c15BEcF07c62C5c52457A42",
+        "underlyingTokens": [
+          "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+          "0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38"
+        ],
+        "underlyingTokenAmounts": [
+          579835861040408339705,
+          958533210853102694488
+        ],
+        "underlyingReserves": [
+          579836204536546042816,
+          957238880076904024984
+        ],
+        "totalAprIn": 0.05106802824904343,
+        "totalAprOut": 0.05169942528834673,
+        "incentiveAPR": 0.036067472317459465,
+        "destLPValue": 1.513101807877362e+21,
+        "discountViolationAddFlag": [
+          false,
+          false
+        ],
+        "discountViolationTrim1Flag": [
+          false,
+          false
+        ],
+        "discountViolationTrim2Flag": [
+          false,
+          false
+        ],
+        "ownedShares": 42678268147552413884,
+        "totSupply": 1501237044202970156709,
+        "safePrice": 1.0238723395141818,
+        "spotPrice": 1.0239285966617835,
+        "tokenSpotPrice": [
+          0.9997564686921505,
+          1.0635862152630984
+        ],
+        "tokenSafePrice": [
+          1.0,
+          1.06333554
+        ],
+        "flipFlag": false
+      },
+      {
+        "snapshotTimestamp": 0,
+        "name": "Tokemak-Wrapped Ether-Curve.fi Factory Pool: ETHx-ETH",
+        "address": "0x1Ea622fa030e4a78F4CC2f305dd3c08DA3F08573",
+        "poolType": "curveV1",
+        "pool": "0x59Ab5a5b5d617E478a2479B0cAD80DA7e2831492",
+        "underlying": "0x59Ab5a5b5d617E478a2479B0cAD80DA7e2831492",
+        "underlyingTokens": [
+          "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+          "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b"
+        ],
+        "underlyingTokenAmounts": [
+          647982252840946617579,
+          1103343804047693320951
+        ],
+        "underlyingReserves": [
+          647982252840946617579,
+          1191308517731363978149
+        ],
+        "totalAprIn": 0.03102892496434814,
+        "totalAprOut": 0.03136586780314503,
+        "incentiveAPR": 0.0137626024535568,
+        "destLPValue": 1.8331436393002414e+21,
+        "discountViolationAddFlag": [
+          false,
+          false
+        ],
+        "discountViolationTrim1Flag": [
+          false,
+          false
+        ],
+        "discountViolationTrim2Flag": [
+          false,
+          false
+        ],
+        "ownedShares": 759858724241127761987,
+        "totSupply": 1743772685863782457082,
+        "safePrice": 1.0547766836141335,
+        "spotPrice": 1.0547718825356387,
+        "tokenSpotPrice": [
+          1.0,
+          1.0797089372784914
+        ],
+        "tokenSafePrice": [
+          1.0,
+          1.07972557
+        ],
+        "flipFlag": false
+      },
+      {
+        "snapshotTimestamp": 0,
+        "name": "Tokemak-Wrapped Ether-Instadapp ETH v2",
+        "address": "0x2C7120dCCF1c14A37A26A4955475d45d34a3d7E7",
+        "poolType": "self",
+        "pool": "0xA0D3707c569ff8C87FA923d3823eC5D81c98Be78",
+        "underlying": "0xA0D3707c569ff8C87FA923d3823eC5D81c98Be78",
+        "underlyingTokens": [
+          "0xA0D3707c569ff8C87FA923d3823eC5D81c98Be78"
+        ],
+        "underlyingTokenAmounts": [
+          0
+        ],
+        "underlyingReserves": [],
+        "totalAprIn": 0.04565724039979852,
+        "totalAprOut": 0.04600719691088039,
+        "incentiveAPR": 0.0,
+        "destLPValue": 0,
+        "discountViolationAddFlag": [
+          false
+        ],
+        "discountViolationTrim1Flag": [
+          false
+        ],
+        "discountViolationTrim2Flag": [
+          false
+        ],
+        "ownedShares": 918347585517533806241,
+        "totSupply": 0,
+        "safePrice": 1.2005284492667387,
+        "spotPrice": 1.2005872756774123,
+        "tokenSpotPrice": [
+          1.2005872756774123
+        ],
+        "tokenSafePrice": [
+          1.2005284492667387
+        ],
+        "flipFlag": false
+      },
+      {
+        "snapshotTimestamp": 0,
+        "name": "Tokemak-Wrapped Ether-osETH/rETH",
+        "address": "0x3F55eedDe51504E6Ed0ec30E8289b4Da11EdB7F9",
+        "poolType": "curveNG",
+        "pool": "0xe080027Bd47353b5D1639772b4a75E9Ed3658A0d",
+        "underlying": "0xe080027Bd47353b5D1639772b4a75E9Ed3658A0d",
+        "underlyingTokens": [
+          "0xf1C9acDc66974dFB6dEcB12aA385b9cD01190E38",
+          "0xae78736Cd615f374D3085123A210448E74Fc6393"
+        ],
+        "underlyingTokenAmounts": [
+          2779728150489182991480,
+          2249473074877437316338
+        ],
+        "underlyingReserves": [
+          2955783733953616660404,
+          2601535887704789441724
+        ],
+        "totalAprIn": 0.02620174104094788,
+        "totalAprOut": 0.02678642265445202,
+        "incentiveAPR": 0.0,
+        "destLPValue": 1.8123753706190702e+21,
+        "discountViolationAddFlag": [
+          false,
+          false
+        ],
+        "discountViolationTrim1Flag": [
+          false,
+          false
+        ],
+        "discountViolationTrim2Flag": [
+          false,
+          false
+        ],
+        "ownedShares": 0,
+        "totSupply": 5224459983910884416898,
+        "safePrice": 1.063711778590053,
+        "spotPrice": 1.0637076086072101,
+        "tokenSpotPrice": [
+          1.0632701796511652,
+          1.1565800964030786
+        ],
+        "tokenSafePrice": [
+          1.06333554,
+          1.1565090139372014
+        ],
+        "flipFlag": false
+      },
+      {
+        "snapshotTimestamp": 0,
+        "name": "Tokemak-Wrapped Ether-Balancer Surge Fluid wstETH-wETH",
+        "address": "0x9b163e15121816BE53F8d5c85fbefD6e6D9bebCd",
+        "poolType": "balV3",
+        "pool": "0x6b31a94029fd7840d780191B6D63Fa0D269bd883",
+        "underlying": "0x6b31a94029fd7840d780191B6D63Fa0D269bd883",
+        "underlyingTokens": [
+          "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+          "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+        ],
+        "underlyingTokenAmounts": [
+          1941968463805444304439,
+          1364978434286261882924
+        ],
+        "underlyingReserves": [
+          1941062328158014699885,
+          1364978470280101925372
+        ],
+        "totalAprIn": 0.025497696350252327,
+        "totalAprOut": 0.025694894242756377,
+        "incentiveAPR": 0.0019532970516611984,
+        "destLPValue": 3.294820395470277e+21,
+        "discountViolationAddFlag": [
+          false,
+          false
+        ],
+        "discountViolationTrim1Flag": [
+          false,
+          false
+        ],
+        "discountViolationTrim2Flag": [
+          false,
+          false
+        ],
+        "ownedShares": 3225218859544455961325,
+        "totSupply": 3236610117697036807237,
+        "safePrice": 1.02145166647087,
+        "spotPrice": 1.021460440840711,
+        "tokenSpotPrice": [
+          1.2255045455917692,
+          0.9999443777770467
+        ],
+        "tokenSafePrice": [
+          1.2254386844173415,
+          1.0
+        ],
+        "flipFlag": false
+      },
+      {
+        "snapshotTimestamp": 0,
+        "name": "Tokemak-Wrapped Ether-weETH/WETH-ng",
+        "address": "0x5c6aeb9ef0d5BbA4E6691f381003503FD0D45126",
+        "poolType": "curveNG",
+        "pool": "0xDB74dfDD3BB46bE8Ce6C33dC9D82777BCFc3dEd5",
+        "underlying": "0xDB74dfDD3BB46bE8Ce6C33dC9D82777BCFc3dEd5",
+        "underlyingTokens": [
+          "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+          "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee"
+        ],
+        "underlyingTokenAmounts": [
+          1046940680285233802769,
+          3853037765859077591965
+        ],
+        "underlyingReserves": [
+          1046940680285233802769,
+          4185502215496079035970
+        ],
+        "totalAprIn": 0.04744342483784028,
+        "totalAprOut": 0.04803170009705122,
+        "incentiveAPR": 0.005158159302813469,
+        "destLPValue": 4.914691998233889e+21,
+        "discountViolationAddFlag": [
+          false,
+          false
+        ],
+        "discountViolationTrim1Flag": [
+          false,
+          false
+        ],
+        "discountViolationTrim2Flag": [
+          false,
+          false
+        ],
+        "ownedShares": 3404180238237821274022,
+        "totSupply": 4912177440740664018121,
+        "safePrice": 1.0651982667369522,
+        "spotPrice": 1.0654252053276705,
+        "tokenSpotPrice": [
+          0.9995810593233798,
+          1.086689474279074
+        ],
+        "tokenSafePrice": [
+          1.0,
+          1.08628632
+        ],
+        "flipFlag": false
+      },
+      {
+        "snapshotTimestamp": 0,
+        "name": "Tokemak-Wrapped Ether-Wrapped liquid staked Ether 2.0",
+        "address": "0xd100c932801390fdeBcE11F26f611D4898b44236",
+        "poolType": "self",
+        "pool": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+        "underlying": "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+        "underlyingTokens": [
+          "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
+        ],
+        "underlyingTokenAmounts": [
+          0
+        ],
+        "underlyingReserves": [],
+        "totalAprIn": 0.0,
+        "totalAprOut": 0.0,
+        "incentiveAPR": 0.0,
+        "destLPValue": 0,
+        "discountViolationAddFlag": [
+          false
+        ],
+        "discountViolationTrim1Flag": [
+          false
+        ],
+        "discountViolationTrim2Flag": [
+          false
+        ],
+        "ownedShares": 0,
+        "totSupply": 0,
+        "safePrice": 1.2254386844173415,
+        "spotPrice": 0.11285384187755776,
+        "tokenSpotPrice": [
+          0.11285384187755776
+        ],
+        "tokenSafePrice": [
+          1.2254386844173415
+        ],
+        "flipFlag": false
+      }
+    ]
+  },
+  "rebalanceTest": {
+    "currentTimestamp": 1770085796,
+    "type": "Pool2Pool",
+    "outDest": "Tokemak-Wrapped Ether-Balancer Surge Fluid wstETH-wETH",
+    "outSpotETH": 1e+20,
+    "outDestApr": 0.025694894242756377,
+    "inDest": "Tokemak-Wrapped Ether-Instadapp ETH v2",
+    "inSpotETH": 9.99387015975497e+19,
+    "inDestApr": 0.04565724039979852,
+    "inDestAdjApr": 0.04565724039979852,
+    "swapOffsetPeriod": 14
+  },
+  "addRank": [
+    [
+      "Tokemak-Wrapped Ether-Instadapp ETH v2",
+      -2.8594726951011744e+16,
+      1.0506614792341094e+17
+    ]
+  ],
+  "rebalance_plan_json_key": "rebalance_plan_1770085796_0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56.json",
+  "autopool_vault_address": "0x0A2b94F6871c1D7A32Fe58E1ab5e6deA2f114E56"
+}
