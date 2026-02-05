@@ -94,7 +94,6 @@ def fetch_rebalance_plan_json_no_s3_client(plan_path: str, autopool: AutopoolCon
     raise RuntimeError(f"failed to download {plan_path} for autopool {autopool.name}") from last
 
 
-
 def download_local_rebalance_plans():
     """
     iterates through each autopool, lists its s3 bucket of rebalance-plan jsons,

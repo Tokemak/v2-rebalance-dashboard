@@ -607,26 +607,9 @@ def _overwrite_bad_summary_states_rows():
     )
 
 
-def get_rebalance_blocks(chain) -> list[int]:
-    query = f"""
-        SELECT DISTINCT t.block
-        FROM rebalance_events re
-        JOIN transactions t
-          ON t.tx_hash = re.tx_hash
-         AND t.chain_id = re.chain_id
-        WHERE re.chain_id = {chain.chain_id}
-        ORDER BY t.block
-    """
-
-    blocks = list(_exec_sql_and_cache(query)["block"])
-    return blocks
-
-
 def ensure_destination_states_are_current():
     for chain in ALL_CHAINS:
         possible_blocks = build_blocks_to_use(chain)
-        # blocks_with_rebalances = get_rebalance_blocks(chain)
-        # possible_blocks = list(set(possible_blocks).union(set(blocks_with_rebalances)))
         _add_new_destination_states_to_db(possible_blocks, chain)
 
     _overwrite_bad_summary_states_rows()

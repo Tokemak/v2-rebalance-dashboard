@@ -24,35 +24,6 @@ from mainnet_launch.constants import (
 )
 
 
-def _determine_what_blocks_are_needed_old(autopool: AutopoolConstants) -> list[int]:
-    blocks_expected_to_have = merge_tables_as_df(
-        selectors=[
-            TableSelector(
-                AutopoolDestinations,
-                [
-                    AutopoolDestinations.destination_vault_address,
-                    AutopoolDestinations.autopool_vault_address,
-                ],
-            ),
-            TableSelector(
-                DestinationStates,
-                DestinationStates.block,
-                join_on=(DestinationStates.destination_vault_address == AutopoolDestinations.destination_vault_address),
-            ),
-        ],
-        where_clause=(DestinationStates.chain_id == autopool.chain.chain_id)
-        & (AutopoolDestinations.autopool_vault_address == autopool.autopool_eth_addr),
-    )["block"].unique()
-
-    blocks_to_fetch = get_subset_not_already_in_column(
-        AutopoolDestinationStates,
-        AutopoolDestinationStates.block,
-        blocks_expected_to_have,
-        where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr),
-    )
-    return [int(b) for b in blocks_to_fetch]
-
-
 def _determine_what_blocks_are_needed(autopool: AutopoolConstants) -> list[int]:
     auto_addr = autopool.autopool_eth_addr
     chain_id = autopool.chain.chain_id  # keep chain scoping explicit

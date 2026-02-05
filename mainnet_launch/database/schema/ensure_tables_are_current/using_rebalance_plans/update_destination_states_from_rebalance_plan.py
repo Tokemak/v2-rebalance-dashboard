@@ -22,7 +22,14 @@ from mainnet_launch.database.postgres_operations import (
     TableSelector,
 )
 
-from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, SILO_USD
+from mainnet_launch.constants import (
+    AutopoolConstants,
+    ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN,
+    SILO_USD,
+    AUTO_ETH,
+    ALL_AUTOPOOLS,
+    BASE_ETH,
+)
 from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.helpers.update_blocks import (
     ensure_all_blocks_are_in_table,
 )
@@ -79,7 +86,11 @@ def convert_rebalance_plan_to_rows(
         )
         new_token_values_rows = _extract_token_values_data(autopool, plan, block_after_plan_timestamp)
         new_destination_token_values = _extract_destination_token_values(
-            autopool, plan, block_after_plan_timestamp, quantity_of_idle
+            autopool,
+            tokens_address_to_decimals,
+            plan,
+            block_after_plan_timestamp,
+            quantity_of_idle,
         )
 
         return new_destination_states_rows, new_token_values_rows, new_destination_token_values, {"error": None}
@@ -95,7 +106,11 @@ def convert_rebalance_plan_to_rows(
 
 
 def _extract_destination_token_values(
-    autopool: AutopoolConstants, plan: dict, block_after_plan_timestamp: int, quantity_of_idle: int
+    autopool: AutopoolConstants,
+    tokens_address_to_decimals: dict,
+    plan: dict,
+    block_after_plan_timestamp: int,
+    quantity_of_idle: int,
 ) -> list[TokenValues]:
 
     new_destination_token_values: list[DestinationTokenValues] = [
@@ -110,12 +125,16 @@ def _extract_destination_token_values(
     ]
 
     for dest_state in plan["sod"]["destStates"]:
-        for token_address, spot_price, raw_amount, decimals in zip(
+        for token_address, spot_price, raw_amount in zip(
             dest_state["underlyingTokens"],
             dest_state["tokenSpotPrice"],
             dest_state["underlyingTokenAmounts"],
-            dest_state["decimals"],
         ):
+            decimals = tokens_address_to_decimals.get(token_address)
+            if decimals is None:
+                raise ValueError(
+                    f"Decimals not found for token {token_address} in plan {plan['rebalance_plan_json_key']}"
+                )
             new_destination_token_values.append(
                 DestinationTokenValues(
                     block=block_after_plan_timestamp,
@@ -130,7 +149,7 @@ def _extract_destination_token_values(
     return new_destination_token_values
 
 
-# 0xfB6448B96637d90FcF2E4Ad2c622A487d0496e6f should be in linea token but it is not
+# 0xfB6448B96637d90FcF2E4Ad2c622A487d0496e6f is missing from linea (in the past might not be anymore)
 
 
 def _extract_token_values_data(
@@ -173,11 +192,6 @@ def _extract_token_values_data(
     return new_token_values_rows
 
 
-# should also be in the destian
-# 0xfB6448B96637d90FcF2E4Ad2c622A487d0496e6f is a pool on linea,
-# select * from destinations where destination_vault_address = '0xfB6448B96637d90FcF2E4Ad2c622A487d0496e6f'
-
-
 def _extract_destination_states_rows(
     autopool: AutopoolConstants,
     tokens_address_to_decimals: dict[str, int],
@@ -200,7 +214,7 @@ def _extract_destination_states_rows(
             total_apr_out=None,
             underlying_token_total_supply=quantity_of_idle,
             safe_total_supply=None,
-            lp_token_spot_price=1.0,
+            lp_token_spot_price=1.0,  # is this right? maybe it hsould be nav per share, don't trust
             lp_token_safe_price=1.0,
             from_rebalance_plan=True,
             rebalance_plan_timestamp=int(plan["sod"]["currentTimestamp"]),
@@ -227,7 +241,10 @@ def _extract_destination_states_rows(
             fee_apr=None,
             base_apr=None,
             points_apr=None,
-            fee_plus_base_apr=total_out - (incentive * 0.9),  # remove downscaling
+            fee_plus_base_apr=total_out
+            - (
+                incentive * 0.9
+            ),  # implict assumption that weight is always .9, has been true in teh past, won't be for new solver
             total_apr_in=total_in,
             total_apr_out=total_out,
             underlying_token_total_supply=underlying_token_total_supply,
@@ -243,9 +260,6 @@ def _extract_destination_states_rows(
     return new_destination_states_rows
 
 
-# Broken as of jan 21, 2026 defi llama timestamp query breaks
-# need alternate way not certain if defi llama is broken, or if how I am querying it is broken
-# could also be a cache error through cloudflare
 def ensure_destination_states_from_rebalance_plan_are_current():
     s3_client = make_s3_client()
 
@@ -267,7 +281,9 @@ def ensure_destination_states_from_rebalance_plan_are_current():
 
     tokens_orm: list[Tokens] = get_full_table_as_orm(Tokens)
     tokens_address_to_decimals = {t.token_address: t.decimals for t in tokens_orm}
-    for autopool in ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN:
+    tokens_address_to_decimals["0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"] = 18  # hard coded ETH (not WETH) as 18
+
+    for autopool in ALL_AUTOPOOLS:
         solver_plan_paths_on_remote = fetch_all_solver_rebalance_plan_file_names(autopool, s3_client)
 
         this_autopool_destinations = list(autopool_vault_address_to_destinations[autopool.autopool_eth_addr])

@@ -222,7 +222,7 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
     """
     chain_data_to_last_processed_block = get_last_processed_block_for_table(Destinations)
 
-    for chain in [LINEA_CHAIN]:
+    for chain in ALL_CHAINS:
         top_block = chain.get_block_near_top()
 
         print(
@@ -277,6 +277,20 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
         print("successfully updated tables for chain", chain.name)
 
         write_last_processed_block(chain, top_block, Destinations)
+
+        # normal ETH on mainnet
+    eth_token = Tokens(
+        chain_id=1,
+        token_address="0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+        name="ether",
+        symbol="ETH",
+        decimals=18,
+    )
+
+    insert_avoid_conflicts(
+        [eth_token],
+        Tokens,
+    )
 
 
 if __name__ == "__main__":
