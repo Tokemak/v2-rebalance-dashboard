@@ -8,6 +8,7 @@ import streamlit as st
 
 from mainnet_launch.constants import (
     ALL_AUTOPOOLS,
+    CURRENT_AUTOPOOLS,
     AUTO_ETH,
     AUTO_USD,
     AutopoolConstants,
@@ -49,7 +50,7 @@ def _run_autopool_page(autopool: AutopoolConstants, _fn_name: str):
 
 def _autopool_params():
     for fn_name, _ in AUTOPOOL_CONTENT_FUNCTIONS.items():
-        for autopool in ALL_AUTOPOOLS:
+        for autopool in CURRENT_AUTOPOOLS:
             yield pytest.param(
                 fn_name,
                 {"autopool": autopool},
