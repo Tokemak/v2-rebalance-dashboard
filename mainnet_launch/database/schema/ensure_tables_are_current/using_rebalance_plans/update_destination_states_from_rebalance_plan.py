@@ -205,7 +205,7 @@ def _extract_destination_states_rows(
             destination_vault_address=autopool.autopool_eth_addr,
             block=block_after_plan_timestamp,
             chain_id=autopool.chain.chain_id,
-            incentive_apr=None, # all these apr values hsould be 0 instead of None
+            incentive_apr=None,  # all these apr values hsould be 0 instead of None
             fee_apr=None,
             base_apr=None,
             points_apr=None,
@@ -238,7 +238,7 @@ def _extract_destination_states_rows(
             block=block_after_plan_timestamp,
             chain_id=autopool.chain.chain_id,
             incentive_apr=incentive,
-            fee_apr=None, # do I even use these?
+            fee_apr=None,  # do I even use these?
             base_apr=None,
             points_apr=None,
             fee_plus_base_apr=total_out
