@@ -205,7 +205,7 @@ def _extract_destination_states_rows(
             destination_vault_address=autopool.autopool_eth_addr,
             block=block_after_plan_timestamp,
             chain_id=autopool.chain.chain_id,
-            incentive_apr=None,
+            incentive_apr=None, # all these apr values hsould be 0 instead of None
             fee_apr=None,
             base_apr=None,
             points_apr=None,
@@ -238,13 +238,13 @@ def _extract_destination_states_rows(
             block=block_after_plan_timestamp,
             chain_id=autopool.chain.chain_id,
             incentive_apr=incentive,
-            fee_apr=None,
+            fee_apr=None, # do I even use these?
             base_apr=None,
             points_apr=None,
             fee_plus_base_apr=total_out
             - (
                 incentive * 0.9
-            ),  # implict assumption that weight is always .9, has been true in teh past, won't be for new solver
+            ),  # implict assumption that weight is always .9, has been true in the past, won't be for new solver
             total_apr_in=total_in,
             total_apr_out=total_out,
             underlying_token_total_supply=underlying_token_total_supply,
