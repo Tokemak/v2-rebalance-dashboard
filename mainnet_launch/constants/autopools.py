@@ -262,7 +262,7 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
     AUTO_DOLA,
     SONIC_USD,
     SILO_USD,
-    SILO_ETH,
+    # SILO_ETH, Never launched
     BASE_EUR,
     ARB_USD,
     PLASMA_USD,

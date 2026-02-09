@@ -18,7 +18,7 @@ from mainnet_launch.database.schema.ensure_tables_are_current.using_onchain.exit
 from mainnet_launch.pages.risk_metrics.drop_down import render_pick_chain_and_base_asset_dropdown
 
 
-EXCLUDED_POOLS = [SILO_ETH, SONIC_USD]
+EXCLUDED_POOLS = [SILO_ETH, SONIC_USD, BAL_ETH, DINERO_ETH, AUTO_LRT]
 
 
 def fetch_readable_our_tvl_by_destination(chain: ChainData, block: int) -> pd.DataFrame:
@@ -263,5 +263,5 @@ def _render_methodology():
 
 
 if __name__ == "__main__":
-    valid_autopools = CHAIN_BASE_ASSET_GROUPS[(SONIC_CHAIN, USDC)]
-    fetch_and_render_one_option_for_percent_ownership_by_destination(SONIC_CHAIN, USDC, valid_autopools)
+    valid_autopools = CHAIN_BASE_ASSET_GROUPS[(ETH_CHAIN, WETH)]
+    fetch_and_render_one_option_for_percent_ownership_by_destination(ETH_CHAIN, WETH, valid_autopools)
