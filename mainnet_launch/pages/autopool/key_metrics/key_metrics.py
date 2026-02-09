@@ -378,10 +378,8 @@ def _diffReturn(x: list):
 
 if __name__ == "__main__":
     from mainnet_launch.constants import *
-    from dataclasses import replace
 
-    AUTO_USD = replace(AUTO_USD, start_display_date="2025-08-25")
-    fetch_and_render_key_metrics_data(AUTO_USD)
+    fetch_and_render_key_metrics_data(SONIC_USD)
 
     # profile_function(fetch_and_render_key_metrics_data, AUTO_USD)
 

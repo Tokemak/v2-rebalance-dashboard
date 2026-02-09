@@ -262,7 +262,7 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
     AUTO_DOLA,
     SONIC_USD,
     SILO_USD,
-    SILO_ETH,
+    # SILO_ETH, Never launched
     BASE_EUR,
     ARB_USD,
     PLASMA_USD,
@@ -286,5 +286,5 @@ ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [
     ANCHRG_USD,
 ]
 
-DEPRECATED_AUTOPOOLS: list[AutopoolConstants] = [BAL_ETH, AUTO_LRT, DINERO_ETH, SILO_ETH]
+DEPRECATED_AUTOPOOLS: list[AutopoolConstants] = [BAL_ETH, AUTO_LRT, DINERO_ETH, SILO_ETH, SONIC_USD]
 CURRENT_AUTOPOOLS: list[AutopoolConstants] = [a for a in ALL_AUTOPOOLS if a not in DEPRECATED_AUTOPOOLS]
