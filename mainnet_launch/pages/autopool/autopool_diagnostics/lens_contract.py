@@ -3,7 +3,7 @@ import pandas as pd
 from web3 import Web3
 
 from mainnet_launch.data_fetching.get_state_by_block import get_raw_state_by_blocks, get_state_by_one_block
-from mainnet_launch.constants import LENS_CONTRACT, ChainData
+from mainnet_launch.constants import LENS_CONTRACT, ChainData, AutopoolConstants
 from mainnet_launch.database.schema.full import (
     Autopools,
     Destinations,
@@ -147,7 +147,7 @@ def get_pools_and_destinations_call_only_autopools_and_destinations(chain: Chain
 def _clean_summary_stats_info(success, summary_stats):
     if success is True:
         summary = {
-            "destination": summary_stats[0],
+            "destination": Web3.toChecksumAddress(summary_stats[0]),
             "baseApr": summary_stats[1] / 1e18,
             "feeApr": summary_stats[2] / 1e18,
             "incentiveApr": summary_stats[3] / 1e18,
@@ -165,7 +165,7 @@ def _clean_summary_stats_info(success, summary_stats):
 
 
 def build_proxyGetDestinationSummaryStats_call(
-    name: str, autopool_strategy_address: str, destination_address: str, direction: str, amount: int
+    name: str, autopool: AutopoolConstants, destination_address: str, direction: str, amount: int
 ) -> Call:
     if direction == "in":
         direction_enum = 0
@@ -175,10 +175,10 @@ def build_proxyGetDestinationSummaryStats_call(
         raise ValueError(f"direction can only be `in` or `out` is {direction=}")
 
     return Call(
-        LENS_CONTRACT,
+        LENS_CONTRACT(autopool.chain),
         [
             f"proxyGetDestinationSummaryStats(address,address,uint8,uint256)((address,uint256,uint256,uint256,uint256,int256,int256,int256,uint256,int256,uint256))",
-            autopool_strategy_address,
+            autopool.autopool_eth_strategy_addr,
             destination_address,
             direction_enum,
             amount,
