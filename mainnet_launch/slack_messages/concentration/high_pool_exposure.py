@@ -69,6 +69,7 @@ def _fetch_rich_tvl_by_destination(
         right_on="destination_vault_address",
         how="left",
     )
+    our_tvl_by_destination_df = our_tvl_by_destination_df.dropna(subset=["autopool"])
 
     our_tvl_by_destination_df["base_asset_symbol"] = our_tvl_by_destination_df.apply(
         lambda row: row["autopool"].base_asset_symbol, axis=1

@@ -9,7 +9,7 @@ from .autopools import *
 # must be (ChainData, Token) -> tuple of autopool constants
 CHAIN_BASE_ASSET_GROUPS = {
     (ETH_CHAIN, WETH): (AUTO_ETH,),
-    (ETH_CHAIN, USDC): (AUTO_USD, SILO_USD),
+    (ETH_CHAIN, USDC): (AUTO_USD, SILO_USD, INFINI_USD),
     (ETH_CHAIN, DOLA): (AUTO_DOLA,),
     (BASE_CHAIN, WETH): (BASE_ETH,),
     (BASE_CHAIN, USDC): (BASE_USD,),
