@@ -39,7 +39,7 @@ S3_BUCKETS = {
     "PLASMA_USD": environ["PLASMA_USD_BUCKET"],
     "LINEA_USD": environ["LINEA_USD_BUCKET"],
     "ANCHRG_USD": environ["ANCHRG_USD_BUCKET"],
-    "INFINI_USD": environ["INFINI_USD_BUCKET"],
+    "INFINI_USD": environ["INFINIFI_USD_BUCKET"],
 }
 
 ROOT_DIR = Path(__file__).parent.parent.parent.resolve()
