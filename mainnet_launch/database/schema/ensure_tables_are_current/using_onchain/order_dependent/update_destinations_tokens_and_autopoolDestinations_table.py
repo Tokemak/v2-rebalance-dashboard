@@ -222,7 +222,7 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
     """
     chain_data_to_last_processed_block = get_last_processed_block_for_table(Destinations)
 
-    for chain in [LINEA_CHAIN]:
+    for chain in ALL_CHAINS:
         top_block = chain.get_block_near_top()
 
         print(
