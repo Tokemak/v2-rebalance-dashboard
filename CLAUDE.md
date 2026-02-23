@@ -17,7 +17,6 @@ poetry run pytest -k "test_name"            # Run a single test
 poetry run black .                          # Format code
 poetry run black --diff --check .           # Check formatting (CI lint step)
 poetry run update-prod-db                   # Update production database (threaded)
-poetry run slow-update-prod-db              # Update production database (sequential, ~6min)
 ```
 
 **CI runs**: lint check, then pytest with 90-day window, then pytest with all-time data.

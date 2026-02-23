@@ -434,4 +434,6 @@ if __name__ == "__main__":
 
     from mainnet_launch.constants import *
 
+    # ensure_rebalance_events_are_current()
+
     profile_function(ensure_rebalance_events_are_current)

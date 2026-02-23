@@ -116,10 +116,12 @@ def ensure_database_is_current_slow_and_sequential(echo_sql_to_console: bool = F
 
 
 def sequential_main():
+    # ensure_database_is_current_slow_and_sequential()
     profile_function(ensure_database_is_current_slow_and_sequential, echo_sql_to_console=False)
 
 
 def main():
+    # profile_function(ensure_database_is_current_slow_and_sequential, echo_sql_to_console=False)
     ensure_database_is_current_slow_and_sequential()
 
 
