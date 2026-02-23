@@ -337,5 +337,4 @@ def ensure_destination_states_from_rebalance_plan_are_current():
 if __name__ == "__main__":
     from mainnet_launch.constants import profile_function
 
-    # profile_function(ensure_destination_states_from_rebalance_plan_are_current)
     ensure_destination_states_from_rebalance_plan_are_current()

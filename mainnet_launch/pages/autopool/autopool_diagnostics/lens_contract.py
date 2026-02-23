@@ -360,10 +360,3 @@ if __name__ == "__main__":
 #     Autopool[] autoPools;
 #     DestinationVault[][] destinations;
 # }
-
-
-# if __name__ == "__main__":
-
-
-#     a = df.values[0]
-#     pass

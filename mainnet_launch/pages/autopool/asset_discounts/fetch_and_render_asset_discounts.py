@@ -237,7 +237,6 @@ def fetch_and_render_asset_discounts(autopool: AutopoolConstants):
     token_value_df["token_destination_readable_name"] = (
         token_value_df["symbol"] + "\t" + token_value_df["destination_readable_name"]
     )
-    # profile_function(_render_component_token_safe_price_and_backing, token_value_df)
     _render_component_token_safe_price_and_backing(token_value_df)
 
 
@@ -251,5 +250,4 @@ if __name__ == "__main__":
         datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=90)
     ).isoformat()
 
-    # profile_function(fetch_and_render_asset_discounts, AUTO_USD)
     fetch_and_render_asset_discounts(AUTO_USD)

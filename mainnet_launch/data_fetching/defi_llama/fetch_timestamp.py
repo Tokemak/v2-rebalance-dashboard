@@ -36,50 +36,6 @@ class DeFiLlamaAPIError(ThirdPartyAPIError):
     pass
 
 
-# def get_block_by_timestamp_defi_llama(
-#     unix_timestamp: int,
-#     chain: ChainData,
-#     closest: str,
-#     rate_limit_max_rate: int = 5,
-#     rate_limit_time_period: int = 1,
-# ) -> int:
-#     """
-#     Fetch a single block for a unix timestamp on a given chain via DeFiLlama.
-
-#     Args:
-#         unix_timestamp: Unix timestamp in seconds
-#         chain: ChainData for the blockchain
-#         closest: "before" or "after" - which block to return
-#         rate_limit_max_rate: Max requests per time period
-#         rate_limit_time_period: Time period in seconds
-
-#     Returns:
-#         block_number: int
-#     """
-#     if closest not in (Closest.BEFORE, Closest.AFTER):
-#         raise DeFiLlamaAPIError(f"closest must be 'before' or 'after', got: {closest}")
-
-#     chain_slug = CHAIN_TO_DEFI_LLAMA_SLUG[chain]
-#     url = f"https://coins.llama.fi/block/{chain_slug}/{int(unix_timestamp)}"
-#     params = {"closest": closest}
-
-#     responses = make_many_requests_to_3rd_party(
-#         rate_limit_max_rate=rate_limit_max_rate,
-#         rate_limit_time_period=rate_limit_time_period,
-#         requests_kwargs=[{"method": "GET", "url": url, "params": params}],
-#     )
-
-#     if not responses or not responses[0].get(THIRD_PARTY_SUCCESS_KEY):
-#         raise DeFiLlamaAPIError("DeFi Llama request failed", responses[0] if responses else {})
-
-#     try:
-#         height = int(responses[0]["height"])
-#     except Exception as e:
-#         raise DeFiLlamaAPIError(f"Unexpected DeFi Llama response: {type(e).__name__}: {e}", responses[0])
-
-#     return height
-
-
 def fetch_blocks_by_unix_timestamps_defillama(
     unix_timestamps: list[int],
     chain: ChainData,
@@ -121,7 +77,6 @@ def fetch_blocks_by_unix_timestamps_defillama(
 
     joined_df = pd.concat([request_df, response_df], axis=1)
     joined_df["pdtimestamp"] = pd.to_datetime(joined_df["timestamp"], unit="s", utc=True)
-    # print(joined_df[['pdtimestamp', 'height', 'timestamp']].head(20))
     joined_df = joined_df.dropna(subset=["height"])
 
     blocks_add = list(joined_df["height"].astype(int))

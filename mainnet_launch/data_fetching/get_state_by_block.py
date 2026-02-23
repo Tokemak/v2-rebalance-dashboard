@@ -166,9 +166,6 @@ async def async_safe_get_raw_state_by_block(
             for attempt in range(5):
                 start = datetime.now()
                 try:
-
-                    # response: dict = await multicall.coroutine()
-
                     response = await multicall.fetch_outputs(multicall.calls)
                     response.append({"block": multicall.block_id})
                     merged = {}
