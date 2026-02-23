@@ -118,6 +118,7 @@ def _make_deposit_and_withdraw_figure(
             right_index=True,
             how="outer",
         )
+        .astype(float)
         .fillna(0)
         .round(2)
     )
@@ -152,7 +153,7 @@ def _make_scatter_plot_figure(
     deposits = deposit_df[["assets"]].copy()
     withdraws = (-withdraw_df[["assets"]]).copy()
 
-    change_df = pd.concat([withdraws, deposits])
+    change_df = pd.concat([df for df in [withdraws, deposits] if not df.empty])
     change_df["color"] = change_df["assets"].apply(lambda x: "Deposit" if x >= 0 else "Withdrawal")
 
     fig = px.scatter(
