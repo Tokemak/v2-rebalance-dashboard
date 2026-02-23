@@ -128,8 +128,6 @@ def _add_current_liqudation_row_balances(df: pd.DataFrame):
     df["day_before_yesterday_balance"] = df.apply(
         lambda row: all_day_before_yesterday_balances[row["liquidation_row"], row["token_addresses"]], axis=1
     )
-    # df['today_block'] = df['chain_id'].map(chain_to_block).map(lambda x: x[0])
-    # df['today_timestamp'] = df['chain_id'].map(chain_to_block).map(lambda x: x[1])
 
 
 def post_unsold_incentive_tokens(slack_channel: SlackChannel):

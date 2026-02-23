@@ -171,6 +171,4 @@ if __name__ == "__main__":
     from mainnet_launch.constants import AutopoolConstants, ALL_AUTOPOOLS
     from mainnet_launch.data_fetching.get_state_by_block import build_blocks_to_use
 
-    # fetch_and_render_weighted_crm_data(ALL_AUTOPOOLS[0])
-
     fetch_and_render_weighted_crm_data(ALL_AUTOPOOLS[-1])

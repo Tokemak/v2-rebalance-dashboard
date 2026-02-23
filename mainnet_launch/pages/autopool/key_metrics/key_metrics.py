@@ -213,10 +213,6 @@ def _render_top_level_stats(
 
     # Row 3
     r3c1, r3c2, r3c3 = st.columns(3)
-    # r3c1.metric(
-    #     "Latest Rebalance Plan",
-    #     _simple_timedelta(now - latest_rebalance_plan_datetime_generated),
-    # )
 
     r3c1.metric(
         "Time Since Last Rebalance",
@@ -317,8 +313,6 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
     ) = fetch_key_metrics_data(autopool)
 
     latest_rebalance_event_datetime = get_latest_rebalance_event_datetime_for_autopool(autopool)
-    # autopool_price_return = 100 * (autopool_backing_value - autopool_safe_value) / autopool_backing_value
-    # weighted_price_return_series = _fetch_price_return(autopool)
 
     st.header(f"{autopool.name} Key Metrics")
 

@@ -219,32 +219,3 @@ if __name__ == "__main__":
 
 # we should have an effective gas price chart
 # eg by day, how the weighted averge gas price we used
-
-# px.scatter(full_tx_df.set_index("datetime").resample("1d")["effective_gas_price"].agg(["median", "mean"]))
-
-# Liquidator_df["effective_gas_price_gwei"] = Liquidator_df["effective_gas_price"] / 1e9
-
-# fig = px.box(
-#     Liquidator_df,
-#     x="hour",
-#     y="effective_gas_price_gwei",
-#     # points='all',            # show all underlying points
-#     title="Distribution of Effective Gas Price by Hour",
-#     labels={"hour": "Hour of Day", "effective_gas_price_gwei": "Effective Gas Price (Gwei)"},
-# )
-# fig.update_layout(
-#     yaxis_title="Effective Gas Price (Gwei)",
-#     xaxis_title="Hour of Day",
-#     boxmode="group",  # ensures boxes don’t overlap if you add more traces
-# )
-# todos?
-# add notes on methodology
-# add gas price to it as well
-# what if gas prices were always X?
-
-# we want to seperate out the impact of gas prices from this
-
-# we can save money
-
-# weekly distribtuion of gas prices
-# daily gas prices

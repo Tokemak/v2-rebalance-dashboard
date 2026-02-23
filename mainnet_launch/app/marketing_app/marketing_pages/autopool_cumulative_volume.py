@@ -127,13 +127,9 @@ def fetch_all_time_cumulative_usd_volume() -> pd.DataFrame:
         for future in as_completed(futures):
             dfs.append(future.result())
 
-    # raw_df.groupby('autopool_name')['transactionHash'].nunique().round().sum()
-    # raw_df.groupby('autopool_name')['computed_usd_volume'].sum().round().sum()
-
     raw_df = pd.concat(dfs, axis=0).reset_index()
 
     raw_df.drop(columns=["base_chain_ETH_to_USDC_price", "mainnet_ETH_TO_USDC_price"], inplace=True)
-    # raw_df = raw_df.drop_duplicates()
 
     volume_by_pool = raw_df.groupby(["datetime", "autopool_name"])["computed_usd_volume"].sum().reset_index()
     cumulaitive_volume_by_autopool = (

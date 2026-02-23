@@ -103,9 +103,6 @@ def fetch_and_render_destination_apr_data(autopool: AutopoolConstants) -> go.Fig
 
         st.dataframe(all_time_destination_vault_addresses.T)
 
-        # for dest in all_time_destination_vault_addresses:
-        #     st.text(f"Destination Vault address poolool:  {dest}")
-
     apr_choice = st.selectbox("Pick a APR signal", apr_columns[:-1])
     summary_stats_df = (
         100
