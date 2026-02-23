@@ -36,7 +36,9 @@ On-chain data (via Web3/Multicall) and API data (Alchemy, CoinGecko, Etherscan, 
 
 - **`constants/`** — Chain definitions (`ChainData`), autopool configs (`AutopoolConstants`), contract addresses (`TokemakAddress`), and session state keys. Import pools and chains from `mainnet_launch.constants` (e.g., `AUTO_ETH`, `ETH_CHAIN`, `ALL_AUTOPOOLS`).
 - **`database/`** — SQLAlchemy ORM models in `schema/full.py`. Query data with `merge_tables_as_df()` using `TableSelector` objects for type-safe multi-table JOINs returning DataFrames. See `mainnet_launch/database/postgres_operations.py` for the full API.
-- **`data_fetching/`** — On-chain state via `get_state_by_one_block()` with multicall `Call` objects. Async HTTP utilities with rate limiting for third-party APIs.
+- **`data_fetching/`** — Two primary interfaces for on-chain data, plus async HTTP utilities for third-party APIs:
+  - **`get_raw_state_by_blocks(calls, blocks, chain)`** — Fetch contract state across many blocks at once via Multicall V3. Returns a time-indexed DataFrame. Use `build_blocks_to_use(chain)` to get one block per day. Handler functions for `Call` results: `safe_normalize_with_bool_success` (18-decimal), `safe_normalize_6_with_bool_success` (6-decimal), `identity_with_bool_success`, `to_checksum_address_with_bool_success`. See `mainnet_launch/data_fetching/get_state_by_block.py`.
+  - **`fetch_events(event, chain, start_block, end_block)`** — Fetch decoded contract events into a DataFrame. Pass a `ContractEvent` (e.g., `contract.events.Transfer`) and a chain. See `mainnet_launch/data_fetching/alchemy/get_events.py`.
 - **`pages/`** — Three categories: `autopool/` (per-pool diagnostics), `risk_metrics/` (cross-pool risk analysis), `protocol_wide/` (fees, gas). Each subfolder is a tab. Page functions registered in `page_functions.py` via dictionaries (`AUTOPOOL_CONTENT_FUNCTIONS`, `RISK_METRICS_FUNCTIONS`, `PROTOCOL_CONTENT_FUNCTIONS`).
 - **`slack_messages/`** — Slack notification modules for alerts (solver, depeg, concentration, incentives).
 
