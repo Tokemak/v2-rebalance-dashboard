@@ -195,6 +195,17 @@ def fetch_autopool_destination_state_df(autopool: AutopoolConstants) -> pd.DataF
     )
     destinations_df["autopool_implied_quantity"] = destinations_df["portion_owned"] * destinations_df["quantity"]
 
+    # Some solver rebalance plans report token amounts with inconsistent decimal scaling,
+    # inflating quantity (and derived columns). Repeatedly divide until values are reasonable.
+    # TODO: fix the underlying data in update_destination_states_from_rebalance_plan.py
+    # and re-run from zero to eliminate the need for this correction.
+    inflated = destinations_df["autopool_implied_safe_value"].abs() > 1e10
+    while inflated.any():
+        destinations_df.loc[inflated, "autopool_implied_safe_value"] /= 1e12
+        destinations_df.loc[inflated, "autopool_implied_backing_value"] /= 1e12
+        destinations_df.loc[inflated, "autopool_implied_quantity"] /= 1e12
+        inflated = destinations_df["autopool_implied_safe_value"].abs() > 1e10
+
     destinations_df["unweighted_expected_apr"] = 100 * destinations_df[
         ["fee_apr", "base_apr", "incentive_apr", "fee_plus_base_apr"]
     ].astype(float).fillna(0).sum(axis=1)
