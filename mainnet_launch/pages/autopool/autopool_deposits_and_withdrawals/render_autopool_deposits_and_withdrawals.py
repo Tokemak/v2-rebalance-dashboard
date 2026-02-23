@@ -110,17 +110,19 @@ def _make_deposit_and_withdraw_figure(
         fig.update_layout(title=f"{autopool.name} No deposit/withdraw data", height=400)
         return fig
 
-    change_df = (
-        pd.merge(
-            deposit_df.rename(columns={"assets": "deposits"})["deposits"],
-            withdraw_df.rename(columns={"assets": "withdrawals"})["withdrawals"],
-            left_index=True,
-            right_index=True,
-            how="outer",
+    with pd.option_context("future.no_silent_downcasting", True):
+        change_df = (
+            pd.merge(
+                deposit_df.rename(columns={"assets": "deposits"})["deposits"],
+                withdraw_df.rename(columns={"assets": "withdrawals"})["withdrawals"],
+                left_index=True,
+                right_index=True,
+                how="outer",
+            )
+            .fillna(0)
+            .infer_objects(copy=False)
+            .round(2)
         )
-        .fillna(0)
-        .round(2)
-    )
     change_df["withdrawals"] = -change_df["withdrawals"]  # Make withdrawals negative for net change calculation
 
     change_df = change_df.resample(f"{n_days}D").sum()
@@ -152,7 +154,7 @@ def _make_scatter_plot_figure(
     deposits = deposit_df[["assets"]].copy()
     withdraws = (-withdraw_df[["assets"]]).copy()
 
-    change_df = pd.concat([withdraws, deposits])
+    change_df = pd.concat([df for df in [withdraws, deposits] if not df.empty])
     change_df["color"] = change_df["assets"].apply(lambda x: "Deposit" if x >= 0 else "Withdrawal")
 
     fig = px.scatter(
