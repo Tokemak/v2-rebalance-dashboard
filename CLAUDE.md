@@ -24,8 +24,7 @@ poetry run slow-update-prod-db              # Update production database (sequen
 
 ## Code Style
 
-- **Formatter**: black, 120 character line length
-- **Python**: 3.10 (strict, no 3.11+)
+- **Python 3.10 strictly** — do not use 3.11+ features (no `match` statements, no `ExceptionGroup`, no `tomllib`, etc.)
 
 ## Architecture
 
@@ -36,41 +35,23 @@ On-chain data (via Web3/Multicall) and API data (Alchemy, CoinGecko, Etherscan, 
 ### Key Modules
 
 - **`constants/`** — Chain definitions (`ChainData`), autopool configs (`AutopoolConstants`), contract addresses (`TokemakAddress`), and session state keys. Import pools and chains from `mainnet_launch.constants` (e.g., `AUTO_ETH`, `ETH_CHAIN`, `ALL_AUTOPOOLS`).
-- **`database/`** — SQLAlchemy ORM models in `schema/full.py`. Query data with `merge_tables_as_df()` using `TableSelector` objects for type-safe multi-table JOINs returning DataFrames.
+- **`database/`** — SQLAlchemy ORM models in `schema/full.py`. Query data with `merge_tables_as_df()` using `TableSelector` objects for type-safe multi-table JOINs returning DataFrames. See `mainnet_launch/database/postgres_operations.py` for the full API.
 - **`data_fetching/`** — On-chain state via `get_state_by_one_block()` with multicall `Call` objects. Async HTTP utilities with rate limiting for third-party APIs.
 - **`pages/`** — Three categories: `autopool/` (per-pool diagnostics), `risk_metrics/` (cross-pool risk analysis), `protocol_wide/` (fees, gas). Each subfolder is a tab. Page functions registered in `page_functions.py` via dictionaries (`AUTOPOOL_CONTENT_FUNCTIONS`, `RISK_METRICS_FUNCTIONS`, `PROTOCOL_CONTENT_FUNCTIONS`).
 - **`slack_messages/`** — Slack notification modules for alerts (solver, depeg, concentration, incentives).
 
 ### Page Function Pattern
 
-All page rendering functions follow a `fetch_and_render_*` convention and **must accept exactly one argument** (typically `AutopoolConstants`) to support automated parametrized testing:
-
-```python
-def fetch_and_render_page_name(autopool: AutopoolConstants) -> None:
-    data = merge_tables_as_df([TableSelector(table=..., select_fields=[...]), ...])
-    st.plotly_chart(fig)
-```
-
-Risk metrics pages take a different signature: `(chain, base_asset, autopools)`.
-
-### Database Query Pattern
-
-```python
-from mainnet_launch.database.postgres_operations import merge_tables_as_df, TableSelector
-
-df = merge_tables_as_df([
-    TableSelector(table=AutopoolStates, select_fields=[AutopoolStates.nav_per_share]),
-    TableSelector(table=Blocks, join_on=(AutopoolStates.block_number == Blocks.block_number)),
-], where_clause=(AutopoolStates.autopool == autopool.name))
-```
+All page rendering functions follow `fetch_and_render_*` naming and **MUST accept exactly one argument** (typically `AutopoolConstants`) to support parametrized testing. Risk metrics pages take `(chain, base_asset, autopools)` instead. See `mainnet_launch/pages/autopool/key_metrics/nav.py` for a canonical example.
 
 ### Session State
 
-Streamlit session state controls data windowing. `SessionState.RECENT_START_DATE` restricts queries to recent 90 days when set (used in tests and sidebar toggle).
+Streamlit session state controls data windowing. `SessionState.RECENT_START_DATE` restricts queries to recent 90 days when set (used in tests and sidebar toggle). This affects queries globally.
 
-### Destinations
+## Gotchas
 
-Destinations (DEX/staking contracts used by autopools) are occasionally upgraded. The system stitches together multiple contract versions as a single logical destination on the UI, even when underlying contracts change.
+- Destinations are stitched across contract upgrades — multiple contract versions map to one logical destination in the UI. Never assume a 1:1 mapping between contracts and destinations.
+- `SessionState.RECENT_START_DATE` affects all data queries globally; tests clear it via the autouse fixture in `conftest.py`.
 
 ## Testing
 
@@ -80,8 +61,8 @@ Tests parametrically render every page for every autopool to verify no runtime e
 - `tests/test_marketing_pages.py` — Marketing pages (`@pytest.mark.marketing`, excluded by default)
 - `tests/test_slack_messages.py` — Slack message generation
 
-When adding a new page, it must be registered in the appropriate `*_CONTENT_FUNCTIONS` dictionary to be automatically tested.
+New pages MUST be registered in the appropriate `*_CONTENT_FUNCTIONS` dictionary or they will not be tested.
 
 ## Environment
 
-Copy `.env_example` to `.env` and populate. Key variables: database URLs (`MAIN_DATABASE_URL`, `MAIN_READ_REPLICA_DATABASE_URL`), Alchemy RPC URLs, S3 bucket names (one per autopool), API keys (Etherscan, CoinGecko), Slack webhooks.
+See `.env_example` for required environment variables. Copy to `.env` and populate all values.
