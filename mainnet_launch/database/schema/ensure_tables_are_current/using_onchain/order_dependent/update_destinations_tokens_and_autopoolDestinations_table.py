@@ -232,10 +232,13 @@ def ensure__destinations__tokens__and__destination_tokens_are_current() -> None:
 
         autopool_vault_contract = chain.client.eth.contract(autopools[0].autopool_eth_addr, abi=AUTOPOOL_VAULT_ABI)
 
+        earliest_autopool_block = min(a.block_deployed for a in autopools)
+        start_block = min(chain_data_to_last_processed_block[chain] + 1, earliest_autopool_block)
+
         DestinationVaultAdded = fetch_events(
             autopool_vault_contract.events.DestinationVaultAdded,
             chain=chain,
-            start_block=chain_data_to_last_processed_block[chain] + 1,
+            start_block=start_block,
             end_block=top_block,
             addresses=[a.autopool_eth_addr for a in autopools],
         )
