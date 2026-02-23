@@ -251,6 +251,22 @@ ANCHRG_USD = AutopoolConstants(
 )
 
 
+INFINI_USD = AutopoolConstants(
+    "infinifiUSD",
+    "infinifiUSD",
+    autopool_eth_addr="0xC7d7F434C015F2A7E77dF9763ADE300F2171a05a",
+    autopool_eth_strategy_addr=None,
+    solver_rebalance_plans_bucket=S3_BUCKETS["INFINI_USD"],
+    chain=ETH_CHAIN,
+    base_asset=USDC(ETH_CHAIN),
+    block_deployed=23484273,
+    data_from_rebalance_plan=True,
+    base_asset_symbol="USDC",
+    _start_display_date="10-1-2025",
+    base_asset_decimals=6,
+)
+
+
 ALL_AUTOPOOLS: list[AutopoolConstants] = [
     AUTO_ETH,
     BAL_ETH,
@@ -268,6 +284,7 @@ ALL_AUTOPOOLS: list[AutopoolConstants] = [
     PLASMA_USD,
     LINEA_USD,
     ANCHRG_USD,
+    INFINI_USD,
 ]
 
 ALL_AUTOPOOLS_DATA_ON_CHAIN: list[AutopoolConstants] = [AUTO_ETH, BAL_ETH, AUTO_LRT, BASE_ETH, DINERO_ETH]
@@ -284,6 +301,7 @@ ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN: list[AutopoolConstants] = [
     PLASMA_USD,
     LINEA_USD,
     ANCHRG_USD,
+    INFINI_USD,
 ]
 
 DEPRECATED_AUTOPOOLS: list[AutopoolConstants] = [BAL_ETH, AUTO_LRT, DINERO_ETH, SILO_ETH, SONIC_USD]
