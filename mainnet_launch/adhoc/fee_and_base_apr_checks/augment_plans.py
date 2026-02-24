@@ -238,20 +238,19 @@ def add_destination_summary_stats(dv_to_sig_to_vp: dict, plan_file_path: str, re
             # assume 30 days annualize change in
             #    plan_data[start_vp]['in virtual_price'] = vp
 
-        
         total_return_out = plan_data["end_vp"]["out virtual_price"] / plan_data["start_vp"]["out virtual_price"] - 1
         out_apy = 100 * ((1 + total_return_out) ** (365.0 / 30) - 1)
         plan_data["out_fee_and_base"] = out_apy
 
         total_return_in = plan_data["end_vp"]["in virtual_price"] / plan_data["start_vp"]["in virtual_price"] - 1
-        
+
         print(f"end_vp={plan_data['end_vp']}")
         print(f"start_vp={plan_data['start_vp']}")
-        print(f'{total_return_out=}')
-        print(f'{total_return_in=}')
+        print(f"{total_return_out=}")
+        print(f"{total_return_in=}")
         in_apy = 100 * ((1 + total_return_in) ** (365.0 / 30) - 1)
         plan_data["in_fee_and_base"] = in_apy
-        
+
         # print(f'{end_vp=}')
         # print(f'{start_vp=}')
 
@@ -281,7 +280,7 @@ def fetch_and_augment_onchain_calc_plans(autopool: AutopoolConstants) -> dict:
         block = row["block"]
         augmented_plan = add_destination_summary_stats(dv_to_sig_to_vp, file_path, block, autopool)
 
-        if augmented_plan['end_vp'] != {}:
+        if augmented_plan["end_vp"] != {}:
             with open(AUGMENTED_PLANS_SAVE_DIR / f"{augmented_plan['rebalance_plan_json_key']}.json", "w") as f:
                 json.dump(augmented_plan, f, indent=4)
 
@@ -298,8 +297,6 @@ def fetch_and_augment_onchain_calc_plans(autopool: AutopoolConstants) -> dict:
                 future.result()
             except Exception as e:
                 print(f"Error processing plan: {e}")
-
-
 
 
 def run_old_plans():
