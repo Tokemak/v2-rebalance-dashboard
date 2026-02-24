@@ -237,6 +237,18 @@ def ensure_token_values_are_current():
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import profile_function
+    import line_profiler, os
 
-    profile_function(ensure_token_values_are_current)
+    profiler = line_profiler.LineProfiler(
+        ensure_token_values_are_current,
+        _fetch_and_insert_new_token_values,
+    )
+    profiler.enable_by_count()
+    try:
+        ensure_token_values_are_current()
+    finally:
+        profiler.disable_by_count()
+        profiler.print_stats(output_unit=1)
+        os.makedirs("profiles", exist_ok=True)
+        with open("profiles/ensure_token_values_are_current.txt", "w") as f:
+            profiler.print_stats(stream=f, output_unit=1)

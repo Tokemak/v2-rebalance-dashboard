@@ -359,15 +359,22 @@ def ensure_destination_token_values_are_current():
 
 
 if __name__ == "__main__":
-    from mainnet_launch.constants import *
+    import line_profiler, os
 
-    # profile_function(_fetch_and_insert_destination_token_values, AUTO_USD) # 5 seconds
-
-    # profile_function(_fetch_and_insert_non_idle_destination_token_values, BASE_USD)
-    # profile_function(_fetch_and_insert_idle_destination_token_values, BASE_USD)
-
-    profile_function(ensure_destination_token_values_are_current)
-    # ensure_destination_token_values_are_current()
+    profiler = line_profiler.LineProfiler(
+        ensure_destination_token_values_are_current,
+        _fetch_and_insert_non_idle_destination_token_values,
+        _fetch_and_insert_idle_destination_token_values,
+    )
+    profiler.enable_by_count()
+    try:
+        ensure_destination_token_values_are_current()
+    finally:
+        profiler.disable_by_count()
+        profiler.print_stats(output_unit=1)
+        os.makedirs("profiles", exist_ok=True)
+        with open("profiles/ensure_destination_token_values_are_current.txt", "w") as f:
+            profiler.print_stats(stream=f, output_unit=1)
 
 
 # def _get_missing_idle_destination_token_values_needed_blocks(
