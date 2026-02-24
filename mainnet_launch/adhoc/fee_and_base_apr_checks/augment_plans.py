@@ -122,14 +122,22 @@ def build_dv_to_sig_to_vp(autopool: AutopoolConstants):
         "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"  # getPool wstETH (holding)
     )
     destination_vault_to_pool["0x945a4f719018edBa445ca67bDa43663C815835Ad"] = (
-        "0x91F0f34916Ca4E2cCe120116774b0e4fA0cdcaA8"  # getPool
+        "0x91F0f34916Ca4E2cCe120116774b0e4fA0cdcaA8"  # getPool aerodrome weETH/WETH
     )
+
+    destination_vault_to_pool["0x896eCc16Ab4AFfF6cE0765A5B924BaECd7Fa455a"] = "0xe080027Bd47353b5D1639772b4a75E9Ed3658A0d"
+    destination_vault_to_pool["0xd96E943098B2AE81155e98D7DC8BeaB34C539f01"] = "0x6951bDC4734b9f7F3E1B74afeBC670c736A0EDB6"
+    destination_vault_to_pool["0xE382BBd32C4E202185762eA433278f4ED9E6151E"] = "0xC8Eb2Cf2f792F77AF0Cd9e203305a585E588179D"
+    destination_vault_to_pool["0xfB6f99FdF12E37Bfe3c4Cf81067faB10c465fb24"] = "0xB91159aa527D4769CB9FAf3e4ADB760c7E8C8Ea7"
+    destination_vault_to_pool["0xC001f23397dB71B17602Ce7D90a983Edc38DB0d1"] = "0x59Ab5a5b5d617E478a2479B0cAD80DA7e2831492"
+    destination_vault_to_pool["0x8cA2201BC34780f14Bca452913ecAc8e9928d4cA"] = "0x88794C65550DeB6b4087B7552eCf295113794410"
 
     function_signatures = [
         "get_virtual_price()(uint256)",
         "getRate()(uint256)",
         "stEthPerToken()(uint256)",
         "exchangePrice()(uint256)",
+        "getInvariantDivActualSupply()(uint256)",  # Gyroscope ECLP pools
     ]
 
     # Build calls to get virtual price for each pool
@@ -174,6 +182,41 @@ def build_vp_call_from_destination_vault(dv_to_sig_to_vp, destination_vault, dir
         return make_dummy_1_call(f"{dir} virtual_price")
     pool, sig = dv_to_sig_to_vp[destination_vault]
     return Call(pool, sig, [(f"{dir} virtual_price", safe_normalize_with_bool_success)])
+
+
+AERODROME_WEETH_WETH_DV = "0x945a4f719018edBa445ca67bDa43663C815835Ad"
+
+
+def _override_aerodrome_vp(plan_data: dict, rebalance_block: int, block_30_days_in_future: int, chain: ChainData):
+    """Replace VP for the Aerodrome weETH/WETH destination with K/totalSupply at both blocks."""
+    if plan_data["destinationOut"] == AERODROME_WEETH_WETH_DV:
+        plan_data["start_vp"]["out virtual_price"] = compute_aerodome_vp(plan_data["destinationOut"], rebalance_block, chain)
+        plan_data["end_vp"]["out virtual_price"] = compute_aerodome_vp(plan_data["destinationOut"], block_30_days_in_future, chain)
+    elif plan_data["destinationIn"] == AERODROME_WEETH_WETH_DV:
+        plan_data["start_vp"]["in virtual_price"] = compute_aerodome_vp(plan_data["destinationIn"], rebalance_block, chain)
+        plan_data["end_vp"]["in virtual_price"] = compute_aerodome_vp(plan_data["destinationIn"], block_30_days_in_future, chain)
+
+
+def _compute_fee_and_base_apr(plan_data: dict, start_timestamp: int, end_timestamp: int):
+    """Compute annualized fee+base APR from VP change, using actual elapsed time for annualization."""
+    elapsed_days = (end_timestamp - start_timestamp) / 86400.0
+
+    start_out_vp = plan_data["start_vp"]["out virtual_price"]
+    end_out_vp = plan_data["end_vp"]["out virtual_price"]
+    start_in_vp = plan_data["start_vp"]["in virtual_price"]
+    end_in_vp = plan_data["end_vp"]["in virtual_price"]
+
+    if start_out_vp > 0.01 and end_out_vp > 0.01:
+        total_return_out = end_out_vp / start_out_vp - 1
+        plan_data["out_fee_and_base"] = 100 * ((1 + total_return_out) ** (365.0 / elapsed_days) - 1)
+    else:
+        plan_data["out_fee_and_base"] = None
+
+    if start_in_vp > 0.01 and end_in_vp > 0.01:
+        total_return_in = end_in_vp / start_in_vp - 1
+        plan_data["in_fee_and_base"] = 100 * ((1 + total_return_in) ** (365.0 / elapsed_days) - 1)
+    else:
+        plan_data["in_fee_and_base"] = None
 
 
 class PlanVerificationError(Exception):
@@ -225,39 +268,10 @@ def add_destination_summary_stats(dv_to_sig_to_vp: dict, plan_file_path: str, re
     plan_data["block_30_days_in_future"] = block_30_days_in_future
 
     if end_vp != {}:
+        _override_aerodrome_vp(plan_data, rebalance_block, block_30_days_in_future, autopool.chain)
 
-        weETH_eth_destination_vault_address = "0x945a4f719018edBa445ca67bDa43663C815835Ad"
-        if plan_data["destinationOut"] == weETH_eth_destination_vault_address:
-            vp = compute_aerodome_vp(plan_data["destinationOut"], rebalance_block, autopool.chain)
-            plan_data["start_vp"]["out virtual_price"] = vp
-            plan_data["end_vp"]["out virtual_price"] = vp
-        elif plan_data["destinationIn"] == weETH_eth_destination_vault_address:
-            vp = compute_aerodome_vp(plan_data["destinationIn"], rebalance_block, autopool.chain)
-            plan_data["start_vp"]["in virtual_price"] = vp
-            plan_data["end_vp"]["in virtual_price"] = vp
-            # assume 30 days annualize change in
-            #    plan_data[start_vp]['in virtual_price'] = vp
-
-        total_return_out = plan_data["end_vp"]["out virtual_price"] / plan_data["start_vp"]["out virtual_price"] - 1
-        out_apy = 100 * ((1 + total_return_out) ** (365.0 / 30) - 1)
-        plan_data["out_fee_and_base"] = out_apy
-
-        total_return_in = plan_data["end_vp"]["in virtual_price"] / plan_data["start_vp"]["in virtual_price"] - 1
-
-        print(f"end_vp={plan_data['end_vp']}")
-        print(f"start_vp={plan_data['start_vp']}")
-        print(f"{total_return_out=}")
-        print(f"{total_return_in=}")
-        in_apy = 100 * ((1 + total_return_in) ** (365.0 / 30) - 1)
-        plan_data["in_fee_and_base"] = in_apy
-
-        # print(f'{end_vp=}')
-        # print(f'{start_vp=}')
-
-        # print(f'{total_return_out=}')
-        # print(f'{out_apy=}')
-        # print(f'{total_return_in=}')
-        # print(f'{in_apy=}')
+        end_block_timestamp = autopool.chain.client.eth.get_block(block_30_days_in_future)["timestamp"]
+        _compute_fee_and_base_apr(plan_data, reblance_block_timestamp, end_block_timestamp)
 
     else:
         plan_data["out_fee_and_base"] = None
