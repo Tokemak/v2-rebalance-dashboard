@@ -91,11 +91,18 @@ def ensure_chainlink_gas_costs_table_are_current() -> None:
 
 
 if __name__ == "__main__":
+    import line_profiler, os
 
-    deployers_df, chainlink_keepers_df, service_accounts_df = fetch_tokemak_address_constants_dfs()
-
-    from mainnet_launch.constants import profile_function
-
-    # profile_function(_ensure_one_chain_chainlink_gas_costs_is_updated, ETH_CHAIN, chainlink_keepers_df)
-
-    ensure_chainlink_gas_costs_table_are_current()
+    profiler = line_profiler.LineProfiler(
+        ensure_chainlink_gas_costs_table_are_current,
+        _ensure_one_chain_chainlink_gas_costs_is_updated,
+    )
+    profiler.enable_by_count()
+    try:
+        ensure_chainlink_gas_costs_table_are_current()
+    finally:
+        profiler.disable_by_count()
+        profiler.print_stats(output_unit=1)
+        os.makedirs("profiles", exist_ok=True)
+        with open("profiles/ensure_chainlink_gas_costs_table_are_current.txt", "w") as f:
+            profiler.print_stats(stream=f, output_unit=1)

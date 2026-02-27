@@ -184,9 +184,21 @@ def ensure_autopool_destination_states_are_current():
 
 if __name__ == "__main__":
 
-    from mainnet_launch.constants import *
+    from mainnet_launch.constants import profile_function
+    import line_profiler, os
 
-    profile_function(ensure_autopool_destination_states_are_current)
-    # profile_function(_fetch_and_insert_new_autopool_destination_states, BASE_USD)  # 3,3 seconds
+    profiler = line_profiler.LineProfiler(
+        ensure_autopool_destination_states_are_current,
+        _fetch_and_insert_new_autopool_destination_states,
+    )
+    profiler.enable_by_count()
+    try:
+        ensure_autopool_destination_states_are_current()
+    finally:
+        profiler.disable_by_count()
+        profiler.print_stats(output_unit=1)
+        os.makedirs("profiles", exist_ok=True)
+        with open("profiles/ensure_autopool_destination_states_are_current.txt", "w") as f:
+            profiler.print_stats(stream=f, output_unit=1)
 
 # _determine_what_blocks_are_needed(ALL_AUTOPOOLS_DATA_FROM_REBALANCE_PLAN, ALL_CHAINS[0])

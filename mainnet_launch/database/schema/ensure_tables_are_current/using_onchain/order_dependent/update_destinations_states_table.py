@@ -611,7 +611,18 @@ def ensure_destination_states_are_current():
 
 
 if __name__ == "__main__":
+    import line_profiler, os
 
-    from mainnet_launch.constants import profile_function
-
-    profile_function(ensure_destination_states_are_current)
+    profiler = line_profiler.LineProfiler(
+        ensure_destination_states_are_current,
+        _add_new_destination_states_to_db,
+    )
+    profiler.enable_by_count()
+    try:
+        ensure_destination_states_are_current()
+    finally:
+        profiler.disable_by_count()
+        profiler.print_stats(output_unit=1)
+        os.makedirs("profiles", exist_ok=True)
+        with open("profiles/ensure_destination_states_are_current.txt", "w") as f:
+            profiler.print_stats(stream=f, output_unit=1)
