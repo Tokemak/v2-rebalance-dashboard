@@ -294,7 +294,7 @@ def add_destination_summary_stats(dv_to_sig_to_vp: dict, plan_file_path: str, re
     )
     plan_data["end_vp"] = end_vp
     plan_data["block_30_days_in_future"] = block_30_days_in_future
-    plan_data['rebalance_block'] = rebalance_block
+    plan_data["rebalance_block"] = rebalance_block
 
     if end_vp != {}:
         _override_aerodrome_vp(plan_data, rebalance_block, block_30_days_in_future, autopool.chain)
@@ -354,34 +354,33 @@ def run_old_plans():
 
 
 def manual_check():
-    suspect_destination_vault_address = '0x5c6aeb9ef0d5BbA4E6691f381003503FD0D45126'
+    suspect_destination_vault_address = "0x5c6aeb9ef0d5BbA4E6691f381003503FD0D45126"
 
     destination_in_summary_stats_call = build_proxyGetDestinationSummaryStats_call(
         "in", AUTO_ETH, suspect_destination_vault_address, direction="in", amount=0
     )
 
-
     suspect_block = 23227823
 
-    suspect_block_datetime = pd.to_datetime(AUTO_ETH.chain.client.eth.get_block(suspect_block)["timestamp"], unit='s')
+    suspect_block_datetime = pd.to_datetime(AUTO_ETH.chain.client.eth.get_block(suspect_block)["timestamp"], unit="s")
 
-    stats_at_block = get_state_by_one_block(
-        [destination_in_summary_stats_call], suspect_block, AUTO_ETH.chain  )
-    
+    stats_at_block = get_state_by_one_block([destination_in_summary_stats_call], suspect_block, AUTO_ETH.chain)
+
     from pprint import pprint
 
-
-    pprint(f"getDestinationSummaryStats() (out) for destination vault {suspect_destination_vault_address} at block {suspect_block}: {suspect_block_datetime:}")
+    pprint(
+        f"getDestinationSummaryStats() (out) for destination vault {suspect_destination_vault_address} at block {suspect_block}: {suspect_block_datetime:}"
+    )
     pprint(stats_at_block)
     # this appears like double counting fee and base
 
     current_block = AUTO_ETH.chain.get_block_near_top()
-    current_block_datetime = pd.to_datetime(AUTO_ETH.chain.client.eth.get_block(current_block)["timestamp"], unit='s')
-    stats_at_current_block = get_state_by_one_block(
-        [destination_in_summary_stats_call], current_block, AUTO_ETH.chain
-    )
+    current_block_datetime = pd.to_datetime(AUTO_ETH.chain.client.eth.get_block(current_block)["timestamp"], unit="s")
+    stats_at_current_block = get_state_by_one_block([destination_in_summary_stats_call], current_block, AUTO_ETH.chain)
 
-    pprint(f"getDestinationSummaryStats() (out) for destination vault {suspect_destination_vault_address} at current block {current_block}: {current_block_datetime:}")
+    pprint(
+        f"getDestinationSummaryStats() (out) for destination vault {suspect_destination_vault_address} at current block {current_block}: {current_block_datetime:}"
+    )
     pprint(stats_at_current_block)
 
 

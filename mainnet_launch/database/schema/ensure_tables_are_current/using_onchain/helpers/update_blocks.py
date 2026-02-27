@@ -109,6 +109,7 @@ def ensure_all_blocks_are_in_table(blocks: list[int], chain: ChainData):
     """
     Inserts missing blocks for the chain. Returns count of blocks that were missing (attempted inserts).
     """
+
     if not blocks:
         return
 
