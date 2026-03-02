@@ -35,6 +35,7 @@ slack-sdk = "^3.37.0"
 pytest = "^8.3.3"
 black = {extras = ["jupyter"], version = "^24.8.0"}
 pytest-xdist = "^3.8.0"
+pytest-timeout = "^2.3.1"
 
 [tool.black]
 line-length = 120
@@ -71,7 +72,7 @@ post-weekly-slack-messages = "mainnet_launch.slack_messages:post_weekly_messages
 test-speed = "tests.speed_tests:main"
 
 [tool.pytest.ini_options]
-addopts = "-n auto --durations=0 -m 'not marketing and not speed'"
+addopts = "-n auto --durations=0 -m 'not marketing and not speed' --timeout=60"
 testpaths = ["tests"]
 markers = [
   "marketing: the slower marketing pages, don't change often",
