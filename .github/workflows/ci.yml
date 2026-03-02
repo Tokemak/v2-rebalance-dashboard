@@ -1,7 +1,7 @@
 name: Passes Tests and Linting
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [opened, synchronize, reopened]
   workflow_dispatch:
@@ -22,6 +22,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - name: Setup Poetry env and install dependencies
         uses: ./.github/actions/setup_env
