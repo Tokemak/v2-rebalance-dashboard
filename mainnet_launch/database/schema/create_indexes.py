@@ -1,102 +1,62 @@
-"""
-Create performance indexes for the schema.
+"""Create and drop performance indexes.
 
 Usage:
-  python create_indexes.py
+    poetry run create-indexes
+    poetry run drop-indexes
+    python create_indexes.py
+    python create_indexes.py --drop
 
-Notes:
-- Uses CREATE INDEX CONCURRENTLY for Postgres to avoid long blocking.
-- CONCURRENTLY cannot run inside a transaction; we use AUTOCOMMIT.
-- Index creation is idempotent: we check pg_indexes first.
+Uses CREATE INDEX CONCURRENTLY (no table locks, requires AUTOCOMMIT).
+Idempotent — checks pg_indexes before creating.
 """
 
-# not verified to work
+import sys
 
-from __future__ import annotations
+from sqlalchemy import text
 
-import os
-from urllib.parse import urlparse
-
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, text, inspect
-
-load_dotenv()
-
-# tmp = urlparse(os.getenv("LOCAL_MAIN_FORK_DATABASE_URL"))
-
-ENGINE = create_engine(
-    f"postgresql+psycopg2://{tmp.username}:{tmp.password}@{tmp.hostname}{tmp.path}?sslmode=require",
-    echo=False,
-    pool_pre_ping=True,
-    pool_timeout=30,
-    pool_size=5,
-    max_overflow=0,
-)
+from mainnet_launch.database.schema.full import ENGINE
 
 
-# ---- helpers ----
-
-
-def _existing_index_names(schema: str = "public") -> set[str]:
-    """
-    Return a set of existing index names in the given schema.
-    """
+def _existing_index_names(schema="public"):
+    """Return the set of index names in the given schema."""
     with ENGINE.connect() as conn:
         rows = conn.execute(
-            text(
-                """
-                SELECT indexname
-                FROM pg_indexes
-                WHERE schemaname = :schema
-                """
-            ),
+            text("SELECT indexname FROM pg_indexes WHERE schemaname = :schema"),
             {"schema": schema},
         ).fetchall()
     return {r[0] for r in rows}
 
 
-def _create_index(
-    *,
-    name: str,
-    ddl: str,
-    schema: str = "public",
-) -> None:
-    """
-    Create an index if it does not already exist.
-    Uses AUTOCOMMIT so CREATE INDEX CONCURRENTLY is allowed.
-    """
-    existing = _existing_index_names(schema=schema)
-    if name in existing:
+def _create_index(name, ddl, schema="public"):
+    """Create an index if it doesn't already exist (AUTOCOMMIT for CONCURRENTLY)."""
+    if name in _existing_index_names(schema):
         print(f"OK (exists): {name}")
         return
-
-    # Ensure we are not in a transaction block
     with ENGINE.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
         print(f"Creating: {name}")
         conn.execute(text(ddl))
         print(f"OK (created): {name}")
 
 
-def create_indexes(schema: str = "public", concurrently: bool = True) -> None:
-    """
-    Create the recommended indexes.
+def _drop_index(name, schema="public", concurrently=True):
+    """Drop an index if it exists (AUTOCOMMIT for CONCURRENTLY)."""
+    if name not in _existing_index_names(schema):
+        print(f"OK (not present): {name}")
+        return
+    c = "CONCURRENTLY " if concurrently else ""
+    with ENGINE.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        print(f"Dropping: {name}")
+        conn.execute(text(f"DROP INDEX {c}{schema}.{name}"))
+        print(f"OK (dropped): {name}")
 
-    concurrently=True uses CREATE INDEX CONCURRENTLY (Postgres only).
-    """
-    # If you ever point this at a non-Postgres DB, fail loudly.
-    dialect = ENGINE.dialect.name
-    if dialect != "postgresql":
-        raise RuntimeError(f"This script is intended for PostgreSQL, got dialect={dialect}")
 
+def _index_definitions(schema, concurrently):
+    """Return (name, CREATE INDEX ddl) pairs for all indexes."""
     c = "CONCURRENTLY " if concurrently else ""
 
-    # ---- Core join/filter indexes ----
-    #
-    # blocks is PK (block, chain_id) already, so it is indexed.
-    # Most speed wins are on the *child* tables used in joins + time filters.
-
-    index_ddls: list[tuple[str, str]] = [
-        # Generic: accelerate joins/time-range filters by (chain_id, block)
+    return [
+        # (chain_id, block) on child tables — accelerates joins + time-range filters
+        # blocks PK is (block, chain_id) already
         (
             "ix_transactions_chain_block",
             f"CREATE INDEX {c}ix_transactions_chain_block ON {schema}.transactions (chain_id, block)",
@@ -121,11 +81,8 @@ def create_indexes(schema: str = "public", concurrently: bool = True) -> None:
             "ix_destination_token_values_chain_block",
             f"CREATE INDEX {c}ix_destination_token_values_chain_block ON {schema}.destination_token_values (chain_id, block)",
         ),
-        # Hot-table composites for common access patterns
-        (
-            "ix_autopool_states_pool_chain_block",
-            f"CREATE INDEX {c}ix_autopool_states_pool_chain_block ON {schema}.autopool_states (autopool_vault_address, chain_id, block)",
-        ),
+        # composite indexes for common access patterns (address, chain_id, block)
+        # NOTE: ix_autopool_states_pool_chain_block omitted — identical to PK (autopool_vault_address, chain_id, block)
         (
             "ix_destination_states_dest_chain_block",
             f"CREATE INDEX {c}ix_destination_states_dest_chain_block ON {schema}.destination_states (destination_vault_address, chain_id, block)",
@@ -138,25 +95,19 @@ def create_indexes(schema: str = "public", concurrently: bool = True) -> None:
             "ix_autopool_destination_states_dest_chain_block",
             f"CREATE INDEX {c}ix_autopool_destination_states_dest_chain_block ON {schema}.autopool_destination_states (destination_vault_address, chain_id, block)",
         ),
-        # Many-to-many lookups
+        # many-to-many lookups
+        # NOTE: ix_autopool_destinations_dest_chain omitted — leftmost prefix of PK (dest, chain_id, autopool)
+        # NOTE: ix_destination_tokens_dest_chain omitted — leftmost prefix of PK (dest, chain_id, token)
         (
             "ix_autopool_destinations_pool_chain",
             f"CREATE INDEX {c}ix_autopool_destinations_pool_chain ON {schema}.autopool_destinations (autopool_vault_address, chain_id)",
         ),
         (
-            "ix_autopool_destinations_dest_chain",
-            f"CREATE INDEX {c}ix_autopool_destinations_dest_chain ON {schema}.autopool_destinations (destination_vault_address, chain_id)",
-        ),
-        (
-            "ix_destination_tokens_dest_chain",
-            f"CREATE INDEX {c}ix_destination_tokens_dest_chain ON {schema}.destination_tokens (destination_vault_address, chain_id)",
-        ),
-        (
             "ix_destination_tokens_token_chain",
             f"CREATE INDEX {c}ix_destination_tokens_token_chain ON {schema}.destination_tokens (token_address, chain_id)",
         ),
-        # Event-style tables: common join is by tx_hash (+ chain_id)
-        # Note: transactions.tx_hash is PK already, so that's indexed.
+        # event tables — join on tx_hash (+ chain_id where it exists)
+        # transactions.tx_hash is PK already
         (
             "ix_rebalance_events_chain_tx",
             f"CREATE INDEX {c}ix_rebalance_events_chain_tx ON {schema}.rebalance_events (chain_id, tx_hash)",
@@ -169,10 +120,7 @@ def create_indexes(schema: str = "public", concurrently: bool = True) -> None:
             "ix_incentive_token_balance_updated_chain_tx",
             f"CREATE INDEX {c}ix_incentive_token_balance_updated_chain_tx ON {schema}.incentive_token_balance_updated (chain_id, tx_hash)",
         ),
-        (
-            "ix_autopool_fees_chain_tx",
-            f"CREATE INDEX {c}ix_autopool_fees_chain_tx ON {schema}.autopool_fees (chain_id, tx_hash)",
-        ),
+        # NOTE: ix_autopool_fees_tx omitted — leftmost prefix of PK (tx_hash, ...)
         (
             "ix_autopool_transfers_chain_tx",
             f"CREATE INDEX {c}ix_autopool_transfers_chain_tx ON {schema}.autopool_transfers (chain_id, tx_hash)",
@@ -185,20 +133,49 @@ def create_indexes(schema: str = "public", concurrently: bool = True) -> None:
             "ix_autopool_withdrawals_chain_tx",
             f"CREATE INDEX {c}ix_autopool_withdrawals_chain_tx ON {schema}.autopool_withdrawals (chain_id, tx_hash)",
         ),
-        # Underlying deposit/withdraw: often joined by destination and filtered by chain
+        # underlying deposit/withdraw — joined by destination
         (
-            "ix_destination_underlying_deposited_dest_chain",
-            f"CREATE INDEX {c}ix_destination_underlying_deposited_dest_chain ON {schema}.destination_underlying_deposited (destination_vault_address, chain_id)",
+            "ix_destination_underlying_deposited_dest",
+            f"CREATE INDEX {c}ix_destination_underlying_deposited_dest ON {schema}.destination_underlying_deposited (destination_vault_address)",
         ),
         (
-            "ix_destination_underlying_withdraw_dest_chain",
-            f"CREATE INDEX {c}ix_destination_underlying_withdraw_dest_chain ON {schema}.destination_underlying_withdraw (destination_vault_address, chain_id)",
+            "ix_destination_underlying_withdraw_dest",
+            f"CREATE INDEX {c}ix_destination_underlying_withdraw_dest ON {schema}.destination_underlying_withdraw (destination_vault_address)",
+        ),
+        # blocks — every query filters on datetime
+        (
+            "ix_blocks_chain_datetime",
+            f"CREATE INDEX {c}ix_blocks_chain_datetime ON {schema}.blocks (chain_id, datetime)",
+        ),
+        # destination_token_values — largest table, queries filter by destination
+        (
+            "ix_destination_token_values_dest_chain_block",
+            f"CREATE INDEX {c}ix_destination_token_values_dest_chain_block ON {schema}.destination_token_values (destination_vault_address, chain_id, block)",
+        ),
+        # token_values — joined by token but only had (chain_id, block)
+        (
+            "ix_token_values_token_chain_block",
+            f"CREATE INDEX {c}ix_token_values_token_chain_block ON {schema}.token_values (token_address, chain_id, block)",
         ),
     ]
 
-    for name, ddl in index_ddls:
-        _create_index(name=name, ddl=ddl, schema=schema)
+
+def create_indexes(schema="public", concurrently=True):
+    """Create all recommended indexes. Idempotent."""
+    assert ENGINE.dialect.name == "postgresql", "Only works with PostgreSQL"
+    for name, ddl in _index_definitions(schema, concurrently):
+        _create_index(name, ddl, schema)
+
+
+def drop_indexes(schema="public", concurrently=True):
+    """Drop all indexes created by create_indexes()."""
+    assert ENGINE.dialect.name == "postgresql", "Only works with PostgreSQL"
+    for name, _ddl in _index_definitions(schema, concurrently):
+        _drop_index(name, schema=schema, concurrently=concurrently)
 
 
 if __name__ == "__main__":
-    create_indexes(schema="public", concurrently=True)
+    if "--drop" in sys.argv:
+        drop_indexes(schema="public", concurrently=True)
+    else:
+        create_indexes(schema="public", concurrently=True)

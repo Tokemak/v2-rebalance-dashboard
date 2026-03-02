@@ -3,5 +3,16 @@ import pytest
 
 
 def main() -> None:
-    # Only run tests marked "speed", with a single worker
-    sys.exit(pytest.main(["-m", "speed", "-n", "1"]))
+    # Run all page tests (autopool, protocol, risk metrics) with a single worker for consistent timings
+    sys.exit(
+        pytest.main(
+            [
+                "tests/test_app_pages.py",
+                "-m",
+                "not marketing",
+                "-n",
+                "1",
+                "--durations=0",
+            ]
+        )
+    )

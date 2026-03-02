@@ -70,6 +70,10 @@ post-weekly-slack-messages = "mainnet_launch.slack_messages:post_weekly_messages
 # speed testing
 test-speed = "tests.speed_tests:main"
 
+# database indexes
+create-indexes = "mainnet_launch.database.schema.create_indexes:create_indexes"
+drop-indexes = "mainnet_launch.database.schema.create_indexes:drop_indexes"
+
 [tool.pytest.ini_options]
 addopts = "-n auto --durations=0 -m 'not marketing and not speed'"
 testpaths = ["tests"]
