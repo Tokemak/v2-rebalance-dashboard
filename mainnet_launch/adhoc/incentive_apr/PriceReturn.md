@@ -44,12 +44,12 @@ In some sense what we really care about is, maximizing price return
 
 buying cheap lp tokens and selling expensive ones.
 
-
+Come back to later
 
 Return=Yield+Expected Discount Compression−Discount Risk Premium
 
 
-### this is the core part of price return
+### this is the core part of price return we are missing. 
 
 
 Calm state → fast mean reversion → high re-peg probability
