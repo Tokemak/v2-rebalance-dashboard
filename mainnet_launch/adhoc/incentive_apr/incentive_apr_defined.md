@@ -15,8 +15,6 @@ Just a safe price of a lp token and how many could be claimed for a single lp to
 We need an interface
 
 
-
-
 ## Destination Level
 
 This lets us make claims like over window (days, 0, 1) this destination earned X% Incentive APR
