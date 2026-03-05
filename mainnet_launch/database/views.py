@@ -1,6 +1,7 @@
 """Not exactly views but the same concept"""
 
 import pandas as pd
+import streamlit as st
 
 
 from mainnet_launch.constants import *
@@ -95,6 +96,7 @@ def get_all_autopool_basket_of_primary_assets(autopool: AutopoolConstants) -> pd
     return df.drop_duplicates()
 
 
+@st.cache_data(ttl=60 * 20, show_spinner=False)
 def fetch_autopool_destination_state_df(autopool: AutopoolConstants) -> pd.DataFrame:
     """Gets TVL, prices, shares and APR data for each destintion for this autopool"""
 

@@ -23,7 +23,23 @@ MAX_EXPECTED_APR_THESHOLD = 50
 
 
 def fetch_and_render_weighted_crm_data(autopool: AutopoolConstants):
-    composite_return_out_fig, composite_return_in_fig = _fetch_weighted_composite_return_df(autopool)
+    total_apr_out_df, total_apr_in_df = _fetch_weighted_crm_data(autopool)
+
+    composite_return_out_fig = px.line(total_apr_out_df, title=f"{autopool.name} Composite Return Out", markers=True)
+    _apply_default_style(composite_return_out_fig)
+    composite_return_out_fig.update_layout(yaxis_title="Composite Return Out (%)")
+    composite_return_out_fig.update_traces(
+        selector=dict(name=f"{autopool.name} CR"),
+        line=dict(dash="dash", color="blue"),
+    )
+
+    composite_return_in_fig = px.line(total_apr_in_df, title=f"{autopool.name} Composite Return In", markers=True)
+    _apply_default_style(composite_return_in_fig)
+    composite_return_in_fig.update_layout(yaxis_title="Composite Return In (%)")
+    composite_return_in_fig.update_traces(
+        selector=dict(name=f"{autopool.name} CR"),
+        line=dict(dash="dash", color="blue"),
+    )
 
     st.plotly_chart(composite_return_out_fig, use_container_width=True)
     st.plotly_chart(composite_return_in_fig, use_container_width=True)
@@ -34,12 +50,13 @@ def fetch_and_render_weighted_crm_data(autopool: AutopoolConstants):
             - Composite Return Out: `getDestinationSummaryStats()['compositeReturn']` for the destination with direction "out" and amount 0
             - Composite Return Out: `getDestinationSummaryStats()['compositeReturn']` for the destination with direction "out" and amount 0
             - {autopool.name} Weighted Expected Return. Weights is the portion of TVL in the destination values, are Composite Return Out / In
-            
+
             """
         )
 
 
-def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figure:
+@st.cache_data(ttl=60 * 20, show_spinner=False)
+def _fetch_weighted_crm_data(autopool: AutopoolConstants):
     destination_state_df = merge_tables_as_df(
         selectors=[
             TableSelector(
@@ -128,25 +145,7 @@ def _fetch_weighted_composite_return_df(autopool: AutopoolConstants) -> go.Figur
     total_apr_in_df[f"{autopool.name} CR"] = (total_apr_in_df * portion_allocation_df).sum(axis=1)
     total_apr_in_df = total_apr_in_df.where(total_apr_in_df <= MAX_EXPECTED_APR_THESHOLD, np.nan)
 
-    composite_return_out_fig = px.line(total_apr_out_df, title=f"{autopool.name} Composite Return Out", markers=True)
-
-    _apply_default_style(composite_return_out_fig)
-    composite_return_out_fig.update_layout(yaxis_title="Composite Return Out (%)")
-    composite_return_out_fig.update_traces(
-        selector=dict(name=f"{autopool.name} CR"),
-        line=dict(dash="dash", color="blue"),
-    )
-
-    composite_return_in_fig = px.line(total_apr_in_df, title=f"{autopool.name} Composite Return In", markers=True)
-
-    _apply_default_style(composite_return_in_fig)
-    composite_return_in_fig.update_layout(yaxis_title="Composite Return In (%)")
-    composite_return_in_fig.update_traces(
-        selector=dict(name=f"{autopool.name} CR"),
-        line=dict(dash="dash", color="blue"),
-    )
-
-    return composite_return_out_fig, composite_return_in_fig
+    return total_apr_out_df, total_apr_in_df
 
 
 def _apply_default_style(fig: go.Figure) -> None:
