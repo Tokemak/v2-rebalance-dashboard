@@ -76,7 +76,7 @@ create-indexes = "mainnet_launch.database.schema.create_indexes:create_indexes"
 drop-indexes = "mainnet_launch.database.schema.create_indexes:drop_indexes"
 
 [tool.pytest.ini_options]
-addopts = "-n auto --durations=0 -m 'not marketing and not speed' --timeout=300"
+addopts = "-n auto --durations=0 -m 'not marketing and not speed' --timeout=120"
 testpaths = ["tests"]
 markers = [
   "marketing: the slower marketing pages, don't change often",
