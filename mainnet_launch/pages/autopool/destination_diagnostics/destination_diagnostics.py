@@ -15,6 +15,7 @@ from mainnet_launch.database.postgres_operations import (
 )
 
 
+@st.cache_data(ttl=60 * 20, show_spinner=False)
 def _fetch_destination_apr_data(autopool: AutopoolConstants) -> pd.DataFrame:
     destination_state_df = merge_tables_as_df(
         selectors=[
