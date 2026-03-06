@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 import streamlit as st
 import psutil
@@ -7,11 +9,14 @@ import plotly.graph_objects as go
 from datetime import datetime, timezone
 
 from mainnet_launch.constants import AutopoolConstants
-from mainnet_launch.database.schema.full import AutopoolStates, Blocks
+from mainnet_launch.database.schema.full import AutopoolStates, Blocks, RebalancePlans
 from mainnet_launch.database.postgres_operations import (
     merge_tables_as_df,
     TableSelector,
+    get_highest_value_in_field_where,
+    get_subset_of_table_as_df,
 )
+from mainnet_launch.data_fetching.internal.s3_helper import fetch_rebalance_plan_json_from_s3_bucket, make_s3_client
 
 
 from mainnet_launch.database.views import (
@@ -153,6 +158,8 @@ def _render_top_level_stats(
     portion_allocation_by_destination_df,
     autopool,
     latest_rebalance_event_datetime,
+    latest_rebalance_plan_datetime,
+    latest_plan_file_name,
 ):
     def _simple_timedelta(td):
         secs = int(td.total_seconds())
@@ -219,8 +226,25 @@ def _render_top_level_stats(
         _simple_timedelta(now - latest_rebalance_event_datetime),
     )
 
-    r3c2.metric(" ", " ", " ")  # Spacer to complete the 3x3 grid
-    r3c3.metric(" ", " ", " ")
+    r3c2.metric(
+        "Time Since Last Rebalance Plan",
+        _simple_timedelta(now - latest_rebalance_plan_datetime) if latest_rebalance_plan_datetime else "N/A",
+    )
+
+    if latest_plan_file_name:
+        try:
+            s3_client = make_s3_client()
+            full_plan = fetch_rebalance_plan_json_from_s3_bucket(latest_plan_file_name, s3_client, autopool)
+            r3c3.download_button(
+                label="Download Latest Plan",
+                data=json.dumps(full_plan, indent=4, default=str),
+                file_name=latest_plan_file_name,
+                mime="application/json",
+            )
+        except Exception as e:
+            r3c3.error(f"Failed to fetch {latest_plan_file_name}: {e}")
+    else:
+        r3c3.metric(" ", " ", " ")
 
 
 def _render_top_level_charts(
@@ -313,6 +337,22 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
     ) = fetch_key_metrics_data(autopool)
 
     latest_rebalance_event_datetime = get_latest_rebalance_event_datetime_for_autopool(autopool)
+    latest_rebalance_plan_datetime = get_highest_value_in_field_where(
+        RebalancePlans,
+        RebalancePlans.datetime_generated,
+        where_clause=RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr,
+    )
+
+    latest_plan_file_name = None
+    if latest_rebalance_plan_datetime:
+        plan_df = get_subset_of_table_as_df(
+            RebalancePlans,
+            columns=[RebalancePlans.file_name],
+            where_clause=(RebalancePlans.autopool_vault_address == autopool.autopool_eth_addr)
+            & (RebalancePlans.datetime_generated == latest_rebalance_plan_datetime),
+        )
+        if not plan_df.empty:
+            latest_plan_file_name = plan_df.iloc[0]["file_name"]
 
     st.header(f"{autopool.name} Key Metrics")
 
@@ -322,6 +362,8 @@ def fetch_and_render_key_metrics_data(autopool: AutopoolConstants):
         portion_allocation_by_destination_df,
         autopool,
         latest_rebalance_event_datetime,
+        latest_rebalance_plan_datetime,
+        latest_plan_file_name,
     )
     _render_top_level_charts(nav_per_share_df, autopool, total_nav_series, expected_return_series, price_return_series)
 
