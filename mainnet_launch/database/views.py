@@ -96,86 +96,82 @@ def get_all_autopool_basket_of_primary_assets(autopool: AutopoolConstants) -> pd
     return df.drop_duplicates()
 
 
+_DESTINATION_STATE_SQL = """
+WITH relevant_blocks AS (
+    SELECT block, datetime
+    FROM blocks
+    WHERE chain_id = :chain_id
+      AND datetime > :display_date
+),
+autopool_dests AS (
+    SELECT ads.destination_vault_address,
+           ads.block,
+           ads.owned_shares
+    FROM autopool_destination_states ads
+    WHERE ads.autopool_vault_address = :autopool_addr
+      AND ads.chain_id = :chain_id
+      AND ads.block IN (SELECT block FROM relevant_blocks)
+)
+SELECT
+    dtv.token_address,
+    dtv.destination_vault_address,
+    dtv.quantity,
+    dtv.block,
+    t.symbol,
+    tv.safe_price,
+    tv.backing,
+    ad.owned_shares,
+    ds.underlying_token_total_supply,
+    ds.lp_token_safe_price,
+    ds.incentive_apr,
+    ds.fee_apr,
+    ds.base_apr,
+    ds.fee_plus_base_apr,
+    ds.total_apr_out,
+    ds.total_apr_in,
+    d.underlying_name,
+    d.exchange_name,
+    rb.datetime
+FROM autopool_dests ad
+JOIN destination_token_values dtv
+  ON dtv.destination_vault_address = ad.destination_vault_address
+  AND dtv.chain_id = :chain_id
+  AND dtv.block = ad.block
+JOIN tokens t
+  ON t.token_address = dtv.token_address
+  AND t.chain_id = :chain_id
+JOIN token_values tv
+  ON tv.token_address = dtv.token_address
+  AND tv.chain_id = :chain_id
+  AND tv.block = dtv.block
+JOIN destination_states ds
+  ON ds.destination_vault_address = dtv.destination_vault_address
+  AND ds.chain_id = :chain_id
+  AND ds.block = dtv.block
+JOIN destinations d
+  ON d.destination_vault_address = dtv.destination_vault_address
+  AND d.chain_id = :chain_id
+JOIN relevant_blocks rb
+  ON rb.block = dtv.block
+"""
+
+MAX_INFLATION_CORRECTIONS = 10
+
+
 @st.cache_data(ttl=60 * 20, show_spinner=False)
 def fetch_autopool_destination_state_df(autopool: AutopoolConstants) -> pd.DataFrame:
     """Gets TVL, prices, shares and APR data for each destintion for this autopool"""
 
-    destinations_df = merge_tables_as_df(
-        [
-            TableSelector(
-                table=DestinationTokenValues,
-                select_fields=[
-                    DestinationTokenValues.token_address,
-                    DestinationTokenValues.destination_vault_address,
-                    DestinationTokenValues.quantity,
-                    DestinationTokenValues.block,
-                ],
-            ),
-            TableSelector(
-                table=Tokens,
-                select_fields=[Tokens.symbol],
-                join_on=(Tokens.token_address == DestinationTokenValues.token_address)
-                & (Tokens.chain_id == DestinationTokenValues.chain_id),
-            ),
-            TableSelector(
-                table=TokenValues,
-                select_fields=[
-                    TokenValues.safe_price,
-                    TokenValues.backing,
-                ],
-                join_on=(TokenValues.chain_id == DestinationTokenValues.chain_id)
-                & (TokenValues.token_address == DestinationTokenValues.token_address)
-                & (TokenValues.block == DestinationTokenValues.block)
-                & (TokenValues.token_address == DestinationTokenValues.token_address),
-            ),
-            TableSelector(
-                table=AutopoolDestinationStates,
-                select_fields=[
-                    AutopoolDestinationStates.owned_shares,
-                ],
-                join_on=(DestinationTokenValues.chain_id == AutopoolDestinationStates.chain_id)
-                & (
-                    DestinationTokenValues.destination_vault_address
-                    == AutopoolDestinationStates.destination_vault_address
-                )
-                & (DestinationTokenValues.block == AutopoolDestinationStates.block)
-                & (DestinationTokenValues.chain_id == AutopoolDestinationStates.chain_id),
-            ),
-            TableSelector(
-                table=DestinationStates,
-                select_fields=[
-                    DestinationStates.underlying_token_total_supply,
-                    DestinationStates.lp_token_safe_price,
-                    DestinationStates.incentive_apr,
-                    DestinationStates.fee_apr,
-                    DestinationStates.base_apr,
-                    DestinationStates.fee_plus_base_apr,
-                    DestinationStates.total_apr_out,
-                    DestinationStates.total_apr_in,
-                ],
-                join_on=(DestinationStates.chain_id == DestinationTokenValues.chain_id)
-                & (DestinationStates.destination_vault_address == DestinationTokenValues.destination_vault_address)
-                & (DestinationStates.block == DestinationTokenValues.block),
-            ),
-            TableSelector(
-                table=Destinations,
-                select_fields=[Destinations.underlying_name, Destinations.exchange_name],
-                join_on=(Destinations.chain_id == DestinationTokenValues.chain_id)
-                & (Destinations.destination_vault_address == DestinationTokenValues.destination_vault_address),
-            ),
-            TableSelector(
-                table=Blocks,
-                select_fields=[Blocks.datetime],
-                join_on=(Blocks.chain_id == TokenValues.chain_id) & (Blocks.block == TokenValues.block),
-            ),
-        ],
-        where_clause=(AutopoolDestinationStates.autopool_vault_address == autopool.autopool_eth_addr)
-        & (Tokens.chain_id == autopool.chain.chain_id)
-        & (Blocks.datetime > autopool.get_display_date()),
-    )
+    params = {
+        "chain_id": autopool.chain.chain_id,
+        "autopool_addr": autopool.autopool_eth_addr,
+        "display_date": autopool.get_display_date(),
+    }
+    with Session.begin() as session:
+        destinations_df = pd.read_sql(text(_DESTINATION_STATE_SQL), con=session.get_bind(), params=params)
 
-    destinations_df["readable_name"] = destinations_df.apply(
-        lambda row: f"{row['underlying_name']} ({row['exchange_name']})", axis=1
+    destinations_df["readable_name"] = (
+        destinations_df["underlying_name"] + " (" + destinations_df["exchange_name"] + ")"
     )
 
     # for the idle destination, owned shares == underlying_token_total_supply
@@ -202,7 +198,9 @@ def fetch_autopool_destination_state_df(autopool: AutopoolConstants) -> pd.DataF
     # TODO: fix the underlying data in update_destination_states_from_rebalance_plan.py
     # and re-run from zero to eliminate the need for this correction.
     inflated = destinations_df["autopool_implied_safe_value"].abs() > 1e10
-    while inflated.any():
+    for _ in range(MAX_INFLATION_CORRECTIONS):
+        if not inflated.any():
+            break
         destinations_df.loc[inflated, "autopool_implied_safe_value"] /= 1e12
         destinations_df.loc[inflated, "autopool_implied_backing_value"] /= 1e12
         destinations_df.loc[inflated, "autopool_implied_quantity"] /= 1e12
