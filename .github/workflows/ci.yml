@@ -38,7 +38,7 @@ jobs:
         run: poetry run pytest
 
       - name: poetry run pytest (all time)
-        run: poetry run pytest --only-render-recent-data=false --timeout=300
+        run: poetry run pytest --only-render-recent-data=false -o "addopts=-n auto --durations=0 -m 'not marketing and not speed' --timeout=300"
       
       - name: Post Slack Status Message
         if: ${{ always() }}
